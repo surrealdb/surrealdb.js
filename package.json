@@ -1,6 +1,6 @@
 {
   "name": "surrealdb.js",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Javascript driver for SurrealDB",
   "main": "index.js",
   "browser": "dist/web/main.js",
@@ -25,6 +25,7 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "nanoid": "^4.0.0",
     "ws": "^8.8.0"
   },
   "devDependencies": {
