@@ -25,6 +25,7 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "nanoid": "^4.0.0",
     "ws": "^8.8.0"
   },
   "devDependencies": {
