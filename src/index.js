@@ -387,8 +387,8 @@ export default class Surreal extends Emitter {
 		if (res.error) {
 			return reject( new Surreal.AuthenticationError(res.error.message) );
 		} else {
-			this.#token = e.result;
-			return resolve(e.result);
+			this.#token = res.result;
+			return resolve(res.result);
 		}
 	}
 
