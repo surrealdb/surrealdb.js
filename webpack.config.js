@@ -1,70 +1,55 @@
 import webpack from 'webpack';
+import TerserPlugin from "terser-webpack-plugin";
+import * as path from 'path';
 
 export default [
 	{
-		target: 'web',
-		entry: './index.js',
+		target: "web",
+		entry: "./index.ts",
 		output: {
-			path: new URL('../dist/web', import.meta.url).pathname,
-			libraryExport: 'default',
-			libraryTarget: 'window',
-			library: 'Surreal'
+			path: path.resolve(process.cwd(), "dist"),
+			filename: "main.browser.js",
+			libraryExport: "default",
+			libraryTarget: "window",
+			library: "Surreal",
+			clean: true,
 		},
-		devtool: false,
-		plugins: [
-			new webpack.NormalModuleReplacementPlugin(
-				/..\/websocket\/index.js$/,
-				'/src/websocket/index.web.js',
-			)
-		],
+		devtool: "inline-source-map",
+		resolve: {
+			extensions: [".ts", ".js"],
+		},
 		module: {
-			rules: [{
-				test: /\.js$/,
-				exclude: /(node_modules)/,
-				use: {
-					loader: 'babel-loader',
-					options: {
-						presets: ['@babel/preset-env'],
-						plugins: [
-							'@babel/plugin-proposal-class-properties',
-							'@babel/plugin-proposal-private-methods',
-						],
-					}
-				}
-			}]
-		}
+			rules: [
+				{
+					test: /\.tsx?/,
+					use: "ts-loader",
+					exclude: /node_modules/,
+				},
+			],
+		},
 	},
 	{
-		target: 'node',
-		entry: './index.js',
+		target: "node",
+		entry: "./index.ts",
 		output: {
-			path: new URL('../dist/lib', import.meta.url).pathname,
-			libraryExport: 'default',
-			libraryTarget: 'umd',
-			library: 'Surreal'
+			path: path.resolve(process.cwd(), "dist"),
+			filename: "main.node.js",
+			libraryExport: "default",
+			libraryTarget: "umd",
+			library: "Surreal",
 		},
-		devtool: false,
-		plugins: [
-			new webpack.NormalModuleReplacementPlugin(
-				/..\/websocket\/index.js$/,
-				'/src/websocket/index.node.js',
-			)
-		],
+		devtool: "inline-source-map",
+		resolve: {
+			extensions: [".ts", ".js"],
+		},
 		module: {
-			rules: [{
-				test: /\.js$/,
-				exclude: /(node_modules)/,
-				use: {
-					loader: 'babel-loader',
-					options: {
-						presets: ['@babel/preset-env'],
-						plugins: [
-							'@babel/plugin-proposal-class-properties',
-							'@babel/plugin-proposal-private-methods',
-						],
-					}
-				}
-			}]
-		}
+			rules: [
+				{
+					test: /\.tsx?/,
+					use: "ts-loader",
+					exclude: /node_modules/,
+				},
+			],
+		},
 	},
 ];
