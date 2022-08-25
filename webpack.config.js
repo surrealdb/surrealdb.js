@@ -5,7 +5,9 @@ export default [
 		target: 'web',
 		entry: './index.js',
 		output: {
-			path: new URL('../dist/web', import.meta.url).pathname,
+			clean: true,
+			filename: 'index.js',
+			path: new URL('./dist/web', import.meta.url).pathname,
 			libraryExport: 'default',
 			libraryTarget: 'window',
 			library: 'Surreal'
@@ -38,7 +40,9 @@ export default [
 		target: 'node',
 		entry: './index.js',
 		output: {
-			path: new URL('../dist/lib', import.meta.url).pathname,
+			clean: true,
+			filename: 'index.cjs',
+			path: new URL('./dist/lib', import.meta.url).pathname,
 			libraryExport: 'default',
 			libraryTarget: 'umd',
 			library: 'Surreal'

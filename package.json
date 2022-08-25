@@ -2,8 +2,8 @@
   "name": "surrealdb.js",
   "version": "0.1.0",
   "description": "Javascript driver for SurrealDB",
-  "main": "index.js",
-  "browser": "dist/web/main.js",
+  "main": "dist/lib/index.cjs",
+  "browser": "dist/web/index.js",
   "scripts": {
     "build": "webpack --mode=production",
     "preversion": "webpack --mode=production",
@@ -18,6 +18,10 @@
     "url": "https://surrealdb.com"
   },
   "type": "module",
+  "exports": {
+    "import": "./index.js",
+    "require": "./dist/lib/index.cjs"
+  },
   "files": [
     "dist/",
     "src/",
