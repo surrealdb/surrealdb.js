@@ -13,12 +13,12 @@ import { SurrealArgs, SurrealOperation, SurrealResult, WebSocketMessage } from "
 
 let singleton: Surreal | undefined = undefined;
 
-export default class Surreal extends Emitter {
+class Surreal extends Emitter {
 
     // ------------------------------
 	// Main singleton
 	// ------------------------------
-    static get Instance() {
+    static get Instance(): Surreal {
         return singleton ? singleton : singleton = new Surreal();
     }
 
@@ -75,8 +75,7 @@ export default class Surreal extends Emitter {
         }
     }
 
-    connect(url: string) {
-
+    connect(url: string): Promise<void> {
         // Next we setup the websocket connection
         // and listen for events on the socket,
         // specifying whether logging is enabled.
@@ -141,7 +140,6 @@ export default class Surreal extends Emitter {
         this.#ws.open();
 
         return this.wait();
-
     }
 
     // --------------------------------------------------
@@ -434,3 +432,5 @@ export default class Surreal extends Emitter {
     }
 
 }
+
+export { Surreal };

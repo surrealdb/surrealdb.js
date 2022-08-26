@@ -5,7 +5,7 @@ import * as path from 'path';
 export default [
 	{
 		target: "web",
-		entry: "./index.ts",
+		entry: "./src/index.ts",
 		output: {
 			path: path.resolve(process.cwd(), "dist"),
 			filename: "main.browser.js",
@@ -14,7 +14,6 @@ export default [
 			library: "Surreal",
 			clean: true,
 		},
-		devtool: "inline-source-map",
 		resolve: {
 			extensions: [".ts", ".js"],
 		},
@@ -30,7 +29,7 @@ export default [
 	},
 	{
 		target: "node",
-		entry: "./index.ts",
+		entry: "./src/index.ts",
 		output: {
 			path: path.resolve(process.cwd(), "dist"),
 			filename: "main.node.js",
@@ -38,7 +37,6 @@ export default [
 			libraryTarget: "umd",
 			library: "Surreal",
 		},
-		devtool: "inline-source-map",
 		resolve: {
 			extensions: [".ts", ".js"],
 		},

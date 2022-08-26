@@ -1,4 +1,4 @@
-import Surreal from "..";
+import { Surreal } from "..";
 import { SurrealArgs } from "../utils/types";
 import Emitter from "./emitter";
 
