@@ -1,5 +1,3 @@
-import webpack from 'webpack';
-import TerserPlugin from "terser-webpack-plugin";
 import * as path from 'path';
 
 export default [

@@ -14,7 +14,7 @@ export interface WebSocketMessage {
     params: any[];
 }
 
-export type SurrealArgs = [any];
+export type SurrealArgs = any[];
 
 export enum SurrealOperation {
     Create = "create",
