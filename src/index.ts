@@ -145,24 +145,24 @@ class Surreal extends Emitter {
     // --------------------------------------------------
     // Public methods
     // --------------------------------------------------
-    sync(query: string, vars: SurrealArgs) {
+    sync(query: string, vars: SurrealArgs): Live {
         return new Live(this, query, vars);
     }
 
-    wait() {
+    wait(): Promise<void> {
         return this.#ws.ready.then(() => {
             return this.#attempted;
         });
     }
 
-    close() {
+    close(): void {
         this.#ws.removeAllListeners();
         this.#ws.close();
     }
 
     // --------------------------------------------------
 
-    ping() {
+    ping(): Promise<void> {
         let id = guid();
         return this.#ws.ready.then(() => {
             return new Promise(() => {
@@ -171,7 +171,7 @@ class Surreal extends Emitter {
         });
     }
 
-    use(ns: string, db: string) {
+    use(ns: string, db: string): Promise<void> {
         let id = guid();
         return this.#ws.ready.then(() => {
             return new Promise((resolve, reject) => {
@@ -191,7 +191,7 @@ class Surreal extends Emitter {
         });
     }
 
-    signup(vars: SurrealArgs) {
+    signup(vars: SurrealArgs): Promise<string> {
         let id = guid();
         return this.#ws.ready.then(() => {
             return new Promise((resolve, reject) => {
@@ -201,7 +201,7 @@ class Surreal extends Emitter {
         });
     }
 
-    signin(vars: SurrealArgs) {
+    signin(vars: SurrealArgs): Promise<string> {
         let id = guid();
         return this.#ws.ready.then(() => {
             return new Promise((resolve, reject) => {
@@ -211,7 +211,7 @@ class Surreal extends Emitter {
         });
     }
 
-    invalidate() {
+    invalidate(): Promise<void> {
         let id = guid();
         return this.#ws.ready.then(() => {
             return new Promise((resolve, reject) => {
@@ -221,7 +221,7 @@ class Surreal extends Emitter {
         });
     }
 
-    authenticate(token: string) {
+    authenticate(token: string): Promise<void> {
         let id = guid();
         return this.#ws.ready.then(() => {
             return new Promise((resolve, reject) => {
@@ -243,7 +243,7 @@ class Surreal extends Emitter {
         });
     }
 
-    kill(query: string) {
+    kill(query: string): Promise<void> {
         let id = guid();
         return this.wait().then(() => {
             return new Promise((resolve, reject) => {
@@ -273,7 +273,8 @@ class Surreal extends Emitter {
         });
     }
 
-    select(thing: string) {
+    // TODO: Might be worth expanding into different methods for single and multiple
+    select<T>(thing: string): Promise<T | Array<T>> {
         let id = guid();
         return this.wait().then(() => {
             return new Promise((resolve, reject) => {
@@ -283,7 +284,7 @@ class Surreal extends Emitter {
         });
     }
 
-    create(thing: string, data: SurrealArgs) {
+    create<T>(thing: string, data: SurrealArgs): Promise<string | T> {
         let id = guid();
         return this.wait().then(() => {
             return new Promise((resolve, reject) => {
@@ -293,7 +294,7 @@ class Surreal extends Emitter {
         });
     }
 
-    update(thing: string, data: SurrealArgs) {
+    update<T>(thing: string, data: SurrealArgs): Promise<T | Array<T>> {
         let id = guid();
         return this.wait().then(() => {
             return new Promise((resolve, reject) => {
@@ -303,7 +304,7 @@ class Surreal extends Emitter {
         });
     }
 
-    change(thing: string, data: SurrealArgs) {
+    change<T>(thing: string, data: SurrealArgs): Promise<T | Array<T>> {
         let id = guid();
         return this.wait().then(() => {
             return new Promise((resolve, reject) => {
@@ -313,7 +314,7 @@ class Surreal extends Emitter {
         });
     }
 
-    modify(thing: string, data: SurrealArgs) {
+    modify<T>(thing: string, data: SurrealArgs): Promise<T | Array<T>> {
         let id = guid();
         return this.wait().then(() => {
             return new Promise((resolve, reject) => {
@@ -323,7 +324,7 @@ class Surreal extends Emitter {
         });
     }
 
-    delete(thing: string) {
+    delete(thing: string): Promise<void> {
         let id = guid();
         return this.wait().then(() => {
             return new Promise((resolve, reject) => {
