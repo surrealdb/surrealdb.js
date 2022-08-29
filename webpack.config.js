@@ -8,9 +8,12 @@ export default [
 			clean: true,
 			filename: 'index.js',
 			path: new URL('./dist/web', import.meta.url).pathname,
-			libraryExport: 'default',
-			libraryTarget: 'window',
-			library: 'Surreal'
+			library: {
+				name: 'Surreal',
+				type: 'umd',
+				export: 'default',
+				umdNamedDefine: true,
+			},
 		},
 		devtool: false,
 		plugins: [
@@ -43,9 +46,12 @@ export default [
 			clean: true,
 			filename: 'index.cjs',
 			path: new URL('./dist/lib', import.meta.url).pathname,
-			libraryExport: 'default',
-			libraryTarget: 'umd',
-			library: 'Surreal'
+			library: {
+				name: 'Surreal',
+				type: 'umd',
+				export: 'default',
+				umdNamedDefine: true,
+			},
 		},
 		devtool: false,
 		plugins: [
