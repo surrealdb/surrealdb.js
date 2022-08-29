@@ -419,12 +419,12 @@ export default class Surreal extends Emitter {
 				return resolve();
 			case "create":
 				return res.result && res.result.length ? resolve(res.result[0]) : reject(
-					new Surreal.PermissionError(`Unable to create record: ${t}`)
+					new Surreal.PermissionError(`Unable to create record: ${id}`)
 				);
 			case "update":
 				if ( typeof id === "string" && id.includes(":") ) {
 					return res.result && res.result.length ? resolve(res.result[0]) : reject(
-						new Surreal.PermissionError(`Unable to update record: ${t}`)
+						new Surreal.PermissionError(`Unable to update record: ${id}`)
 					);
 				} else {
 					return resolve(res.result);
@@ -432,7 +432,7 @@ export default class Surreal extends Emitter {
 			case "change":
 				if ( typeof id === "string" && id.includes(":") ) {
 					return res.result && res.result.length ? resolve(res.result[0]) : reject(
-						new Surreal.PermissionError(`Unable to update record: ${t}`)
+						new Surreal.PermissionError(`Unable to update record: ${id}`)
 					);
 				} else {
 					return resolve(res.result);
@@ -440,7 +440,7 @@ export default class Surreal extends Emitter {
 			case "modify":
 				if ( typeof id === "string" && id.includes(":") ) {
 					return res.result && res.result.length ? resolve(res.result[0]) : reject(
-						new Surreal.PermissionError(`Unable to update record: ${t}`)
+						new Surreal.PermissionError(`Unable to update record: ${id}`)
 					);
 				} else {
 					return resolve(res.result);
@@ -448,7 +448,7 @@ export default class Surreal extends Emitter {
 			default:
 				if ( typeof id === "string" && id.includes(":") ) {
 					return res.result && res.result.length ? resolve(res.result) : reject(
-						new Surreal.RecordError(`Record not found: ${t}`)
+						new Surreal.RecordError(`Record not found: ${id}`)
 					);
 				} else {
 					return resolve(res.result);
