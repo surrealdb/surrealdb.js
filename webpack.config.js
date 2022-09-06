@@ -22,6 +22,9 @@ export default [
 				"/src/websocket/index.web.js"
 			),
 		],
+		resolve: {
+			extensions: [".ts", ".js"],
+		},
 		module: {
 			rules: [
 				{
@@ -67,6 +70,9 @@ export default [
 				"/src/websocket/index.node.js"
 			),
 		],
+		resolve: {
+			extensions: [".ts", ".js"],
+		},
 		module: {
 			rules: [
 				{
