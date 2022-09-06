@@ -23,9 +23,7 @@
     "require": "./dist/lib/index.cjs"
   },
   "files": [
-    "dist/",
-    "src/",
-    "index.js"
+    "dist/"
   ],
   "license": "MIT",
   "dependencies": {
@@ -38,6 +36,8 @@
     "@babel/plugin-proposal-private-methods": "^7.18.6",
     "@babel/preset-env": "^7.18.10",
     "babel-loader": "^8.2.5",
+    "ts-loader": "^9.3.1",
+    "typescript": "^4.8.2",
     "webpack": "^5.74.0",
     "webpack-cli": "^4.10.0"
   },
