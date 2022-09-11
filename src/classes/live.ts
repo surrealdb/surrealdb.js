@@ -1,16 +1,17 @@
+import Surreal, { Result } from '../index.js';
 import Emitter from "./emitter.js";
 
 export default class Live extends Emitter {
 
-	#id = undefined;
+	#id: string | undefined;
 
-	#db = undefined;
+	#db: Surreal;
 
-	#sql = undefined;
+	#sql: string;
 
-	#vars = undefined;
+	#vars: Record<string, unknown>;
 
-	constructor(db, sql, vars) {
+	constructor(db: Surreal, sql: string, vars: Record<string, unknown>) {
 
 		super()
 
@@ -20,6 +21,7 @@ export default class Live extends Emitter {
 
 		this.#vars = vars;
 
+		// @ts-expect-error ready was never set
 		if (this.#db.ready) {
 			this.open();
 		}
@@ -72,7 +74,7 @@ export default class Live extends Emitter {
 
 		if (this.#id !== undefined) return;
 
-		return this.#db.query(this.#sql, this.#vars).then(res => {
+		return this.#db.query(this.#sql, this.#vars).then((res: Result[]) => {
 			if (res[0] && res[0].result && res[0].result[0]) {
 				this.#id = res[0].result[0];
 			}

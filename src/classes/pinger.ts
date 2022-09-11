@@ -1,14 +1,14 @@
 export default class Pinger {
 
-	#pinger = undefined;
+	#pinger?: NodeJS.Timer | number;
 
-	#interval = undefined;
+	#interval: number;
 
 	constructor(interval = 30000) {
 		this.#interval = interval;
 	}
 
-	start(func, ...args) {
+	start(func: () => void, ...args: unknown[]) {
 		this.#pinger = setInterval(func, this.#interval);
 	}
 

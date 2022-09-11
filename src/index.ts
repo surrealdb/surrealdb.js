@@ -5,7 +5,14 @@ import Socket from "./classes/socket.js";
 import Pinger from "./classes/pinger.js";
 import Emitter from "./classes/emitter.js";
 
-let singleton = undefined;
+let singleton: Surreal;
+
+export interface Result {
+	result?: string[]
+	error?: Error
+	status: string
+	time: string
+}
 
 export default class Surreal extends Emitter {
 
@@ -41,15 +48,15 @@ export default class Surreal extends Emitter {
 	// Properties
 	// ------------------------------
 
-	#ws = undefined;
+	#ws: Socket;
 
-	#url = undefined;
+	#url?: string;
 
-	#token = undefined;
+	#token?: string;
 
-	#pinger = undefined;
+	#pinger: Pinger;
 
-	#attempted = undefined;
+	#attempted?: Promise<void>;
 
 	// ------------------------------
 	// Accessors
@@ -67,7 +74,7 @@ export default class Surreal extends Emitter {
 	// Methods
 	// ------------------------------
 
-	constructor(url, token) {
+	constructor(url?: string, token?: string) {
 
 		super();
 
@@ -81,7 +88,7 @@ export default class Surreal extends Emitter {
 
 	}
 
-	connect(url) {
+	connect(url: string) {
 
 		// Next we setup the websocket connection
 		// and listen for events on the socket,
@@ -135,7 +142,7 @@ export default class Surreal extends Emitter {
 		// we process it. If it has an ID
 		// then it is a query response.
 
-		this.#ws.on("message", (e) => {
+		this.#ws.on("message", (e: { data: string }) => {
 
 			let d = JSON.parse(e.data);
 
@@ -169,13 +176,13 @@ export default class Surreal extends Emitter {
 	// Public methods
 	// --------------------------------------------------
 
-	sync(query, vars) {
+	sync(query, vars: Record<string, unknown>) {
 		return new Live(this, query, vars);
 	}
 
 	wait() {
 		return this.#ws.ready.then( () => {
-			return this.#attempted;
+			return this.#attempted!;
 		});
 	}
 
@@ -195,7 +202,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	use(ns, db) {
+	use(ns: string, db: string) {
 		let id = guid();
 		return this.#ws.ready.then( () => {
 			return new Promise( (resolve, reject) => {
@@ -245,10 +252,10 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	authenticate(token) {
+	authenticate(token: string) {
 		let id = guid();
 		return this.#ws.ready.then( () => {
-			return new Promise( (resolve, reject) => {
+			return new Promise<void>( (resolve, reject) => {
 				this.once(id, res => this.#auth(res, resolve, reject) );
 				this.#send(id, "authenticate", [token]);
 			});
@@ -257,7 +264,7 @@ export default class Surreal extends Emitter {
 
 	// --------------------------------------------------
 
-	live(table) {
+	live(table: string) {
 		let id = guid();
 		return this.wait().then( () => {
 			return new Promise( (resolve, reject) => {
@@ -267,7 +274,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	kill(query) {
+	kill(query: string) {
 		let id = guid();
 		return this.wait().then( () => {
 			return new Promise( (resolve, reject) => {
@@ -277,7 +284,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	let(key, val) {
+	let(key: string, val: unknown) {
 		let id = guid();
 		return this.wait().then( () => {
 			return new Promise( (resolve, reject) => {
@@ -287,7 +294,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	query(query, vars) {
+	query(query: string, vars?: Record<string, unknown>) {
 		let id = guid();
 		return this.wait().then( () => {
 			return new Promise( (resolve, reject) => {
@@ -297,17 +304,17 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	select(thing) {
+	select(thing: string) {
 		let id = guid();
 		return this.wait().then( () => {
-			return new Promise( (resolve, reject) => {
+			return new Promise<unknown[]>( (resolve, reject) => {
 				this.once(id, res => this.#output(res, "select", thing, resolve, reject) );
 				this.#send(id, "select", [thing]);
 			});
 		});
 	}
 
-	create(thing, data) {
+	create(thing: string, data?: unknown) {
 		let id = guid();
 		return this.wait().then( () => {
 			return new Promise( (resolve, reject) => {
@@ -317,7 +324,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	update(thing, data) {
+	update(thing: string, data?: unknown) {
 		let id = guid();
 		return this.wait().then( () => {
 			return new Promise( (resolve, reject) => {
@@ -327,7 +334,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	change(thing, data) {
+	change(thing: string, data?: unknown) {
 		let id = guid();
 		return this.wait().then( () => {
 			return new Promise( (resolve, reject) => {
@@ -337,7 +344,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	modify(thing, data) {
+	modify(thing: string, data?: unknown[]) {
 		let id = guid();
 		return this.wait().then( () => {
 			return new Promise( (resolve, reject) => {
@@ -347,7 +354,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	delete(thing) {
+	delete(thing: string) {
 		let id = guid();
 		return this.wait().then( () => {
 			return new Promise( (resolve, reject) => {
@@ -367,7 +374,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	#send(id, method, params=[]) {
+	#send(id: string, method: string, params: unknown[] = []) {
 		this.#ws.send(JSON.stringify({
 			id: id,
 			method: method,
@@ -401,7 +408,7 @@ export default class Surreal extends Emitter {
 		}
 	}
 
-	#result(res, resolve, reject) {
+	#result(res: Result, resolve: (value?: string[]) => void, reject: (reason?: any) => void) {
 		if (res.error) {
 			return reject( new Error(res.error.message) );
 		} else if (res.result) {
@@ -410,7 +417,7 @@ export default class Surreal extends Emitter {
 		return resolve();
 	}
 
-	#output(res, type, id, resolve, reject) {
+	#output(res: Result, type: string, id: string, resolve: (value?: unknown) => void, reject: (reason?: any) => void) {
 		if (res.error) {
 			return reject( new Error(res.error.message) );
 		} else if (res.result) {

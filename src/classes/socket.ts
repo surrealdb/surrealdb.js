@@ -6,15 +6,15 @@ const CLOSED = Symbol("Closed");
 
 export default class Socket extends Emitter {
 
-	#ws = null;
+	#ws: WebSocket;
 
-	#url = null;
+	#url: string;
 
 	#closed = false;
 
 	#status = CLOSED;
 
-	constructor(url) {
+	constructor(url: URL | string) {
 
 		super();
 
@@ -26,6 +26,9 @@ export default class Socket extends Emitter {
 		;
 
 	}
+
+	ready: Promise<void>
+	private resolve: () => void
 
 	#init() {
 
@@ -103,7 +106,7 @@ export default class Socket extends Emitter {
 
 	}
 
-	send(data) {
+	send(data: string) {
 		this.#ws.send(data);
 	}
 

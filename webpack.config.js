@@ -24,12 +24,15 @@ export default [
 		],
 		module: {
 			rules: [{
-				test: /\.js$/,
+				test: /\.ts$/,
 				exclude: /(node_modules)/,
 				use: {
 					loader: 'babel-loader',
 					options: {
-						presets: ['@babel/preset-env'],
+						presets: [
+							'@babel/preset-env',
+							'@babel/preset-typescript',
+						],
 						plugins: [
 							'@babel/plugin-proposal-class-properties',
 							'@babel/plugin-proposal-private-methods',
@@ -37,6 +40,11 @@ export default [
 					}
 				}
 			}]
+		},
+		resolve: {
+			extensionAlias: {
+				'.js': ['.ts', '.js'],
+			}
 		}
 	},
 	{
@@ -62,12 +70,15 @@ export default [
 		],
 		module: {
 			rules: [{
-				test: /\.js$/,
+				test: /\.ts$/,
 				exclude: /(node_modules)/,
 				use: {
 					loader: 'babel-loader',
 					options: {
-						presets: ['@babel/preset-env'],
+						presets: [
+							'@babel/preset-env',
+							'@babel/preset-typescript',
+						],
 						plugins: [
 							'@babel/plugin-proposal-class-properties',
 							'@babel/plugin-proposal-private-methods',
@@ -75,6 +86,11 @@ export default [
 					}
 				}
 			}]
+		},
+		resolve: {
+			extensionAlias: {
+				'.js': ['.ts', '.js'],
+			}
 		}
 	},
 ];

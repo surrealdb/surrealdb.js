@@ -1,15 +1,17 @@
+type Listener = (...args: any[]) => void
+
 export default class Emitter {
 
-	#events = {};
+	#events: Record<string, Listener[]> = {};
 
-	on(e, func) {
+	on(e: string, func: Listener) {
 		if (typeof this.#events[e] !== "object") {
 			this.#events[e] = [];
 		}
 		this.#events[e].push(func);
 	}
 
-	off(e, func) {
+	off(e: string, func: Listener) {
 		if (typeof this.#events[e] === "object") {
 			const idx = this.#events[e].indexOf(func);
 			if (idx > -1) {
@@ -18,14 +20,14 @@ export default class Emitter {
 		}
 	}
 
-	once(e, func) {
+	once(e: string, func: Listener) {
 		this.on(e, function f(...args) {
 			this.off(e, f);
 			func.apply(this, args);
 		});
 	}
 
-	emit(e, ...args) {
+	emit(e: string, ...args: any[]) {
 		if (typeof this.#events[e] === "object") {
 			this.#events[e].forEach(func => {
 				func.apply(this, args);
@@ -33,7 +35,7 @@ export default class Emitter {
 		}
 	}
 
-	removeAllListeners(e) {
+	removeAllListeners(e?: string) {
 		if (e) {
 			if (typeof this.#events[e] === "object") {
 				this.#events[e] = [];
