@@ -8,7 +8,7 @@ import Emitter from "./classes/emitter.js";
 let singleton: Surreal;
 
 export interface Result {
-	result?: string[]
+	result?: unknown[]
 	error?: Error
 	status: string
 	time: string
@@ -408,7 +408,7 @@ export default class Surreal extends Emitter {
 		}
 	}
 
-	#result(res: Result, resolve: (value?: string[]) => void, reject: (reason?: any) => void) {
+	#result(res: Result, resolve: (value?: unknown[]) => void, reject: (reason?: any) => void) {
 		if (res.error) {
 			return reject( new Error(res.error.message) );
 		} else if (res.result) {

@@ -76,7 +76,7 @@ export default class Live extends Emitter {
 
 		return this.#db.query(this.#sql, this.#vars).then((res: Result[]) => {
 			if (res[0] && res[0].result && res[0].result[0]) {
-				this.#id = res[0].result[0];
+				this.#id = res[0].result[0] as string;
 			}
 		});
 
