@@ -6,7 +6,7 @@ const CLOSED = Symbol("Closed");
 
 export default class Socket extends Emitter {
 
-	#ws: WebSocket;
+	#ws!: WebSocket;
 
 	#url: string;
 
@@ -27,8 +27,8 @@ export default class Socket extends Emitter {
 
 	}
 
-	ready: Promise<void>
-	private resolve: () => void
+	ready!: Promise<void>
+	private resolve!: () => void
 
 	#init() {
 
