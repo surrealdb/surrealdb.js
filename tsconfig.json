@@ -1,8 +1,16 @@
 {
   "compilerOptions": {
+    "strict": true,
+    "alwaysStrict": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
     "target": "ES6",
     "module": "ES6",
+    "lib": [
+      "DOM",
+      "ESNext"
+    ],
     "esModuleInterop": true,
     "moduleResolution": "Node",
     "outDir": "dist",
