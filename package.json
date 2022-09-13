@@ -2,8 +2,6 @@
   "name": "surrealdb.js",
   "version": "0.3.1",
   "description": "Javascript driver for SurrealDB",
-  "main": "dist/lib/index.cjs",
-  "browser": "dist/web/index.js",
   "scripts": {
     "build": "tsc",
     "preversion": "tsc",
@@ -19,13 +17,10 @@
   },
   "type": "module",
   "exports": {
-    "import": "./index.js",
-    "require": "./dist/lib/index.cjs"
+    ".": "./dist/index.js"
   },
   "files": [
-    "dist/",
-    "src/",
-    "index.js"
+    "dist/**/*.{js,d.ts}"
   ],
   "license": "MIT",
   "dependencies": {
