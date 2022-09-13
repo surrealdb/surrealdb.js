@@ -14,6 +14,23 @@ export interface Result {
 	time: string
 }
 
+export interface AuthOpts {
+	NS?: string
+	DB?: string
+}
+
+export interface NamespaceAuth extends AuthOpts {
+	user: string
+	pass: string
+}
+
+export interface ScopeAuth extends AuthOpts {
+	SC: string
+	[key: string]: unknown
+}
+
+export type Auth = NamespaceAuth | ScopeAuth
+
 export default class Surreal extends Emitter {
 
 	// ------------------------------
@@ -222,7 +239,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	signup(vars) {
+	signup(vars: Auth) {
 		let id = guid();
 		return this.#ws.ready.then( () => {
 			return new Promise( (resolve, reject) => {
@@ -232,7 +249,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	signin(vars) {
+	signin(vars: Auth) {
 		let id = guid();
 		return this.#ws.ready.then( () => {
 			return new Promise( (resolve, reject) => {
