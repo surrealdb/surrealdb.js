@@ -1,4 +1,4 @@
-import WebSocket from "../websocket/index.js";
+import WebSocket from "isomorphic-ws";
 import Emitter from "./emitter.js";
 
 const OPENED = Symbol("Opened");
