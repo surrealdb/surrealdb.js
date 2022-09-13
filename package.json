@@ -4,8 +4,8 @@
   "description": "Javascript driver for SurrealDB",
   "scripts": {
     "build": "tsc",
-    "preversion": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tsc -w --incremental",
+    "preversion": "tsc"
   },
   "repository": {
     "type": "git",
