@@ -30,7 +30,7 @@ export default class Socket extends Emitter {
 	ready!: Promise<void>
 	private resolve!: () => void
 
-	#init() {
+	#init(): void {
 
 		this.ready = new Promise(resolve => {
 			this.resolve = resolve;
@@ -38,7 +38,7 @@ export default class Socket extends Emitter {
 
 	}
 
-	open() {
+	open(): void {
 
 		this.#ws = new WebSocket(this.#url);
 
@@ -106,11 +106,11 @@ export default class Socket extends Emitter {
 
 	}
 
-	send(data: string) {
+	send(data: string): void {
 		this.#ws.send(data);
 	}
 
-	close(code=1000, reason="Some reason") {
+	close(code=1000, reason="Some reason"): void {
 		this.#closed = true;
 		this.#ws.close(code, reason);
 	}

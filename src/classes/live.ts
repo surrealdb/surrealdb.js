@@ -9,9 +9,9 @@ export default class Live extends Emitter {
 
 	#sql: string;
 
-	#vars: Record<string, unknown>;
+	#vars?: Record<string, unknown>;
 
-	constructor(db: Surreal, sql: string, vars: Record<string, unknown>) {
+	constructor(db: Surreal, sql: string, vars?: Record<string, unknown>) {
 
 		super()
 
@@ -54,7 +54,7 @@ export default class Live extends Emitter {
 	// has been killed it can be opened
 	// again by calling the open() method.
 
-	kill() {
+	kill(): void | Promise<void> {
 
 		if (this.#id === undefined) return;
 
@@ -70,11 +70,11 @@ export default class Live extends Emitter {
 	// killed, then calling the open()
 	// method will re-enable the query.
 
-	open() {
+	open(): void | Promise<void> {
 
 		if (this.#id !== undefined) return;
 
-		return this.#db.query(this.#sql, this.#vars).then((res: Result[]) => {
+		return this.#db.query(this.#sql, this.#vars).then(res => {
 			if (res[0] && Array.isArray(res[0].result) && res[0].result[0]) {
 				this.#id = res[0].result[0] as string;
 			}

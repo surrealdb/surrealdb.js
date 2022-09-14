@@ -1,4 +1,4 @@
-type Listener = (this: Emitter, ...args: any[]) => void
+export type Listener = (this: Emitter, ...args: any[]) => void
 
 export default class Emitter {
 
