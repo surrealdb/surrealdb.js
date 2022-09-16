@@ -7,12 +7,15 @@ import Emitter from "./classes/emitter.js";
 
 let singleton: Surreal = undefined;
 
+/** Class representing a SurrealDB instance. */
 export default class Surreal extends Emitter {
 
-	// ------------------------------
-	// Main singleton
-	// ------------------------------
-
+	/**
+	 * The Instance static singleton ensures that a single database instance is available across very large or complicated applications. 
+	 * With the singleton, only one connection to the database is instantiated, and the database connection does not have to be shared 
+	 * across components or controllers.
+	 * @return {Surreal} A Surreal object.
+	 */
 	static get Instance(): Surreal {
 		return singleton ? singleton : singleton = new Surreal();
 	}
@@ -67,6 +70,11 @@ export default class Surreal extends Emitter {
 	// Methods
 	// ------------------------------
 
+	/**
+	 * Initializee a SurrealDb.
+	 * @param {?string} url - The url of the database endpoint to connect to.
+	 * @param {?string} token - The authorization token.
+	 */
 	constructor(url?: string, token?: string) {
 
 		super();
@@ -81,6 +89,11 @@ export default class Surreal extends Emitter {
 
 	}
 
+	/**
+	 * Connects to a local or remote database endpoint.
+	 * @param {string} url - The url of the database endpoint to connect to.
+	 * @return {Promise<void>}
+	 */
 	connect(url: string): Promise<void> {
 
 		// Next we setup the websocket connection
@@ -169,16 +182,25 @@ export default class Surreal extends Emitter {
 	// Public methods
 	// --------------------------------------------------
 
+	// TODO: Need to add docs for this method
 	sync(query: string, vars: any): Live {
 		return new Live(this, query, vars);
 	}
 
+	/**
+	 * Waits for the connection to the database to succeed.
+	 * @return {Promise<void>}
+	 */
 	wait(): Promise<void> {
 		return this.#ws.ready.then( () => {
 			return this.#attempted;
 		});
 	}
 
+	/**
+	 * Closes the persistent connection to the database.
+	 * @return {void}
+	 */
 	close(): void {
 		this.#ws.removeAllListeners();
 		this.#ws.close();
@@ -186,6 +208,10 @@ export default class Surreal extends Emitter {
 
 	// --------------------------------------------------
 
+	/**
+	 * Ping SurrealDB instance
+	 * @return {Promise<void>}
+	 */
 	ping(): Promise<void> {
 		let id = guid();
 		return this.#ws.ready.then( () => {
@@ -195,6 +221,12 @@ export default class Surreal extends Emitter {
 		});
 	}
 
+	/**
+	 * Switch to a specific namespace and database.
+	 * @param {string} ns - Switches to a specific namespace.
+	 * @param {string} db - Switches to a specific database.
+	 * @return {Promise<void>}
+	 */
 	use(ns: string, db: string): Promise<void> {
 		let id = guid();
 		return this.#ws.ready.then( () => {
@@ -205,6 +237,10 @@ export default class Surreal extends Emitter {
 		});
 	}
 
+	/**
+	 * Retreive info about the current Surreal instance
+	 * @return {Promise<any>} The info about the current Surreal instance
+	 */
 	info(): Promise<any> {
 		let id = guid();
 		return this.#ws.ready.then( () => {
@@ -215,7 +251,12 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	signup(vars: any): Promise<any> {
+	/**
+	 * Signs up to a specific authentication scope.
+	 * @param {any} vars - Variables used in a signup query.
+	 * @return {Promise<string>} The authenication token.
+	 */
+	signup(vars: any): Promise<string> {
 		let id = guid();
 		return this.#ws.ready.then( () => {
 			return new Promise( (resolve, reject) => {
@@ -225,7 +266,12 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	signin(vars: any): Promise<any> {
+	/**
+	 * Signs in to a specific authentication scope.
+	 * @param {any} vars - Variables used in a signin query.
+	 * @return {Promise<string>} The authenication token.
+	 */
+	signin(vars: any): Promise<string> {
 		let id = guid();
 		return this.#ws.ready.then( () => {
 			return new Promise( (resolve, reject) => {
@@ -235,6 +281,10 @@ export default class Surreal extends Emitter {
 		});
 	}
 
+	/**
+	 * Invalidates the authentication for the current connection.
+	 * @return {Promise<void>}
+	 */
 	invalidate(): Promise<void> {
 		let id = guid();
 		return this.#ws.ready.then( () => {
@@ -245,6 +295,11 @@ export default class Surreal extends Emitter {
 		});
 	}
 
+	/**
+	 * Authenticates the current connection with a JWT token.
+	 * @param {string} token - The JWT authentication token.
+	 * @return {Promise<void>}
+	 */
 	authenticate(token: string): Promise<void> {
 		let id = guid();
 		return this.#ws.ready.then( () => {
@@ -257,6 +312,7 @@ export default class Surreal extends Emitter {
 
 	// --------------------------------------------------
 
+	// TODO: Need to add docs for this method
 	live(table: string): Promise<any> {
 		let id = guid();
 		return this.wait().then( () => {
@@ -267,6 +323,11 @@ export default class Surreal extends Emitter {
 		});
 	}
 
+	/**
+	 * Kill a specific query.
+	 * @param {string} query - The query to kill.
+	 * @return {Promise<void>}
+	 */
 	kill(query: string): Promise<void> {
 		let id = guid();
 		return this.wait().then( () => {
@@ -277,6 +338,12 @@ export default class Surreal extends Emitter {
 		});
 	}
 
+	/**
+	 * Switch to a specific namespace and database.
+	 * @param {string} key - Specifies the name of the variable.
+	 * @param {any} val - Assigns the value to the variable name.
+	 * @return {Promise<void>}
+	 */
 	let(key: string, val: any): Promise<void> {
 		let id = guid();
 		return this.wait().then( () => {
@@ -287,6 +354,12 @@ export default class Surreal extends Emitter {
 		});
 	}
 
+	/**
+	 * Runs a set of SurrealQL statements against the database.
+	 * @param {string} query - Specifies the SurrealQL statements.
+	 * @param {?any} vars - Assigns variables which can be used in the query.
+	 * @return {Promise<any>}
+	 */
 	query(query: string, vars: any): Promise<any> {
 		let id = guid();
 		return this.wait().then( () => {
@@ -297,6 +370,11 @@ export default class Surreal extends Emitter {
 		});
 	}
 
+	/**
+	 * Selects all records in a table, or a specific record, from the database.
+	 * @param {string} thing - The table name or a record ID to select.
+	 * @return {Promise<any>}
+	 */
 	select(thing: string): Promise<any> {
 		let id = guid();
 		return this.wait().then( () => {
@@ -307,6 +385,12 @@ export default class Surreal extends Emitter {
 		});
 	}
 
+	/**
+	 * Creates a record in the database.
+	 * @param {string} thing - The table name or the specific record ID to create.
+	 * @param {?any} data - The document / record data to insert.
+	 * @return {Promise<any>}
+	 */
 	create(thing: string, data: any): Promise<any> {
 		let id = guid();
 		return this.wait().then( () => {
@@ -317,7 +401,14 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	update(thing: string, data: string): Promise<any> {
+	/**
+	 * Updates all records in a table, or a specific record, in the database.
+	 * NOTE: This function replaces the current document / record data with the specified data.
+	 * @param {string} thing - The table name or the specific record ID to update.
+	 * @param {?any} data - The document / record data to insert.
+	 * @return {Promise<any>}
+	 */
+	update(thing: string, data: any): Promise<any> {
 		let id = guid();
 		return this.wait().then( () => {
 			return new Promise( (resolve, reject) => {
@@ -327,6 +418,13 @@ export default class Surreal extends Emitter {
 		});
 	}
 
+	/**
+	 * Modifies all records in a table, or a specific record, in the database.
+	 * NOTE: This function merges the current document / record data with the specified data.
+	 * @param {string} thing - The table name or the specific record ID to change.
+	 * @param {?any} data - The document / record data to insert.
+	 * @return {Promise<any>}
+	 */
 	change(thing: string, data: any): Promise<any> {
 		let id = guid();
 		return this.wait().then( () => {
@@ -337,6 +435,13 @@ export default class Surreal extends Emitter {
 		});
 	}
 
+	/**
+	 * Applies JSON Patch changes to all records, or a specific record, in the database.
+	 * NOTE: This function patches the current document / record data with the specified JSON Patch data.
+	 * @param {string} thing - The table name or the specific record ID to modify.
+	 * @param {?any} data - The JSON Patch data with which to modify the records.
+	 * @return {Promise<any>}
+	 */
 	modify(thing: string, data: any): Promise<any> {
 		let id = guid();
 		return this.wait().then( () => {
@@ -347,6 +452,11 @@ export default class Surreal extends Emitter {
 		});
 	}
 
+	/**
+	 * Deletes all records in a table, or a specific record, from the database.
+	 * @param {string} thing - The table name or a record ID to select.
+	 * @return {Promise<void>}
+	 */
 	delete(thing: string): Promise<void> {
 		let id = guid();
 		return this.wait().then( () => {
