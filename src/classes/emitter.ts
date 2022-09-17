@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 export type Listener = (this: Emitter, ...args: any[]) => void
 
 export default class Emitter {

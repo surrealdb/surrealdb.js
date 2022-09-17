@@ -1,5 +1,5 @@
 import WebSocket from "isomorphic-ws";
-import Emitter from "./emitter.js";
+import Emitter from "./emitter.ts";
 
 const OPENED = Symbol("Opened");
 const CLOSED = Symbol("Closed");
