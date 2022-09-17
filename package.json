@@ -24,7 +24,6 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@types/json-patch": "^0.0.30",
     "isomorphic-ws": "^5.0.0",
     "nanoid": "^4.0.0",
     "ws": "^8.8.1"

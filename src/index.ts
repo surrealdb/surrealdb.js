@@ -1,4 +1,3 @@
-import type { OpPatch } from 'json-patch'
 import guid from "./utils/guid.js";
 import errors from "./errors/index.js";
 import Live from "./classes/live.js";
@@ -7,6 +6,41 @@ import Pinger from "./classes/pinger.js";
 import Emitter from "./classes/emitter.js";
 
 let singleton: Surreal;
+
+interface BasePatch {
+	path: string;
+}
+
+export interface AddPatch extends BasePatch {
+  op: 'add';
+  value: any;
+}
+
+export interface RemovePatch extends BasePatch {
+	op: 'remove';
+}
+
+export interface ReplacePatch extends BasePatch {
+	op: 'replace';
+  value: any;
+}
+
+export interface MovePatch extends BasePatch {
+	op: 'move';
+  from: string;
+}
+
+export interface CopyPatch extends BasePatch {
+	op: 'copy';
+  from: string;
+}
+
+export interface TestPatch extends BasePatch {
+	op: 'test';
+  value: any;
+}
+
+export type Patch = AddPatch | RemovePatch | ReplacePatch | MovePatch | CopyPatch | TestPatch;
 
 interface ResultOk<T> {
 	result: T
@@ -367,7 +401,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	modify(thing: string, data?: OpPatch[]) {
+	modify(thing: string, data?: Patch[]) {
 		let id = guid();
 		return this.wait().then( () => {
 			return new Promise( (resolve, reject) => {
