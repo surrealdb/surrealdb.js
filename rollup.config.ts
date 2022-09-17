@@ -7,8 +7,13 @@ export default defineConfig({
   input: './src/index.ts',
   plugins: [
     replace({
-      values: { '.ts': '.js' },
       preventAssignment: true,
+      values: { '.ts': '.js' },
+    }),
+    replace({
+      preventAssignment: false,
+      values: { '// %isomorphic-ws%': 'import WebSocket from "isomorphic-ws"' },
+      delimiters: ['', ''],
     }),
     // fixes bundled tslib becoming cjs because it's inside a node_modules dir
     rename({ map: name => name.replace(/node_modules/, 'external') }),

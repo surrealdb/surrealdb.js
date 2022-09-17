@@ -1,5 +1,0 @@
-{
-  "imports": {
-    "isomorphic-ws": "./ws.ts"
-  }
-}
