@@ -7,10 +7,13 @@ export default defineConfig({
   input: './src/index.ts',
   plugins: [
     replace({
+      // by default, files are configured to work for deno, which uses exact .ts imports
+      // node, however, does not like .ts extensions and tsc will complain if we don't use .js
       preventAssignment: true,
       values: { '.ts': '.js' },
     }),
     replace({
+      // injects isomorphic-ws during build time for node/browser build
       preventAssignment: true,
       values: { '// %isomorphic-ws%': 'import WebSocket from "isomorphic-ws"' },
       delimiters: ['', ''],
