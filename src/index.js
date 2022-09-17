@@ -180,7 +180,6 @@ export default class Surreal extends Emitter {
 	}
 
 	close() {
-		this.#ws.removeAllListeners();
 		this.#ws.close();
 	}
 
