@@ -1,6 +1,5 @@
-import { customAlphabet } from 'nanoid';
-const nanoid = customAlphabet('1234567890abcdefghijklmnopqrstuvwxyz', 10);
+let id = 0
 
 export default function(): string {
-	return nanoid();
+	return (id = id + 1 % Number.MAX_SAFE_INTEGER).toString()
 }
