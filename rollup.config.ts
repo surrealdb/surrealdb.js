@@ -32,7 +32,7 @@ export default defineConfig({
       dir: 'dist/cjs',
       format: 'cjs',
       exports: 'named',
-      interop: 'esModule',
+      interop: 'auto',
       preserveModules: true,
       preserveModulesRoot: 'src',
       plugins: [
