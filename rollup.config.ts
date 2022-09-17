@@ -11,7 +11,7 @@ export default defineConfig({
       values: { '.ts': '.js' },
     }),
     replace({
-      preventAssignment: false,
+      preventAssignment: true,
       values: { '// %isomorphic-ws%': 'import WebSocket from "isomorphic-ws"' },
       delimiters: ['', ''],
     }),
