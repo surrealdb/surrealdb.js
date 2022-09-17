@@ -15,6 +15,9 @@
     "moduleResolution": "Node",
     "outDir": "dist",
     "declaration": true,
-    "sourceMap": true
-  }
+    "declarationDir": "dist/types"
+  },
+  "include": [
+    "src"
+  ]
 }

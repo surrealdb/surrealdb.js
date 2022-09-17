@@ -3,9 +3,9 @@
   "version": "0.3.1",
   "description": "Javascript driver for SurrealDB",
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc -w --incremental",
-    "preversion": "tsc"
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "preversion": "rollup -c"
   },
   "repository": {
     "type": "git",
@@ -17,10 +17,14 @@
   },
   "type": "module",
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs",
+      "types": "./dist/types/index.d.ts"
+    }
   },
   "files": [
-    "dist/**/*.{js,d.ts}"
+    "dist/**/*.{js,cjs,d.ts}"
   ],
   "license": "MIT",
   "dependencies": {
@@ -28,8 +32,11 @@
     "ws": "^8.8.1"
   },
   "devDependencies": {
-    "@types/node": "^18.7.17",
+    "@rollup/plugin-replace": "^4.0.0",
     "@types/ws": "^8.5.3",
+    "rollup": "^2.79.0",
+    "rollup-plugin-rename": "^1.0.1",
+    "rollup-plugin-ts": "^3.0.2",
     "typescript": "^4.8.3"
   },
   "optionalDependencies": {
