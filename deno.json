@@ -1,12 +1,12 @@
 {
   "lint": {
     "files": {
-      "include": ["src/", "./mod.ts"]
+      "include": ["src/", "./mod.ts", "./rollup.config.ts"]
     }
   },
   "fmt": {
     "files": {
-      "include": ["src/", "./mod.ts"]
+      "include": ["src/", "./mod.ts", "./rollup.config.ts"]
     }
   }
 }

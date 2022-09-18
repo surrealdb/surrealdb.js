@@ -408,7 +408,10 @@ export default class Surreal extends Emitter {
     });
   }
 
-  change<T extends Record<string, unknown>, U extends Record<string, unknown> = T>(
+  change<
+    T extends Record<string, unknown>,
+    U extends Record<string, unknown> = T,
+  >(
     thing: string,
     data?: Partial<T> & U,
   ): Promise<(T & U & { id: string }) | (T & U & { id: string })[]> {
