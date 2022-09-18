@@ -57,10 +57,24 @@ export default defineConfig([
         preventAssignment: true,
         values: { ".ts": ".js" },
       }),
-      typescript(),
+      typescript({
+        tsconfig: {
+          strict: true,
+          alwaysStrict: true,
+          skipLibCheck: true,
+          isolatedModules: true,
+          forceConsistentCasingInFileNames: true,
+          target: "ES2020",
+          module: "ES6",
+          lib: [
+            "DOM",
+            "ESNext",
+          ],
+        },
+      }),
     ],
     output: {
-      dir: "dist/web",
+      dir: "./dist/web",
       format: "esm",
     },
   },
