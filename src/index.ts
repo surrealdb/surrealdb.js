@@ -402,7 +402,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	modify(thing: string, data?: Patch[]) {
+	modify(thing: string, data?: Patch[]): Promise<Patch[]> {
 		let id = guid();
 		return this.wait().then( () => {
 			return new Promise( (resolve, reject) => {
