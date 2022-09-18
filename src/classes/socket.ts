@@ -5,114 +5,105 @@ const OPENED = Symbol("Opened");
 const CLOSED = Symbol("Closed");
 
 export default class Socket extends Emitter {
+  #ws!: WebSocket;
 
-	#ws!: WebSocket;
+  #url: string;
 
-	#url: string;
+  #closed = false;
 
-	#closed = false;
+  #status = CLOSED;
 
-	#status = CLOSED;
+  constructor(url: URL | string) {
+    super();
 
-	constructor(url: URL | string) {
+    this.#init();
 
-		super();
+    this.#url = String(url)
+      .replace("http://", "ws://")
+      .replace("https://", "wss://");
+  }
 
-		this.#init();
+  ready!: Promise<void>;
+  private resolve!: () => void;
 
-		this.#url = String(url)
-			.replace("http://", "ws://")
-			.replace("https://", "wss://")
-		;
+  #init(): void {
+    this.ready = new Promise((resolve) => {
+      this.resolve = resolve;
+    });
+  }
 
-	}
+  open(): void {
+    this.#ws = new WebSocket(this.#url);
 
-	ready!: Promise<void>
-	private resolve!: () => void
+    // Setup event listeners so that the
+    // Surreal instance can listen to the
+    // necessary event types.
 
-	#init(): void {
+    this.#ws.addEventListener("message", (e) => {
+      this.emit("message", e);
+    });
 
-		this.ready = new Promise(resolve => {
-			this.resolve = resolve;
-		});
+    this.#ws.addEventListener("error", (e) => {
+      this.emit("error", e);
+    });
 
-	}
+    this.#ws.addEventListener("close", (e) => {
+      this.emit("close", e);
+    });
 
-	open(): void {
+    this.#ws.addEventListener("open", (e) => {
+      this.emit("open", e);
+    });
 
-		this.#ws = new WebSocket(this.#url);
+    // If the WebSocket connection with the
+    // database was disconnected, then we need
+    // to reset the ready promise.
 
-		// Setup event listeners so that the
-		// Surreal instance can listen to the
-		// necessary event types.
+    this.#ws.addEventListener("close", (e) => {
+      if (this.#status === OPENED) {
+        this.#init();
+      }
+    });
 
-		this.#ws.addEventListener("message", (e) => {
-			this.emit("message", e);
-		});
+    // When the WebSocket is opened or closed
+    // then we need to store the connection
+    // status within the status property.
 
-		this.#ws.addEventListener("error", (e) => {
-			this.emit("error", e);
-		});
+    this.#ws.addEventListener("close", (e) => {
+      this.#status = CLOSED;
+    });
 
-		this.#ws.addEventListener("close", (e) => {
-			this.emit("close", e);
-		});
+    this.#ws.addEventListener("open", (e) => {
+      this.#status = OPENED;
+    });
 
-		this.#ws.addEventListener("open", (e) => {
-			this.emit("open", e);
-		});
+    // If the connection is closed, then we
+    // need to attempt to reconnect on a
+    // regular basis until we are successful.
 
-		// If the WebSocket connection with the
-		// database was disconnected, then we need
-		// to reset the ready promise.
+    this.#ws.addEventListener("close", (e) => {
+      if (this.#closed === false) {
+        setTimeout(() => {
+          this.open();
+        }, 2500);
+      }
+    });
 
-		this.#ws.addEventListener("close", (e) => {
-			if (this.#status === OPENED) {
-				this.#init();
-			}
-		});
+    // When the WebSocket successfully opens
+    // then let's resolve the ready promise so
+    // that promise based code can continue.
 
-		// When the WebSocket is opened or closed
-		// then we need to store the connection
-		// status within the status property.
+    this.#ws.addEventListener("open", (e) => {
+      this.resolve();
+    });
+  }
 
-		this.#ws.addEventListener("close", (e) => {
-			this.#status = CLOSED;
-		});
+  send(data: string): void {
+    this.#ws.send(data);
+  }
 
-		this.#ws.addEventListener("open", (e) => {
-			this.#status = OPENED;
-		});
-
-		// If the connection is closed, then we
-		// need to attempt to reconnect on a
-		// regular basis until we are successful.
-
-		this.#ws.addEventListener("close", (e) => {
-			if (this.#closed === false) {
-				setTimeout( () => {
-					this.open();
-				}, 2500);
-			}
-		});
-
-		// When the WebSocket successfully opens
-		// then let's resolve the ready promise so
-		// that promise based code can continue.
-
-		this.#ws.addEventListener("open", (e) => {
-			this.resolve();
-		});
-
-	}
-
-	send(data: string): void {
-		this.#ws.send(data);
-	}
-
-	close(code=1000, reason="Some reason"): void {
-		this.#closed = true;
-		this.#ws.close(code, reason);
-	}
-
+  close(code = 1000, reason = "Some reason"): void {
+    this.#closed = true;
+    this.#ws.close(code, reason);
+  }
 }

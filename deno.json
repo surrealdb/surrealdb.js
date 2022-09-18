@@ -1,0 +1,12 @@
+{
+  "lint": {
+    "files": {
+      "include": ["src/", "./mod.ts"]
+    }
+  },
+  "fmt": {
+    "files": {
+      "include": ["src/", "./mod.ts"]
+    }
+  }
+}

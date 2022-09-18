@@ -2,84 +2,76 @@ import Surreal from "../index.ts";
 import Emitter from "./emitter.ts";
 
 export default class Live extends Emitter {
+  #id: string | undefined;
 
-	#id: string | undefined;
+  #db: Surreal;
 
-	#db: Surreal;
+  #sql: string;
 
-	#sql: string;
+  #vars?: Record<string, unknown>;
 
-	#vars?: Record<string, unknown>;
+  constructor(db: Surreal, sql: string, vars?: Record<string, unknown>) {
+    super();
 
-	constructor(db: Surreal, sql: string, vars?: Record<string, unknown>) {
+    this.#db = db;
 
-		super()
+    this.#sql = sql;
 
-		this.#db = db;
+    this.#vars = vars;
 
-		this.#sql = sql;
+    // @ts-expect-error ready was never set
+    if (this.#db.ready) {
+      this.open();
+    }
 
-		this.#vars = vars;
+    this.#db.on("opened", (e) => {
+      this.open();
+    });
 
-		// @ts-expect-error ready was never set
-		if (this.#db.ready) {
-			this.open();
-		}
+    this.#db.on("closed", (e) => {
+      this.#id = undefined;
+    });
 
-		this.#db.on("opened", e => {
-			this.open();
-		});
+    this.#db.on("notify", (e) => {
+      if (e.query === this.#id) {
+        switch (e.action) {
+          case "CREATE":
+            return this.emit("create", e.result);
+          case "UPDATE":
+            return this.emit("update", e.result);
+          case "DELETE":
+            return this.emit("delete", e.result);
+        }
+      }
+    });
+  }
 
-		this.#db.on("closed", e => {
-			this.#id = undefined;
-		});
+  // If we want to kill the live query
+  // then we can kill it. Once a query
+  // has been killed it can be opened
+  // again by calling the open() method.
 
-		this.#db.on("notify", e => {
-			if (e.query === this.#id) {
-				switch (e.action) {
-				case "CREATE":
-					return this.emit("create", e.result);
-				case "UPDATE":
-					return this.emit("update", e.result);
-				case "DELETE":
-					return this.emit("delete", e.result);
-				}
-			}
-		});
+  kill(): void | Promise<void> {
+    if (this.#id === undefined) return;
 
-	}
+    let res = this.#db.kill(this.#id);
 
-	// If we want to kill the live query
-	// then we can kill it. Once a query
-	// has been killed it can be opened
-	// again by calling the open() method.
+    this.#id = undefined;
 
-	kill(): void | Promise<void> {
+    return res;
+  }
 
-		if (this.#id === undefined) return;
+  // If the live query has been manually
+  // killed, then calling the open()
+  // method will re-enable the query.
 
-		let res = this.#db.kill(this.#id);
+  open(): void | Promise<void> {
+    if (this.#id !== undefined) return;
 
-		this.#id = undefined;
-
-		return res;
-
-	}
-
-	// If the live query has been manually
-	// killed, then calling the open()
-	// method will re-enable the query.
-
-	open(): void | Promise<void> {
-
-		if (this.#id !== undefined) return;
-
-		return this.#db.query(this.#sql, this.#vars).then(res => {
-			if (res[0] && Array.isArray(res[0].result) && res[0].result[0]) {
-				this.#id = res[0].result[0] as string;
-			}
-		});
-
-	}
-
+    return this.#db.query(this.#sql, this.#vars).then((res) => {
+      if (res[0] && Array.isArray(res[0].result) && res[0].result[0]) {
+        this.#id = res[0].result[0] as string;
+      }
+    });
+  }
 }
