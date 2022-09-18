@@ -1,18 +1,18 @@
 export default class Pinger {
 
-	#pinger = undefined;
+	#pinger?: ReturnType<typeof setTimeout>;
 
-	#interval = undefined;
+	#interval: number;
 
 	constructor(interval = 30000) {
 		this.#interval = interval;
 	}
 
-	start(func, ...args) {
+	start(func: () => void, ...args: unknown[]): void {
 		this.#pinger = setInterval(func, this.#interval);
 	}
 
-	stop() {
+	stop(): void {
 		clearInterval(this.#pinger);
 	}
 

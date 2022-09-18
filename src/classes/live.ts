@@ -1,16 +1,17 @@
-import Emitter from "./emitter.js";
+import Surreal from "../index.ts";
+import Emitter from "./emitter.ts";
 
 export default class Live extends Emitter {
 
-	#id = undefined;
+	#id: string | undefined;
 
-	#db = undefined;
+	#db: Surreal;
 
-	#sql = undefined;
+	#sql: string;
 
-	#vars = undefined;
+	#vars?: Record<string, unknown>;
 
-	constructor(db, sql, vars) {
+	constructor(db: Surreal, sql: string, vars?: Record<string, unknown>) {
 
 		super()
 
@@ -20,6 +21,7 @@ export default class Live extends Emitter {
 
 		this.#vars = vars;
 
+		// @ts-expect-error ready was never set
 		if (this.#db.ready) {
 			this.open();
 		}
@@ -52,7 +54,7 @@ export default class Live extends Emitter {
 	// has been killed it can be opened
 	// again by calling the open() method.
 
-	kill() {
+	kill(): void | Promise<void> {
 
 		if (this.#id === undefined) return;
 
@@ -68,13 +70,13 @@ export default class Live extends Emitter {
 	// killed, then calling the open()
 	// method will re-enable the query.
 
-	open() {
+	open(): void | Promise<void> {
 
 		if (this.#id !== undefined) return;
 
 		return this.#db.query(this.#sql, this.#vars).then(res => {
-			if (res[0] && res[0].result && res[0].result[0]) {
-				this.#id = res[0].result[0];
+			if (res[0] && Array.isArray(res[0].result) && res[0].result[0]) {
+				this.#id = res[0].result[0] as string;
 			}
 		});
 

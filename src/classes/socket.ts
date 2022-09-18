@@ -1,20 +1,20 @@
-import WebSocket from "../websocket/index.js";
-import Emitter from "./emitter.js";
+// %isomorphic-ws%
+import Emitter from "./emitter.ts";
 
 const OPENED = Symbol("Opened");
 const CLOSED = Symbol("Closed");
 
 export default class Socket extends Emitter {
 
-	#ws = null;
+	#ws!: WebSocket;
 
-	#url = null;
+	#url: string;
 
 	#closed = false;
 
 	#status = CLOSED;
 
-	constructor(url) {
+	constructor(url: URL | string) {
 
 		super();
 
@@ -27,7 +27,10 @@ export default class Socket extends Emitter {
 
 	}
 
-	#init() {
+	ready!: Promise<void>
+	private resolve!: () => void
+
+	#init(): void {
 
 		this.ready = new Promise(resolve => {
 			this.resolve = resolve;
@@ -35,7 +38,7 @@ export default class Socket extends Emitter {
 
 	}
 
-	open() {
+	open(): void {
 
 		this.#ws = new WebSocket(this.#url);
 
@@ -103,11 +106,11 @@ export default class Socket extends Emitter {
 
 	}
 
-	send(data) {
+	send(data: string): void {
 		this.#ws.send(data);
 	}
 
-	close(code=1000, reason="Some reason") {
+	close(code=1000, reason="Some reason"): void {
 		this.#closed = true;
 		this.#ws.close(code, reason);
 	}
