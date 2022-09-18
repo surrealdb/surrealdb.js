@@ -392,7 +392,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-	change<T extends object, U extends object = T>(thing: string, data?: Partial<T> & U): Promise<T & U & { id: string }> {
+	change<T extends object, U extends object = T>(thing: string, data?: Partial<T> & U): Promise<(T & U & { id: string }) | (T & U & { id: string })[]> {
 		let id = guid();
 		return this.wait().then( () => {
 			return new Promise( (resolve, reject) => {
