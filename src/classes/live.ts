@@ -24,11 +24,11 @@ export default class Live extends Emitter {
       this.open();
     }
 
-    this.#db.on("opened", (e) => {
+    this.#db.on("opened", () => {
       this.open();
     });
 
-    this.#db.on("closed", (e) => {
+    this.#db.on("closed", () => {
       this.#id = undefined;
     });
 
@@ -54,7 +54,7 @@ export default class Live extends Emitter {
   kill(): void | Promise<void> {
     if (this.#id === undefined) return;
 
-    let res = this.#db.kill(this.#id);
+    const res = this.#db.kill(this.#id);
 
     this.#id = undefined;
 

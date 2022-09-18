@@ -59,7 +59,7 @@ export default class Socket extends Emitter {
     // database was disconnected, then we need
     // to reset the ready promise.
 
-    this.#ws.addEventListener("close", (e) => {
+    this.#ws.addEventListener("close", () => {
       if (this.#status === OPENED) {
         this.#init();
       }
@@ -69,11 +69,11 @@ export default class Socket extends Emitter {
     // then we need to store the connection
     // status within the status property.
 
-    this.#ws.addEventListener("close", (e) => {
+    this.#ws.addEventListener("close", () => {
       this.#status = CLOSED;
     });
 
-    this.#ws.addEventListener("open", (e) => {
+    this.#ws.addEventListener("open", () => {
       this.#status = OPENED;
     });
 
@@ -81,7 +81,7 @@ export default class Socket extends Emitter {
     // need to attempt to reconnect on a
     // regular basis until we are successful.
 
-    this.#ws.addEventListener("close", (e) => {
+    this.#ws.addEventListener("close", () => {
       if (this.#closed === false) {
         setTimeout(() => {
           this.open();
@@ -93,7 +93,7 @@ export default class Socket extends Emitter {
     // then let's resolve the ready promise so
     // that promise based code can continue.
 
-    this.#ws.addEventListener("open", (e) => {
+    this.#ws.addEventListener("open", () => {
       this.resolve();
     });
   }
