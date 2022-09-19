@@ -497,7 +497,10 @@ export default class Surreal extends Emitter {
 	 * @param thing - The table name or the specific record ID to change.
 	 * @param data - The document / record data to insert.
 	 */
-	change<T extends Record<string, unknown>, U extends Record<string, unknown> = T>(
+	change<
+		T extends Record<string, unknown>,
+		U extends Record<string, unknown> = T,
+	>(
 		thing: string,
 		data?: Partial<T> & U,
 	): Promise<(T & U & { id: string }) | (T & U & { id: string })[]> {
