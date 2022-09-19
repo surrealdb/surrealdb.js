@@ -5,7 +5,6 @@ const OPENED = Symbol("Opened");
 const CLOSED = Symbol("Closed");
 
 export default class Socket extends Emitter {
-
 	#ws!: WebSocket;
 
 	#url: string;
@@ -15,31 +14,25 @@ export default class Socket extends Emitter {
 	#status = CLOSED;
 
 	constructor(url: URL | string) {
-
 		super();
 
 		this.#init();
 
 		this.#url = String(url)
 			.replace("http://", "ws://")
-			.replace("https://", "wss://")
-		;
-
+			.replace("https://", "wss://");
 	}
 
-	ready!: Promise<void>
-	private resolve!: () => void
+	ready!: Promise<void>;
+	private resolve!: () => void;
 
 	#init(): void {
-
-		this.ready = new Promise(resolve => {
+		this.ready = new Promise((resolve) => {
 			this.resolve = resolve;
 		});
-
 	}
 
 	open(): void {
-
 		this.#ws = new WebSocket(this.#url);
 
 		// Setup event listeners so that the
@@ -66,7 +59,7 @@ export default class Socket extends Emitter {
 		// database was disconnected, then we need
 		// to reset the ready promise.
 
-		this.#ws.addEventListener("close", (e) => {
+		this.#ws.addEventListener("close", () => {
 			if (this.#status === OPENED) {
 				this.#init();
 			}
@@ -76,11 +69,11 @@ export default class Socket extends Emitter {
 		// then we need to store the connection
 		// status within the status property.
 
-		this.#ws.addEventListener("close", (e) => {
+		this.#ws.addEventListener("close", () => {
 			this.#status = CLOSED;
 		});
 
-		this.#ws.addEventListener("open", (e) => {
+		this.#ws.addEventListener("open", () => {
 			this.#status = OPENED;
 		});
 
@@ -88,9 +81,9 @@ export default class Socket extends Emitter {
 		// need to attempt to reconnect on a
 		// regular basis until we are successful.
 
-		this.#ws.addEventListener("close", (e) => {
+		this.#ws.addEventListener("close", () => {
 			if (this.#closed === false) {
-				setTimeout( () => {
+				setTimeout(() => {
 					this.open();
 				}, 2500);
 			}
@@ -100,19 +93,17 @@ export default class Socket extends Emitter {
 		// then let's resolve the ready promise so
 		// that promise based code can continue.
 
-		this.#ws.addEventListener("open", (e) => {
+		this.#ws.addEventListener("open", () => {
 			this.resolve();
 		});
-
 	}
 
 	send(data: string): void {
 		this.#ws.send(data);
 	}
 
-	close(code=1000, reason="Some reason"): void {
+	close(code = 1000, reason = "Some reason"): void {
 		this.#closed = true;
 		this.#ws.close(code, reason);
 	}
-
 }

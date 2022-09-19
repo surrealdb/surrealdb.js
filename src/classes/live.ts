@@ -2,7 +2,6 @@ import Surreal from "../index.ts";
 import Emitter from "./emitter.ts";
 
 export default class Live extends Emitter {
-
 	#id: string | undefined;
 
 	#db: Surreal;
@@ -12,8 +11,7 @@ export default class Live extends Emitter {
 	#vars?: Record<string, unknown>;
 
 	constructor(db: Surreal, sql: string, vars?: Record<string, unknown>) {
-
-		super()
+		super();
 
 		this.#db = db;
 
@@ -26,27 +24,26 @@ export default class Live extends Emitter {
 			this.open();
 		}
 
-		this.#db.on("opened", e => {
+		this.#db.on("opened", () => {
 			this.open();
 		});
 
-		this.#db.on("closed", e => {
+		this.#db.on("closed", () => {
 			this.#id = undefined;
 		});
 
-		this.#db.on("notify", e => {
+		this.#db.on("notify", (e) => {
 			if (e.query === this.#id) {
 				switch (e.action) {
-				case "CREATE":
-					return this.emit("create", e.result);
-				case "UPDATE":
-					return this.emit("update", e.result);
-				case "DELETE":
-					return this.emit("delete", e.result);
+					case "CREATE":
+						return this.emit("create", e.result);
+					case "UPDATE":
+						return this.emit("update", e.result);
+					case "DELETE":
+						return this.emit("delete", e.result);
 				}
 			}
 		});
-
 	}
 
 	// If we want to kill the live query
@@ -55,15 +52,13 @@ export default class Live extends Emitter {
 	// again by calling the open() method.
 
 	kill(): void | Promise<void> {
-
 		if (this.#id === undefined) return;
 
-		let res = this.#db.kill(this.#id);
+		const res = this.#db.kill(this.#id);
 
 		this.#id = undefined;
 
 		return res;
-
 	}
 
 	// If the live query has been manually
@@ -71,15 +66,12 @@ export default class Live extends Emitter {
 	// method will re-enable the query.
 
 	open(): void | Promise<void> {
-
 		if (this.#id !== undefined) return;
 
-		return this.#db.query(this.#sql, this.#vars).then(res => {
+		return this.#db.query(this.#sql, this.#vars).then((res) => {
 			if (res[0] && Array.isArray(res[0].result) && res[0].result[0]) {
 				this.#id = res[0].result[0] as string;
 			}
 		});
-
 	}
-
 }
