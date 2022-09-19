@@ -26,28 +26,16 @@ export interface ReplacePatch extends BasePatch {
 	value: any;
 }
 
-export interface MovePatch extends BasePatch {
-	op: "move";
-	from: string;
-}
-
-export interface CopyPatch extends BasePatch {
-	op: "copy";
-	from: string;
-}
-
-export interface TestPatch extends BasePatch {
-	op: "test";
-	value: any;
+export interface ChangePatch extends BasePatch {
+	op: "change";
+	value: string;
 }
 
 export type Patch =
 	| AddPatch
 	| RemovePatch
 	| ReplacePatch
-	| MovePatch
-	| CopyPatch
-	| TestPatch;
+	| ChangePatch;
 
 interface ResultOk<T> {
 	result: T;
