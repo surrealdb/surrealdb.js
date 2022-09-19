@@ -1,5 +1,5 @@
 export default class Pinger {
-	#pinger?: ReturnType<typeof setTimeout>;
+	#pinger?: NodeJS.Timer | number;
 
 	#interval: number;
 
