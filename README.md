@@ -25,3 +25,19 @@ For Deno, no build is needed. For all other environments run
 To watch for and auto rebuild changes:
 
 `npm run dev`.
+
+### Formatting
+
+`deno fmt`
+
+### Linting
+
+`deno lint`
+
+### PRs
+
+Before you commit, please format and lint your code accordingly to check for errors.
+
+### Local setup
+
+For local development the [Deno extension](https://marketplace.visualstudio.com/items?itemName=denoland.vscode-deno) for VSCode is helpful (hint: local Deno installation required).
