@@ -1,5 +1,6 @@
 export default class Pinger {
-	#pinger?: ReturnType<typeof setTimeout>;
+	// deno-lint-ignore no-explicit-any
+	#pinger?: any;
 
 	#interval: number;
 
