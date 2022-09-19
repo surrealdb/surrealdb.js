@@ -47,7 +47,7 @@ jobs:
       - name: Start surrealdb
         run: sh ./test/e2e/scripts/docker-start.sh
       - name: Run Bun
-        run: node ./test/e2e/bun.js
+        run: bun run ./test/e2e/bun.js
       - name: Get DB Dump
         run:  sh ./test/e2e/scripts/docker-stop-dump.sh
       - name: Check Bun-Dump
