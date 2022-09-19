@@ -84,8 +84,8 @@ export default class Surreal extends Emitter {
 	// ------------------------------
 
 	/**
-	 * The Instance static singleton ensures that a single database instance is available across very large or complicated applications. 
-	 * With the singleton, only one connection to the database is instantiated, and the database connection does not have to be shared 
+	 * The Instance static singleton ensures that a single database instance is available across very large or complicated applications.
+	 * With the singleton, only one connection to the database is instantiated, and the database connection does not have to be shared
 	 * across components or controllers.
 	 * @return A Surreal instance.
 	 */
@@ -265,7 +265,7 @@ export default class Surreal extends Emitter {
 	}
 
 	// --------------------------------------------------
-	
+
 	/**
 	 * Ping SurrealDB instance
 	 */
@@ -278,7 +278,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-		/**
+	/**
 	 * Switch to a specific namespace and database.
 	 * @param ns - Switches to a specific namespace.
 	 * @param db - Switches to a specific database.
@@ -350,7 +350,7 @@ export default class Surreal extends Emitter {
 		});
 	}
 
-		/**
+	/**
 	 * Authenticates the current connection with a JWT token.
 	 * @param token - The JWT authentication token.
 	 */
@@ -408,19 +408,24 @@ export default class Surreal extends Emitter {
 	/**
 	 * Runs a set of SurrealQL statements against the database.
 	 * @param query - Specifies the SurrealQL statements.
-	 * @param vars - Assigns variables which can be used in the query.	 
+	 * @param vars - Assigns variables which can be used in the query.
 	 */
-	query<T = Result[]>(query: string, vars?: Record<string, unknown>): Promise<T> {
-		let id = guid();
-		return this.wait().then( () => {
-			return new Promise<T>( (resolve, reject) => {
-				this.once(id, res => this.#result(res, resolve as () => void, reject) );
+	query<T = Result[]>(
+		query: string,
+		vars?: Record<string, unknown>,
+	): Promise<T> {
+		const id = guid();
+		return this.wait().then(() => {
+			return new Promise<T>((resolve, reject) => {
+				this.once(
+					id,
+					(res) => this.#result(res, resolve as () => void, reject),
+				);
 				this.#send(id, "query", [query, vars]);
 			});
 		});
 	}
 
-	
 	/**
 	 * Selects all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
@@ -444,53 +449,77 @@ export default class Surreal extends Emitter {
 	 * @param thing - The table name or the specific record ID to create.
 	 * @param data - The document / record data to insert.
 	 */
-	create<T extends object>(thing: string, data?: T): Promise<T & { id: string }> {
-		let id = guid();
-		return this.wait().then( () => {
-			return new Promise( (resolve, reject) => {
-				this.once(id, res => this.#output(res, "create", thing, resolve, reject) );
+	create<T extends Record<string, unkown>>(
+		thing: string,
+		data?: T,
+	): Promise<T & { id: string }> {
+		const id = guid();
+		return this.wait().then(() => {
+			return new Promise((resolve, reject) => {
+				this.once(
+					id,
+					(res) =>
+						this.#output(res, "create", thing, resolve, reject),
+				);
 				this.#send(id, "create", [thing, data]);
 			});
 		});
 	}
 
 	/**
-	 * Updates all records in a table, or a specific record, in the database.  
-	 * 
+	 * Updates all records in a table, or a specific record, in the database.
+	 *
 	 * ***NOTE: This function replaces the current document / record data with the specified data.***
 	 * @param thing - The table name or the specific record ID to update.
 	 * @param data - The document / record data to insert.
 	 */
-	update<T extends object>(thing: string, data?: T): Promise<T & { id: string }> {
-		let id = guid();
-		return this.wait().then( () => {
-			return new Promise( (resolve, reject) => {
-				this.once(id, res => this.#output(res, "update", thing, resolve, reject) );
+	update<T extends Record<string, unkown>>(
+		thing: string,
+		data?: T,
+	): Promise<T & { id: string }> {
+		const id = guid();
+		return this.wait().then(() => {
+			return new Promise((resolve, reject) => {
+				this.once(
+					id,
+					(res) =>
+						this.#output(res, "update", thing, resolve, reject),
+				);
 				this.#send(id, "update", [thing, data]);
 			});
 		});
 	}
 
 	/**
-	 * Modifies all records in a table, or a specific record, in the database.  
-	 * 
+	 * Modifies all records in a table, or a specific record, in the database.
+	 *
 	 * ***NOTE: This function merges the current document / record data with the specified data.***
 	 * @param thing - The table name or the specific record ID to change.
 	 * @param data - The document / record data to insert.
 	 */
-	change<T extends object, U extends object = T>(thing: string, data?: Partial<T> & U): Promise<(T & U & { id: string }) | (T & U & { id: string })[]> {
-		let id = guid();
-		return this.wait().then( () => {
-			return new Promise( (resolve, reject) => {
-				this.once(id, res => this.#output(res, "change", thing, resolve, reject) );
+	change<
+		T extends Record<string, unknown>,
+		U extends Record<string, unkown> = T,
+	>(
+		thing: string,
+		data?: Partial<T> & U,
+	): Promise<(T & U & { id: string }) | (T & U & { id: string })[]> {
+		const id = guid();
+		return this.wait().then(() => {
+			return new Promise((resolve, reject) => {
+				this.once(
+					id,
+					(res) =>
+						this.#output(res, "change", thing, resolve, reject),
+				);
 				this.#send(id, "change", [thing, data]);
 			});
 		});
 	}
 
 	/**
-	 * Applies JSON Patch changes to all records, or a specific record, in the database.  
-	 * 
+	 * Applies JSON Patch changes to all records, or a specific record, in the database.
+	 *
 	 * ***NOTE: This function patches the current document / record data with the specified JSON Patch data.***
 	 * @param thing - The table name or the specific record ID to modify.
 	 * @param data - The JSON Patch data with which to modify the records.
