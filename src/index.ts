@@ -1,10 +1,10 @@
 // deno-lint-ignore-file no-explicit-any
-import guid from "./utils/guid.ts";
-import errors from "./errors/index.ts";
-import Live from "./classes/live.ts";
-import Socket from "./classes/socket.ts";
-import Pinger from "./classes/pinger.ts";
-import Emitter from "./classes/emitter.ts";
+import guid from "./utils/guid";
+import errors from "./errors/index";
+import Live from "./classes/live";
+import Socket from "./classes/socket";
+import Pinger from "./classes/pinger";
+import Emitter from "./classes/emitter";
 
 let singleton: Surreal;
 

@@ -1,5 +1,5 @@
 // %isomorphic-ws%
-import Emitter from "./emitter.ts";
+import Emitter from "./emitter";
 
 const OPENED = Symbol("Opened");
 const CLOSED = Symbol("Closed");

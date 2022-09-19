@@ -1,5 +1,5 @@
-import Surreal from "../index.ts";
-import Emitter from "./emitter.ts";
+import Surreal from "../index";
+import Emitter from "./emitter";
 
 export default class Live extends Emitter {
 	#id: string | undefined;
