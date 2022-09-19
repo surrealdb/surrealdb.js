@@ -7,16 +7,16 @@ export default interface Emitter {
 	off(eventName: EventName, listener: Listener): this;
 }
 
+export function once(emitter: Emitter, eventName: EventName): Promise<any[]> {
+	return new Promise((res) => {
+		emitter.once(eventName, (...args) => res(args));
+	});
+}
+
 export default class Emitter {
 	#events: Map<EventName, Listener[]> = new Map();
 
-	static once(emitter: Emitter, eventName: EventName): Promise<any[]> {
-		const prom = new Promise<any[]>((res) => {
-			emitter.once(eventName, (...args) => res(args));
-		});
-
-		return prom;
-	}
+	static once = once;
 
 	static {
 		this.prototype.addListener = this.prototype.on;
