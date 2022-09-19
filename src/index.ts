@@ -49,22 +49,36 @@ interface ResultErr {
 
 export type Result<T = unknown> = ResultOk<T> | ResultErr;
 
-export interface AuthOpts {
-	NS?: string;
-	DB?: string;
-}
-
-export interface NamespaceAuth extends AuthOpts {
+export interface RootAuth {
 	user: string;
 	pass: string;
 }
 
-export interface ScopeAuth extends AuthOpts {
+export interface NamespaceAuth {
+	NS: string;
+	user: string;
+	pass: string;
+}
+
+export interface DatabaseAuth {
+	NS: string;
+	DB: string;
+	user: string;
+	pass: string;
+}
+
+export interface ScopeAuth {
+	NS: string;
+	DB: string;
 	SC: string;
 	[key: string]: unknown;
 }
 
-export type Auth = NamespaceAuth | ScopeAuth;
+export type Auth =
+	| RootAuth
+	| NamespaceAuth
+	| DatabaseAuth
+	| ScopeAuth;
 
 export default class Surreal extends Emitter {
 	// ------------------------------
