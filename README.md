@@ -44,9 +44,10 @@ import Surreal from "https://unpkg.com/surrealdb.js";
 import Surreal from "https://cdn.jsdelivr.net/npm/surrealdb.js";
 ```
 
-*** NOTE: this bundle is not optimized for production! So don't use it in production!***
+*** NOTE: this bundle is not optimized for production! So don't use it in production! ***
 
 ## Getting started
+Here you have a simple example!
 
 ```ts
 const db = new Surreal('http://127.0.0.1:8000/rpc');
