@@ -1,8 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
-export type Listener = (this: Emitter, ...args: any[]) => void
+export type Listener = (this: Emitter, ...args: any[]) => void;
 
 export default class Emitter {
-
 	#events: Record<string, Listener[]> = {};
 
 	on(e: string, func: Listener) {
@@ -30,7 +29,7 @@ export default class Emitter {
 
 	emit(e: string, ...args: any[]) {
 		if (typeof this.#events[e] === "object") {
-			this.#events[e].forEach(func => {
+			this.#events[e].forEach((func) => {
 				func.apply(this, args);
 			});
 		}
@@ -47,5 +46,4 @@ export default class Emitter {
 			}
 		}
 	}
-
 }
