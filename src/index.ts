@@ -449,7 +449,7 @@ export default class Surreal extends Emitter {
 	 * @param thing - The table name or the specific record ID to create.
 	 * @param data - The document / record data to insert.
 	 */
-	create<T extends Record<string, unkown>>(
+	create<T extends Record<string, unknown>>(
 		thing: string,
 		data?: T,
 	): Promise<T & { id: string }> {
@@ -473,7 +473,7 @@ export default class Surreal extends Emitter {
 	 * @param thing - The table name or the specific record ID to update.
 	 * @param data - The document / record data to insert.
 	 */
-	update<T extends Record<string, unkown>>(
+	update<T extends Record<string, unknown>>(
 		thing: string,
 		data?: T,
 	): Promise<T & { id: string }> {
@@ -497,10 +497,7 @@ export default class Surreal extends Emitter {
 	 * @param thing - The table name or the specific record ID to change.
 	 * @param data - The document / record data to insert.
 	 */
-	change<
-		T extends Record<string, unknown>,
-		U extends Record<string, unkown> = T,
-	>(
+	change<T extends Record<string, unknown>, U extends Record<string, unknown> = T>(
 		thing: string,
 		data?: Partial<T> & U,
 	): Promise<(T & U & { id: string }) | (T & U & { id: string })[]> {
