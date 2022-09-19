@@ -8,7 +8,13 @@ The official SurrealDB library for JavaScript.
 
 ### Local setup
 
-This is a [Deno](https://deno.land) project, not NodeJS. For example, this means import paths include the `.ts` file extension. However, to also support other JavaScript environments such as NodeJS and web-browsers, a npm project setup has been added to build such versions using rollup and to manage dependencies for these environments.
+This is a [Deno](https://deno.land) project, not NodeJS. For example, this means import paths include the `.ts` file extension. However, to also support other JavaScript environments, a npm project setup has been added to build such versions using rollup and to manage dependencies for these environments.
+
+#### Supported environments
+* [Deno](https://deno.land)
+* [NodeJS](https://nodejs.org)
+* [Bun](https://bun.sh)
+* web-browsers
 
 ### Requirements
 
