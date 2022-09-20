@@ -2,19 +2,33 @@
 export type EventName = string | symbol;
 export type Listener = (this: Emitter, ...args: any[]) => void;
 
-export default interface Emitter {
+export type EventMap = Record<EventName, any>;
+
+export default interface Emitter<Events extends EventMap = EventMap> {
+	addListener<T extends keyof Events>(
+		eventName: T,
+		listener: (this: this, ...args: Events[T]) => void,
+	): this;
 	addListener(eventName: EventName, listener: Listener): this;
+	off<T extends keyof Events>(
+		eventName: T,
+		listener: (this: this, ...args: Events[T]) => void,
+	): this;
 	off(eventName: EventName, listener: Listener): this;
 }
 
+export function once<T extends EventMap, K extends keyof T>(
+	emitter: Emitter<T>,
+	eventName: K,
+): Promise<T[K]>;
 export function once(emitter: Emitter, eventName: EventName): Promise<any[]> {
 	return new Promise((res) => {
 		emitter.once(eventName, (...args) => res(args));
 	});
 }
 
-export default class Emitter {
-	#events: Map<EventName, Listener[]> = new Map();
+export default class Emitter<Events extends EventMap = EventMap> {
+	#events = new Map<EventName, Listener[]>();
 
 	static once = once;
 
@@ -23,6 +37,11 @@ export default class Emitter {
 		this.prototype.off = this.prototype.removeListener;
 	}
 
+	// @ts-ignore this is correct since we're overwriting with specific args.
+	on<T extends keyof Events>(
+		eventName: T,
+		listener: (this: this, ...args: Events[T]) => void,
+	): this;
 	on(eventName: EventName, listener: Listener): this {
 		const listeners = this.#events.get(eventName);
 		if (listeners !== undefined) {
@@ -33,6 +52,11 @@ export default class Emitter {
 		return this;
 	}
 
+	// @ts-ignore see above.
+	removeListener<T extends keyof Events>(
+		eventName: T,
+		listener: (this: this, ...args: Events[T]) => void,
+	): this;
 	removeListener(eventName: EventName, listener: Listener): this {
 		const events = this.#events.get(eventName);
 		if (events !== undefined) {
@@ -48,14 +72,20 @@ export default class Emitter {
 		return this;
 	}
 
+	// @ts-ignore see above.
+	once<T extends keyof Events>(
+		eventName: T,
+		listener: (this: this, ...args: Events[T]) => void,
+	): this;
 	once(eventName: EventName, listener: Listener): this {
-		this.on(eventName, function once(...args) {
+		this.on(eventName, function once(...args: any[]) {
 			this.removeListener(eventName, listener);
 			listener.apply(this, args);
 		});
 		return this;
 	}
 
+	emit<T extends keyof Events>(eventName: T, ...args: Events[T]): this;
 	emit(eventName: EventName, ...args: any[]): this {
 		const listeners = this.#events.get(eventName);
 		if (listeners !== undefined) {
@@ -64,6 +94,7 @@ export default class Emitter {
 		return this;
 	}
 
+	removeAllListeners(eventName?: keyof Events): this;
 	removeAllListeners(eventName?: EventName): this {
 		if (eventName !== undefined) {
 			this.#events.delete(eventName);
