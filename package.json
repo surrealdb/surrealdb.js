@@ -24,6 +24,7 @@
       "types": "./dist/types/index.d.ts"
     }
   },
+  "types": "./dist/types/index.d.ts",
   "files": [
     "dist/**/*.{js,cjs,d.ts}"
   ],
