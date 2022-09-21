@@ -16,6 +16,6 @@
 		}
 	},
 	"tasks": {
-		"build": "deno run -A ./compile.ts"
+		"build": "deno run -A ./compile.ts && cd npm && npm run build:web"
 	}
 }

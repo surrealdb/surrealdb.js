@@ -32,7 +32,11 @@ await build({
 		devDependencies: {
 			"@types/node": "^18.7.18",
 			"@types/ws": "8.5.3",
+      "esbuild": "0.15.8"
 		},
+    scripts: {
+      "build:web": "esbuild ./esm/index.js --bundle --sourcemap --outfile=./web/index.js"
+    }
 	},
 	// skipSourceOutput: true,
 	mappings: {
