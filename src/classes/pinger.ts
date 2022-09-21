@@ -8,7 +8,7 @@ export default class Pinger {
 		this.#interval = interval;
 	}
 
-	start(func: () => void, ...args: unknown[]): void {
+	start(func: () => void, ...args: any[]): void {
 		this.#pinger = setInterval(func, this.#interval, ...args);
 	}
 

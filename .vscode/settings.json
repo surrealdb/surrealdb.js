@@ -5,8 +5,4 @@
     "src",
     "mod.ts"
   ]
-  // "deno.enablePaths": [
-  //   "mod.ts",
-  //   "src"
-  // ]
 }
