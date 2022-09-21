@@ -30,7 +30,7 @@ await build({
 			"ws": "^8.8.1",
 		},
 		devDependencies: {
-      "@types/node": "^18.7.18",
+			"@types/node": "^18.7.18",
 			"@types/ws": "8.5.3",
 		},
 	},
@@ -38,10 +38,10 @@ await build({
 	mappings: {
 		"./src/ws/deno.ts": "./src/ws/node.ts",
 	},
-  compilerOptions: {
-    lib: ['dom'],
-    sourceMap: true
-  },
+	compilerOptions: {
+		lib: ["dom"],
+		sourceMap: true,
+	},
 });
 
 // post build steps
