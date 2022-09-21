@@ -1,4 +1,5 @@
 import { build, emptyDir } from "https://deno.land/x/dnt/mod.ts";
+import { version } from "./project.json" assert { type: "json" };
 
 await emptyDir("./npm");
 
@@ -15,16 +16,17 @@ await build({
   },
   package: {
     // package.json properties
-    name: "your-package",
-    version: Deno.args[0],
-    description: "Your package.",
-    license: "MIT",
+    name: "surrealdb.js",
+    version: version,
+    description: "Javascript driver for SurrealDB",
+    license: "Apache 2.0",
     repository: {
       type: "git",
-      url: "git+https://github.com/username/repo.git",
+      url: "https://github.com/surrealdb/surrealdb.js.git"
     },
-    bugs: {
-      url: "https://github.com/username/repo/issues",
+    author: {
+      name: "Tobie Morgan Hitchcock",
+      url: "https://surrealdb.com"
     },
     dependencies: {
       "isomorphic-ws": "^5.0.0",
