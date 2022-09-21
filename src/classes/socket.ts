@@ -1,4 +1,3 @@
-// %isomorphic-ws%
 import Emitter from "./emitter.ts";
 
 const OPENED = Symbol("Opened");

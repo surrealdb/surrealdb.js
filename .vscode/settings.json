@@ -1,7 +1,12 @@
 {
   "deno.enable": true,
   "deno.enablePaths": [
-    "mod.ts",
-    "src"
+    "compile.ts",
+    "src",
+    "mod.ts"
   ]
+  // "deno.enablePaths": [
+  //   "mod.ts",
+  //   "src"
+  // ]
 }
