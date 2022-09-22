@@ -21,6 +21,8 @@ This is a [Deno](https://deno.land) project, not NodeJS. For example, this means
 -   Deno
 -   npm
 -   NodeJS
+-   Docker (for e2e tests)
+-   Bun (for e2e tests)
 
 ### Build for all supported environments
 
