@@ -27,28 +27,28 @@ jobs:
         run: npm run build
         
       - name: Start surrealdb
-        run: sh ./test/e2e/scripts/docker-start.sh
+        run: sh ./test/e2e/scripts/docker-restart.sh deno
       - name: Run Deno
         run: deno run -A ./test/e2e/deno.js
       - name: Get DB Dump
-        run:  sh ./test/e2e/scripts/docker-stop-dump.sh
+        run:  sh ./test/e2e/scripts/docker-stop.sh deno
       - name: Check DENO-Dump
         run: deno run -A ./test/e2e/scripts/compare-dump.js
 
       - name: Start surrealdb
-        run: sh ./test/e2e/scripts/docker-start.sh
+        run: sh ./test/e2e/scripts/docker-restart.sh node
       - name: Run Node
         run: node ./test/e2e/node.js
       - name: Get DB Dump
-        run:  sh ./test/e2e/scripts/docker-stop-dump.sh
+        run:  sh ./test/e2e/scripts/docker-stop.sh node
       - name: Check Node-Dump
         run: deno run -A ./test/e2e/scripts/compare-dump.js
 
       - name: Start surrealdb
-        run: sh ./test/e2e/scripts/docker-start.sh
+        run: sh ./test/e2e/scripts/docker-restart.sh bun
       - name: Run Bun
         run: bun run ./test/e2e/bun.js
       - name: Get DB Dump
-        run:  sh ./test/e2e/scripts/docker-stop-dump.sh
+        run:  sh ./test/e2e/scripts/docker-stop.sh bun
       - name: Check Bun-Dump
         run: deno run -A ./test/e2e/scripts/compare-dump.js
