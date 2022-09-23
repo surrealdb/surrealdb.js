@@ -80,7 +80,23 @@ export type Auth =
 	| DatabaseAuth
 	| ScopeAuth;
 
-export default class Surreal extends Emitter {
+interface KnownSurrealEvents {
+	open: never[];
+	opened: never[];
+	close: never[];
+	closed: never[];
+	notify: [any];
+}
+
+export default class Surreal extends Emitter<
+	& KnownSurrealEvents
+	& Omit<
+		{
+			[k in string]: any[];
+		},
+		keyof KnownSurrealEvents
+	>
+> {
 	// ------------------------------
 	// Main singleton
 	// ------------------------------

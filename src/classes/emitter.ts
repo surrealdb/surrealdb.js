@@ -1,41 +1,72 @@
 // deno-lint-ignore-file no-explicit-any
-export type Listener = (this: Emitter, ...args: any[]) => void;
+export type Listener<
+	TThis = any,
+	TArgs extends any[] = any[],
+> = (this: TThis, ...args: TArgs) => void;
 
-export default class Emitter {
-	#events: Record<string, Listener[]> = {};
+/**
+ * A record mapping event's names to its listener arguments.
+ */
+export type EmitterEvents<
+	TEventName extends string = string,
+	TEventArguments extends any[] = any[],
+> = {
+	[eventName in TEventName]: TEventArguments;
+};
 
-	on(e: string, func: Listener) {
-		if (typeof this.#events[e] !== "object") {
+export default class Emitter<
+	TEmitterEvent extends EmitterEvents = EmitterEvents,
+> {
+	#events: {
+		[TKey in keyof TEmitterEvent]?: Listener<this, TEmitterEvent[TKey]>[];
+	} = {};
+
+	on<TKey extends keyof TEmitterEvent>(
+		e: TKey,
+		func: Listener<this, TEmitterEvent[TKey]>,
+	) {
+		if (!Array.isArray(this.#events[e])) {
 			this.#events[e] = [];
 		}
-		this.#events[e].push(func);
+		this.#events[e]!.push(func);
 	}
 
-	off(e: string, func: Listener) {
-		if (typeof this.#events[e] === "object") {
-			const idx = this.#events[e].indexOf(func);
-			if (idx > -1) {
-				this.#events[e].splice(idx, 1);
+	off<TKey extends keyof TEmitterEvent>(
+		e: TKey,
+		func: Listener<this, TEmitterEvent[TKey]>,
+	) {
+		if (Array.isArray(this.#events[e])) {
+			const idx = this.#events[e]!.indexOf(func);
+			if (idx && idx > -1) {
+				this.#events[e]!.splice(idx, 1);
 			}
 		}
 	}
 
-	once(e: string, func: Listener) {
-		this.on(e, function f(...args) {
+	once<TKey extends keyof TEmitterEvent>(
+		e: TKey,
+		func: Listener<this, TEmitterEvent[TKey]>,
+	) {
+		this.on(e, function f(...args: TEmitterEvent[TKey]) {
 			this.off(e, f);
 			func.apply(this, args);
 		});
 	}
 
-	emit(e: string, ...args: any[]) {
-		if (typeof this.#events[e] === "object") {
-			this.#events[e].forEach((func) => {
-				func.apply(this, args);
-			});
+	emit<TKey extends keyof TEmitterEvent>(
+		e: TKey,
+		...args: TEmitterEvent[TKey]
+	) {
+		if (Array.isArray(this.#events[e])) {
+			this.#events[e]!.forEach(
+				(func: (...args: TEmitterEvent[TKey]) => void) => {
+					func.apply(this, args);
+				},
+			);
 		}
 	}
 
-	removeAllListeners(e?: string) {
+	removeAllListeners<TKey extends keyof TEmitterEvent>(e?: TKey) {
 		if (e) {
 			if (typeof this.#events[e] === "object") {
 				this.#events[e] = [];

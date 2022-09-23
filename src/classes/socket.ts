@@ -4,7 +4,33 @@ import Emitter from "./emitter.ts";
 const OPENED = Symbol("Opened");
 const CLOSED = Symbol("Closed");
 
-export default class Socket extends Emitter {
+// deno-lint-ignore no-explicit-any
+type TODO = any;
+
+// deno-lint-ignore no-empty-interface
+export interface EventLike {
+	// Event
+	// TODO
+}
+
+export interface MessageEventLike {
+	// MessageEvent
+	// TODO
+	data: TODO;
+}
+
+// deno-lint-ignore no-empty-interface
+export interface CloseEventLike {
+	// CloseEvent
+	// TODO
+}
+
+export default class Socket extends Emitter<{
+	message: [MessageEventLike];
+	error: [EventLike];
+	close: [CloseEventLike];
+	open: [EventLike];
+}> {
 	#ws!: WebSocket;
 
 	#url: string;

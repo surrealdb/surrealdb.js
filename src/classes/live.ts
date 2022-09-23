@@ -1,7 +1,14 @@
 import Surreal from "../index.ts";
 import Emitter from "./emitter.ts";
 
-export default class Live extends Emitter {
+// deno-lint-ignore no-explicit-any
+type TODO = any;
+
+export default class Live extends Emitter<{
+	create: [TODO];
+	update: [TODO];
+	delete: [TODO];
+}> {
 	#id: string | undefined;
 
 	#db: Surreal;
