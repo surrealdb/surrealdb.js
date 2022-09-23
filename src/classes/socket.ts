@@ -4,7 +4,12 @@ import Emitter from "./emitter.ts";
 const OPENED = Symbol("Opened");
 const CLOSED = Symbol("Closed");
 
-export default class Socket extends Emitter {
+export default class Socket extends Emitter<{
+	"message": [MessageEvent<string>];
+	"error": [Event];
+	"close": [CloseEvent];
+	"open": [Event];
+}> {
 	#ws!: WebSocket;
 
 	#url: string;

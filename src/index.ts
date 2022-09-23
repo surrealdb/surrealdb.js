@@ -80,7 +80,23 @@ export type Auth =
 	| DatabaseAuth
 	| ScopeAuth;
 
-export default class Surreal extends Emitter {
+export default class Surreal extends Emitter<
+	& {
+		open: [];
+		opened: [];
+		close: [];
+		closed: [];
+		notify: [any];
+	}
+	& {
+		[
+			K in Exclude<
+				string,
+				"open" | "opened" | "close" | "closed" | "notify"
+			>
+		]: [any];
+	}
+> {
 	// ------------------------------
 	// Main singleton
 	// ------------------------------

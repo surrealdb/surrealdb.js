@@ -33,8 +33,8 @@ export function once(emitter: Emitter, eventName: EventName): Promise<any[]> {
 
 export default class Emitter<Events extends EventMap = EventMap> {
 	#events: {
-		[K in keyof Events]?: ((this:this, ...args: Events[K]) => void)[]
-	}= {};
+		[K in keyof Events]?: ((this: this, ...args: Events[K]) => void)[];
+	} = {};
 
 	static once = once;
 
@@ -86,7 +86,7 @@ export default class Emitter<Events extends EventMap = EventMap> {
 	}
 
 	emit<T extends keyof Events>(eventName: T, ...args: Events[T]): this {
-		const listeners = this.#events[eventName]
+		const listeners = this.#events[eventName];
 		if (listeners !== undefined) {
 			listeners.forEach((listener) => listener.apply(this, args));
 		}
