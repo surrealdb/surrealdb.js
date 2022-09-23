@@ -83,7 +83,7 @@ export default class Emitter<Events extends EventMap = EventMap> {
 	): this;
 	once(eventName: EventName, listener: Listener): this {
 		this.on(eventName, function once(...args: any[]) {
-			this.removeListener(eventName, listener);
+			this.removeListener(eventName, once);
 			listener.apply(this, args);
 		});
 		return this;
