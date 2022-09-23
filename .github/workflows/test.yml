@@ -44,11 +44,12 @@ jobs:
       - name: Check Node-Dump
         run: deno run -A ./test/e2e/scripts/compare-dump.js
 
-      - name: Start surrealdb
-        run: sh ./test/e2e/scripts/docker-restart.sh bun
-      - name: Run Bun
-        run: bun run ./test/e2e/bun.js
-      - name: Get DB Dump
-        run:  sh ./test/e2e/scripts/docker-stop.sh bun
-      - name: Check Bun-Dump
-        run: deno run -A ./test/e2e/scripts/compare-dump.js
+      # TODO
+      # - name: Start surrealdb
+      #   run: sh ./test/e2e/scripts/docker-restart.sh bun
+      # - name: Run Bun
+      #   run: bun run ./test/e2e/bun.js
+      # - name: Get DB Dump
+      #   run:  sh ./test/e2e/scripts/docker-stop.sh bun
+      # - name: Check Bun-Dump
+      #   run: deno run -A ./test/e2e/scripts/compare-dump.js
