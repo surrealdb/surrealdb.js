@@ -9,7 +9,7 @@ export interface EventLike {
 }
 
 export interface MessageEventLike<T> {
-	type: string
+	type: string;
 	data: T;
 }
 
