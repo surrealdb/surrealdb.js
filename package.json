@@ -6,7 +6,8 @@
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c -w",
-    "preversion": "rollup -c"
+    "preversion": "rollup -c",
+    "e2e": "sh ./test/e2e/scripts/run-e2e.sh"
   },
   "repository": {
     "type": "git",
