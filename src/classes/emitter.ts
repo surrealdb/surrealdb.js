@@ -17,10 +17,14 @@ export default interface Emitter<Events extends EventMap = EventMap> {
 	off(eventName: EventName, listener: Listener): this;
 }
 
-export function once<T extends EventMap, K extends keyof T>(
-	emitter: Emitter<T>,
+type EventsOf<T> = T extends { _emitter: Emitter<infer U> } ? U
+	: T extends Emitter<infer U> ? U
+	: never;
+
+export function once<T extends Emitter, K extends keyof EventsOf<T>>(
+	emitter: T,
 	eventName: K,
-): Promise<T[K]>;
+): Promise<EventsOf<T>[K]>;
 export function once(emitter: Emitter, eventName: EventName): Promise<any[]> {
 	return new Promise((res) => {
 		emitter.once(eventName, (...args) => res(args));
