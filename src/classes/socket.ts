@@ -4,11 +4,27 @@ import Emitter from "./emitter.ts";
 const OPENED = Symbol("Opened");
 const CLOSED = Symbol("Closed");
 
+export interface EventLike {
+	type: string;
+}
+
+export interface MessageEventLike<T> {
+	type: string
+	data: T;
+}
+
+export interface CloseEventLike {
+	wasClean: boolean;
+	code: number;
+	reason: string;
+	type: string;
+}
+
 export default class Socket extends Emitter<{
-	"message": [MessageEvent<string>];
-	"error": [Event];
-	"close": [CloseEvent];
-	"open": [Event];
+	"message": [MessageEventLike<string>];
+	"error": [EventLike];
+	"close": [CloseEventLike];
+	"open": [EventLike];
 }> {
 	#ws!: WebSocket;
 
@@ -45,7 +61,7 @@ export default class Socket extends Emitter<{
 		// necessary event types.
 
 		this.#ws.addEventListener("message", (e) => {
-			this.emit("message", e);
+			this.emit("message", e as MessageEventLike<string>);
 		});
 
 		this.#ws.addEventListener("error", (e) => {
