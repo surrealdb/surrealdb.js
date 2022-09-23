@@ -32,7 +32,9 @@ export function once(emitter: Emitter, eventName: EventName): Promise<any[]> {
 }
 
 export default class Emitter<Events extends EventMap = EventMap> {
-	#events = new Map<EventName, Listener[]>();
+	#events: {
+		[K in keyof Events]?: ((this:this, ...args: Events[K]) => void)[]
+	}= {};
 
 	static once = once;
 
@@ -41,33 +43,29 @@ export default class Emitter<Events extends EventMap = EventMap> {
 		this.prototype.off = this.prototype.removeListener;
 	}
 
-	// @ts-expect-error this is correct since we're overwriting with specific args.
 	on<T extends keyof Events>(
 		eventName: T,
 		listener: (this: this, ...args: Events[T]) => void,
-	): this;
-	on(eventName: EventName, listener: Listener): this {
-		const listeners = this.#events.get(eventName);
+	): this {
+		const listeners = this.#events[eventName];
 		if (listeners !== undefined) {
 			listeners.push(listener);
 		} else {
-			this.#events.set(eventName, [listener]);
+			this.#events[eventName] = [listener];
 		}
 		return this;
 	}
 
-	// @ts-expect-error see above.
 	removeListener<T extends keyof Events>(
 		eventName: T,
 		listener: (this: this, ...args: Events[T]) => void,
-	): this;
-	removeListener(eventName: EventName, listener: Listener): this {
-		const events = this.#events.get(eventName);
+	): this {
+		const events = this.#events[eventName];
 		if (events !== undefined) {
 			const idx = events.indexOf(listener);
 			if (idx > -1) {
 				if (events.length === 1) {
-					this.#events.delete(eventName);
+					delete this.#events[eventName];
 				} else {
 					events.splice(idx, 1);
 				}
@@ -76,22 +74,19 @@ export default class Emitter<Events extends EventMap = EventMap> {
 		return this;
 	}
 
-	// @ts-expect-error see above.
 	once<T extends keyof Events>(
 		eventName: T,
 		listener: (this: this, ...args: Events[T]) => void,
-	): this;
-	once(eventName: EventName, listener: Listener): this {
-		this.on(eventName, function once(...args: any[]) {
+	): this {
+		this.on(eventName, function once(...args: Events[T]) {
 			this.removeListener(eventName, listener);
 			listener.apply(this, args);
 		});
 		return this;
 	}
 
-	emit<T extends keyof Events>(eventName: T, ...args: Events[T]): this;
-	emit(eventName: EventName, ...args: any[]): this {
-		const listeners = this.#events.get(eventName);
+	emit<T extends keyof Events>(eventName: T, ...args: Events[T]): this {
+		const listeners = this.#events[eventName]
 		if (listeners !== undefined) {
 			listeners.forEach((listener) => listener.apply(this, args));
 		}
@@ -101,9 +96,9 @@ export default class Emitter<Events extends EventMap = EventMap> {
 	removeAllListeners(eventName?: keyof Events): this;
 	removeAllListeners(eventName?: EventName): this {
 		if (eventName !== undefined) {
-			this.#events.delete(eventName);
+			delete this.#events[eventName];
 		} else {
-			this.#events.clear();
+			this.#events = {};
 		}
 		return this;
 	}
