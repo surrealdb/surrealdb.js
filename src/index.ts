@@ -231,7 +231,7 @@ export default class Surreal extends Emitter<
 		// we process it. If it has an ID
 		// then it is a query response.
 
-		this.#ws.on("message", (e: { data: string }) => {
+		this.#ws.on("message", (e) => {
 			const d = JSON.parse(e.data);
 
 			if (d.method !== "notify") {
