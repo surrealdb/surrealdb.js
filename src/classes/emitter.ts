@@ -1,31 +1,10 @@
-// deno-lint-ignore-file no-explicit-any
 export type EventName = string | symbol;
-export type Listener = (this: Emitter, ...args: any[]) => void;
+export type EventMap = Record<EventName, unknown[]>;
 
-export type EventMap = Record<EventName, any>;
-
-export default interface Emitter<Events extends EventMap = EventMap> {
-	addListener<T extends keyof Events>(
-		eventName: T,
-		listener: (this: this, ...args: Events[T]) => void,
-	): this;
-	addListener(eventName: EventName, listener: Listener): this;
-	off<T extends keyof Events>(
-		eventName: T,
-		listener: (this: this, ...args: Events[T]) => void,
-	): this;
-	off(eventName: EventName, listener: Listener): this;
-}
-
-type EventsOf<T> = T extends { _emitter: Emitter<infer U> } ? U
-	: T extends Emitter<infer U> ? U
-	: never;
-
-export function once<T extends Emitter, K extends keyof EventsOf<T>>(
-	emitter: T,
-	eventName: K,
-): Promise<EventsOf<T>[K]>;
-export function once(emitter: Emitter, eventName: EventName): Promise<any[]> {
+export function once<T extends EventMap = EventMap>(
+	emitter: Emitter<T>,
+	eventName: keyof T,
+) {
 	return new Promise((res) => {
 		emitter.once(eventName, (...args) => res(args));
 	});
@@ -33,43 +12,30 @@ export function once(emitter: Emitter, eventName: EventName): Promise<any[]> {
 
 export default class Emitter<Events extends EventMap = EventMap> {
 	#events: {
-		[K in keyof Events]?: ((this: this, ...args: Events[K]) => void)[];
+		[K in keyof Events]?: Set<(this: this, ...args: Events[K]) => void>;
 	} = {};
 
 	static once = once;
 
-	static {
-		this.prototype.addListener = this.prototype.on;
-		this.prototype.off = this.prototype.removeListener;
-	}
-
 	on<T extends keyof Events>(
 		eventName: T,
 		listener: (this: this, ...args: Events[T]) => void,
-	): this {
-		const listeners = this.#events[eventName];
-		if (listeners !== undefined) {
-			listeners.push(listener);
-		} else {
-			this.#events[eventName] = [listener];
+	) {
+		if (!this.#events[eventName]) {
+			this.#events[eventName] = new Set();
 		}
+		this.#events[eventName]!.add(listener);
 		return this;
 	}
 
 	removeListener<T extends keyof Events>(
 		eventName: T,
 		listener: (this: this, ...args: Events[T]) => void,
-	): this {
-		const events = this.#events[eventName];
-		if (events !== undefined) {
-			const idx = events.indexOf(listener);
-			if (idx > -1) {
-				if (events.length === 1) {
-					delete this.#events[eventName];
-				} else {
-					events.splice(idx, 1);
-				}
-			}
+	) {
+		this.#events[eventName]?.delete(listener);
+
+		if (this.#events[eventName]?.size === 0) {
+			delete this.#events[eventName];
 		}
 		return this;
 	}
@@ -77,29 +43,39 @@ export default class Emitter<Events extends EventMap = EventMap> {
 	once<T extends keyof Events>(
 		eventName: T,
 		listener: (this: this, ...args: Events[T]) => void,
-	): this {
-		this.on(eventName, function once(...args: Events[T]) {
+	) {
+		return this.on(eventName, function once(...args: Events[T]) {
 			this.removeListener(eventName, once);
 			listener.apply(this, args);
 		});
+	}
+
+	emit<T extends keyof Events>(eventName: T, ...args: Events[T]) {
+		this.#events[eventName]?.forEach((listener) => listener.apply(this, args));
+
 		return this;
 	}
 
-	emit<T extends keyof Events>(eventName: T, ...args: Events[T]): this {
-		const listeners = this.#events[eventName];
-		if (listeners !== undefined) {
-			listeners.forEach((listener) => listener.apply(this, args));
-		}
-		return this;
-	}
-
-	removeAllListeners(eventName?: keyof Events): this;
-	removeAllListeners(eventName?: EventName): this {
-		if (eventName !== undefined) {
+	removeAllListeners(eventName?: keyof Events) {
+		if (eventName) {
 			delete this.#events[eventName];
 		} else {
 			this.#events = {};
 		}
 		return this;
+	}
+
+	addListener<T extends keyof Events>(
+		eventName: T,
+		listener: (this: this, ...args: Events[T]) => void,
+	) {
+		return this.on(eventName, listener);
+	}
+
+	off<T extends keyof Events>(
+		eventName: T,
+		listener: (this: this, ...args: Events[T]) => void,
+	) {
+		return this.removeListener(eventName, listener);
 	}
 }
