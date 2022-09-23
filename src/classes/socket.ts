@@ -1,4 +1,4 @@
-// %isomorphic-ws%
+import WebSocket from "../ws/deno.ts";
 import Emitter from "./emitter.ts";
 
 const OPENED = Symbol("Opened");

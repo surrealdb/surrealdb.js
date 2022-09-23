@@ -1,12 +1,12 @@
 {
 	"lint": {
 		"files": {
-			"include": ["src/", "./mod.ts", "./rollup.config.ts", "./deno.json"]
+			"include": ["src/", "./mod.ts", "./compile.ts", "./deno.json"]
 		}
 	},
 	"fmt": {
 		"files": {
-			"include": ["src/", "./mod.ts", "./rollup.config.ts", "./deno.json"]
+			"include": ["src/", "./mod.ts", "./compile.ts", "./deno.json"]
 		},
 		"options": {
 			"useTabs": true,
@@ -14,5 +14,8 @@
 			"indentWidth": 4,
 			"singleQuote": false
 		}
+	},
+	"tasks": {
+		"build": "deno run -A ./compile.ts && cd npm && npm run build:web"
 	}
 }
