@@ -41,7 +41,7 @@ export default class Emitter<Events extends EventMap = EventMap> {
 		this.prototype.off = this.prototype.removeListener;
 	}
 
-	// @ts-ignore this is correct since we're overwriting with specific args.
+	// @ts-expect-error this is correct since we're overwriting with specific args.
 	on<T extends keyof Events>(
 		eventName: T,
 		listener: (this: this, ...args: Events[T]) => void,
@@ -56,7 +56,7 @@ export default class Emitter<Events extends EventMap = EventMap> {
 		return this;
 	}
 
-	// @ts-ignore see above.
+	// @ts-expect-error see above.
 	removeListener<T extends keyof Events>(
 		eventName: T,
 		listener: (this: this, ...args: Events[T]) => void,
@@ -76,7 +76,7 @@ export default class Emitter<Events extends EventMap = EventMap> {
 		return this;
 	}
 
-	// @ts-ignore see above.
+	// @ts-expect-error see above.
 	once<T extends keyof Events>(
 		eventName: T,
 		listener: (this: this, ...args: Events[T]) => void,
