@@ -1,11 +1,11 @@
 export type EventName = string | symbol;
 export type EventMap = Record<EventName, unknown[]>;
 
-export function once<T extends EventMap = EventMap>(
+export function once<T extends EventMap, K extends keyof T>(
 	emitter: Emitter<T>,
-	eventName: keyof T,
+	eventName: K,
 ) {
-	return new Promise((res) => {
+	return new Promise<T[K]>((res) => {
 		emitter.once(eventName, (...args) => res(args));
 	});
 }
@@ -16,6 +16,10 @@ export default class Emitter<Events extends EventMap = EventMap> {
 	} = {};
 
 	static once = once;
+
+	next<T extends keyof Events>(eventName: T) {
+		return once(this, eventName)
+	}
 
 	on<T extends keyof Events>(
 		eventName: T,
