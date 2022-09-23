@@ -18,7 +18,7 @@ export default class Emitter<Events extends EventMap = EventMap> {
 	static once = once;
 
 	next<T extends keyof Events>(eventName: T) {
-		return once(this, eventName)
+		return once(this, eventName);
 	}
 
 	on<T extends keyof Events>(
@@ -55,7 +55,9 @@ export default class Emitter<Events extends EventMap = EventMap> {
 	}
 
 	emit<T extends keyof Events>(eventName: T, ...args: Events[T]) {
-		this.#events[eventName]?.forEach((listener) => listener.apply(this, args));
+		this.#events[eventName]?.forEach((listener) =>
+			listener.apply(this, args)
+		);
 
 		return this;
 	}
