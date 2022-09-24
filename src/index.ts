@@ -4,7 +4,7 @@ import errors from "./errors/index.ts";
 import Live from "./classes/live.ts";
 import Socket from "./classes/socket.ts";
 import Pinger from "./classes/pinger.ts";
-import Emitter from "./classes/emitter.ts";
+import Emitter, { EventName } from "./classes/emitter.ts";
 
 let singleton: Surreal;
 
@@ -80,19 +80,21 @@ export type Auth =
 	| DatabaseAuth
 	| ScopeAuth;
 
+interface SurrealBaseEventMap {
+	open: [];
+	opened: [];
+	close: [];
+	closed: [];
+	notify: [any];
+}
+
 export default class Surreal extends Emitter<
-	& {
-		open: [];
-		opened: [];
-		close: [];
-		closed: [];
-		notify: [any];
-	}
+	& SurrealBaseEventMap
 	& {
 		[
 			K in Exclude<
-				string,
-				"open" | "opened" | "close" | "closed" | "notify"
+				EventName,
+				keyof SurrealBaseEventMap
 			>
 		]: [Result<any>];
 	}
