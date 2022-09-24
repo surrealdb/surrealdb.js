@@ -19,21 +19,24 @@ export enum SurrealQLMethod {
 	delete = "delete",
 }
 
-export type NAMESPACE = any; // TODO
-export type DB = any; // TODO
+// deno-lint-ignore no-explicit-any
+type TODO = any;
+
+export type NAMESPACE = TODO;
+export type DB = TODO;
 export type JWT_TOKEN = string;
 export type UUID = string;
 export type TABLE_NAME = string;
 export type PARAM_NAME = string;
 export type JSON = string;
 export type RECORD_ID = string;
-export type JSON_PATCH = Record<any, unknown>;
+export type JSON_PATCH = Record<TODO, unknown>;
 export type RECORD_DIFFS<TRecord> = unknown;
 export type QUERY_TEXT = string;
-export type QUERY_PARAMS = Record<string, any>;
-export type QUERY_RESULT = Record<any, any>[];
+export type QUERY_PARAMS = Record<string, TODO>;
+export type QUERY_RESULT = Record<TODO, TODO>[];
 
-interface SurrealQLRequests<TRecord extends any = never> {
+interface SurrealQLRequests<TRecord extends TODO = never> {
 	[SurrealQLMethod.ping]: {
 		params: [];
 		response: unknown;
@@ -107,7 +110,7 @@ interface SurrealQLRequests<TRecord extends any = never> {
 
 export interface SurrealQLRequest<
 	TMethod extends SurrealQLMethod = SurrealQLMethod,
-	TRecord extends any = never,
+	TRecord extends TODO = never,
 > extends Pick<SurrealQLRequests<TRecord>[TMethod], "params"> {
 	id: string;
 	method: TMethod;
@@ -118,7 +121,7 @@ export type SurrealQLParams<TMethod extends SurrealQLMethod = SurrealQLMethod> =
 
 export type SurrealQLResponse<
 	TMethod extends SurrealQLMethod = SurrealQLMethod,
-	TRecord extends any = never,
+	TRecord extends TODO = never,
 > = SurrealQLRequests<TRecord>[TMethod]["response"];
 
 /**
