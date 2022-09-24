@@ -1,19 +1,27 @@
-// deno-lint-ignore-file no-explicit-any
 import guid from "./utils/guid.ts";
-import errors from "./errors/index.ts";
+import {
+	AuthenticationError,
+	PermissionError,
+	RecordError,
+} from "./errors/index.ts";
 import Live from "./classes/live.ts";
 import Socket from "./classes/socket.ts";
 import Pinger from "./classes/pinger.ts";
-import Emitter, { EventName } from "./classes/emitter.ts";
+import Emitter from "./classes/emitter.ts";
+import type { EventMap, EventName } from "./classes/emitter.ts";
+
+export { Emitter, Live };
+export type { EventMap, EventName };
 
 let singleton: Surreal;
 
-interface BasePatch {
+export interface BasePatch {
 	path: string;
 }
 
 export interface AddPatch extends BasePatch {
 	op: "add";
+	// deno-lint-ignore no-explicit-any
 	value: any;
 }
 
@@ -23,6 +31,7 @@ export interface RemovePatch extends BasePatch {
 
 export interface ReplacePatch extends BasePatch {
 	op: "replace";
+	// deno-lint-ignore no-explicit-any
 	value: any;
 }
 
@@ -85,7 +94,7 @@ interface SurrealBaseEventMap {
 	opened: [];
 	close: [];
 	closed: [];
-	notify: [any];
+	notify: [unknown];
 }
 
 export default class Surreal extends Emitter<
@@ -96,6 +105,7 @@ export default class Surreal extends Emitter<
 				EventName,
 				keyof SurrealBaseEventMap
 			>
+			// deno-lint-ignore no-explicit-any
 		]: [Result<any>];
 	}
 > {
@@ -117,16 +127,16 @@ export default class Surreal extends Emitter<
 	// Public types
 	// ------------------------------
 
-	static get AuthenticationError(): typeof errors.AuthenticationError {
-		return errors.AuthenticationError;
+	static get AuthenticationError(): typeof AuthenticationError {
+		return AuthenticationError;
 	}
 
-	static get PermissionError(): typeof errors.PermissionError {
-		return errors.PermissionError;
+	static get PermissionError(): typeof PermissionError {
+		return PermissionError;
 	}
 
-	static get RecordError(): typeof errors.RecordError {
-		return errors.RecordError;
+	static get RecordError(): typeof RecordError {
+		return RecordError;
 	}
 
 	static get Live(): typeof Live {
@@ -344,7 +354,7 @@ export default class Surreal extends Emitter<
 
 		const [res] = await this.next(id);
 
-		if (res.error) throw new Surreal.AuthenticationError(res.error.message);
+		if (res.error) throw new AuthenticationError(res.error.message);
 
 		this.#token = res.result;
 		return res.result;
@@ -363,7 +373,7 @@ export default class Surreal extends Emitter<
 
 		const [res] = await this.next(id);
 
-		if (res.error) throw new Surreal.AuthenticationError(res.error.message);
+		if (res.error) throw new AuthenticationError(res.error.message);
 
 		this.#token = res.result;
 		return res.result;
@@ -380,7 +390,7 @@ export default class Surreal extends Emitter<
 
 		const [res] = await this.next(id);
 
-		if (res.error) throw new Surreal.AuthenticationError(res.error.message);
+		if (res.error) throw new AuthenticationError(res.error.message);
 		return res.result;
 	}
 
@@ -396,7 +406,7 @@ export default class Surreal extends Emitter<
 
 		const [res] = await this.next(id);
 
-		if (res.error) throw new Surreal.AuthenticationError(res.error.message);
+		if (res.error) throw new AuthenticationError(res.error.message);
 
 		return res.result;
 	}
@@ -478,7 +488,12 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "select", [thing]);
 		const [res] = await this.next(id);
-		return this.#output(res, "select", thing);
+		return this.#outputHandlerB(
+			res,
+			thing,
+			RecordError as typeof Error,
+			`Record not found: ${id}`,
+		);
 	}
 
 	/**
@@ -495,7 +510,12 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "create", [thing, data]);
 		const [res] = await this.next(id);
-		return this.#output(res, "create", thing);
+		this.#outputHandlerError(res);
+		return this.#outputHandlerA(
+			res,
+			PermissionError as typeof Error,
+			`Unable to create record: ${thing}`,
+		);
 	}
 
 	/**
@@ -514,7 +534,12 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "update", [thing, data]);
 		const [res] = await this.next(id);
-		return this.#output(res, "update", thing);
+		return this.#outputHandlerB(
+			res,
+			thing,
+			PermissionError as typeof Error,
+			`Unable to update record: ${thing}`,
+		);
 	}
 
 	/**
@@ -536,7 +561,12 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "change", [thing, data]);
 		const [res] = await this.next(id);
-		return this.#output(res, "change", thing);
+		return this.#outputHandlerB(
+			res,
+			thing,
+			PermissionError as typeof Error,
+			`Unable to update record: ${thing}`,
+		);
 	}
 
 	/**
@@ -552,7 +582,12 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "modify", [thing, data]);
 		const [res] = await this.next(id);
-		return this.#output(res, "modify", thing);
+		return this.#outputHandlerB(
+			res,
+			thing,
+			PermissionError as typeof Error,
+			`Unable to update record: ${thing}`,
+		);
 	}
 
 	/**
@@ -565,7 +600,8 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "delete", [thing]);
 		const [res] = await this.next(id);
-		return this.#output(res, "delete", thing);
+		this.#outputHandlerError(res);
+		return;
 	}
 
 	// --------------------------------------------------
@@ -588,69 +624,34 @@ export default class Surreal extends Emitter<
 		}));
 	}
 
-	#output<T>(
+	#outputHandlerA<T>(
 		res: Result<T>,
-		type: string,
+		error: typeof Error,
+		errormessage: string,
+	) {
+		if (Array.isArray(res.result) && res.result.length) {
+			return res.result[0];
+		}
+		throw new error(errormessage);
+	}
+
+	#outputHandlerB<T>(
+		res: Result<T>,
 		id: string,
-	): T | void {
+		error: typeof Error,
+		errormessage: string,
+	) {
+		this.#outputHandlerError(res);
+		if (typeof id === "string" && id.includes(":")) {
+			this.#outputHandlerA(res, error, errormessage);
+		} else {
+			return res.result;
+		}
+	}
+
+	#outputHandlerError<T>(res: Result<T>) {
 		if (res.error) {
 			throw new Error(res.error.message);
-		} else if (res.result) {
-			switch (type) {
-				case "delete":
-					return;
-				case "create":
-					if (Array.isArray(res.result) && res.result.length) {
-						return res.result[0];
-					}
-					throw new Surreal.PermissionError(
-						`Unable to create record: ${id}`,
-					);
-				case "update":
-					if (typeof id === "string" && id.includes(":")) {
-						if (Array.isArray(res.result) && res.result.length) {
-							return res.result[0];
-						}
-						throw new Surreal.PermissionError(
-							`Unable to update record: ${id}`,
-						);
-					} else {
-						return res.result;
-					}
-				case "change":
-					if (typeof id === "string" && id.includes(":")) {
-						if (Array.isArray(res.result) && res.result.length) {
-							return res.result[0];
-						}
-						throw new Surreal.PermissionError(
-							`Unable to update record: ${id}`,
-						);
-					} else {
-						return res.result;
-					}
-				case "modify":
-					if (typeof id === "string" && id.includes(":")) {
-						if (Array.isArray(res.result) && res.result.length) {
-							return res.result[0];
-						}
-						throw new Surreal.PermissionError(
-							`Unable to update record: ${id}`,
-						);
-					} else {
-						return res.result;
-					}
-				default:
-					if (typeof id === "string" && id.includes(":")) {
-						if (Array.isArray(res.result) && res.result.length) {
-							return res.result[0];
-						}
-						throw new Surreal.RecordError(
-							`Record not found: ${id}`,
-						);
-					} else {
-						return res.result;
-					}
-			}
 		}
 	}
 }

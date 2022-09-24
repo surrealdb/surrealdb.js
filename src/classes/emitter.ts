@@ -1,29 +1,32 @@
 export type EventName = string | symbol;
 export type EventMap = Record<EventName, unknown[]>;
 
-export function once<T extends EventMap, K extends keyof T>(
-	emitter: Emitter<T>,
-	eventName: K,
+export function once<
+	EVENTMAP extends EventMap,
+	EVENTNAME extends keyof EVENTMAP,
+>(
+	emitter: Emitter<EVENTMAP>,
+	eventName: EVENTNAME,
 ) {
-	return new Promise<T[K]>((res) => {
+	return new Promise<EVENTMAP[EVENTNAME]>((res) => {
 		emitter.once(eventName, (...args) => res(args));
 	});
 }
 
-export default class Emitter<Events extends EventMap = EventMap> {
+export default class Emitter<EVENTS extends EventMap = EventMap> {
 	#events: {
-		[K in keyof Events]?: Set<(this: this, ...args: Events[K]) => void>;
+		[K in keyof EVENTS]?: Set<(this: this, ...args: EVENTS[K]) => void>;
 	} = {};
 
 	static once = once;
 
-	next<T extends keyof Events>(eventName: T) {
+	next<T extends keyof EVENTS>(eventName: T) {
 		return once(this, eventName);
 	}
 
-	on<T extends keyof Events>(
+	on<T extends keyof EVENTS>(
 		eventName: T,
-		listener: (this: this, ...args: Events[T]) => void,
+		listener: (this: this, ...args: EVENTS[T]) => void,
 	) {
 		if (!this.#events[eventName]) {
 			this.#events[eventName] = new Set();
@@ -32,9 +35,9 @@ export default class Emitter<Events extends EventMap = EventMap> {
 		return this;
 	}
 
-	removeListener<T extends keyof Events>(
+	removeListener<T extends keyof EVENTS>(
 		eventName: T,
-		listener: (this: this, ...args: Events[T]) => void,
+		listener: (this: this, ...args: EVENTS[T]) => void,
 	) {
 		this.#events[eventName]?.delete(listener);
 
@@ -44,17 +47,17 @@ export default class Emitter<Events extends EventMap = EventMap> {
 		return this;
 	}
 
-	once<T extends keyof Events>(
+	once<T extends keyof EVENTS>(
 		eventName: T,
-		listener: (this: this, ...args: Events[T]) => void,
+		listener: (this: this, ...args: EVENTS[T]) => void,
 	) {
-		return this.on(eventName, function once(...args: Events[T]) {
+		return this.on(eventName, function once(...args: EVENTS[T]) {
 			this.removeListener(eventName, once);
 			listener.apply(this, args);
 		});
 	}
 
-	emit<T extends keyof Events>(eventName: T, ...args: Events[T]) {
+	emit<T extends keyof EVENTS>(eventName: T, ...args: EVENTS[T]) {
 		this.#events[eventName]?.forEach((listener) =>
 			listener.apply(this, args)
 		);
@@ -62,7 +65,7 @@ export default class Emitter<Events extends EventMap = EventMap> {
 		return this;
 	}
 
-	removeAllListeners(eventName?: keyof Events) {
+	removeAllListeners(eventName?: keyof EVENTS) {
 		if (eventName) {
 			delete this.#events[eventName];
 		} else {
@@ -71,16 +74,16 @@ export default class Emitter<Events extends EventMap = EventMap> {
 		return this;
 	}
 
-	addListener<T extends keyof Events>(
+	addListener<T extends keyof EVENTS>(
 		eventName: T,
-		listener: (this: this, ...args: Events[T]) => void,
+		listener: (this: this, ...args: EVENTS[T]) => void,
 	) {
 		return this.on(eventName, listener);
 	}
 
-	off<T extends keyof Events>(
+	off<T extends keyof EVENTS>(
 		eventName: T,
-		listener: (this: this, ...args: Events[T]) => void,
+		listener: (this: this, ...args: EVENTS[T]) => void,
 	) {
 		return this.removeListener(eventName, listener);
 	}
