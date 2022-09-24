@@ -2,9 +2,12 @@ import Surreal from "../index.ts";
 import Emitter from "./emitter.ts";
 
 export default class Live extends Emitter<{
-	"create": [unknown];
-	"update": [unknown];
-	"delete": [unknown];
+	// deno-lint-ignore no-explicit-any
+	"create": [any];
+	// deno-lint-ignore no-explicit-any
+	"update": [any];
+	// deno-lint-ignore no-explicit-any
+	"delete": [any];
 }> {
 	#id: string | undefined;
 
