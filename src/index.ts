@@ -94,7 +94,8 @@ interface SurrealBaseEventMap {
 	opened: [];
 	close: [];
 	closed: [];
-	notify: [unknown];
+	// deno-lint-ignore no-explicit-any
+	notify: [any];
 }
 
 export default class Surreal extends Emitter<
