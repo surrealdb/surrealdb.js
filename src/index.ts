@@ -704,6 +704,4 @@ export default class Surreal extends Emitter {
 	}
 }
 
-export {
-	Surreal
-}
+export { Surreal }
