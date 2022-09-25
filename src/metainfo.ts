@@ -53,3 +53,18 @@ export function table(table: string) {
 	return (surreal: Surreal) =>
 		surreal.query<Payload>("INFO FOR TABLE $table;", { table });
 }
+
+export function listNamespaces() {
+	return (surreal: Surreal) =>
+		system()(surreal).then((e) => Object.keys(e.ns));
+}
+
+export function listDatabases() {
+	return (surreal: Surreal) =>
+		namespace()(surreal).then((e) => Object.keys(e.db));
+}
+
+export function listTables() {
+	return (surreal: Surreal) =>
+		database()(surreal).then((e) => Object.keys(e.tb));
+}
