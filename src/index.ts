@@ -703,3 +703,7 @@ export default class Surreal extends Emitter {
 		return resolve(undefined as unknown as T);
 	}
 }
+
+export {
+	Surreal
+}
