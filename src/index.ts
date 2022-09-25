@@ -89,6 +89,8 @@ export type Auth =
 	| DatabaseAuth
 	| ScopeAuth;
 
+export * from "./metainfo.ts";
+
 interface SurrealBaseEventMap {
 	open: [];
 	opened: [];
