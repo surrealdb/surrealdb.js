@@ -605,6 +605,10 @@ export default class Surreal extends Emitter<
 		return;
 	}
 
+	run<T>(runner: (surreal: Surreal) => T) {
+		return runner(this);
+	}
+
 	// --------------------------------------------------
 	// Private methods
 	// --------------------------------------------------
