@@ -1,4 +1,4 @@
-import Surreal from "./index.ts";
+import Surreal, { Result } from "./index.ts";
 
 type SURREAL_QUERY = string;
 
@@ -13,7 +13,8 @@ export function system() {
 			[TNamespace in string]?: SURREAL_QUERY;
 		};
 	};
-	return (surreal: Surreal) => surreal.query<Payload>("INFO FOR KV;");
+	return (surreal: Surreal) =>
+		surreal.query<[Result<Payload>]>("INFO FOR KV;");
 }
 
 /**
@@ -31,7 +32,8 @@ export function namespace() {
 		nt: unknown;
 	};
 
-	return (surreal: Surreal) => surreal.query<Payload>("INFO FOR NS;");
+	return (surreal: Surreal) =>
+		surreal.query<[Result<Payload>]>("INFO FOR NS;");
 }
 
 /**
@@ -49,7 +51,8 @@ export function database() {
 			[TTable in string]?: SURREAL_QUERY;
 		};
 	};
-	return (surreal: Surreal) => surreal.query<Payload>("INFO FOR DB;");
+	return (surreal: Surreal) =>
+		surreal.query<[Result<Payload>]>("INFO FOR DB;");
 }
 
 /**
@@ -63,7 +66,7 @@ export function scope(scope: string) {
 		st: unknown;
 	};
 	return (surreal: Surreal) =>
-		surreal.query<Payload>("INFO FOR SCOPE $scope;", { scope });
+		surreal.query<[Result<Payload>]>("INFO FOR SCOPE $scope;", { scope });
 }
 
 /**
@@ -80,20 +83,22 @@ export function table(table: string) {
 		ix: unknown;
 	};
 	return (surreal: Surreal) =>
-		surreal.query<Payload>("INFO FOR TABLE $table;", { table });
+		surreal.query<[Result<Payload>]>("INFO FOR TABLE $table;", { table });
 }
 
 export function listNamespaces() {
 	return (surreal: Surreal) =>
-		system()(surreal).then((e) => Object.keys(e.ns));
+		system()(surreal).then((e) => {
+			return Object.keys(e?.[0]?.result?.ns ?? {});
+		});
 }
 
 export function listDatabases() {
 	return (surreal: Surreal) =>
-		namespace()(surreal).then((e) => Object.keys(e.db));
+		namespace()(surreal).then((e) => Object.keys(e?.[0]?.result?.db ?? {}));
 }
 
 export function listTables() {
 	return (surreal: Surreal) =>
-		database()(surreal).then((e) => Object.keys(e.tb));
+		database()(surreal).then((e) => Object.keys(e?.[0]?.result?.tb ?? {}));
 }
