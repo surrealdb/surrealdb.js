@@ -1,19 +1,27 @@
-// deno-lint-ignore-file no-explicit-any
 import guid from "./utils/guid.ts";
-import errors from "./errors/index.ts";
+import {
+	AuthenticationError,
+	PermissionError,
+	RecordError,
+} from "./errors/index.ts";
 import Live from "./classes/live.ts";
 import Socket from "./classes/socket.ts";
 import Pinger from "./classes/pinger.ts";
 import Emitter from "./classes/emitter.ts";
+import type { EventMap, EventName } from "./classes/emitter.ts";
+
+export { Emitter, Live };
+export type { EventMap, EventName };
 
 let singleton: Surreal;
 
-interface BasePatch {
+export interface BasePatch {
 	path: string;
 }
 
 export interface AddPatch extends BasePatch {
 	op: "add";
+	// deno-lint-ignore no-explicit-any
 	value: any;
 }
 
@@ -23,6 +31,7 @@ export interface RemovePatch extends BasePatch {
 
 export interface ReplacePatch extends BasePatch {
 	op: "replace";
+	// deno-lint-ignore no-explicit-any
 	value: any;
 }
 
@@ -80,7 +89,27 @@ export type Auth =
 	| DatabaseAuth
 	| ScopeAuth;
 
-export default class Surreal extends Emitter {
+interface SurrealBaseEventMap {
+	open: [];
+	opened: [];
+	close: [];
+	closed: [];
+	// deno-lint-ignore no-explicit-any
+	notify: [any];
+}
+
+export default class Surreal extends Emitter<
+	& SurrealBaseEventMap
+	& {
+		[
+			K in Exclude<
+				EventName,
+				keyof SurrealBaseEventMap
+			>
+			// deno-lint-ignore no-explicit-any
+		]: [Result<any>];
+	}
+> {
 	// ------------------------------
 	// Main singleton
 	// ------------------------------
@@ -99,16 +128,16 @@ export default class Surreal extends Emitter {
 	// Public types
 	// ------------------------------
 
-	static get AuthenticationError(): typeof errors.AuthenticationError {
-		return errors.AuthenticationError;
+	static get AuthenticationError(): typeof AuthenticationError {
+		return AuthenticationError;
 	}
 
-	static get PermissionError(): typeof errors.PermissionError {
-		return errors.PermissionError;
+	static get PermissionError(): typeof PermissionError {
+		return PermissionError;
 	}
 
-	static get RecordError(): typeof errors.RecordError {
-		return errors.RecordError;
+	static get RecordError(): typeof RecordError {
+		return RecordError;
 	}
 
 	static get Live(): typeof Live {
@@ -215,7 +244,7 @@ export default class Surreal extends Emitter {
 		// we process it. If it has an ID
 		// then it is a query response.
 
-		this.#ws.on("message", (e: { data: string }) => {
+		this.#ws.on("message", (e) => {
 			const d = JSON.parse(e.data);
 
 			if (d.method !== "notify") {
@@ -271,13 +300,10 @@ export default class Surreal extends Emitter {
 	/**
 	 * Ping SurrealDB instance
 	 */
-	ping(): Promise<void> {
+	async ping(): Promise<void> {
 		const id = guid();
-		return this.#ws.ready.then(() => {
-			return new Promise(() => {
-				this.#send(id, "ping");
-			});
-		});
+		await this.#ws.ready;
+		this.#send(id, "ping");
 	}
 
 	/**
@@ -285,28 +311,35 @@ export default class Surreal extends Emitter {
 	 * @param ns - Switches to a specific namespace.
 	 * @param db - Switches to a specific database.
 	 */
-	use(ns: string, db: string): Promise<void> {
+	async use(ns: string, db: string): Promise<void> {
 		const id = guid();
-		return this.#ws.ready.then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(id, (res) => this.#result(res, resolve, reject));
-				this.#send(id, "use", [ns, db]);
-			});
-		});
+
+		await this.#ws.ready;
+
+		this.#send(id, "use", [ns, db]);
+
+		const [res] = await this.nextEvent(id);
+
+		if (res.error) throw new Error(res.error.message);
+
+		return res.result;
 	}
 
 	/**
 	 * Retreive info about the current Surreal instance
 	 * @return Returns nothing!
 	 */
-	info(): Promise<void> {
+	async info(): Promise<void> {
 		const id = guid();
-		return this.#ws.ready.then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(id, (res) => this.#result(res, resolve, reject));
-				this.#send(id, "info");
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "info");
+
+		const [res] = await this.nextEvent(id);
+
+		if (res.error) throw new Error(res.error.message);
+
+		return res.result;
 	}
 
 	/**
@@ -314,14 +347,18 @@ export default class Surreal extends Emitter {
 	 * @param vars - Variables used in a signup query.
 	 * @return The authenication token.
 	 */
-	signup(vars: Auth): Promise<string> {
+	async signup(vars: Auth): Promise<string> {
 		const id = guid();
-		return this.#ws.ready.then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(id, (res) => this.#signup(res, resolve, reject));
-				this.#send(id, "signup", [vars]);
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "signup", [vars]);
+
+		const [res] = await this.nextEvent(id);
+
+		if (res.error) throw new AuthenticationError(res.error.message);
+
+		this.#token = res.result;
+		return res.result;
 	}
 
 	/**
@@ -329,67 +366,80 @@ export default class Surreal extends Emitter {
 	 * @param vars - Variables used in a signin query.
 	 * @return The authenication token.
 	 */
-	signin(vars: Auth): Promise<string> {
+	async signin(vars: Auth): Promise<string> {
 		const id = guid();
-		return this.#ws.ready.then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(id, (res) => this.#signin(res, resolve, reject));
-				this.#send(id, "signin", [vars]);
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "signin", [vars]);
+
+		const [res] = await this.nextEvent(id);
+
+		if (res.error) throw new AuthenticationError(res.error.message);
+
+		this.#token = res.result;
+		return res.result;
 	}
 
 	/**
 	 * Invalidates the authentication for the current connection.
 	 */
-	invalidate(): Promise<void> {
+	async invalidate(): Promise<void> {
 		const id = guid();
-		return this.#ws.ready.then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(id, (res) => this.#auth(res, resolve, reject));
-				this.#send(id, "invalidate");
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "invalidate");
+
+		const [res] = await this.nextEvent(id);
+
+		if (res.error) throw new AuthenticationError(res.error.message);
+		return res.result;
 	}
 
 	/**
 	 * Authenticates the current connection with a JWT token.
 	 * @param token - The JWT authentication token.
 	 */
-	authenticate(token: string): Promise<void> {
+	async authenticate(token: string): Promise<void> {
 		const id = guid();
-		return this.#ws.ready.then(() => {
-			return new Promise<unknown>((resolve, reject) => {
-				this.once(id, (res) => this.#auth(res, resolve, reject));
-				this.#send(id, "authenticate", [token]);
-			}) as Promise<void>;
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "authenticate", [token]);
+
+		const [res] = await this.nextEvent(id);
+
+		if (res.error) throw new AuthenticationError(res.error.message);
+
+		return res.result;
 	}
 
 	// --------------------------------------------------
 
-	live(table: string): Promise<string> {
+	async live(table: string): Promise<string> {
 		const id = guid();
-		return this.wait().then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(id, (res) => this.#result(res, resolve, reject));
-				this.#send(id, "live", [table]);
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "live", [table]);
+		const [res] = await this.nextEvent(id);
+
+		if (res.error) throw new Error(res.error.message);
+
+		return res.result;
 	}
 
 	/**
 	 * Kill a specific query.
 	 * @param query - The query to kill.
 	 */
-	kill(query: string): Promise<void> {
+	async kill(query: string): Promise<void> {
 		const id = guid();
-		return this.wait().then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(id, (res) => this.#result(res, resolve, reject));
-				this.#send(id, "kill", [query]);
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "kill", [query]);
+		const [res] = await this.nextEvent(id);
+
+		if (res.error) throw new Error(res.error.message);
+
+		return res.result;
 	}
 
 	/**
@@ -397,14 +447,16 @@ export default class Surreal extends Emitter {
 	 * @param key - Specifies the name of the variable.
 	 * @param val - Assigns the value to the variable name.
 	 */
-	let(key: string, val: unknown): Promise<string> {
+	async let(key: string, val: unknown): Promise<string> {
 		const id = guid();
-		return this.wait().then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(id, (res) => this.#result(res, resolve, reject));
-				this.#send(id, "let", [key, val]);
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "let", [key, val]);
+		const [res] = await this.nextEvent(id);
+
+		if (res.error) throw new Error(res.error.message);
+
+		return res.result;
 	}
 
 	/**
@@ -412,38 +464,37 @@ export default class Surreal extends Emitter {
 	 * @param query - Specifies the SurrealQL statements.
 	 * @param vars - Assigns variables which can be used in the query.
 	 */
-	query<T = Result[]>(
+	async query<T = Result[]>(
 		query: string,
 		vars?: Record<string, unknown>,
 	): Promise<T> {
 		const id = guid();
-		return this.wait().then(() => {
-			return new Promise<T>((resolve, reject) => {
-				this.once(
-					id,
-					(res) => this.#result(res, resolve as () => void, reject),
-				);
-				this.#send(id, "query", [query, vars]);
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "query", [query, vars]);
+		const [res] = await this.nextEvent(id);
+
+		if (res.error) throw new Error(res.error.message);
+
+		return res.result;
 	}
 
 	/**
 	 * Selects all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
 	 */
-	select<T>(thing: string): Promise<T[]> {
+	async select<T>(thing: string): Promise<T[]> {
 		const id = guid();
-		return this.wait().then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(
-					id,
-					(res) =>
-						this.#output(res, "select", thing, resolve, reject),
-				);
-				this.#send(id, "select", [thing]);
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "select", [thing]);
+		const [res] = await this.nextEvent(id);
+		return this.#outputHandlerB(
+			res,
+			thing,
+			RecordError as typeof Error,
+			`Record not found: ${id}`,
+		);
 	}
 
 	/**
@@ -451,21 +502,21 @@ export default class Surreal extends Emitter {
 	 * @param thing - The table name or the specific record ID to create.
 	 * @param data - The document / record data to insert.
 	 */
-	create<T extends Record<string, unknown>>(
+	async create<T extends Record<string, unknown>>(
 		thing: string,
 		data?: T,
 	): Promise<T & { id: string }> {
 		const id = guid();
-		return this.wait().then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(
-					id,
-					(res) =>
-						this.#output(res, "create", thing, resolve, reject),
-				);
-				this.#send(id, "create", [thing, data]);
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "create", [thing, data]);
+		const [res] = await this.nextEvent(id);
+		this.#outputHandlerError(res);
+		return this.#outputHandlerA(
+			res,
+			PermissionError as typeof Error,
+			`Unable to create record: ${thing}`,
+		);
 	}
 
 	/**
@@ -475,21 +526,21 @@ export default class Surreal extends Emitter {
 	 * @param thing - The table name or the specific record ID to update.
 	 * @param data - The document / record data to insert.
 	 */
-	update<T extends Record<string, unknown>>(
+	async update<T extends Record<string, unknown>>(
 		thing: string,
 		data?: T,
 	): Promise<T & { id: string }> {
 		const id = guid();
-		return this.wait().then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(
-					id,
-					(res) =>
-						this.#output(res, "update", thing, resolve, reject),
-				);
-				this.#send(id, "update", [thing, data]);
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "update", [thing, data]);
+		const [res] = await this.nextEvent(id);
+		return this.#outputHandlerB(
+			res,
+			thing,
+			PermissionError as typeof Error,
+			`Unable to update record: ${thing}`,
+		);
 	}
 
 	/**
@@ -499,7 +550,7 @@ export default class Surreal extends Emitter {
 	 * @param thing - The table name or the specific record ID to change.
 	 * @param data - The document / record data to insert.
 	 */
-	change<
+	async change<
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
 	>(
@@ -507,16 +558,16 @@ export default class Surreal extends Emitter {
 		data?: Partial<T> & U,
 	): Promise<(T & U & { id: string }) | (T & U & { id: string })[]> {
 		const id = guid();
-		return this.wait().then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(
-					id,
-					(res) =>
-						this.#output(res, "change", thing, resolve, reject),
-				);
-				this.#send(id, "change", [thing, data]);
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "change", [thing, data]);
+		const [res] = await this.nextEvent(id);
+		return this.#outputHandlerB(
+			res,
+			thing,
+			PermissionError as typeof Error,
+			`Unable to update record: ${thing}`,
+		);
 	}
 
 	/**
@@ -526,36 +577,32 @@ export default class Surreal extends Emitter {
 	 * @param thing - The table name or the specific record ID to modify.
 	 * @param data - The JSON Patch data with which to modify the records.
 	 */
-	modify(thing: string, data?: Patch[]): Promise<Patch[]> {
+	async modify(thing: string, data?: Patch[]): Promise<Patch[]> {
 		const id = guid();
-		return this.wait().then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(
-					id,
-					(res) =>
-						this.#output(res, "modify", thing, resolve, reject),
-				);
-				this.#send(id, "modify", [thing, data]);
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "modify", [thing, data]);
+		const [res] = await this.nextEvent(id);
+		return this.#outputHandlerB(
+			res,
+			thing,
+			PermissionError as typeof Error,
+			`Unable to update record: ${thing}`,
+		);
 	}
 
 	/**
 	 * Deletes all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
 	 */
-	delete(thing: string): Promise<void> {
+	async delete(thing: string): Promise<void> {
 		const id = guid();
-		return this.wait().then(() => {
-			return new Promise((resolve, reject) => {
-				this.once(
-					id,
-					(res) =>
-						this.#output(res, "delete", thing, resolve, reject),
-				);
-				this.#send(id, "delete", [thing]);
-			});
-		});
+
+		await this.#ws.ready;
+		this.#send(id, "delete", [thing]);
+		const [res] = await this.nextEvent(id);
+		this.#outputHandlerError(res);
+		return;
 	}
 
 	// --------------------------------------------------
@@ -578,128 +625,34 @@ export default class Surreal extends Emitter {
 		}));
 	}
 
-	#auth<T>(
+	#outputHandlerA<T>(
 		res: Result<T>,
-		resolve: (value: T) => void,
-		reject: (reason?: any) => void,
-	): void {
-		if (res.error) {
-			return reject(new Surreal.AuthenticationError(res.error.message));
-		} else {
-			return resolve(res.result);
+		error: typeof Error,
+		errormessage: string,
+	) {
+		if (Array.isArray(res.result) && res.result.length) {
+			return res.result[0];
 		}
+		throw new error(errormessage);
 	}
 
-	#signin(
-		res: Result<string>,
-		resolve: (value: string) => void,
-		reject: (reason?: any) => void,
-	): void {
-		if (res.error) {
-			return reject(new Surreal.AuthenticationError(res.error.message));
-		} else {
-			this.#token = res.result;
-			return resolve(res.result);
-		}
-	}
-
-	#signup(
-		res: Result<string>,
-		resolve: (value: string) => void,
-		reject: (reason?: any) => void,
-	): void {
-		if (res.error) {
-			return reject(new Surreal.AuthenticationError(res.error.message));
-		} else if (res.result) {
-			this.#token = res.result;
-			return resolve(res.result);
-		}
-	}
-
-	#result<T>(
+	#outputHandlerB<T>(
 		res: Result<T>,
-		resolve: (value: T) => void,
-		reject: (reason?: any) => void,
-	): void {
-		if (res.error) {
-			return reject(new Error(res.error.message));
-		} else if (res.result) {
-			return resolve(res.result);
-		}
-		return resolve(undefined as unknown as T);
-	}
-
-	#output<T>(
-		res: Result<T>,
-		type: string,
 		id: string,
-		resolve: (value: T) => void,
-		reject: (reason?: any) => void,
-	): void {
-		if (res.error) {
-			return reject(new Error(res.error.message));
-		} else if (res.result) {
-			switch (type) {
-				case "delete":
-					return resolve(undefined as unknown as T);
-				case "create":
-					return Array.isArray(res.result) && res.result.length
-						? resolve(res.result[0])
-						: reject(
-							new Surreal.PermissionError(
-								`Unable to create record: ${id}`,
-							),
-						);
-				case "update":
-					if (typeof id === "string" && id.includes(":")) {
-						return Array.isArray(res.result) && res.result.length
-							? resolve(res.result[0])
-							: reject(
-								new Surreal.PermissionError(
-									`Unable to update record: ${id}`,
-								),
-							);
-					} else {
-						return resolve(res.result);
-					}
-				case "change":
-					if (typeof id === "string" && id.includes(":")) {
-						return Array.isArray(res.result) && res.result.length
-							? resolve(res.result[0])
-							: reject(
-								new Surreal.PermissionError(
-									`Unable to update record: ${id}`,
-								),
-							);
-					} else {
-						return resolve(res.result);
-					}
-				case "modify":
-					if (typeof id === "string" && id.includes(":")) {
-						return Array.isArray(res.result) && res.result.length
-							? resolve(res.result[0])
-							: reject(
-								new Surreal.PermissionError(
-									`Unable to update record: ${id}`,
-								),
-							);
-					} else {
-						return resolve(res.result);
-					}
-				default:
-					if (typeof id === "string" && id.includes(":")) {
-						return Array.isArray(res.result) && res.result.length
-							? resolve(res.result)
-							: reject(
-								new Surreal.RecordError(
-									`Record not found: ${id}`,
-								),
-							);
-					} else {
-						return resolve(res.result);
-					}
-			}
+		error: typeof Error,
+		errormessage: string,
+	) {
+		this.#outputHandlerError(res);
+		if (typeof id === "string" && id.includes(":")) {
+			this.#outputHandlerA(res, error, errormessage);
+		} else {
+			return res.result;
 		}
-		return resolve(undefined as unknown as T);
+	}
+
+	#outputHandlerError<T>(res: Result<T>) {
+		if (res.error) {
+			throw new Error(res.error.message);
+		}
 	}
 }

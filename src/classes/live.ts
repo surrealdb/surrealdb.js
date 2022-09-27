@@ -1,7 +1,11 @@
 import Surreal from "../index.ts";
 import Emitter from "./emitter.ts";
 
-export default class Live extends Emitter {
+export default class Live extends Emitter<{
+	"create": [unknown];
+	"update": [unknown];
+	"delete": [unknown];
+}> {
 	#id: string | undefined;
 
 	#db: Surreal;

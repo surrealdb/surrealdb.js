@@ -9,9 +9,3 @@ export class PermissionError extends Error {
 export class RecordError extends Error {
 	name = "RecordError";
 }
-
-export default {
-	AuthenticationError: AuthenticationError,
-	PermissionError: PermissionError,
-	RecordError: RecordError,
-};
