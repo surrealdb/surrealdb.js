@@ -119,7 +119,7 @@ export default class Surreal extends Emitter {
 	// Properties
 	// ------------------------------
 
-	#ws!: Socket;
+	#ws!: Socket & Emitter;
 
 	#url?: string;
 
