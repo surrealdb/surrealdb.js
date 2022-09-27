@@ -318,7 +318,7 @@ export default class Surreal extends Emitter<
 
 		this.#send(id, "use", [ns, db]);
 
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 
 		if (res.error) throw new Error(res.error.message);
 
@@ -335,7 +335,7 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "info");
 
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 
 		if (res.error) throw new Error(res.error.message);
 
@@ -353,7 +353,7 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "signup", [vars]);
 
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 
 		if (res.error) throw new AuthenticationError(res.error.message);
 
@@ -372,7 +372,7 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "signin", [vars]);
 
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 
 		if (res.error) throw new AuthenticationError(res.error.message);
 
@@ -389,7 +389,7 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "invalidate");
 
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 
 		if (res.error) throw new AuthenticationError(res.error.message);
 		return res.result;
@@ -405,7 +405,7 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "authenticate", [token]);
 
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 
 		if (res.error) throw new AuthenticationError(res.error.message);
 
@@ -419,7 +419,7 @@ export default class Surreal extends Emitter<
 
 		await this.#ws.ready;
 		this.#send(id, "live", [table]);
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 
 		if (res.error) throw new Error(res.error.message);
 
@@ -435,7 +435,7 @@ export default class Surreal extends Emitter<
 
 		await this.#ws.ready;
 		this.#send(id, "kill", [query]);
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 
 		if (res.error) throw new Error(res.error.message);
 
@@ -452,7 +452,7 @@ export default class Surreal extends Emitter<
 
 		await this.#ws.ready;
 		this.#send(id, "let", [key, val]);
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 
 		if (res.error) throw new Error(res.error.message);
 
@@ -472,7 +472,7 @@ export default class Surreal extends Emitter<
 
 		await this.#ws.ready;
 		this.#send(id, "query", [query, vars]);
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 
 		if (res.error) throw new Error(res.error.message);
 
@@ -488,7 +488,7 @@ export default class Surreal extends Emitter<
 
 		await this.#ws.ready;
 		this.#send(id, "select", [thing]);
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 		return this.#outputHandlerB(
 			res,
 			thing,
@@ -510,7 +510,7 @@ export default class Surreal extends Emitter<
 
 		await this.#ws.ready;
 		this.#send(id, "create", [thing, data]);
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 		this.#outputHandlerError(res);
 		return this.#outputHandlerA(
 			res,
@@ -534,7 +534,7 @@ export default class Surreal extends Emitter<
 
 		await this.#ws.ready;
 		this.#send(id, "update", [thing, data]);
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 		return this.#outputHandlerB(
 			res,
 			thing,
@@ -561,7 +561,7 @@ export default class Surreal extends Emitter<
 
 		await this.#ws.ready;
 		this.#send(id, "change", [thing, data]);
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 		return this.#outputHandlerB(
 			res,
 			thing,
@@ -582,7 +582,7 @@ export default class Surreal extends Emitter<
 
 		await this.#ws.ready;
 		this.#send(id, "modify", [thing, data]);
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 		return this.#outputHandlerB(
 			res,
 			thing,
@@ -600,7 +600,7 @@ export default class Surreal extends Emitter<
 
 		await this.#ws.ready;
 		this.#send(id, "delete", [thing]);
-		const [res] = await this.next(id);
+		const [res] = await this.nextEvent(id);
 		this.#outputHandlerError(res);
 		return;
 	}

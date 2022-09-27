@@ -20,7 +20,7 @@ export default class Emitter<EVENTS extends EventMap = EventMap> {
 
 	static once = once;
 
-	next<T extends keyof EVENTS>(eventName: T) {
+	nextEvent<T extends keyof EVENTS>(eventName: T) {
 		return once(this, eventName);
 	}
 
