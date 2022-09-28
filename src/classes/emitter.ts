@@ -13,7 +13,7 @@ export function once<
 	});
 }
 
-export default class Emitter<EVENTS extends EventMap = EventMap> {
+export class Emitter<EVENTS extends EventMap = EventMap> {
 	#events: {
 		[K in keyof EVENTS]?: Set<(this: this, ...args: EVENTS[K]) => void>;
 	} = {};

@@ -1,4 +1,4 @@
-export default class Pinger {
+export class Pinger {
 	// deno-lint-ignore no-explicit-any
 	#pinger?: any;
 

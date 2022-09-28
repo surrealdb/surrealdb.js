@@ -1,5 +1,5 @@
 import WebSocket from "../ws/deno.ts";
-import Emitter from "./emitter.ts";
+import { Emitter } from "./emitter.ts";
 
 const OPENED = Symbol("Opened");
 const CLOSED = Symbol("Closed");
@@ -20,7 +20,7 @@ export interface CloseEventLike {
 	type: string;
 }
 
-export default class Socket extends Emitter<{
+export class Socket extends Emitter<{
 	"message": [MessageEventLike<string>];
 	"error": [EventLike];
 	"close": [CloseEventLike];

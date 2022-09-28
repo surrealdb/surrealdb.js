@@ -4,14 +4,11 @@ import {
 	PermissionError,
 	RecordError,
 } from "./errors/index.ts";
-import Live from "./classes/live.ts";
-import Socket from "./classes/socket.ts";
-import Pinger from "./classes/pinger.ts";
-import Emitter from "./classes/emitter.ts";
+import { Live } from "./classes/live.ts";
+import { Socket } from "./classes/socket.ts";
+import { Pinger } from "./classes/pinger.ts";
+import { Emitter } from "./classes/emitter.ts";
 import type { EventMap, EventName } from "./classes/emitter.ts";
-
-export { Emitter, Live };
-export type { EventMap, EventName };
 
 let singleton: Surreal;
 
@@ -656,3 +653,6 @@ export default class Surreal extends Emitter<
 		}
 	}
 }
+
+export { Emitter, Live, Surreal };
+export type { EventMap, EventName };
