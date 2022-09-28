@@ -38,7 +38,7 @@ await build({
 			"build:web":
 				"esbuild ./esm/index.js --format=esm --minify --bundle --sourcemap --outfile=./web/index.js",
 		},
-		"browser": "./web/index.js"
+		"browser": "./web/index.js",
 	},
 	// skipSourceOutput: true,
 	mappings: {
