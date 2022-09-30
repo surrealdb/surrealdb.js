@@ -620,8 +620,8 @@ export default class Surreal extends Emitter<
 	 *     throw "There is something wrong!";
 	 *   }
 	 * })
-	 *
 	 * ```
+	 * If you don't want to handle the errors add a `.catch(() => null)` after it!
 	 *
 	 * @param fn Function to run in the Transaction. Should throw to cancel and return to commit transaction.
 	 * @returns Promise of the value from fn or re-throw the same error as fn.
