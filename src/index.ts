@@ -605,6 +605,39 @@ export default class Surreal extends Emitter<
 		return;
 	}
 
+	/**
+	 * Run queries inside a transaction!
+	 *
+	 * ## Example
+	 *
+	 * ```ts
+	 * const ret = await db.transaction(() => {
+	 *   const [person] = db.query('INSERT INTO person CONTENT {}')
+	 *   // ...
+	 *   if (allOK) {
+	 *     return person;
+	 *   } else {
+	 *     throw "There is something wrong!";
+	 *   }
+	 * })
+	 *
+	 * ```
+	 *
+	 * @param fn Function to run in the Transaction. Should throw to cancel and return to commit transaction.
+	 * @returns Promise of the value from fn or re-throw the same error as fn.
+	 */
+	async transaction<T extends unknown>(fn: () => T): Promise<Awaited<T>> {
+		await this.query("BEGIN TRANSACTION");
+		try {
+			const res = await fn();
+			await this.query("COMMIT TRANSACTION");
+			return res;
+		} catch (ex) {
+			await this.query("CANCEL TRANSACTION");
+			throw ex;
+		}
+	}
+
 	// --------------------------------------------------
 	// Private methods
 	// --------------------------------------------------
