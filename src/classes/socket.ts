@@ -1,9 +1,6 @@
 import WebSocket from "../ws/deno.ts";
 import Emitter from "./emitter.ts";
 
-const OPENED = Symbol("Opened");
-const CLOSED = Symbol("Closed");
-
 export interface EventLike {
 	type: string;
 }
@@ -20,6 +17,25 @@ export interface CloseEventLike {
 	type: string;
 }
 
+export enum ConnectionState {
+	/**
+	 * `.connect(...)` was not called
+	 */
+	NOT_CONNECTED,
+	/**
+	 * Connection closed by user
+	 */
+	CLOSED,
+	/**
+	 * Waiting on new connection
+	 */
+	RECONNECTING,
+	/**
+	 * Connection open
+	 */
+	OPEN
+}
+
 export default class Socket extends Emitter<{
 	"message": [MessageEventLike<string>];
 	"error": [EventLike];
@@ -32,7 +48,7 @@ export default class Socket extends Emitter<{
 
 	#closed = false;
 
-	#status = CLOSED;
+	status = ConnectionState.RECONNECTING;
 
 	constructor(url: URL | string) {
 		super();
@@ -76,45 +92,36 @@ export default class Socket extends Emitter<{
 			this.emit("open", e);
 		});
 
-		// If the WebSocket connection with the
-		// database was disconnected, then we need
-		// to reset the ready promise.
 
 		this.#ws.addEventListener("close", () => {
-			if (this.#status === OPENED) {
+			if (this.status === ConnectionState.OPEN) {
+				// If the WebSocket connection with the
+				// database was disconnected, then we need
+				// to reset the ready promise.
 				this.#init();
 			}
-		});
 
-		// When the WebSocket is opened or closed
-		// then we need to store the connection
-		// status within the status property.
-
-		this.#ws.addEventListener("close", () => {
-			this.#status = CLOSED;
-		});
-
-		this.#ws.addEventListener("open", () => {
-			this.#status = OPENED;
-		});
-
-		// If the connection is closed, then we
-		// need to attempt to reconnect on a
-		// regular basis until we are successful.
-
-		this.#ws.addEventListener("close", () => {
 			if (this.#closed === false) {
+				// If the connection is closed, then we
+				// need to attempt to reconnect on a
+				// regular basis until we are successful.
 				setTimeout(() => {
 					this.open();
 				}, 2500);
+
+				// When the WebSocket is opened or closed
+				// then we need to store the connection
+				// status within the status property.
+				this.status = ConnectionState.RECONNECTING;
 			}
 		});
 
-		// When the WebSocket successfully opens
-		// then let's resolve the ready promise so
-		// that promise based code can continue.
 
 		this.#ws.addEventListener("open", () => {
+			this.status = ConnectionState.OPEN;
+			// When the WebSocket successfully opens
+			// then let's resolve the ready promise so
+			// that promise based code can continue.
 			this.resolve();
 		});
 	}
@@ -126,5 +133,6 @@ export default class Socket extends Emitter<{
 	close(code = 1000, reason = "Some reason"): void {
 		this.#closed = true;
 		this.#ws.close(code, reason);
+		this.status = ConnectionState.CLOSED
 	}
 }

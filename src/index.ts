@@ -5,12 +5,12 @@ import {
 	RecordError,
 } from "./errors/index.ts";
 import Live from "./classes/live.ts";
-import Socket from "./classes/socket.ts";
+import Socket, { ConnectionState } from "./classes/socket.ts";
 import Pinger from "./classes/pinger.ts";
 import Emitter from "./classes/emitter.ts";
 import type { EventMap, EventName } from "./classes/emitter.ts";
 
-export { Emitter, Live };
+export { Emitter, Live, ConnectionState };
 export type { EventMap, EventName };
 
 let singleton: Surreal;
@@ -168,6 +168,14 @@ export default class Surreal extends Emitter<
 
 	set token(token) {
 		this.#token = token;
+	}
+
+	get status(): ConnectionState {
+		if(!this.#ws) {
+			return ConnectionState.NOT_CONNECTED
+		}
+
+		return this.#ws.status
 	}
 
 	// ------------------------------
@@ -438,7 +446,7 @@ export default class Surreal extends Emitter<
 	 */
 	async select<T>(thing: string): Promise<T[]> {
 		const res = await this.#send("select", [thing]);
-
+		
 		return this.#outputHandlerB(
 			res,
 			thing,
@@ -503,7 +511,7 @@ export default class Surreal extends Emitter<
 		data?: Partial<T> & U,
 	): Promise<(T & U & { id: string }) | (T & U & { id: string })[]> {
 		const res = await this.#send( "change", [thing, data]);
-
+	
 		return this.#outputHandlerB(
 			res,
 			thing,
@@ -521,7 +529,7 @@ export default class Surreal extends Emitter<
 	 */
 	async modify(thing: string, data?: Patch[]): Promise<Patch[]> {
 		const res = await this.#send("modify", [thing, data]);
-
+		
 		return this.#outputHandlerB(
 			res,
 			thing,
@@ -536,7 +544,7 @@ export default class Surreal extends Emitter<
 	 */
 	async delete(thing: string): Promise<void> {
 		const res = await this.#send("delete", [thing]);
-
+		
 		this.#outputHandlerError(res);
 		return;
 	}
