@@ -345,7 +345,7 @@ export default class Surreal extends Emitter<
 	async signup(vars: Auth): Promise<string> {
 		const res = await this.#send("signup", [vars]);
 
-		this.#outputHandlerError(res, AuthenticationError as typeof Error)
+		this.#outputHandlerError(res, AuthenticationError as typeof Error);
 
 		this.#token = res.result;
 		return res.result;
@@ -359,7 +359,7 @@ export default class Surreal extends Emitter<
 	async signin(vars: Auth): Promise<string> {
 		const res = await this.#send("signin", [vars]);
 
-		this.#outputHandlerError(res, AuthenticationError as typeof Error)
+		this.#outputHandlerError(res, AuthenticationError as typeof Error);
 
 		this.#token = res.result;
 		return res.result;
@@ -371,7 +371,7 @@ export default class Surreal extends Emitter<
 	async invalidate(): Promise<void> {
 		const res = await this.#send("invalidate");
 
-		this.#outputHandlerError(res, AuthenticationError as typeof Error)
+		this.#outputHandlerError(res, AuthenticationError as typeof Error);
 
 		return res.result;
 	}
@@ -383,7 +383,7 @@ export default class Surreal extends Emitter<
 	async authenticate(token: string): Promise<void> {
 		const res = await this.#send("authenticate", [token]);
 
-		this.#outputHandlerError(res, AuthenticationError as typeof Error)
+		this.#outputHandlerError(res, AuthenticationError as typeof Error);
 
 		return res.result;
 	}
