@@ -282,10 +282,12 @@ export default class Surreal extends Emitter<
 	/**
 	 * Waits for the connection to the database to succeed.
 	 */
-	wait(): Promise<void> {
-		return this.#ws.ready.then(() => {
-			return this.#attempted!;
-		});
+	async wait(): Promise<void> {
+		if(!this.#ws) {
+			throw new Error("You have to call .connect before any other method!")
+		}
+		await this.#ws.ready
+		await this.#attempted!
 	}
 
 	/**
@@ -301,9 +303,7 @@ export default class Surreal extends Emitter<
 	 * Ping SurrealDB instance
 	 */
 	async ping(): Promise<void> {
-		const id = guid();
-		await this.#ws.ready;
-		this.#send(id, "ping");
+		await this.#send("ping");
 	}
 
 	/**
@@ -312,13 +312,7 @@ export default class Surreal extends Emitter<
 	 * @param db - Switches to a specific database.
 	 */
 	async use(ns: string, db: string): Promise<void> {
-		const id = guid();
-
-		await this.#ws.ready;
-
-		this.#send(id, "use", [ns, db]);
-
-		const [res] = await this.nextEvent(id);
+		const res = await this.#send("use", [ns, db]);
 
 		if (res.error) throw new Error(res.error.message);
 
@@ -330,12 +324,7 @@ export default class Surreal extends Emitter<
 	 * @return Returns nothing!
 	 */
 	async info(): Promise<void> {
-		const id = guid();
-
-		await this.#ws.ready;
-		this.#send(id, "info");
-
-		const [res] = await this.nextEvent(id);
+		const res = await this.#send("info");
 
 		if (res.error) throw new Error(res.error.message);
 
@@ -348,12 +337,7 @@ export default class Surreal extends Emitter<
 	 * @return The authenication token.
 	 */
 	async signup(vars: Auth): Promise<string> {
-		const id = guid();
-
-		await this.#ws.ready;
-		this.#send(id, "signup", [vars]);
-
-		const [res] = await this.nextEvent(id);
+		const res = await this.#send("signup", [vars]);
 
 		if (res.error) throw new AuthenticationError(res.error.message);
 
@@ -367,12 +351,7 @@ export default class Surreal extends Emitter<
 	 * @return The authenication token.
 	 */
 	async signin(vars: Auth): Promise<string> {
-		const id = guid();
-
-		await this.#ws.ready;
-		this.#send(id, "signin", [vars]);
-
-		const [res] = await this.nextEvent(id);
+		const res = await this.#send("signin", [vars]);
 
 		if (res.error) throw new AuthenticationError(res.error.message);
 
@@ -384,12 +363,7 @@ export default class Surreal extends Emitter<
 	 * Invalidates the authentication for the current connection.
 	 */
 	async invalidate(): Promise<void> {
-		const id = guid();
-
-		await this.#ws.ready;
-		this.#send(id, "invalidate");
-
-		const [res] = await this.nextEvent(id);
+		const res = await this.#send("invalidate");
 
 		if (res.error) throw new AuthenticationError(res.error.message);
 		return res.result;
@@ -400,12 +374,7 @@ export default class Surreal extends Emitter<
 	 * @param token - The JWT authentication token.
 	 */
 	async authenticate(token: string): Promise<void> {
-		const id = guid();
-
-		await this.#ws.ready;
-		this.#send(id, "authenticate", [token]);
-
-		const [res] = await this.nextEvent(id);
+		const res = await this.#send("authenticate", [token]);
 
 		if (res.error) throw new AuthenticationError(res.error.message);
 
@@ -415,11 +384,7 @@ export default class Surreal extends Emitter<
 	// --------------------------------------------------
 
 	async live(table: string): Promise<string> {
-		const id = guid();
-
-		await this.#ws.ready;
-		this.#send(id, "live", [table]);
-		const [res] = await this.nextEvent(id);
+		const res = await this.#send("live", [table]);
 
 		if (res.error) throw new Error(res.error.message);
 
@@ -431,11 +396,7 @@ export default class Surreal extends Emitter<
 	 * @param query - The query to kill.
 	 */
 	async kill(query: string): Promise<void> {
-		const id = guid();
-
-		await this.#ws.ready;
-		this.#send(id, "kill", [query]);
-		const [res] = await this.nextEvent(id);
+		const res = await this.#send("kill", [query]);
 
 		if (res.error) throw new Error(res.error.message);
 
@@ -448,11 +409,7 @@ export default class Surreal extends Emitter<
 	 * @param val - Assigns the value to the variable name.
 	 */
 	async let(key: string, val: unknown): Promise<string> {
-		const id = guid();
-
-		await this.#ws.ready;
-		this.#send(id, "let", [key, val]);
-		const [res] = await this.nextEvent(id);
+		const res = await this.#send("let", [key, val]);
 
 		if (res.error) throw new Error(res.error.message);
 
@@ -468,11 +425,7 @@ export default class Surreal extends Emitter<
 		query: string,
 		vars?: Record<string, unknown>,
 	): Promise<T> {
-		const id = guid();
-
-		await this.#ws.ready;
-		this.#send(id, "query", [query, vars]);
-		const [res] = await this.nextEvent(id);
+		const res = await this.#send("query", [query, vars]);
 
 		if (res.error) throw new Error(res.error.message);
 
@@ -484,16 +437,13 @@ export default class Surreal extends Emitter<
 	 * @param thing - The table name or a record ID to select.
 	 */
 	async select<T>(thing: string): Promise<T[]> {
-		const id = guid();
+		const res = await this.#send("select", [thing]);
 
-		await this.#ws.ready;
-		this.#send(id, "select", [thing]);
-		const [res] = await this.nextEvent(id);
 		return this.#outputHandlerB(
 			res,
 			thing,
 			RecordError as typeof Error,
-			`Record not found: ${id}`,
+			`Record not found: ${thing}`,
 		);
 	}
 
@@ -506,12 +456,10 @@ export default class Surreal extends Emitter<
 		thing: string,
 		data?: T,
 	): Promise<T & { id: string }> {
-		const id = guid();
+		const res = await this.#send("create", [thing, data]);
 
-		await this.#ws.ready;
-		this.#send(id, "create", [thing, data]);
-		const [res] = await this.nextEvent(id);
 		this.#outputHandlerError(res);
+
 		return this.#outputHandlerA(
 			res,
 			PermissionError as typeof Error,
@@ -530,11 +478,8 @@ export default class Surreal extends Emitter<
 		thing: string,
 		data?: T,
 	): Promise<T & { id: string }> {
-		const id = guid();
+		const res = await this.#send("update", [thing, data]);
 
-		await this.#ws.ready;
-		this.#send(id, "update", [thing, data]);
-		const [res] = await this.nextEvent(id);
 		return this.#outputHandlerB(
 			res,
 			thing,
@@ -557,11 +502,8 @@ export default class Surreal extends Emitter<
 		thing: string,
 		data?: Partial<T> & U,
 	): Promise<(T & U & { id: string }) | (T & U & { id: string })[]> {
-		const id = guid();
+		const res = await this.#send( "change", [thing, data]);
 
-		await this.#ws.ready;
-		this.#send(id, "change", [thing, data]);
-		const [res] = await this.nextEvent(id);
 		return this.#outputHandlerB(
 			res,
 			thing,
@@ -578,11 +520,8 @@ export default class Surreal extends Emitter<
 	 * @param data - The JSON Patch data with which to modify the records.
 	 */
 	async modify(thing: string, data?: Patch[]): Promise<Patch[]> {
-		const id = guid();
+		const res = await this.#send("modify", [thing, data]);
 
-		await this.#ws.ready;
-		this.#send(id, "modify", [thing, data]);
-		const [res] = await this.nextEvent(id);
 		return this.#outputHandlerB(
 			res,
 			thing,
@@ -596,11 +535,8 @@ export default class Surreal extends Emitter<
 	 * @param thing - The table name or a record ID to select.
 	 */
 	async delete(thing: string): Promise<void> {
-		const id = guid();
+		const res = await this.#send("delete", [thing]);
 
-		await this.#ws.ready;
-		this.#send(id, "delete", [thing]);
-		const [res] = await this.nextEvent(id);
 		this.#outputHandlerError(res);
 		return;
 	}
@@ -617,12 +553,16 @@ export default class Surreal extends Emitter<
 		});
 	}
 
-	#send(id: string, method: string, params: unknown[] = []): void {
+	async #send(method: string, params: unknown[] = []) {
+		const id = guid()
+		await this.wait()
 		this.#ws.send(JSON.stringify({
 			id: id,
 			method: method,
 			params: params,
 		}));
+		const [res] = await this.nextEvent(id)
+		return res
 	}
 
 	#outputHandlerA<T>(
