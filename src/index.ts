@@ -554,20 +554,20 @@ export default class Surreal extends Emitter<
 
 	#init(): void {
 		this.#attempted = Promise.resolve().then(async () => {
-			if(!this.#token) {
-				return
+			if (!this.#token) {
+				return;
 			}
 			try {
-				await this.authenticate(this.#token)
+				await this.authenticate(this.#token);
 			} catch (_) {
 				// ignore Errors
 			}
-		})
+		});
 	}
 
 	async #send(method: string, params: unknown[] = [], wait = true) {
 		const id = guid();
-		if(wait) {
+		if (wait) {
 			await this.wait();
 		} else {
 			await this.#ws.ready;
