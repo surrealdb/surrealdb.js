@@ -10,7 +10,7 @@ import Pinger from "./classes/pinger.ts";
 import Emitter from "./classes/emitter.ts";
 import type { EventMap, EventName } from "./classes/emitter.ts";
 
-export { Emitter, Live, ConnectionState };
+export { ConnectionState, Emitter, Live };
 export type { EventMap, EventName };
 
 let singleton: Surreal;
@@ -171,11 +171,11 @@ export default class Surreal extends Emitter<
 	}
 
 	get status(): ConnectionState {
-		if(!this.#ws) {
-			return ConnectionState.NOT_CONNECTED
+		if (!this.#ws) {
+			return ConnectionState.NOT_CONNECTED;
 		}
 
-		return this.#ws.status
+		return this.#ws.status;
 	}
 
 	// ------------------------------
@@ -291,11 +291,13 @@ export default class Surreal extends Emitter<
 	 * Waits for the connection to the database to succeed.
 	 */
 	async wait(): Promise<void> {
-		if(!this.#ws) {
-			throw new Error("You have to call .connect before any other method!")
+		if (!this.#ws) {
+			throw new Error(
+				"You have to call .connect before any other method!",
+			);
 		}
-		await this.#ws.ready
-		await this.#attempted!
+		await this.#ws.ready;
+		await this.#attempted!;
 	}
 
 	/**
@@ -446,7 +448,7 @@ export default class Surreal extends Emitter<
 	 */
 	async select<T>(thing: string): Promise<T[]> {
 		const res = await this.#send("select", [thing]);
-		
+
 		return this.#outputHandlerB(
 			res,
 			thing,
@@ -510,8 +512,8 @@ export default class Surreal extends Emitter<
 		thing: string,
 		data?: Partial<T> & U,
 	): Promise<(T & U & { id: string }) | (T & U & { id: string })[]> {
-		const res = await this.#send( "change", [thing, data]);
-	
+		const res = await this.#send("change", [thing, data]);
+
 		return this.#outputHandlerB(
 			res,
 			thing,
@@ -529,7 +531,7 @@ export default class Surreal extends Emitter<
 	 */
 	async modify(thing: string, data?: Patch[]): Promise<Patch[]> {
 		const res = await this.#send("modify", [thing, data]);
-		
+
 		return this.#outputHandlerB(
 			res,
 			thing,
@@ -544,7 +546,7 @@ export default class Surreal extends Emitter<
 	 */
 	async delete(thing: string): Promise<void> {
 		const res = await this.#send("delete", [thing]);
-		
+
 		this.#outputHandlerError(res);
 		return;
 	}
@@ -562,15 +564,15 @@ export default class Surreal extends Emitter<
 	}
 
 	async #send(method: string, params: unknown[] = []) {
-		const id = guid()
-		await this.wait()
+		const id = guid();
+		await this.wait();
 		this.#ws.send(JSON.stringify({
 			id: id,
 			method: method,
 			params: params,
 		}));
-		const [res] = await this.nextEvent(id)
-		return res
+		const [res] = await this.nextEvent(id);
+		return res;
 	}
 
 	#outputHandlerA<T>(

@@ -33,7 +33,7 @@ export enum ConnectionState {
 	/**
 	 * Connection open
 	 */
-	OPEN
+	OPEN,
 }
 
 export default class Socket extends Emitter<{
@@ -92,7 +92,6 @@ export default class Socket extends Emitter<{
 			this.emit("open", e);
 		});
 
-
 		this.#ws.addEventListener("close", () => {
 			if (this.status === ConnectionState.OPEN) {
 				// If the WebSocket connection with the
@@ -116,7 +115,6 @@ export default class Socket extends Emitter<{
 			}
 		});
 
-
 		this.#ws.addEventListener("open", () => {
 			this.status = ConnectionState.OPEN;
 			// When the WebSocket successfully opens
@@ -133,6 +131,6 @@ export default class Socket extends Emitter<{
 	close(code = 1000, reason = "Some reason"): void {
 		this.#closed = true;
 		this.#ws.close(code, reason);
-		this.status = ConnectionState.CLOSED
+		this.status = ConnectionState.CLOSED;
 	}
 }
