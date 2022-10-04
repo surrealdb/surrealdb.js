@@ -320,7 +320,7 @@ export default class Surreal extends Emitter<
 	async use(ns: string, db: string): Promise<void> {
 		const res = await this.#send("use", [ns, db]);
 
-		if (res.error) throw new Error(res.error.message);
+		this.#outputHandlerError(res);
 
 		return res.result;
 	}
@@ -332,7 +332,7 @@ export default class Surreal extends Emitter<
 	async info(): Promise<void> {
 		const res = await this.#send("info");
 
-		if (res.error) throw new Error(res.error.message);
+		this.#outputHandlerError(res);
 
 		return res.result;
 	}
@@ -345,7 +345,7 @@ export default class Surreal extends Emitter<
 	async signup(vars: Auth): Promise<string> {
 		const res = await this.#send("signup", [vars]);
 
-		if (res.error) throw new AuthenticationError(res.error.message);
+		this.#outputHandlerError(res, AuthenticationError as typeof Error)
 
 		this.#token = res.result;
 		return res.result;
@@ -359,7 +359,7 @@ export default class Surreal extends Emitter<
 	async signin(vars: Auth): Promise<string> {
 		const res = await this.#send("signin", [vars]);
 
-		if (res.error) throw new AuthenticationError(res.error.message);
+		this.#outputHandlerError(res, AuthenticationError as typeof Error)
 
 		this.#token = res.result;
 		return res.result;
@@ -371,7 +371,8 @@ export default class Surreal extends Emitter<
 	async invalidate(): Promise<void> {
 		const res = await this.#send("invalidate");
 
-		if (res.error) throw new AuthenticationError(res.error.message);
+		this.#outputHandlerError(res, AuthenticationError as typeof Error)
+
 		return res.result;
 	}
 
@@ -382,7 +383,7 @@ export default class Surreal extends Emitter<
 	async authenticate(token: string): Promise<void> {
 		const res = await this.#send("authenticate", [token]);
 
-		if (res.error) throw new AuthenticationError(res.error.message);
+		this.#outputHandlerError(res, AuthenticationError as typeof Error)
 
 		return res.result;
 	}
@@ -392,7 +393,7 @@ export default class Surreal extends Emitter<
 	async live(table: string): Promise<string> {
 		const res = await this.#send("live", [table]);
 
-		if (res.error) throw new Error(res.error.message);
+		this.#outputHandlerError(res);
 
 		return res.result;
 	}
@@ -404,7 +405,7 @@ export default class Surreal extends Emitter<
 	async kill(query: string): Promise<void> {
 		const res = await this.#send("kill", [query]);
 
-		if (res.error) throw new Error(res.error.message);
+		this.#outputHandlerError(res);
 
 		return res.result;
 	}
@@ -417,7 +418,7 @@ export default class Surreal extends Emitter<
 	async let(key: string, val: unknown): Promise<string> {
 		const res = await this.#send("let", [key, val]);
 
-		if (res.error) throw new Error(res.error.message);
+		this.#outputHandlerError(res);
 
 		return res.result;
 	}
@@ -433,7 +434,7 @@ export default class Surreal extends Emitter<
 	): Promise<T> {
 		const res = await this.#send("query", [query, vars]);
 
-		if (res.error) throw new Error(res.error.message);
+		this.#outputHandlerError(res);
 
 		return res.result;
 	}
@@ -573,32 +574,32 @@ export default class Surreal extends Emitter<
 
 	#outputHandlerA<T>(
 		res: Result<T>,
-		error: typeof Error,
+		Err: typeof Error,
 		errormessage: string,
 	) {
 		if (Array.isArray(res.result) && res.result.length) {
 			return res.result[0];
 		}
-		throw new error(errormessage);
+		throw new Err(errormessage);
 	}
 
 	#outputHandlerB<T>(
 		res: Result<T>,
 		id: string,
-		error: typeof Error,
+		Err: typeof Error,
 		errormessage: string,
 	) {
 		this.#outputHandlerError(res);
 		if (typeof id === "string" && id.includes(":")) {
-			this.#outputHandlerA(res, error, errormessage);
+			this.#outputHandlerA(res, Err, errormessage);
 		} else {
 			return res.result;
 		}
 	}
 
-	#outputHandlerError<T>(res: Result<T>) {
+	#outputHandlerError<T>(res: Result<T>, Err: typeof Error = Error) {
 		if (res.error) {
-			throw new Error(res.error.message);
+			throw new Err(res.error.message);
 		}
 	}
 }
