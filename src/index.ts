@@ -150,8 +150,6 @@ export default class Surreal extends Emitter<
 
 	#ws!: Socket;
 
-	#url?: string;
-
 	#token?: string;
 
 	#pinger!: Pinger;
@@ -189,8 +187,6 @@ export default class Surreal extends Emitter<
 	 */
 	constructor(url?: string, token?: string) {
 		super();
-
-		this.#url = url;
 
 		this.#token = token;
 
