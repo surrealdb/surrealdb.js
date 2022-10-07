@@ -2,6 +2,9 @@
 
 The official SurrealDB library for JavaScript.
 
+[![npm version](https://badge.fury.io/js/surrealdb.js.svg)](https://badge.fury.io/js/surrealdb.js)
+[![deno module](https://shield.deno.dev/x/surrealdb)](https://deno.land/x/surrealdb)
+
 [![](https://img.shields.io/badge/status-beta-ff00bb.svg?style=flat-square)](https://github.com/surrealdb/surrealdb.js)
 [![](https://img.shields.io/badge/docs-view-44cc11.svg?style=flat-square)](https://surrealdb.com/docs/integration/libraries/javascript)
 [![](https://img.shields.io/badge/license-Apache_License_2.0-00bfff.svg?style=flat-square)](https://github.com/surrealdb/surrealdb.js)
@@ -114,7 +117,7 @@ try {
 ## More informations
 
 The docs of this libary are located at
-[https://surrealdb.com/docs/integration/libraries/nodejs](https://surrealdb.com/docs/integration/libraries/nodejs)
+[https://surrealdb.com/docs/integration/libraries/javascript](https://surrealdb.com/docs/integration/libraries/javascript)
 
 ## Contribution notes
 
