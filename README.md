@@ -43,7 +43,7 @@ just import it with
 import Surreal from "surrealdb.js";
 ```
 
-or when you use commonjs
+or when you use CommonJS
 
 ```ts
 const Surreal = require("surrealdb.js").default;
