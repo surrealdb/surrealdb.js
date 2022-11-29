@@ -37,7 +37,7 @@ yarn add surrealdb.js
 pnpm i surrealdb.js
 ```
 
-just import it with
+then, just import it with:
 
 ```ts
 import Surreal from "surrealdb.js";
