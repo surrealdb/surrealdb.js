@@ -24,7 +24,7 @@ import Surreal from "https://deno.land/x/surrealdb/mod.ts";
 > Note you should set a version in the url! For example
 > `https://deno.land/x/surrealdb@0.5.0/mod.ts`
 
-#### NodeJS, Browser with bundler
+#### NodeJS, or browser with a bundler
 
 For NodeJS or a browser with bundler (for example: rollup, vite, or webpack) you can just:
 install the npm package:
