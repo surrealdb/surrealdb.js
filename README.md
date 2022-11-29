@@ -133,7 +133,7 @@ works for NodeJS, Bun, browsers with bundlers.
 - [Deno](https://deno.land)
 - [NodeJS](https://nodejs.org)
 - [Bun](https://bun.sh)
-- web-browsers
+- Web Browsers
 
 ### Requirements
 
