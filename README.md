@@ -26,7 +26,7 @@ import Surreal from "https://deno.land/x/surrealdb/mod.ts";
 
 #### NodeJS, Browser with bundler
 
-For NodeJS or Browser with bundler like rollup, vite, webpack, ... you can just
+For NodeJS or a browser with bundler (for example: rollup, vite, or webpack) you can just:
 install the npm package:
 
 ```sh
