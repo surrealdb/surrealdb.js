@@ -275,6 +275,11 @@ export default class Surreal extends Emitter<
 	 * Waits for the connection to the database to succeed.
 	 */
 	wait(): Promise<void> {
+		if (this.#ws === undefined) {
+			throw new Error(
+				"No connection has been established.\nPlease call connect() first.",
+			);
+		}
 		return this.#ws.ready.then(() => {
 			return this.#attempted!;
 		});
@@ -294,7 +299,7 @@ export default class Surreal extends Emitter<
 	 */
 	async ping(): Promise<void> {
 		const id = guid();
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "ping");
 	}
 
@@ -306,7 +311,7 @@ export default class Surreal extends Emitter<
 	async use(ns: string, db: string): Promise<void> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 
 		this.#send(id, "use", [ns, db]);
 
@@ -324,7 +329,7 @@ export default class Surreal extends Emitter<
 	async info(): Promise<void> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "info");
 
 		const [res] = await this.nextEvent(id);
@@ -342,7 +347,7 @@ export default class Surreal extends Emitter<
 	async signup(vars: ScopeAuth): Promise<string> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "signup", [vars]);
 
 		const [res] = await this.nextEvent(id);
@@ -361,7 +366,7 @@ export default class Surreal extends Emitter<
 	async signin(vars: Auth): Promise<string> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "signin", [vars]);
 
 		const [res] = await this.nextEvent(id);
@@ -378,7 +383,7 @@ export default class Surreal extends Emitter<
 	async invalidate(): Promise<void> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "invalidate");
 
 		const [res] = await this.nextEvent(id);
@@ -394,7 +399,7 @@ export default class Surreal extends Emitter<
 	async authenticate(token: string): Promise<void> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "authenticate", [token]);
 
 		const [res] = await this.nextEvent(id);
@@ -409,7 +414,7 @@ export default class Surreal extends Emitter<
 	async live(table: string): Promise<string> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "live", [table]);
 		const [res] = await this.nextEvent(id);
 
@@ -425,7 +430,7 @@ export default class Surreal extends Emitter<
 	async kill(query: string): Promise<void> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "kill", [query]);
 		const [res] = await this.nextEvent(id);
 
@@ -442,7 +447,7 @@ export default class Surreal extends Emitter<
 	async let(key: string, val: unknown): Promise<string> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "let", [key, val]);
 		const [res] = await this.nextEvent(id);
 
@@ -462,7 +467,7 @@ export default class Surreal extends Emitter<
 	): Promise<T> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "query", [query, vars]);
 		const [res] = await this.nextEvent(id);
 
@@ -478,7 +483,7 @@ export default class Surreal extends Emitter<
 	async select<T>(thing: string): Promise<T[]> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "select", [thing]);
 		const [res] = await this.nextEvent(id);
 		return this.#outputHandler(
@@ -500,7 +505,7 @@ export default class Surreal extends Emitter<
 	): Promise<T & { id: string }> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "create", [thing, data]);
 		const [res] = await this.nextEvent(id);
 		if (res.error) {
@@ -528,7 +533,7 @@ export default class Surreal extends Emitter<
 	): Promise<T & { id: string }> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "update", [thing, data]);
 		const [res] = await this.nextEvent(id);
 		return this.#outputHandler(
@@ -555,7 +560,7 @@ export default class Surreal extends Emitter<
 	): Promise<(T & U & { id: string }) | (T & U & { id: string })[]> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "change", [thing, data]);
 		const [res] = await this.nextEvent(id);
 		return this.#outputHandler(
@@ -576,7 +581,7 @@ export default class Surreal extends Emitter<
 	async modify(thing: string, data?: Patch[]): Promise<Patch[]> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "modify", [thing, data]);
 		const [res] = await this.nextEvent(id);
 		return this.#outputHandler(
@@ -594,7 +599,7 @@ export default class Surreal extends Emitter<
 	async delete(thing: string): Promise<void> {
 		const id = guid();
 
-		await this.#ws.ready;
+		await this.wait();
 		this.#send(id, "delete", [thing]);
 		const [res] = await this.nextEvent(id);
 		if (res.error) {
