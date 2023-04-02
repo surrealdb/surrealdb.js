@@ -347,7 +347,7 @@ export default class Surreal extends Emitter<
 	 * @param vars - Variables used in a signup query.
 	 * @return The authenication token.
 	 */
-	async signup(vars: Auth): Promise<string> {
+	async signup(vars: ScopeAuth): Promise<string> {
 		const id = guid();
 
 		await this.#ws.ready;
