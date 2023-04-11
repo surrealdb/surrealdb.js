@@ -461,10 +461,10 @@ export default class Surreal extends Emitter<
 	 * @param query - Specifies the SurrealQL statements.
 	 * @param vars - Assigns variables which can be used in the query.
 	 */
-	async query<T = Result[]>(
+	async query<T>(
 		query: string,
 		vars?: Record<string, unknown>,
-	): Promise<T> {
+	): Promise<Result<T>[]> {
 		const id = guid();
 
 		await this.wait();
