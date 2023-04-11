@@ -483,9 +483,9 @@ export default class Surreal extends Emitter<
 		const [res] = await this.nextEvent(id);
 		return this.#outputHandler(
 			res,
+			thing,
 			RecordError as typeof Error,
 			`Record not found: ${id}`,
-			thing,
 		);
 	}
 
@@ -506,9 +506,9 @@ export default class Surreal extends Emitter<
 		this.#outputHandlerError(res);
 		return this.#outputHandler(
 			res,
+			thing,
 			PermissionError as typeof Error,
 			`Unable to create record: ${thing}`,
-			thing,
 		);
 	}
 
@@ -530,9 +530,9 @@ export default class Surreal extends Emitter<
 		const [res] = await this.nextEvent(id);
 		return this.#outputHandler(
 			res,
+			thing,
 			PermissionError as typeof Error,
 			`Unable to update record: ${thing}`,
-			thing,
 		);
 	}
 
@@ -557,9 +557,9 @@ export default class Surreal extends Emitter<
 		const [res] = await this.nextEvent(id);
 		return this.#outputHandler(
 			res,
+			thing,
 			PermissionError as typeof Error,
 			`Unable to update record: ${thing}`,
-			thing,
 		);
 	}
 
@@ -578,9 +578,9 @@ export default class Surreal extends Emitter<
 		const [res] = await this.nextEvent(id);
 		return this.#outputHandler(
 			res,
+			thing,
 			PermissionError as typeof Error,
 			`Unable to update record: ${thing}`,
-			thing,
 		);
 	}
 
@@ -622,9 +622,9 @@ export default class Surreal extends Emitter<
 
 	#outputHandler<T>(
 		res: Result<T>,
+		thing: string,
 		error: typeof Error,
 		errormessage: string,
-		thing: string,
 	) {
 		const isSingleThing = thing && thing.includes(":");
 		this.#outputHandlerError(res);
