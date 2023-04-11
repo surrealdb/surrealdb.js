@@ -46,7 +46,7 @@ import Surreal from "surrealdb.js";
 or when you use CommonJS
 
 ```ts
-const Surreal = require("surrealdb.js").default;
+const { default: Surreal } = require("surrealdb.js");
 ```
 
 #### CDN for Browser
