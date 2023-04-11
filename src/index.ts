@@ -93,7 +93,7 @@ interface SurrealBaseEventMap {
 	notify: [any];
 }
 
-export default class Surreal extends Emitter<
+export class Surreal extends Emitter<
 	& SurrealBaseEventMap
 	& {
 		[
@@ -659,3 +659,5 @@ export default class Surreal extends Emitter<
 		throw new error(errormessage);
 	}
 }
+
+export default Surreal;
