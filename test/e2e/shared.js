@@ -7,28 +7,50 @@ const logger = {
 	},
 };
 
+const data = {
+	"person:tobie": {
+		// The order of the properties is alphabetically important here for the tests to pass...
+		identifier: Math.random().toString(36).substr(2, 10),
+		marketing: true,
+		name: {
+			first: "Tobie",
+			last: "Morgan Hitchcock",
+		},
+		title: "Founder & CEO",
+	},
+	"person:jaime": {
+		marketing: true,
+	},
+};
+
+const dataFilled = Object.fromEntries(
+	Object.entries(data).map(([id, val]) => [id, { id, ...val }])
+);
+
 /**
  * A simple expect helper without environment specific requirements.
  */
-function expect(a) {
-	return {
-		toEqualStringified: (b, comment) => {
-			if (JSON.stringify(a) !== JSON.stringify(b)) {
-				logger.error(comment, { expect: a, toEqualStringified: b });
-				throw new Error("toEqualStringified failed", a, b);
-			} else {
-				logger.debug(comment, { input: a, isStringifiedEqualTo: b });
-			}
-		},
-		toBe: (b, comment) => {
-			if (a !== b) {
-				logger.error(comment, { expect: a, toBe: b });
-				throw new Error("toBe failed", a, b);
-			} else {
-				logger.debug(comment, { input: a, is: b });
-			}
-		},
-	};
+async function test(name, cb) {
+	logger.debug(name);
+
+	function expect(a) {
+		return {
+			toEqualStringified: (b) => {
+				if (JSON.stringify(a) !== JSON.stringify(b)) {
+					logger.error(name, { expect: a, toEqualStringified: b });
+					throw new Error("toEqualStringified failed", a, b);
+				}
+			},
+			toBe: (b) => {
+				if (a !== b) {
+					logger.error(name, { expect: a, toBe: b });
+					throw new Error("toBe failed", a, b);
+				}
+			},
+		};
+	}
+
+	await cb(expect);
 }
 
 /**
@@ -41,41 +63,48 @@ export default async (db) => {
 		pass: "root",
 	});
 
-	logger.debug("Select a specific namespace / database");
-	await db.use("test", "test");
+	// We need a random database because some tests depend on row count.
+	// Easy way to "reset" for each test while debugging...
+	const rand = (Math.random() + 1).toString(36).substring(7);
+	logger.debug(`Select NS "test", DB "test-${rand}"`);
+	await db.use("test", `test-${rand}`);
 
-	logger.debug("Create a new person with a random id");
-	let created = await db.create("person", {
-		title: "Founder & CEO",
-		name: {
-			first: "Tobie",
-			last: "Morgan Hitchcock",
-		},
-		marketing: true,
-		identifier: Math.random().toString(36).substr(2, 10),
+	await test("Create a new person with a random id", async (expect) => {
+		let created = await db.create("person:tobie", data['person:tobie']);
+		expect(created).toEqualStringified(dataFilled['person:tobie']);
 	});
 
-	logger.debug("Update a person record with a specific id");
-	let updated = await db.change("person:jaime", {
-		marketing: true,
+	await test("Update a person record with a specific id", async (expect) => {
+		let updated = await db.change("person:jaime", data["person:jaime"]);
+		expect(updated).toEqualStringified(dataFilled['person:jaime']);
 	});
 
-	logger.debug("Select all people records");
-	let people = await db.select("person");
+	await test("Select all people records", async (expect) => {
+		let people = await db.select("person");
+		expect(people).toEqualStringified([
+			dataFilled["person:jaime"],
+			dataFilled["person:tobie"],
+		]);
+	});
 
-	logger.debug("Perform a custom advanced query");
-	let groups = await db.query(
-		"SELECT marketing, count() FROM type::table($tb) GROUP BY marketing",
-		{
-			tb: "person",
-		}
-	);
+	test("Select single person", async (expect) => {
+		let jaime = await db.select("person:jaime");
+		expect(jaime).toEqualStringified(dataFilled["person:jaime"]);
+	});
 
-	expect(groups[0].status).toBe("OK", "status");
-	expect(groups[0].result).toEqualStringified(
-		[{ count: 2, marketing: true }],
-		"result"
-	);
+	await test("Perform a custom advanced query", async (expect) => {
+		let groups = await db.query(
+			"SELECT marketing, count() FROM type::table($tb) GROUP BY marketing",
+			{
+				tb: "person",
+			}
+		);
+
+		expect(groups[0].status).toBe("OK");
+		expect(groups[0].result).toEqualStringified([
+			{ count: 2, marketing: true },
+		]);
+	});
 
 	logger.debug("closing");
 	await db.close();
