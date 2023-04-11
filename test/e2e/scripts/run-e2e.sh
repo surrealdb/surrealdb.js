@@ -12,7 +12,7 @@ echo "
 build
 ####### ####### ####### #######
 " &&
-npm run build &&
+deno task build &&
 
 echo "
 ####### ####### ####### #######
