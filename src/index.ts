@@ -485,6 +485,7 @@ export default class Surreal extends Emitter<
 			res,
 			RecordError as typeof Error,
 			`Record not found: ${id}`,
+			thing,
 		);
 	}
 
@@ -507,6 +508,7 @@ export default class Surreal extends Emitter<
 			res,
 			PermissionError as typeof Error,
 			`Unable to create record: ${thing}`,
+			thing,
 		);
 	}
 
@@ -530,6 +532,7 @@ export default class Surreal extends Emitter<
 			res,
 			PermissionError as typeof Error,
 			`Unable to update record: ${thing}`,
+			thing,
 		);
 	}
 
@@ -556,6 +559,7 @@ export default class Surreal extends Emitter<
 			res,
 			PermissionError as typeof Error,
 			`Unable to update record: ${thing}`,
+			thing,
 		);
 	}
 
@@ -576,6 +580,7 @@ export default class Surreal extends Emitter<
 			res,
 			PermissionError as typeof Error,
 			`Unable to update record: ${thing}`,
+			thing,
 		);
 	}
 
@@ -619,10 +624,12 @@ export default class Surreal extends Emitter<
 		res: Result<T>,
 		error: typeof Error,
 		errormessage: string,
+		thing: string,
 	) {
+		const isSingleThing = thing && thing.includes(":");
 		this.#outputHandlerError(res);
 		if (Array.isArray(res.result) && res.result.length) {
-			return res.result[0];
+			return isSingleThing ? res.result[0] : res.result;
 		} else if ("id" in (res.result ?? {})) {
 			return res.result;
 		}
