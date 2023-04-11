@@ -70,13 +70,13 @@ export default async (db) => {
 	await db.use("test", `test-${rand}`);
 
 	await test("Create a new person with a random id", async (expect) => {
-		let created = await db.create("person:tobie", data['person:tobie']);
-		expect(created).toEqualStringified(dataFilled['person:tobie']);
+		let created = await db.create("person:tobie", data["person:tobie"]);
+		expect(created).toEqualStringified(dataFilled["person:tobie"]);
 	});
 
 	await test("Update a person record with a specific id", async (expect) => {
 		let updated = await db.change("person:jaime", data["person:jaime"]);
-		expect(updated).toEqualStringified(dataFilled['person:jaime']);
+		expect(updated).toEqualStringified(dataFilled["person:jaime"]);
 	});
 
 	await test("Select all people records", async (expect) => {
@@ -104,6 +104,12 @@ export default async (db) => {
 		expect(groups[0].result).toEqualStringified([
 			{ count: 2, marketing: true },
 		]);
+	});
+
+	await test("Delete a record", async (expect) => {
+		await db.delete("person:tobie");
+		let people = await db.select("person");
+		expect(people).toEqualStringified([dataFilled["person:jaime"]]);
 	});
 
 	logger.debug("closing");
