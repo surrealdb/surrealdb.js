@@ -40,11 +40,7 @@ export interface ChangePatch extends BasePatch {
 	value: string;
 }
 
-export type Patch =
-	| AddPatch
-	| RemovePatch
-	| ReplacePatch
-	| ChangePatch;
+export type Patch = AddPatch | RemovePatch | ReplacePatch | ChangePatch;
 
 interface ResultOk<T> {
 	result: T;
@@ -83,11 +79,7 @@ export interface ScopeAuth {
 	[key: string]: unknown;
 }
 
-export type Auth =
-	| RootAuth
-	| NamespaceAuth
-	| DatabaseAuth
-	| ScopeAuth;
+export type Auth = RootAuth | NamespaceAuth | DatabaseAuth | ScopeAuth;
 
 interface SurrealBaseEventMap {
 	open: [];
@@ -106,8 +98,8 @@ export default class Surreal extends Emitter<
 				EventName,
 				keyof SurrealBaseEventMap
 			>
-			// deno-lint-ignore no-explicit-any
-		]: [Result<any>];
+		]: // deno-lint-ignore no-explicit-any
+			[Result<any>];
 	}
 > {
 	// ------------------------------
@@ -121,7 +113,7 @@ export default class Surreal extends Emitter<
 	 * @return A Surreal instance.
 	 */
 	static get Instance(): Surreal {
-		return singleton ? singleton : singleton = new Surreal();
+		return singleton ? singleton : (singleton = new Surreal());
 	}
 
 	// ------------------------------
@@ -347,7 +339,7 @@ export default class Surreal extends Emitter<
 	 * @param vars - Variables used in a signup query.
 	 * @return The authenication token.
 	 */
-	async signup(vars: Auth): Promise<string> {
+	async signup(vars: ScopeAuth): Promise<string> {
 		const id = guid();
 
 		await this.#ws.ready;
@@ -489,7 +481,7 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "select", [thing]);
 		const [res] = await this.nextEvent(id);
-		return this.#outputHandlerB(
+		return this.#outputHandler(
 			res,
 			thing,
 			RecordError as typeof Error,
@@ -511,9 +503,13 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "create", [thing, data]);
 		const [res] = await this.nextEvent(id);
-		this.#outputHandlerError(res);
-		return this.#outputHandlerA(
+		if (res.error) {
+			throw new Error(res.error.message);
+		}
+
+		return this.#outputHandler(
 			res,
+			thing,
 			PermissionError as typeof Error,
 			`Unable to create record: ${thing}`,
 		);
@@ -535,7 +531,7 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "update", [thing, data]);
 		const [res] = await this.nextEvent(id);
-		return this.#outputHandlerB(
+		return this.#outputHandler(
 			res,
 			thing,
 			PermissionError as typeof Error,
@@ -562,7 +558,7 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "change", [thing, data]);
 		const [res] = await this.nextEvent(id);
-		return this.#outputHandlerB(
+		return this.#outputHandler(
 			res,
 			thing,
 			PermissionError as typeof Error,
@@ -583,7 +579,7 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "modify", [thing, data]);
 		const [res] = await this.nextEvent(id);
-		return this.#outputHandlerB(
+		return this.#outputHandler(
 			res,
 			thing,
 			PermissionError as typeof Error,
@@ -601,7 +597,9 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "delete", [thing]);
 		const [res] = await this.nextEvent(id);
-		this.#outputHandlerError(res);
+		if (res.error) {
+			throw new Error(res.error.message);
+		}
 		return;
 	}
 
@@ -618,41 +616,32 @@ export default class Surreal extends Emitter<
 	}
 
 	#send(id: string, method: string, params: unknown[] = []): void {
-		this.#ws.send(JSON.stringify({
-			id: id,
-			method: method,
-			params: params,
-		}));
+		this.#ws.send(
+			JSON.stringify({
+				id: id,
+				method: method,
+				params: params,
+			}),
+		);
 	}
 
-	#outputHandlerA<T>(
+	#outputHandler<T>(
 		res: Result<T>,
+		thing: string,
 		error: typeof Error,
 		errormessage: string,
 	) {
-		if (Array.isArray(res.result) && res.result.length) {
-			return res.result[0];
-		}
-		throw new error(errormessage);
-	}
-
-	#outputHandlerB<T>(
-		res: Result<T>,
-		id: string,
-		error: typeof Error,
-		errormessage: string,
-	) {
-		this.#outputHandlerError(res);
-		if (typeof id === "string" && id.includes(":")) {
-			this.#outputHandlerA(res, error, errormessage);
-		} else {
-			return res.result;
-		}
-	}
-
-	#outputHandlerError<T>(res: Result<T>) {
 		if (res.error) {
 			throw new Error(res.error.message);
 		}
+
+		const isSingleThing = thing && thing.includes(":");
+		if (Array.isArray(res.result) && res.result.length) {
+			return isSingleThing ? res.result[0] : res.result;
+		} else if ("id" in (res.result ?? {})) {
+			return res.result;
+		}
+
+		throw new error(errormessage);
 	}
 }
