@@ -54,6 +54,9 @@ interface ResultErr {
 
 export type Result<T = unknown> = ResultOk<T> | ResultErr;
 
+export type Thing = `${string}:${string}`;
+export type ReturnsThing<T, RID extends string> = RID extends Thing ? T : T[];
+
 export interface RootAuth {
 	user: string;
 	pass: string;
@@ -480,7 +483,9 @@ export default class Surreal extends Emitter<
 	 * Selects all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
 	 */
-	async select<T>(thing: string): Promise<T[]> {
+	async select<T, RID extends string>(
+		thing: RID,
+	): Promise<ReturnsThing<T, RID>> {
 		const id = guid();
 
 		await this.wait();
@@ -502,7 +507,7 @@ export default class Surreal extends Emitter<
 	async create<T extends Record<string, unknown>>(
 		thing: string,
 		data?: T,
-	): Promise<T & { id: string }> {
+	): Promise<T & { id: Thing }> {
 		const id = guid();
 
 		await this.wait();
@@ -527,10 +532,10 @@ export default class Surreal extends Emitter<
 	 * @param thing - The table name or the specific record ID to update.
 	 * @param data - The document / record data to insert.
 	 */
-	async update<T extends Record<string, unknown>>(
-		thing: string,
+	async update<T extends Record<string, unknown>, RID extends string>(
+		thing: RID,
 		data?: T,
-	): Promise<T & { id: string }> {
+	): Promise<ReturnsThing<T & { id: Thing }, RID>> {
 		const id = guid();
 
 		await this.wait();
@@ -554,10 +559,11 @@ export default class Surreal extends Emitter<
 	async change<
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
+		RID extends string | void = void,
 	>(
-		thing: string,
+		thing: Exclude<RID, void>,
 		data?: Partial<T> & U,
-	): Promise<(T & U & { id: string }) | (T & U & { id: string })[]> {
+	): Promise<ReturnsThing<T & U & { id: string }, Exclude<RID, void>>> {
 		const id = guid();
 
 		await this.wait();
@@ -578,7 +584,10 @@ export default class Surreal extends Emitter<
 	 * @param thing - The table name or the specific record ID to modify.
 	 * @param data - The JSON Patch data with which to modify the records.
 	 */
-	async modify(thing: string, data?: Patch[]): Promise<Patch[]> {
+	async modify<RID extends string>(
+		thing: RID,
+		data?: Patch[],
+	): Promise<ReturnsThing<Patch, RID>> {
 		const id = guid();
 
 		await this.wait();
