@@ -489,9 +489,8 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "select", [thing]);
 		const [res] = await this.nextEvent(id);
-		return this.#outputHandlerB(
+		return this.#outputHandler(
 			res,
-			thing,
 			RecordError as typeof Error,
 			`Record not found: ${id}`,
 		);
@@ -512,7 +511,7 @@ export default class Surreal extends Emitter<
 		this.#send(id, "create", [thing, data]);
 		const [res] = await this.nextEvent(id);
 		this.#outputHandlerError(res);
-		return this.#outputHandlerA(
+		return this.#outputHandler(
 			res,
 			PermissionError as typeof Error,
 			`Unable to create record: ${thing}`,
@@ -535,9 +534,8 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "update", [thing, data]);
 		const [res] = await this.nextEvent(id);
-		return this.#outputHandlerB(
+		return this.#outputHandler(
 			res,
-			thing,
 			PermissionError as typeof Error,
 			`Unable to update record: ${thing}`,
 		);
@@ -562,9 +560,8 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "change", [thing, data]);
 		const [res] = await this.nextEvent(id);
-		return this.#outputHandlerB(
+		return this.#outputHandler(
 			res,
-			thing,
 			PermissionError as typeof Error,
 			`Unable to update record: ${thing}`,
 		);
@@ -583,9 +580,8 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "modify", [thing, data]);
 		const [res] = await this.nextEvent(id);
-		return this.#outputHandlerB(
+		return this.#outputHandler(
 			res,
-			thing,
 			PermissionError as typeof Error,
 			`Unable to update record: ${thing}`,
 		);
@@ -625,29 +621,18 @@ export default class Surreal extends Emitter<
 		}));
 	}
 
-	#outputHandlerA<T>(
+	#outputHandler<T>(
 		res: Result<T>,
-		error: typeof Error,
-		errormessage: string,
-	) {
-		if (Array.isArray(res.result) && res.result.length) {
-			return res.result[0];
-		}
-		throw new error(errormessage);
-	}
-
-	#outputHandlerB<T>(
-		res: Result<T>,
-		id: string,
 		error: typeof Error,
 		errormessage: string,
 	) {
 		this.#outputHandlerError(res);
-		if (typeof id === "string" && id.includes(":")) {
-			this.#outputHandlerA(res, error, errormessage);
-		} else {
+		if (Array.isArray(res.result) && res.result.length) {
+			return res.result[0];
+		} else if ('id' in (res.result ?? {})) {
 			return res.result;
 		}
+		throw new error(errormessage);
 	}
 
 	#outputHandlerError<T>(res: Result<T>) {
