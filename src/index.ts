@@ -503,7 +503,10 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "create", [thing, data]);
 		const [res] = await this.nextEvent(id);
-		this.#outputHandlerError(res);
+		if (res.error) {
+			throw new Error(res.error.message);
+		}
+
 		return this.#outputHandler(
 			res,
 			thing,
@@ -594,7 +597,9 @@ export default class Surreal extends Emitter<
 		await this.#ws.ready;
 		this.#send(id, "delete", [thing]);
 		const [res] = await this.nextEvent(id);
-		this.#outputHandlerError(res);
+		if (res.error) {
+			throw new Error(res.error.message);
+		}
 		return;
 	}
 
@@ -626,19 +631,17 @@ export default class Surreal extends Emitter<
 		error: typeof Error,
 		errormessage: string,
 	) {
+		if (res.error) {
+			throw new Error(res.error.message);
+		}
+
 		const isSingleThing = thing && thing.includes(":");
-		this.#outputHandlerError(res);
 		if (Array.isArray(res.result) && res.result.length) {
 			return isSingleThing ? res.result[0] : res.result;
 		} else if ("id" in (res.result ?? {})) {
 			return res.result;
 		}
-		throw new error(errormessage);
-	}
 
-	#outputHandlerError<T>(res: Result<T>) {
-		if (res.error) {
-			throw new Error(res.error.message);
-		}
+		throw new error(errormessage);
 	}
 }
