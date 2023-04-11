@@ -40,11 +40,7 @@ export interface ChangePatch extends BasePatch {
 	value: string;
 }
 
-export type Patch =
-	| AddPatch
-	| RemovePatch
-	| ReplacePatch
-	| ChangePatch;
+export type Patch = AddPatch | RemovePatch | ReplacePatch | ChangePatch;
 
 interface ResultOk<T> {
 	result: T;
@@ -83,11 +79,7 @@ export interface ScopeAuth {
 	[key: string]: unknown;
 }
 
-export type Auth =
-	| RootAuth
-	| NamespaceAuth
-	| DatabaseAuth
-	| ScopeAuth;
+export type Auth = RootAuth | NamespaceAuth | DatabaseAuth | ScopeAuth;
 
 interface SurrealBaseEventMap {
 	open: [];
@@ -106,8 +98,8 @@ export default class Surreal extends Emitter<
 				EventName,
 				keyof SurrealBaseEventMap
 			>
-			// deno-lint-ignore no-explicit-any
-		]: [Result<any>];
+		]: // deno-lint-ignore no-explicit-any
+			[Result<any>];
 	}
 > {
 	// ------------------------------
@@ -121,7 +113,7 @@ export default class Surreal extends Emitter<
 	 * @return A Surreal instance.
 	 */
 	static get Instance(): Surreal {
-		return singleton ? singleton : singleton = new Surreal();
+		return singleton ? singleton : (singleton = new Surreal());
 	}
 
 	// ------------------------------
@@ -614,11 +606,13 @@ export default class Surreal extends Emitter<
 	}
 
 	#send(id: string, method: string, params: unknown[] = []): void {
-		this.#ws.send(JSON.stringify({
-			id: id,
-			method: method,
-			params: params,
-		}));
+		this.#ws.send(
+			JSON.stringify({
+				id: id,
+				method: method,
+				params: params,
+			}),
+		);
 	}
 
 	#outputHandler<T>(
@@ -629,7 +623,7 @@ export default class Surreal extends Emitter<
 		this.#outputHandlerError(res);
 		if (Array.isArray(res.result) && res.result.length) {
 			return res.result[0];
-		} else if ('id' in (res.result ?? {})) {
+		} else if ("id" in (res.result ?? {})) {
 			return res.result;
 		}
 		throw new error(errormessage);
