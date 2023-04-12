@@ -57,32 +57,26 @@ export type Result<T = unknown> = ResultOk<T> | ResultErr;
 export type Thing = `${string}:${string}`;
 export type ReturnsThing<T, RID extends string> = RID extends Thing ? T : T[];
 
-export interface RootAuth {
-	user: string;
-	pass: string;
+export interface BasicAuth {
+    NS?: string;
+    DB?: string;
+    user: string;
+    pass: string;
+    [key: string]: any;
 }
-
-export interface NamespaceAuth {
-	NS: string;
-	user: string;
-	pass: string;
+interface TokenAuth {
+    NS: string;
+    DB?: string;
+    SC?: string;
+    [key: string]: any;
 }
-
-export interface DatabaseAuth {
-	NS: string;
-	DB: string;
-	user: string;
-	pass: string;
+export interface TkTokenAuth extends TokenAuth {
+    TK: string;
 }
-
-export interface ScopeAuth {
-	NS: string;
-	DB: string;
-	SC: string;
-	[key: string]: unknown;
+export interface IdTokenAuth extends TokenAuth {
+    ID: string;
 }
-
-export type Auth = RootAuth | NamespaceAuth | DatabaseAuth | ScopeAuth;
+export type Auth = BasicAuth | TkTokenAuth | IdTokenAuth;
 
 interface SurrealBaseEventMap {
 	open: [];
