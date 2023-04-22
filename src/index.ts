@@ -507,7 +507,7 @@ export class Surreal extends Emitter<
 	async create<T extends Record<string, unknown>>(
 		thing: string,
 		data?: T,
-	): Promise<T & { id: Thing }> {
+	): Promise<[T & { id: Thing }]> {
 		const id = guid();
 
 		await this.wait();
