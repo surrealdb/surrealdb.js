@@ -41,7 +41,7 @@ await build({
 	},
 	// skipSourceOutput: true,
 	mappings: {
-		"./src/ws/deno.ts": "./src/ws/node.ts",
+		"./src/library/WebSocket/deno.ts": "./src/library/WebSocket/node.ts",
 	},
 	compilerOptions: {
 		lib: ["dom"],
