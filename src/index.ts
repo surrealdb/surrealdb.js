@@ -42,6 +42,14 @@ export interface ChangePatch extends BasePatch {
 
 export type Patch = AddPatch | RemovePatch | ReplacePatch | ChangePatch;
 
+export type RawQueryResult =
+	| string
+	| number
+	| symbol
+	| null
+	| RawQueryResult[]
+	| Record<string | number | symbol, unknown>;
+
 interface ResultOk<T> {
 	result: T;
 	error?: never;
@@ -96,13 +104,8 @@ interface SurrealBaseEventMap {
 export class Surreal extends Emitter<
 	& SurrealBaseEventMap
 	& {
-		[
-			K in Exclude<
-				EventName,
-				keyof SurrealBaseEventMap
-			>
-		]: // deno-lint-ignore no-explicit-any
-			[Result<any>];
+		// deno-lint-ignore no-explicit-any
+		[K in Exclude<EventName, keyof SurrealBaseEventMap>]: [Result<any>];
 	}
 > {
 	// ------------------------------
@@ -464,10 +467,14 @@ export class Surreal extends Emitter<
 	 * @param query - Specifies the SurrealQL statements.
 	 * @param vars - Assigns variables which can be used in the query.
 	 */
-	async query<T>(
+	async query<T extends RawQueryResult[]>(
 		query: string,
 		vars?: Record<string, unknown>,
-	): Promise<Result<T>[]> {
+	): Promise<
+		{
+			[K in keyof T]: Result<T[K]>;
+		}
+	> {
 		const id = guid();
 
 		await this.wait();
