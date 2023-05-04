@@ -19,7 +19,7 @@ export interface Connection {
 	query: <T extends RawQueryResult[]>(
 		query: string,
 		vars?: Record<string, unknown>
-	) => Promise<MapResult<T>>;
+	) => Promise<MapQueryResultOk<T>>;
 
 	select: <T, RID extends string>(
 		thing: RID
@@ -102,8 +102,23 @@ export type ResultErr = {
 	};
 };
 
-export type MapResult<T> = {
-	[K in keyof T]: Result<T[K]>;
+export type QueryResult<T = unknown> = QueryResultOk<T> | QueryResultErr;
+export type QueryResultOk<T> = {
+	status: "OK";
+	time: string;
+	result: T;
+	detail?: never;
+};
+
+export type QueryResultErr = {
+	status: "ERR";
+	time: string;
+	result?: never;
+	detail: string;
+};
+
+export type MapQueryResultOk<T> = {
+	[K in keyof T]: QueryResultOk<T[K]>;
 };
 
 export type Thing<
