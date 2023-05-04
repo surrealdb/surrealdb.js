@@ -39,13 +39,13 @@ export class WebSocketStrategy implements Connection {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	async connect(
+	connect(
 		urlRaw: string,
 		{
 			prepare,
 		}: ConnectionOptions = {},
 	) {
-		await this.socket?.close(1000);
+		this.socket?.close(1000);
 
 		const url = new URL(urlRaw);
 		this.pinger = new Pinger(30000);
@@ -63,7 +63,6 @@ export class WebSocketStrategy implements Connection {
 		});
 
 		this.socket.open();
-		await this.ready;
 	}
 
 	/**
