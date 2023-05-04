@@ -8,7 +8,7 @@ import {
 	type ScopeAuth,
 	type Token,
 	type RawQueryResult,
-	type MapQueryResultOk,
+	type MapQueryResult,
 	type Patch,
 	type ReturnsThing,
 	type Thing,
@@ -167,7 +167,7 @@ export class WebSocketStrategy implements Connection {
 		vars?: Record<string, unknown>
 	) {
 		await this.ready;
-		const res = await this.send<MapQueryResultOk<T>>("query", [query, vars]);
+		const res = await this.send<MapQueryResult<T>>("query", [query, vars]);
 		if (res.error) throw new Error(res.error.message);
 		return res.result;
 	}

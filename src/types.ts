@@ -19,7 +19,7 @@ export interface Connection {
 	query: <T extends RawQueryResult[]>(
 		query: string,
 		vars?: Record<string, unknown>
-	) => Promise<MapQueryResultOk<T>>;
+	) => Promise<MapQueryResult<T>>;
 
 	select: <T, RID extends string>(
 		thing: RID
@@ -117,8 +117,8 @@ export type QueryResultErr = {
 	detail: string;
 };
 
-export type MapQueryResultOk<T> = {
-	[K in keyof T]: QueryResultOk<T[K]>;
+export type MapQueryResult<T> = {
+	[K in keyof T]: QueryResult<T[K]>;
 };
 
 export type Thing<
