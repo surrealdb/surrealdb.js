@@ -15,15 +15,20 @@ import {
 	type Result,
 } from "../types.ts";
 
-export class SocketStrategy implements Connection {
+export class WebSocketStrategy implements Connection {
 	private socket?: SurrealSocket;
 	private pinger?: Pinger;
+
+	public ready: Promise<void>;
+	private resolveReady: () => void;
 
 	/**
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	constructor(url: string, prepare?: () => unknown) {
+	constructor(url: string, prepare?: (connection: WebSocketStrategy) => unknown) {
+		this.resolveReady = () => {}; // Purely for typescript typing :)
+		this.ready = new Promise(r => this.resolveReady = r);
 		this.connect(url, prepare);
 	}
 
@@ -31,16 +36,23 @@ export class SocketStrategy implements Connection {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	async connect(urlRaw: string, prepare?: () => unknown) {
+	async connect(urlRaw: string, prepare?: (connection: WebSocketStrategy) => unknown) {
 		const url = new URL(urlRaw);
 		this.pinger = new Pinger(30000);
 		this.socket = new SurrealSocket({
 			url,
-			onOpen: () => this.pinger?.start(() => this.ping()),
-			onClose: () => this.pinger?.stop(),
+			onOpen: async () => {
+				this.pinger?.start(() => this.ping());
+				await prepare?.(this);
+				this.resolveReady();
+			},
+			onClose: () => {
+				this.pinger?.stop();
+				this.resetReady();
+			},
 		});
 
-		this.socket.open(prepare);
+		this.socket.open();
 		await this.ready;
 	}
 
@@ -55,9 +67,9 @@ export class SocketStrategy implements Connection {
 	/**
 	 * Check if connection is ready
 	 */
-	get ready() {
+	wait() {
 		if (!this.socket) throw new NoActiveSocket();
-		return this.socket.ready;
+		return this.ready;
 	}
 
 	/**
@@ -154,6 +166,7 @@ export class SocketStrategy implements Connection {
 		query: string,
 		vars?: Record<string, unknown>
 	) {
+		await this.ready;
 		const res = await this.send<MapResult<T>>("query", [query, vars]);
 		if (res.error) throw new Error(res.error.message);
 		return res.result;
@@ -164,6 +177,7 @@ export class SocketStrategy implements Connection {
 	 * @param thing - The table name or a record ID to select.
 	 */
 	async select<T, RID extends string>(thing: RID) {
+		await this.ready;
 		const res = await this.send<ReturnsThing<T, RID>>("select", [thing]);
 		return this.outputHandler(res, thing);
 	}
@@ -174,6 +188,7 @@ export class SocketStrategy implements Connection {
 	 * @param data - The document / record data to insert.
 	 */
 	async create<T extends Record<string, unknown>>(thing: string, data?: T) {
+		await this.ready;
 		const res = await this.send<T & { id: Thing }>("create", [thing, data]);
 		return this.outputHandler(res, thing);
 	}
@@ -189,6 +204,7 @@ export class SocketStrategy implements Connection {
 		thing: RID,
 		data?: T
 	) {
+		await this.ready;
 		const res = await this.send<ReturnsThing<T & { id: Thing }, RID>>(
 			"update",
 			[thing, data]
@@ -209,6 +225,7 @@ export class SocketStrategy implements Connection {
 		U extends Record<string, unknown> = T,
 		RID extends string | void = void
 	>(thing: Exclude<RID, void>, data?: Partial<T> & U) {
+		await this.ready;
 		const res = await this.send<
 			ReturnsThing<T & U & { id: string }, Exclude<RID, void>>
 		>("change", [thing, data]);
@@ -224,6 +241,7 @@ export class SocketStrategy implements Connection {
 	 * @param data - The JSON Patch data with which to modify the records.
 	 */
 	async modify<RID extends string>(thing: RID, data?: Patch[]) {
+		await this.ready;
 		const res = await this.send<ReturnsThing<Patch, RID>>("modify", [
 			thing,
 			data,
@@ -236,6 +254,7 @@ export class SocketStrategy implements Connection {
 	 * @param thing - The table name or a record ID to select.
 	 */
 	async delete(thing: string): Promise<void> {
+		await this.ready;
 		const res = await this.send("delete", [thing]);
 		if (res.error) throw new Error(res.error.message);
 	}
@@ -272,5 +291,12 @@ export class SocketStrategy implements Connection {
 
 		console.debug(thing, res);
 		throw new UnexpectedResponse();
+	}
+
+	/**
+	 * Reset the ready mechanism.
+	 */
+	private resetReady() {
+		this.ready = new Promise((r) => (this.resolveReady = r));
 	}
 }

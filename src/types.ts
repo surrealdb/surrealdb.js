@@ -1,7 +1,7 @@
 export type ConnectionStrategy = 'websocket';
 export interface Connection {
 	constructor: Constructor<
-		(url: string, prepare?: () => unknown) => void
+		(url: string, prepare?: (connection: Connection) => unknown) => void
 	>;
 
 	connect: (url: string, prepare?: () => unknown) => void;
