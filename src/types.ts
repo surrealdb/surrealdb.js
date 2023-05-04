@@ -1,41 +1,44 @@
-export type ConnectionStrategy = 'websocket';
+export type ConnectionStrategy = "websocket" | "experimental_http";
 export interface Connection {
 	constructor: Constructor<
 		(url: string, prepare?: (connection: Connection) => unknown) => void
 	>;
 
-	connect: (url: string, prepare?: () => unknown) => void;
+	connect: (
+		url: string,
+		prepare?: (connection: Connection) => unknown
+	) => void;
 	ping: () => Promise<void>;
-	use: (ns: string, db: string) => Promise<void>;
-	info: () => Promise<void>;
+	use: (ns: string, db: string) => MaybePromise<void>;
+	info?: () => Promise<void>;
 
 	signup: (vars: ScopeAuth) => Promise<Token>;
-	signin: (vars: AnyAuth) => Promise<Token>;
-	authenticate: (token: Token) => Promise<void>;
-	invalidate: () => Promise<void>;
+	signin: (vars: AnyAuth) => Promise<Token | void>;
+	authenticate: (token: Token) => MaybePromise<void>;
+	invalidate: () => MaybePromise<void>;
 
-	let: (variable: string, value: unknown) => Promise<string>;
+	let?: (variable: string, value: unknown) => Promise<string>;
 
 	query: <T extends RawQueryResult[]>(
 		query: string,
 		vars?: Record<string, unknown>
 	) => Promise<MapQueryResult<T>>;
 
-	select: <T, RID extends string>(
+	select?: <T, RID extends string>(
 		thing: RID
 	) => Promise<ReturnsThing<T, RID>>;
 
-	create: <T extends Record<string, unknown>>(
+	create?: <T extends Record<string, unknown>>(
 		thing: string,
 		data?: T
 	) => Promise<T & { id: Thing }>;
 
-	update: <T extends Record<string, unknown>, RID extends string>(
+	update?: <T extends Record<string, unknown>, RID extends string>(
 		thing: RID,
 		data?: T
 	) => Promise<ReturnsThing<T & { id: Thing }, RID>>;
 
-	change: <
+	change?: <
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
 		RID extends string | void = void
@@ -44,12 +47,12 @@ export interface Connection {
 		data?: Partial<T> & U
 	) => Promise<ReturnsThing<T & U & { id: string }, Exclude<RID, void>>>;
 
-	modify: <RID extends string>(
+	modify?: <RID extends string>(
 		thing: RID,
 		data?: Patch[]
 	) => Promise<ReturnsThing<Patch, RID>>;
 
-	delete: (thing: string) => Promise<void>;
+	delete?: (thing: string) => Promise<void>;
 }
 
 //////////////////////////////////////////////
@@ -83,6 +86,22 @@ export type ScopeAuth = {
 
 export type AnyAuth = SuperUserAuth | NamespaceAuth | DatabaseAuth | ScopeAuth;
 export type Token = string;
+
+export type HTTPAuthenticationResponse =
+	| {
+			code: 200;
+			details: "Authentication succeeded";
+			token?: string;
+			description?: never;
+			information?: never;
+	  }
+	| {
+			code: 403;
+			details: "Authentication failed";
+			token?: never;
+			description: string;
+			information: string;
+	  };
 
 /////////////////////////////////////
 //////////   QUERY TYPES   //////////
@@ -174,12 +193,24 @@ export enum WebsocketStatus {
 	RECONNECTING,
 }
 
+//////////////////////////////
+//////////   HTTP   //////////
+//////////////////////////////
+
+export type InvalidSQL = {
+    code: 400;
+    details: "Request problems detected";
+    description: "There is a problem with your request. Refer to the documentation for further information.";
+    information: string;
+}
+
 ///////////////////////////////
 //////////   OTHER   //////////
 ///////////////////////////////
 
 // deno-lint-ignore ban-types
 type Constructor<T> = Function & { prototype: T };
+type MaybePromise<T> = T | Promise<T>;
 
 export type RawSocketMessageResponse =
 	| (Result & { id: number })

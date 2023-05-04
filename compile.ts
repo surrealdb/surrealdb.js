@@ -28,6 +28,7 @@ await build({
 		dependencies: {
 			"isomorphic-ws": "^5.0.0",
 			"ws": "^8.8.1",
+			"node-fetch": "^3.3.1",
 		},
 		devDependencies: {
 			"@types/node": "^18.7.18",
@@ -42,6 +43,8 @@ await build({
 	// skipSourceOutput: true,
 	mappings: {
 		"./src/library/WebSocket/deno.ts": "./src/library/WebSocket/node.ts",
+		"./src/library/fetch/deno.ts": "./src/library/fetch/node.ts",
+		"./src/library/btoa/deno.ts": "./src/library/btoa/node.ts",
 	},
 	compilerOptions: {
 		lib: ["dom"],
