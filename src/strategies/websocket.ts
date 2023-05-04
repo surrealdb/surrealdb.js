@@ -1,18 +1,17 @@
-
 import { NoActiveSocket, UnexpectedResponse } from "../errors.ts";
 import { Pinger } from "../library/Pinger.ts";
 import { SurrealSocket } from "../library/SurrealSocket.ts";
 import {
-	type Connection,
 	type AnyAuth,
-	type ScopeAuth,
-	type Token,
-	type RawQueryResult,
+	type Connection,
 	type MapQueryResult,
 	type Patch,
-	type ReturnsThing,
-	type Thing,
+	type RawQueryResult,
 	type Result,
+	type ReturnsThing,
+	type ScopeAuth,
+	type Thing,
+	type Token,
 } from "../types.ts";
 
 export class WebSocketStrategy implements Connection {
@@ -26,9 +25,12 @@ export class WebSocketStrategy implements Connection {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	constructor(url: string, prepare?: (connection: WebSocketStrategy) => unknown) {
+	constructor(
+		url: string,
+		prepare?: (connection: WebSocketStrategy) => unknown,
+	) {
 		this.resolveReady = () => {}; // Purely for typescript typing :)
-		this.ready = new Promise(r => this.resolveReady = r);
+		this.ready = new Promise((r) => this.resolveReady = r);
 		this.connect(url, prepare);
 	}
 
@@ -36,7 +38,10 @@ export class WebSocketStrategy implements Connection {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	async connect(urlRaw: string, prepare?: (connection: WebSocketStrategy) => unknown) {
+	async connect(
+		urlRaw: string,
+		prepare?: (connection: WebSocketStrategy) => unknown,
+	) {
 		const url = new URL(urlRaw);
 		this.pinger = new Pinger(30000);
 		this.socket = new SurrealSocket({
@@ -164,7 +169,7 @@ export class WebSocketStrategy implements Connection {
 	 */
 	async query<T extends RawQueryResult[]>(
 		query: string,
-		vars?: Record<string, unknown>
+		vars?: Record<string, unknown>,
 	) {
 		await this.ready;
 		const res = await this.send<MapQueryResult<T>>("query", [query, vars]);
@@ -202,12 +207,12 @@ export class WebSocketStrategy implements Connection {
 	 */
 	async update<T extends Record<string, unknown>, RID extends string>(
 		thing: RID,
-		data?: T
+		data?: T,
 	) {
 		await this.ready;
 		const res = await this.send<ReturnsThing<T & { id: Thing }, RID>>(
 			"update",
-			[thing, data]
+			[thing, data],
 		);
 
 		return this.outputHandler(res, thing);
@@ -223,7 +228,7 @@ export class WebSocketStrategy implements Connection {
 	async change<
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
-		RID extends string | void = void
+		RID extends string | void = void,
 	>(thing: Exclude<RID, void>, data?: Partial<T> & U) {
 		await this.ready;
 		const res = await this.send<
@@ -266,7 +271,7 @@ export class WebSocketStrategy implements Connection {
 	 */
 	private send<T = unknown, U = Result<T>>(
 		method: string,
-		params?: unknown[]
+		params?: unknown[],
 	) {
 		return new Promise<U>((resolve) => {
 			if (!this.socket) throw new NoActiveSocket();

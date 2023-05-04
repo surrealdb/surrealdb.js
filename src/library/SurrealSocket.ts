@@ -1,7 +1,7 @@
 import {
-	WebsocketStatus,
 	type RawSocketMessageResponse,
 	type Result,
+	WebsocketStatus,
 } from "../types.ts";
 import WebSocket from "./WebSocket/deno.ts";
 import { getIncrementalID } from "./getIncrementalID.ts";
@@ -31,7 +31,7 @@ export class SurrealSocket {
 		onClose?: () => unknown;
 	}) {
 		this.resolveReady = () => {}; // Purely for typescript typing :)
-		this.ready = new Promise(r => this.resolveReady = r);
+		this.ready = new Promise((r) => this.resolveReady = r);
 
 		this.url = "";
 		this.onOpen = onOpen;
@@ -67,7 +67,7 @@ export class SurrealSocket {
 
 		this.ws.addEventListener("message", (e) => {
 			const res = JSON.parse(
-				e.data.toString()
+				e.data.toString(),
 			) as RawSocketMessageResponse;
 			if (res.id && res.id in this.queue) {
 				this.queue[res.id](res);
@@ -80,7 +80,7 @@ export class SurrealSocket {
 	async send(
 		method: string,
 		params: unknown[],
-		callback: (data: Result) => unknown
+		callback: (data: Result) => unknown,
 	) {
 		await this.ready;
 

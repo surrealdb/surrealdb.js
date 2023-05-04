@@ -8,7 +8,7 @@ export class Surreal {
 	constructor(
 		url: string,
 		prepare: () => unknown,
-		strategy: ConnectionStrategy = "websocket"
+		strategy: ConnectionStrategy = "websocket",
 	) {
 		switch (strategy) {
 			case "websocket":

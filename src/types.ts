@@ -6,7 +6,7 @@ export interface Connection {
 
 	connect: (
 		url: string,
-		prepare?: (connection: Connection) => unknown
+		prepare?: (connection: Connection) => unknown,
 	) => void;
 	ping: () => Promise<void>;
 	use: (ns: string, db: string) => MaybePromise<void>;
@@ -21,35 +21,35 @@ export interface Connection {
 
 	query: <T extends RawQueryResult[]>(
 		query: string,
-		vars?: Record<string, unknown>
+		vars?: Record<string, unknown>,
 	) => Promise<MapQueryResult<T>>;
 
 	select?: <T, RID extends string>(
-		thing: RID
+		thing: RID,
 	) => Promise<ReturnsThing<T, RID>>;
 
 	create?: <T extends Record<string, unknown>>(
 		thing: string,
-		data?: T
+		data?: T,
 	) => Promise<T & { id: Thing }>;
 
 	update?: <T extends Record<string, unknown>, RID extends string>(
 		thing: RID,
-		data?: T
+		data?: T,
 	) => Promise<ReturnsThing<T & { id: Thing }, RID>>;
 
 	change?: <
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
-		RID extends string | void = void
+		RID extends string | void = void,
 	>(
 		thing: Exclude<RID, void>,
-		data?: Partial<T> & U
+		data?: Partial<T> & U,
 	) => Promise<ReturnsThing<T & U & { id: string }, Exclude<RID, void>>>;
 
 	modify?: <RID extends string>(
 		thing: RID,
-		data?: Patch[]
+		data?: Patch[],
 	) => Promise<ReturnsThing<Patch, RID>>;
 
 	delete?: (thing: string) => Promise<void>;
@@ -89,19 +89,19 @@ export type Token = string;
 
 export type HTTPAuthenticationResponse =
 	| {
-			code: 200;
-			details: "Authentication succeeded";
-			token?: string;
-			description?: never;
-			information?: never;
-	  }
+		code: 200;
+		details: "Authentication succeeded";
+		token?: string;
+		description?: never;
+		information?: never;
+	}
 	| {
-			code: 403;
-			details: "Authentication failed";
-			token?: never;
-			description: string;
-			information: string;
-	  };
+		code: 403;
+		details: "Authentication failed";
+		token?: never;
+		description: string;
+		information: string;
+	};
 
 /////////////////////////////////////
 //////////   QUERY TYPES   //////////
@@ -142,7 +142,7 @@ export type MapQueryResult<T> = {
 
 export type Thing<
 	T extends string = string,
-	U extends string = string
+	U extends string = string,
 > = `${T}:${U}`;
 
 export type ReturnsThing<T, RID extends string> = RID extends Thing ? T : T[];
@@ -198,11 +198,12 @@ export enum WebsocketStatus {
 //////////////////////////////
 
 export type InvalidSQL = {
-    code: 400;
-    details: "Request problems detected";
-    description: "There is a problem with your request. Refer to the documentation for further information.";
-    information: string;
-}
+	code: 400;
+	details: "Request problems detected";
+	description:
+		"There is a problem with your request. Refer to the documentation for further information.";
+	information: string;
+};
 
 ///////////////////////////////
 //////////   OTHER   //////////

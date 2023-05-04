@@ -4,17 +4,17 @@ import { NoConnectionDetails } from "../errors.ts";
 
 export class SurrealHTTP {
 	private url: URL;
-    private authorization?: string;
-    private namespace?: string;
-    private database?: string;
+	private authorization?: string;
+	private namespace?: string;
+	private database?: string;
 
 	constructor(url: URL) {
 		this.url = url;
 	}
 
 	get ready() {
-        return !!(this.url && this.namespace && this.database);
-    }
+		return !!(this.url && this.namespace && this.database);
+	}
 
 	setTokenAuth(token: string) {
 		this.authorization = `Bearer ${token}`;
@@ -34,22 +34,28 @@ export class SurrealHTTP {
 	}
 
 	async request<T = unknown>(path: string, options?: {
-		method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+		method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 		plainBody?: boolean;
 		body?: Record<string, unknown> | string;
 	}): Promise<T> {
-		path = path.startsWith('/') ? path.slice(1) : path;
+		path = path.startsWith("/") ? path.slice(1) : path;
 		if (!this.ready) throw new NoConnectionDetails();
 		return (await fetch(`${this.url!.origin}/${path}`, {
 			method: options?.method ?? "POST",
 			headers: {
-				'Content-Type': options?.plainBody ? 'text/plain' : 'application/json',
-				'Accept': 'application/json',
-				'NS': this.namespace!,
-				'DB': this.database!,
-				...(this.authorization ? { 'Authorization': this.authorization, } : {}),
+				"Content-Type": options?.plainBody
+					? "text/plain"
+					: "application/json",
+				"Accept": "application/json",
+				"NS": this.namespace!,
+				"DB": this.database!,
+				...(this.authorization
+					? { "Authorization": this.authorization }
+					: {}),
 			},
-			body: typeof options?.body == 'string' ? options?.body : JSON.stringify(options?.body)
-		})).json();
+			body: typeof options?.body == "string"
+				? options?.body
+				: JSON.stringify(options?.body),
+		})).json() as T;
 	}
 }

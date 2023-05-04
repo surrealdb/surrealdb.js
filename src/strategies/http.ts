@@ -1,14 +1,14 @@
 import { NoConnectionDetails } from "../errors.ts";
 import { SurrealHTTP } from "../library/SurrealHTTP.ts";
 import {
-	type Connection,
 	type AnyAuth,
+	type Connection,
+	HTTPAuthenticationResponse,
+	InvalidSQL,
+	type MapQueryResult,
+	type RawQueryResult,
 	type ScopeAuth,
 	type Token,
-	type RawQueryResult,
-	type MapQueryResult,
-HTTPAuthenticationResponse,
-InvalidSQL,
 } from "../types.ts";
 
 export class HTTPStrategy implements Connection {
@@ -32,7 +32,7 @@ export class HTTPStrategy implements Connection {
 	 */
 	async connect(
 		urlRaw: string,
-		prepare?: (connection: HTTPStrategy) => unknown
+		prepare?: (connection: HTTPStrategy) => unknown,
 	) {
 		const url = new URL(urlRaw);
 		this.http = new SurrealHTTP(url);
@@ -60,14 +60,14 @@ export class HTTPStrategy implements Connection {
 	 * Get status of the socket connection
 	 */
 	get status() {
-		return this.request('/status');
+		return this.request("/status");
 	}
 
 	/**
 	 * Ping SurrealDB instance
 	 */
 	async ping() {
-		await this.request('/health');
+		await this.request("/health");
 	}
 
 	/**
@@ -110,7 +110,7 @@ export class HTTPStrategy implements Connection {
 
 		if (res.description) throw new Error(res.description);
 		if (!res.token) {
-			this.http?.createRootAuth(vars.user as string, vars.pass as string)
+			this.http?.createRootAuth(vars.user as string, vars.pass as string);
 		} else {
 			this.http?.setTokenAuth(res.token);
 			return res.token;
@@ -147,7 +147,7 @@ export class HTTPStrategy implements Connection {
 			method: "POST",
 		});
 
-		if ('information' in res) throw new Error(res.information);
+		if ("information" in res) throw new Error(res.information);
 		return res;
 	}
 
