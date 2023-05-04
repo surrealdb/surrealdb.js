@@ -1,18 +1,22 @@
-import fetch from "./fetch/deno.ts";
-import btoa from "./btoa/deno.ts";
 import { NoConnectionDetails } from "../errors.ts";
 
-export class SurrealHTTP {
+export class SurrealHTTP<TFetcher = typeof fetch> {
 	private url: URL;
 	private authorization?: string;
 	private namespace?: string;
 	private database?: string;
+	private fetch: TFetcher;
 
-	constructor(url: URL) {
+	constructor(url: URL, {
+		fetcher,
+	}: {
+		fetcher?: TFetcher;
+	} = {}) {
+		this.fetch = fetcher ?? fetch as TFetcher;
 		this.url = url;
 	}
 
-	get ready() {
+	ready() {
 		return !!(this.url && this.namespace && this.database);
 	}
 
@@ -39,23 +43,26 @@ export class SurrealHTTP {
 		body?: Record<string, unknown> | string;
 	}): Promise<T> {
 		path = path.startsWith("/") ? path.slice(1) : path;
-		if (!this.ready) throw new NoConnectionDetails();
-		return (await fetch(`${this.url!.origin}/${path}`, {
-			method: options?.method ?? "POST",
-			headers: {
-				"Content-Type": options?.plainBody
-					? "text/plain"
-					: "application/json",
-				"Accept": "application/json",
-				"NS": this.namespace!,
-				"DB": this.database!,
-				...(this.authorization
-					? { "Authorization": this.authorization }
-					: {}),
+		if (!this.ready()) throw new NoConnectionDetails();
+		return (await (this.fetch as typeof fetch)(
+			`${this.url!.origin}/${path}`,
+			{
+				method: options?.method ?? "POST",
+				headers: {
+					"Content-Type": options?.plainBody
+						? "text/plain"
+						: "application/json",
+					"Accept": "application/json",
+					"NS": this.namespace!,
+					"DB": this.database!,
+					...(this.authorization
+						? { "Authorization": this.authorization }
+						: {}),
+				},
+				body: typeof options?.body == "string"
+					? options?.body
+					: JSON.stringify(options?.body),
 			},
-			body: typeof options?.body == "string"
-				? options?.body
-				: JSON.stringify(options?.body),
-		})).json() as T;
+		)).json() as T;
 	}
 }

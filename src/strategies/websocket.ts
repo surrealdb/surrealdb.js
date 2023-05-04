@@ -4,6 +4,7 @@ import { SurrealSocket } from "../library/SurrealSocket.ts";
 import {
 	type AnyAuth,
 	type Connection,
+	type ConnectionOptions,
 	type MapQueryResult,
 	type Patch,
 	type RawQueryResult,
@@ -15,7 +16,7 @@ import {
 } from "../types.ts";
 
 export class WebSocketStrategy implements Connection {
-	private socket?: SurrealSocket;
+	protected socket?: SurrealSocket;
 	private pinger?: Pinger;
 
 	public ready: Promise<void>;
@@ -27,11 +28,11 @@ export class WebSocketStrategy implements Connection {
 	 */
 	constructor(
 		url: string,
-		prepare?: (connection: WebSocketStrategy) => unknown,
+		options: ConnectionOptions,
 	) {
 		this.resolveReady = () => {}; // Purely for typescript typing :)
 		this.ready = new Promise((r) => this.resolveReady = r);
-		this.connect(url, prepare);
+		this.connect(url, options);
 	}
 
 	/**
@@ -40,7 +41,9 @@ export class WebSocketStrategy implements Connection {
 	 */
 	async connect(
 		urlRaw: string,
-		prepare?: (connection: WebSocketStrategy) => unknown,
+		{
+			prepare,
+		}: ConnectionOptions = {},
 	) {
 		const url = new URL(urlRaw);
 		this.pinger = new Pinger(30000);
@@ -269,7 +272,7 @@ export class WebSocketStrategy implements Connection {
 	 * @param method - Type of message to send.
 	 * @param params - Parameters for the message.
 	 */
-	private send<T = unknown, U = Result<T>>(
+	protected send<T = unknown, U = Result<T>>(
 		method: string,
 		params?: unknown[],
 	) {

@@ -27,8 +27,3 @@ export class UnexpectedResponse extends Error {
 	message =
 		"The returned response from the SurrealDB instance is in an unexpected format. Unable to process response!";
 }
-
-export class UnexpectedStrategy extends Error {
-	name = "UnexpectedStrategy";
-	message = "An unknown connection strategy was provided!";
-}

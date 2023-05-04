@@ -3,16 +3,17 @@ import { SurrealHTTP } from "../library/SurrealHTTP.ts";
 import {
 	type AnyAuth,
 	type Connection,
-	HTTPAuthenticationResponse,
-	InvalidSQL,
+	type HTTPAuthenticationResponse,
+	type HTTPConnectionOptions,
+	type InvalidSQL,
 	type MapQueryResult,
 	type RawQueryResult,
 	type ScopeAuth,
 	type Token,
 } from "../types.ts";
 
-export class HTTPStrategy implements Connection {
-	protected http?: SurrealHTTP;
+export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
+	protected http?: SurrealHTTP<TFetcher>;
 	public ready: Promise<void>;
 	private resolveReady: () => void;
 
@@ -20,10 +21,10 @@ export class HTTPStrategy implements Connection {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	constructor(url: string, prepare?: (connection: HTTPStrategy) => unknown) {
+	constructor(url: string, options: HTTPConnectionOptions<TFetcher>) {
 		this.resolveReady = () => {}; // Purely for typescript typing :)
 		this.ready = new Promise((r) => (this.resolveReady = r));
-		this.connect(url, prepare);
+		this.connect(url, options);
 	}
 
 	/**
@@ -32,11 +33,12 @@ export class HTTPStrategy implements Connection {
 	 */
 	async connect(
 		urlRaw: string,
-		prepare?: (connection: HTTPStrategy) => unknown,
+		{ fetch: fetcher, prepare }: HTTPConnectionOptions<TFetcher> = {},
 	) {
 		const url = new URL(urlRaw);
-		this.http = new SurrealHTTP(url);
+		this.http = new SurrealHTTP<TFetcher>(url, { fetcher });
 		await prepare?.(this);
+		this.resolveReady();
 		await this.ready;
 	}
 
@@ -137,9 +139,7 @@ export class HTTPStrategy implements Connection {
 	 * @param query - Specifies the SurrealQL statements.
 	 * @param vars - Assigns variables which can be used in the query.
 	 */
-	async query<T extends RawQueryResult[]>(
-		query: string,
-	) {
+	async query<T extends RawQueryResult[]>(query: string) {
 		await this.ready;
 		const res = await this.request<InvalidSQL | MapQueryResult<T>>("/sql", {
 			body: query,

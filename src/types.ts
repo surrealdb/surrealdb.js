@@ -1,13 +1,8 @@
 export type ConnectionStrategy = "websocket" | "experimental_http";
 export interface Connection {
-	constructor: Constructor<
-		(url: string, prepare?: (connection: Connection) => unknown) => void
-	>;
+	constructor: Constructor<(url: string, options: ConnectionOptions) => void>;
 
-	connect: (
-		url: string,
-		prepare?: (connection: Connection) => unknown,
-	) => void;
+	connect: (url: string, options?: ConnectionOptions) => void;
 	ping: () => Promise<void>;
 	use: (ns: string, db: string) => MaybePromise<void>;
 	info?: () => Promise<void>;
@@ -54,6 +49,16 @@ export interface Connection {
 
 	delete?: (thing: string) => Promise<void>;
 }
+
+export type ConnectionOptions = {
+	prepare?: (connection: Connection) => unknown;
+};
+
+export type HTTPConnectionOptions<TFetcher = typeof fetch> =
+	& ConnectionOptions
+	& {
+		fetch?: TFetcher;
+	};
 
 //////////////////////////////////////////////
 //////////   AUTHENTICATION TYPES   //////////
