@@ -17,6 +17,9 @@ export class SurrealSocket {
 	public ready: Promise<void>;
 	private resolveReady: () => void;
 
+	public closed: Promise<void>;
+	private resolveClosed: () => void;
+
 	public socketClosureReason: Record<number, string> = {
 		1000: "CLOSE_NORMAL",
 	};
@@ -32,6 +35,8 @@ export class SurrealSocket {
 	}) {
 		this.resolveReady = () => {}; // Purely for typescript typing :)
 		this.ready = new Promise((r) => this.resolveReady = r);
+		this.resolveClosed = () => {}; // Purely for typescript typing :)
+		this.closed = new Promise((r) => this.resolveClosed = r);
 
 		this.url = "";
 		this.onOpen = onOpen;
@@ -53,6 +58,9 @@ export class SurrealSocket {
 		});
 
 		this.ws.addEventListener("close", (_e) => {
+			this.resolveClosed();
+			this.resetClosed();
+
 			// Connection retry mechanism
 			if (this.status !== WebsocketStatus.CLOSED) {
 				this.status = WebsocketStatus.RECONNECTING;
@@ -89,10 +97,11 @@ export class SurrealSocket {
 		this.ws?.send(JSON.stringify({ id, method, params }));
 	}
 
-	close(reason: keyof typeof this.socketClosureReason) {
+	async close(reason: keyof typeof this.socketClosureReason) {
 		this.status = WebsocketStatus.CLOSED;
 		this.ws?.close(reason, this.socketClosureReason[reason]);
 		this.onClose?.();
+		await this.closed;
 	}
 
 	get connectionStatus() {
@@ -107,5 +116,9 @@ export class SurrealSocket {
 
 	private resetReady() {
 		this.ready = new Promise((r) => (this.resolveReady = r));
+	}
+
+	private resetClosed() {
+		this.closed = new Promise((r) => (this.resetClosed = r));
 	}
 }

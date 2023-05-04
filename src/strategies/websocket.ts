@@ -45,6 +45,8 @@ export class WebSocketStrategy implements Connection {
 			prepare,
 		}: ConnectionOptions = {},
 	) {
+		await this.socket?.close(1000);
+
 		const url = new URL(urlRaw);
 		this.pinger = new Pinger(30000);
 		this.socket = new SurrealSocket({
@@ -67,17 +69,17 @@ export class WebSocketStrategy implements Connection {
 	/**
 	 * Disconnect the socket to the database
 	 */
-	close() {
-		this.socket?.close(1000);
+	async close() {
+		await this.socket?.close(1000);
 		this.socket = undefined;
 	}
 
 	/**
 	 * Check if connection is ready
 	 */
-	wait() {
+	async wait() {
 		if (!this.socket) throw new NoActiveSocket();
-		return this.ready;
+		await this.ready;
 	}
 
 	/**
