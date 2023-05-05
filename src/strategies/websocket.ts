@@ -28,7 +28,7 @@ export class WebSocketStrategy implements Connection {
 	 */
 	constructor(
 		url: string,
-		options: ConnectionOptions,
+		options: ConnectionOptions = {},
 	) {
 		this.resolveReady = () => {}; // Purely for typescript typing :)
 		this.ready = new Promise((r) => this.resolveReady = r);

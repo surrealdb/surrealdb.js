@@ -21,7 +21,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	constructor(url: string, options: HTTPConnectionOptions<TFetcher>) {
+	constructor(url: string, options: HTTPConnectionOptions<TFetcher> = {}) {
 		this.resolveReady = () => {}; // Purely for typescript typing :)
 		this.ready = new Promise((r) => (this.resolveReady = r));
 		this.connect(url, options);
