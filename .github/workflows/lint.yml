@@ -10,13 +10,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - uses: denoland/setup-deno@v1
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
         with:
           deno-version: v1.x
-      - uses: actions/setup-node@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
         with:
           node-version: '18.x'
           registry-url: 'https://registry.npmjs.org'
-      - run: deno fmt --check
-      - run: deno lint
-      - run: deno task build
+
+      - name: Check formatting
+        run: deno fmt --check
+      - name: Run linting
+        run: deno lint
+      - name: Attempt building
+        run: deno task build

@@ -27,7 +27,6 @@ await build({
 		},
 		dependencies: {
 			"isomorphic-ws": "^5.0.0",
-			"ws": "^8.8.1",
 		},
 		devDependencies: {
 			"@types/node": "^18.7.18",
@@ -41,7 +40,7 @@ await build({
 	},
 	// skipSourceOutput: true,
 	mappings: {
-		"./src/ws/deno.ts": "./src/ws/node.ts",
+		"./src/library/WebSocket/deno.ts": "./src/library/WebSocket/node.ts",
 	},
 	compilerOptions: {
 		lib: ["dom"],
