@@ -9,9 +9,7 @@ import {
 	type Patch,
 	type RawQueryResult,
 	type Result,
-	type ReturnsThing,
 	type ScopeAuth,
-	type Thing,
 	type Token,
 } from "../types.ts";
 
@@ -31,7 +29,7 @@ export class WebSocketStrategy implements Connection {
 		options: ConnectionOptions = {},
 	) {
 		this.resolveReady = () => {}; // Purely for typescript typing :)
-		this.ready = new Promise((r) => this.resolveReady = r);
+		this.ready = new Promise((r) => (this.resolveReady = r));
 		if (url) this.connect(url, options);
 	}
 
@@ -183,10 +181,18 @@ export class WebSocketStrategy implements Connection {
 	 * Selects all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
 	 */
-	async select<T, RID extends string>(thing: RID) {
+	async select<T extends Record<string, unknown>>(
+		table: string,
+	): Promise<T[]>;
+	async select<T extends Record<string, unknown>>(
+		table: string,
+		id: string,
+	): Promise<T>;
+	async select(table: string, id?: string) {
 		await this.ready;
-		const res = await this.send<ReturnsThing<T, RID>>("select", [thing]);
-		return this.outputHandler(res, thing);
+		const thing = this.getThing(table, id);
+		const res = await this.send("select", [thing]);
+		return this.outputHandler(res, !!id);
 	}
 
 	/**
@@ -194,10 +200,22 @@ export class WebSocketStrategy implements Connection {
 	 * @param thing - The table name or the specific record ID to create.
 	 * @param data - The document / record data to insert.
 	 */
-	async create<T extends Record<string, unknown>>(thing: string, data?: T) {
+
+	async create<T extends Record<string, unknown>>(
+		table: string,
+		data?: T,
+	): Promise<T & { id: string }>;
+	async create<T extends Record<string, unknown>>(
+		table: string,
+		id: string,
+		data?: T,
+	): Promise<T & { id: string }>;
+	async create<T extends Record<string, unknown>>() {
 		await this.ready;
-		const res = await this.send<T & { id: Thing }>("create", [thing, data]);
-		return this.outputHandler(res, thing);
+		const { table, id, data } = this.computeArguments<T>(arguments);
+		const thing = this.getThing(table, id);
+		const res = await this.send("create", [thing, data]);
+		return this.outputHandler(res, true);
 	}
 
 	/**
@@ -207,17 +225,21 @@ export class WebSocketStrategy implements Connection {
 	 * @param thing - The table name or the specific record ID to update.
 	 * @param data - The document / record data to insert.
 	 */
-	async update<T extends Record<string, unknown>, RID extends string>(
-		thing: RID,
+	async update<T extends Record<string, unknown>>(
+		table: string,
 		data?: T,
-	) {
+	): Promise<(T & { id: string })[]>;
+	async update<T extends Record<string, unknown>>(
+		table: string,
+		id: string,
+		data?: T,
+	): Promise<T & { id: string }>;
+	async update<T extends Record<string, unknown>>() {
 		await this.ready;
-		const res = await this.send<ReturnsThing<T & { id: Thing }, RID>>(
-			"update",
-			[thing, data],
-		);
-
-		return this.outputHandler(res, thing);
+		const { table, id, data } = this.computeArguments<T>(arguments);
+		const thing = this.getThing(table, id);
+		const res = await this.send("update", [thing, data]);
+		return this.outputHandler(res, !!id);
 	}
 
 	/**
@@ -230,14 +252,29 @@ export class WebSocketStrategy implements Connection {
 	async change<
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
-		RID extends string | void = void,
-	>(thing: Exclude<RID, void>, data?: Partial<T> & U) {
+	>(
+		table: string,
+		data?: Partial<T> & U,
+	): Promise<(T & U & { id: string })[]>;
+	async change<
+		T extends Record<string, unknown>,
+		U extends Record<string, unknown> = T,
+	>(
+		table: string,
+		id: string,
+		data?: Partial<T> & U,
+	): Promise<T & U & { id: string }>;
+	async change<
+		T extends Record<string, unknown>,
+		U extends Record<string, unknown> = T,
+	>() {
 		await this.ready;
-		const res = await this.send<
-			ReturnsThing<T & U & { id: string }, Exclude<RID, void>>
-		>("change", [thing, data]);
-
-		return this.outputHandler(res, thing);
+		const { table, id, data } = this.computeArguments<Partial<T> & U>(
+			arguments,
+		);
+		const thing = this.getThing(table, id);
+		const res = await this.send("change", [thing, data]);
+		return this.outputHandler(res, !!id);
 	}
 
 	/**
@@ -247,21 +284,25 @@ export class WebSocketStrategy implements Connection {
 	 * @param thing - The table name or the specific record ID to modify.
 	 * @param data - The JSON Patch data with which to modify the records.
 	 */
-	async modify<RID extends string>(thing: RID, data?: Patch[]) {
+	async modify(table: string, data?: Patch[]): Promise<Patch[]>;
+	async modify(table: string, id: string, data?: Patch[]): Promise<Patch>;
+	async modify() {
 		await this.ready;
-		const res = await this.send<ReturnsThing<Patch, RID>>("modify", [
-			thing,
-			data,
-		]);
-		return this.outputHandler(res, thing);
+		const { table, id, data } = this.computeArguments<Patch[]>(arguments);
+		const thing = this.getThing(table, id);
+		const res = await this.send("modify", [thing, data]);
+		return this.outputHandler(res, !!id);
 	}
 
 	/**
 	 * Deletes all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
 	 */
-	async delete(thing: string): Promise<void> {
+	async delete(table: string): Promise<void>;
+	async delete(table: string, id: string): Promise<void>;
+	async delete(table: string, id?: string): Promise<void> {
 		await this.ready;
+		const thing = this.getThing(table, id);
 		const res = await this.send("delete", [thing]);
 		if (res.error) throw new Error(res.error.message);
 	}
@@ -286,10 +327,8 @@ export class WebSocketStrategy implements Connection {
 	 * @param res - The raw response
 	 * @param thing - What thing did you query (table vs record).
 	 */
-	private outputHandler<T>(res: Result<T>, thing: string) {
+	private outputHandler<T>(res: Result<T>, isSingleThing: boolean) {
 		if (res.error) throw new Error(res.error.message);
-
-		const isSingleThing = thing && thing.includes(":");
 		if (Array.isArray(res.result)) {
 			return isSingleThing ? res.result[0] : res.result;
 		} else if ("id" in (res.result ?? {})) {
@@ -298,8 +337,27 @@ export class WebSocketStrategy implements Connection {
 			return isSingleThing ? undefined : [];
 		}
 
-		console.debug(thing, res);
+		console.debug({ isSingleThing, res });
 		throw new UnexpectedResponse();
+	}
+
+	private getThing(table: string, id?: string) {
+		return id ? `${table}:${id}` : table;
+	}
+
+	private computeArguments<T>(args: IArguments) {
+		const l = (n: number) => args.length === n;
+		if (l(1)) return { table: args[0] as string };
+		if (l(2) && typeof args[1] == "string") {
+			return { table: args[0] as string, id: args[1] as string };
+		}
+
+		if (l(2)) return { table: args[0] as string, data: args[1] as T };
+		return {
+			table: args[0] as string,
+			id: args[1] as string,
+			data: args[2] as T,
+		};
 	}
 
 	/**

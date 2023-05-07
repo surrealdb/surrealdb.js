@@ -21,35 +21,59 @@ export interface Connection {
 		vars?: Record<string, unknown>,
 	) => Promise<MapQueryResult<T>>;
 
-	select?: <T, RID extends string>(
-		thing: RID,
-	) => Promise<ReturnsThing<T, RID>>;
+	select?:
+		| (<T extends Record<string, unknown>>(table: string) => Promise<T[]>)
+		| (<T extends Record<string, unknown>>(
+			table: string,
+			id: string,
+		) => Promise<T>);
 
-	create?: <T extends Record<string, unknown>>(
-		thing: string,
-		data?: T,
-	) => Promise<T & { id: Thing }>;
+	create?:
+		| (<T extends Record<string, unknown>>(
+			table: string,
+			data?: T,
+		) => Promise<T & { id: string }>)
+		| (<T extends Record<string, unknown>>(
+			table: string,
+			id: string,
+			data?: T,
+		) => Promise<T & { id: string }>);
 
-	update?: <T extends Record<string, unknown>, RID extends string>(
-		thing: RID,
-		data?: T,
-	) => Promise<ReturnsThing<T & { id: Thing }, RID>>;
+	update?:
+		| (<T extends Record<string, unknown>>(
+			table: string,
+			data?: T,
+		) => Promise<(T & { id: string })[]>)
+		| (<T extends Record<string, unknown>>(
+			table: string,
+			id: string,
+			data?: T,
+		) => Promise<T & { id: string }>);
 
-	change?: <
-		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = T,
-		RID extends string | void = void,
-	>(
-		thing: Exclude<RID, void>,
-		data?: Partial<T> & U,
-	) => Promise<ReturnsThing<T & U & { id: string }, Exclude<RID, void>>>;
+	change?:
+		| (<
+			T extends Record<string, unknown>,
+			U extends Record<string, unknown> = T,
+		>(
+			table: string,
+			data?: Partial<T> & U,
+		) => Promise<(T & U & { id: string })[]>)
+		| (<
+			T extends Record<string, unknown>,
+			U extends Record<string, unknown> = T,
+		>(
+			table: string,
+			id: string,
+			data?: Partial<T> & U,
+		) => Promise<T & U & { id: string }>);
 
-	modify?: <RID extends string>(
-		thing: RID,
-		data?: Patch[],
-	) => Promise<ReturnsThing<Patch, RID>>;
+	modify?:
+		| ((table: string, data?: Patch[]) => Promise<Patch[]>)
+		| ((table: string, id: string, data?: Patch[]) => Promise<Patch>);
 
-	delete?: (thing: string) => Promise<void>;
+	delete?:
+		| ((table: string) => Promise<void>)
+		| ((table: string, id: string) => Promise<void>);
 }
 
 export type ConnectionOptions = {
@@ -147,12 +171,6 @@ export type MapQueryResult<T> = {
 	[K in keyof T]: QueryResult<T[K]>;
 };
 
-export type Thing<
-	T extends string = string,
-	U extends string = string,
-> = `${T}:${U}`;
-
-export type ReturnsThing<T, RID extends string> = RID extends Thing ? T : T[];
 export type RawQueryResult =
 	| string
 	| number
