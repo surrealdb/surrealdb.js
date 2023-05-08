@@ -15,3 +15,9 @@ export class UnexpectedResponse extends Error {
 	message =
 		"The returned response from the SurrealDB instance is in an unexpected format. Unable to process response!";
 }
+
+export class InvalidURLProvided extends Error {
+	name = "InvalidURLProvided";
+	message =
+		"The provided string is either not a URL or is a URL but with an invalid protocol!";
+}
