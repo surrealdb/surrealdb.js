@@ -69,7 +69,7 @@ export default async (db) => {
 	logger.debug(`Select NS "test", DB "test-${rand}"`);
 	await db.use("test", `test-${rand}`);
 
-	await test("Create a new person with a random id", async (expect) => {
+	await test("Create a new person with a specific id", async (expect) => {
 		let created = await db.create("person:tobie", data["person:tobie"]);
 		expect(created).toEqualStringified(dataFilled["person:tobie"]);
 	});

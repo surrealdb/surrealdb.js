@@ -27,12 +27,12 @@ export class WebSocketStrategy implements Connection {
 	 * @param connection - Connection details
 	 */
 	constructor(
-		url: string,
+		url?: string,
 		options: ConnectionOptions = {},
 	) {
 		this.resolveReady = () => {}; // Purely for typescript typing :)
 		this.ready = new Promise((r) => this.resolveReady = r);
-		this.connect(url, options);
+		if (url) this.connect(url, options);
 	}
 
 	/**
