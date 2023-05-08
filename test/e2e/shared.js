@@ -113,5 +113,5 @@ export default async (db) => {
 	});
 
 	logger.debug("closing");
-	await db.close();
+	db.close();
 };

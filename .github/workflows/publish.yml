@@ -1,7 +1,7 @@
 name: Publish Package to npmjs
 on:
   push:
-    tags:        
+    tags:
       - '*'
 jobs:
   build:
@@ -15,7 +15,7 @@ jobs:
           node-version: '18.x'
           registry-url: 'https://registry.npmjs.org'
       - uses: actions/checkout@v3
-      - run: deno run -A ./compile.ts
+      - run: deno task build
       - run: cd ./npm && npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

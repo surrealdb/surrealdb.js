@@ -1,63 +1,39 @@
 WORKING_DIR=$(dirname "$0")
 
-echo "
-####### ####### ####### ############## ####### ####### #######
-                     starting e2e tests
-####### ####### ####### ############## ####### ####### #######
-" &&
-date &&
+echo " "
+echo "-----------------------------------------"
+echo "Starting surrealdb.js E2E tests"
+date
+echo "-----------------------------------------"
+echo " "
 
-echo "
-####### ####### ####### #######
-build
-####### ####### ####### #######
-" &&
-deno task build &&
+echo "Building"
+echo "-----------------------------------------"
+deno task build
 
-echo "
-####### ####### ####### #######
-Deno
-####### ####### ####### #######
-" &&
-echo "Start surrealdb" &&
-sh $WORKING_DIR/docker-restart.sh deno &&
-echo "Run Deno" &&
-deno run -A ./test/e2e/deno.js &&
-echo "Get DB Dump" &&
-sh $WORKING_DIR/docker-stop.sh deno &&
-echo "Check DENO-Dump" &&
-deno run -A $WORKING_DIR/compare-dump.js &&
-echo "
-####### ####### ####### #######
-Node
-####### ####### ####### #######
-"
-echo "Start surrealdb" &&
-sh $WORKING_DIR/docker-restart.sh node &&
-echo "Run Node" &&
-node ./test/e2e/node.js &&
-echo "Get DB Dump" &&
-sh $WORKING_DIR/docker-stop.sh node &&
-echo "Check Node-Dump" &&
-deno run -A $WORKING_DIR/compare-dump.js &&
-# echo "
-# ####### ####### #######
-# Bun
-# ####### ####### #######
-#"
-# TODO
-# echo "Start surrealdb" &&
-# sh $WORKING_DIR/docker-restart.sh bun &&
-# echo "Run Bun" &&
-# bun run ./test/e2e/bun.js &&
-# echo "Get DB Dump" &&
-# sh $WORKING_DIR/docker-stop.sh bun &&
-# echo "Check Bun-Dump" &&
-# deno run -A $WORKING_DIR/compare-dump.js &&
-echo "" &&
-date &&
-echo "
-####### ####### ####### ############## ####### ####### #######
-                      finished e2e tests
-####### ####### ####### ############## ####### ####### #######
-"
+sh $WORKING_DIR/docker-restart.sh
+
+
+echo " "
+echo "Running deno tests"
+echo "-----------------------------------------"
+deno test -A --trace-ops ./test/e2e/deno.js
+
+echo " "
+echo "Running node.js tests"
+echo "-----------------------------------------"
+node ./test/e2e/node.js
+
+echo " "
+echo "Running bun tests"
+echo "-----------------------------------------"
+bun run ./test/e2e/bun.js
+
+sh $WORKING_DIR/docker-stop.sh
+
+echo " "
+echo "-----------------------------------------"
+echo "Finished surrealdb.js E2E tests"
+date
+echo "-----------------------------------------"
+echo " "
