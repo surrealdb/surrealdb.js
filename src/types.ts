@@ -22,31 +22,28 @@ export interface Connection {
 	) => Promise<MapQueryResult<T>>;
 
 	select?:
-		| (<T extends Record<string, unknown>>(table: string) => Promise<T[]>)
+		| (<T extends Record<string, unknown>>(table: Table) => Promise<T[]>)
 		| (<T extends Record<string, unknown>>(
-			table: string,
-			id: string,
+			record: RecordId,
 		) => Promise<T>);
 
 	create?:
 		| (<T extends Record<string, unknown>>(
-			table: string,
+			table: Table,
 			data?: T,
 		) => Promise<T & { id: string }>)
 		| (<T extends Record<string, unknown>>(
-			table: string,
-			id: string,
+			record: RecordId,
 			data?: T,
 		) => Promise<T & { id: string }>);
 
 	update?:
 		| (<T extends Record<string, unknown>>(
-			table: string,
+			table: Table,
 			data?: T,
 		) => Promise<(T & { id: string })[]>)
 		| (<T extends Record<string, unknown>>(
-			table: string,
-			id: string,
+			record: RecordId,
 			data?: T,
 		) => Promise<T & { id: string }>);
 
@@ -55,25 +52,24 @@ export interface Connection {
 			T extends Record<string, unknown>,
 			U extends Record<string, unknown> = T,
 		>(
-			table: string,
+			table: Table,
 			data?: Partial<T> & U,
 		) => Promise<(T & U & { id: string })[]>)
 		| (<
 			T extends Record<string, unknown>,
 			U extends Record<string, unknown> = T,
 		>(
-			table: string,
-			id: string,
+			record: RecordId,
 			data?: Partial<T> & U,
 		) => Promise<T & U & { id: string }>);
 
 	modify?:
-		| ((table: string, data?: Patch[]) => Promise<Patch[]>)
-		| ((table: string, id: string, data?: Patch[]) => Promise<Patch>);
+		| ((table: Table, data?: Patch[]) => Promise<Patch[]>)
+		| ((record: RecordId, data?: Patch[]) => Promise<Patch>);
 
 	delete?:
-		| ((table: string) => Promise<void>)
-		| ((table: string, id: string) => Promise<void>);
+		| ((table: Table) => Promise<void>)
+		| ((record: RecordId) => Promise<void>);
 }
 
 export type ConnectionOptions = {
@@ -246,3 +242,7 @@ export type RawSocketLiveQueryNotification = {
 	method: "notify";
 	params: unknown[];
 };
+
+export type Table = string;
+export type RecordId = [string, string];
+export type Thing = Table | RecordId;
