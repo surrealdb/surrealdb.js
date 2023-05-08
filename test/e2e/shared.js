@@ -69,10 +69,25 @@ export default async (db) => {
 	logger.debug(`Select NS "test", DB "test-${rand}"`);
 	await db.use("test", `test-${rand}`);
 
-	await test("Create a new person with a random id", async (expect) => {
+	await test("Create a new person with a specific id", async (expect) => {
 		let created = await db.create("person:tobie", data["person:tobie"]);
 		expect(created).toEqualStringified(dataFilled["person:tobie"]);
 	});
+
+	await test("Create a new person with a random id", async (expect) => {
+		const test = {
+			identifier: Math.random().toString(36).substr(2, 10),
+			marketing: true,
+			name: {
+				first: "Test",
+				last: "Test",
+			},
+			title: "Test",
+		}
+		let created = await db.create("person", test);
+		delete created.id
+		expect(created).toEqualStringified(test)
+	})
 
 	await test("Update a person record with a specific id", async (expect) => {
 		let updated = await db.change("person:jaime", data["person:jaime"]);
