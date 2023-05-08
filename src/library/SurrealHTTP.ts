@@ -1,19 +1,23 @@
 import { NoConnectionDetails } from "../errors.ts";
+import { processUrl } from "./processUrl.ts";
 
 export class SurrealHTTP<TFetcher = typeof fetch> {
-	private url: URL;
+	private url: string;
 	private authorization?: string;
 	private namespace?: string;
 	private database?: string;
 	private fetch: TFetcher;
 
-	constructor(url: URL, {
+	constructor(url: string, {
 		fetcher,
 	}: {
 		fetcher?: TFetcher;
 	} = {}) {
 		this.fetch = fetcher ?? fetch as TFetcher;
-		this.url = url;
+		this.url = processUrl(url, {
+			ws: "http",
+			wss: "https",
+		});
 	}
 
 	ready() {
@@ -45,7 +49,7 @@ export class SurrealHTTP<TFetcher = typeof fetch> {
 		path = path.startsWith("/") ? path.slice(1) : path;
 		if (!this.ready()) throw new NoConnectionDetails();
 		return (await (this.fetch as typeof fetch)(
-			`${this.url!.origin}/${path}`,
+			`${this.url}/${path}`,
 			{
 				method: options?.method ?? "POST",
 				headers: {

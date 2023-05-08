@@ -32,10 +32,9 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @param connection - Connection details
 	 */
 	async connect(
-		urlRaw: string,
+		url: string,
 		{ fetch: fetcher, prepare }: HTTPConnectionOptions<TFetcher> = {},
 	) {
-		const url = new URL(urlRaw);
 		this.http = new SurrealHTTP<TFetcher>(url, { fetcher });
 		await prepare?.(this);
 		this.resolveReady();

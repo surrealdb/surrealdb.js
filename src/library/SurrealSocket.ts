@@ -5,6 +5,7 @@ import {
 } from "../types.ts";
 import WebSocket from "./WebSocket/deno.ts";
 import { getIncrementalID } from "./getIncrementalID.ts";
+import { processUrl } from "./processUrl.ts";
 
 export class SurrealSocket {
 	private url: string;
@@ -29,7 +30,7 @@ export class SurrealSocket {
 		onOpen,
 		onClose,
 	}: {
-		url: URL;
+		url: string;
 		onOpen?: () => unknown;
 		onClose?: () => unknown;
 	}) {
@@ -37,11 +38,12 @@ export class SurrealSocket {
 		this.ready = new Promise((r) => this.resolveReady = r);
 		this.resolveClosed = () => {}; // Purely for typescript typing :)
 		this.closed = new Promise((r) => this.resolveClosed = r);
-
-		this.url = "";
 		this.onOpen = onOpen;
 		this.onClose = onClose;
-		this.setUrl(url);
+		this.url = processUrl(url, {
+			http: "ws",
+			https: "wss",
+		}) + "/rpc";
 	}
 
 	open() {
@@ -106,12 +108,6 @@ export class SurrealSocket {
 
 	get connectionStatus() {
 		return this.status;
-	}
-
-	private setUrl(url: URL) {
-		if (url.protocol == "http:") url.protocol = "ws:";
-		if (url.protocol == "https:") url.protocol = "wss:";
-		this.url = `${url.origin}/rpc`;
 	}
 
 	private resetReady() {

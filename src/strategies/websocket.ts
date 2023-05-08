@@ -40,14 +40,12 @@ export class WebSocketStrategy implements Connection {
 	 * @param connection - Connection details
 	 */
 	connect(
-		urlRaw: string,
+		url: string,
 		{
 			prepare,
 		}: ConnectionOptions = {},
 	) {
 		this.socket?.close(1000);
-
-		const url = new URL(urlRaw);
 		this.pinger = new Pinger(30000);
 		this.socket = new SurrealSocket({
 			url,
