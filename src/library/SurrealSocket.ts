@@ -81,6 +81,7 @@ export class SurrealSocket {
 			) as RawSocketMessageResponse;
 			if (res.id && res.id in this.queue) {
 				this.queue[res.id](res);
+				delete this.queue[res.id];
 			}
 		});
 	}
