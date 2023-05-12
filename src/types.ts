@@ -169,8 +169,24 @@ export type RawQueryResult =
 	| RawQueryResult[]
 	| Record<string | number | symbol, unknown>;
 
+export type LiveQueryResponse<
+	T extends Record<string, unknown> = Record<string, unknown>,
+> = {
+	action: "CLOSE";
+	detail: string;
+} | {
+	action: string;
+	result: T;
+};
+
+export type UnprocessedLiveQueryResponse<
+	T extends Record<string, unknown> = Record<string, unknown>,
+> = LiveQueryResponse<T> & {
+	query: string;
+};
+
 /////////////////////////////////////
-//////////   QUERY TYPES   //////////
+//////////   PATCH TYPES   //////////
 /////////////////////////////////////
 
 type BasePatch = {
@@ -234,5 +250,5 @@ export type RawSocketMessageResponse =
 export type RawSocketLiveQueryNotification = {
 	id: null;
 	method: "notify";
-	params: unknown[];
+	params: UnprocessedLiveQueryResponse[];
 };

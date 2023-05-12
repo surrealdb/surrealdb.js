@@ -5,6 +5,7 @@ import {
 	type AnyAuth,
 	type Connection,
 	type ConnectionOptions,
+	type LiveQueryResponse,
 	type MapQueryResult,
 	type MergeData,
 	type Patch,
@@ -196,6 +197,26 @@ export class WebSocketStrategy implements Connection {
 	async unset(variable: string) {
 		const res = await this.send("unset", [variable]);
 		if (res.error) throw new Error(res.error.message);
+	}
+
+	async live(
+		query: string,
+		callback?: (data: LiveQueryResponse) => unknown,
+	) {
+		await this.ready;
+		const res = await this.send<string>("live", [query]);
+		if (res.error) throw new Error(res.error.message);
+		if (callback) this.socket?.listenLive(res.result, callback);
+		return res.result;
+	}
+
+	async listenLive(
+		query: string,
+		callback: (data: LiveQueryResponse) => unknown,
+	) {
+		await this.ready;
+		if (!this.socket) throw new NoActiveSocket();
+		this.socket.listenLive(query, callback);
 	}
 
 	/**
