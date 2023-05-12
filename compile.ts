@@ -26,7 +26,7 @@ await build({
 			url: "https://surrealdb.com",
 		},
 		dependencies: {
-			"isomorphic-ws": "^5.0.0",
+			"unws": "^0.2.2",
 		},
 		devDependencies: {
 			"@types/node": "^18.7.18",
