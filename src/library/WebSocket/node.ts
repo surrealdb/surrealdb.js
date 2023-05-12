@@ -1,2 +1,3 @@
 // @ts-ignore this is a node import!
-export { default } from "isomorphic-ws";
+import { WebSocket } from "isomorphic-ws";
+export default WebSocket;
