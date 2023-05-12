@@ -1,6 +1,7 @@
 import { NoConnectionDetails } from "../errors.ts";
 import { SurrealHTTP } from "../library/SurrealHTTP.ts";
 import {
+useType,
 	type AnyAuth,
 	type Connection,
 	type HTTPAuthenticationResponse,
@@ -76,9 +77,9 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @param ns - Switches to a specific namespace.
 	 * @param db - Switches to a specific database.
 	 */
-	use(ns: string, db: string) {
+	use(vars: useType) {
 		if (!this.http) throw new NoConnectionDetails();
-		return this.http.use(ns, db);
+		return this.http.use(vars.NS, vars.DB);
 	}
 
 	/**

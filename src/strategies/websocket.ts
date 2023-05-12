@@ -2,6 +2,7 @@ import { NoActiveSocket, UnexpectedResponse } from "../errors.ts";
 import { Pinger } from "../library/Pinger.ts";
 import { SurrealSocket } from "../library/SurrealSocket.ts";
 import {
+useType,
 	type AnyAuth,
 	type Connection,
 	type ConnectionOptions,
@@ -100,8 +101,8 @@ export class WebSocketStrategy implements Connection {
 	 * @param ns - Switches to a specific namespace.
 	 * @param db - Switches to a specific database.
 	 */
-	async use(ns: string, db: string) {
-		const { error } = await this.send("use", [ns, db]);
+	async use(vars: useType) {
+		const { error } = await this.send("use", [vars.NS, vars.DB]);
 		if (error) throw new Error(error.message);
 	}
 

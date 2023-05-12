@@ -6,7 +6,7 @@ export interface Connection {
 
 	connect: (url: string, options?: ConnectionOptions) => void;
 	ping: () => Promise<void>;
-	use: (ns: string, db: string) => MaybePromise<void>;
+	use: (vars: useType) => MaybePromise<void>;
 	info?: () => Promise<void>;
 
 	signup: (vars: ScopeAuth) => Promise<Token>;
@@ -65,6 +65,11 @@ export type HTTPConnectionOptions<TFetcher = typeof fetch> =
 //////////////////////////////////////////////
 //////////   AUTHENTICATION TYPES   //////////
 //////////////////////////////////////////////
+
+export type useType = {
+	NS: string;
+	DB: string;
+}
 
 export type SuperUserAuth = {
 	user: string;
