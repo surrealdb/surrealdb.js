@@ -75,7 +75,9 @@ export default async (db) => {
 	});
 
 	await test("Update a person record with a specific id", async (expect) => {
-		let updated = await db.change(["person", "jaime"], data["person:jaime"]);
+		let updated = await db.update(["person", "jaime"], {
+			merge: data["person:jaime"]
+		});
 		expect(updated).toEqualStringified(dataFilled["person:jaime"]);
 	});
 

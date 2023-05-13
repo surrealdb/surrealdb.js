@@ -14,6 +14,7 @@ import {
 	type Table,
 	type Thing,
 	type Token,
+	UpdateOptions,
 } from "../types.ts";
 
 export class WebSocketStrategy implements Connection {
@@ -27,10 +28,7 @@ export class WebSocketStrategy implements Connection {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	constructor(
-		url?: string,
-		options: ConnectionOptions = {},
-	) {
+	constructor(url?: string, options: ConnectionOptions = {}) {
 		this.resolveReady = () => {}; // Purely for typescript typing :)
 		this.ready = new Promise((r) => (this.resolveReady = r));
 		if (url) this.connect(url, options);
@@ -40,12 +38,7 @@ export class WebSocketStrategy implements Connection {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	connect(
-		url: string,
-		{
-			prepare,
-		}: ConnectionOptions = {},
-	) {
+	connect(url: string, { prepare }: ConnectionOptions = {}) {
 		this.socket?.close(1000);
 		this.pinger = new Pinger(30000);
 		this.socket = new SurrealSocket({
@@ -184,9 +177,7 @@ export class WebSocketStrategy implements Connection {
 	 * Selects all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
 	 */
-	async select<T extends Record<string, unknown>>(
-		table: Table,
-	): Promise<T[]>;
+	async select<T extends Record<string, unknown>>(table: Table): Promise<T[]>;
 	async select<T extends Record<string, unknown>>(
 		record: RecordId,
 	): Promise<T>;
@@ -227,63 +218,76 @@ export class WebSocketStrategy implements Connection {
 	 */
 	async update<T extends Record<string, unknown>>(
 		table: Table,
-		data?: T,
 	): Promise<(T & { id: string })[]>;
 	async update<T extends Record<string, unknown>>(
 		record: RecordId,
-		data?: T,
 	): Promise<T & { id: string }>;
-	async update<T extends Record<string, unknown>>(rawThing: Thing, data?: T) {
-		await this.ready;
-		const thing = this.getThing(rawThing);
-		const res = await this.send("update", [thing, data]);
-		return this.outputHandler(res, Array.isArray(rawThing));
-	}
 
-	/**
-	 * Modifies all records in a table, or a specific record, in the database.
-	 *
-	 * ***NOTE: This function merges the current document / record data with the specified data.***
-	 * @param thing - The table name or the specific record ID to change.
-	 * @param data - The document / record data to insert.
-	 */
-	async change<
+	// Update with Content
+	async update<T extends Record<string, unknown>>(
+		table: Table,
+		options: {
+			content: T;
+		},
+	): Promise<(T & { id: string })[]>;
+	async update<T extends Record<string, unknown>>(
+		record: RecordId,
+		options: {
+			content: T;
+		},
+	): Promise<T & { id: string }>;
+
+	// Update with Merge
+	async update<
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
 	>(
 		table: Table,
-		data?: Partial<T> & U,
+		options: {
+			merge: Partial<T> & U;
+		},
 	): Promise<(T & U & { id: string })[]>;
-	async change<
+	async update<
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
 	>(
 		record: RecordId,
-		data?: Partial<T> & U,
+		options: {
+			merge: Partial<T> & U;
+		},
 	): Promise<T & U & { id: string }>;
-	async change<
+
+	// Update with Patch
+	async update(
+		table: Table,
+		options: {
+			patch: Patch[];
+		},
+	): Promise<Patch[]>;
+	async update(
+		record: RecordId,
+		options: {
+			patch: Patch[];
+		},
+	): Promise<Patch>;
+	async update<
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
-	>(rawThing: Thing, data?: Partial<T> & U) {
+	>(rawThing: Thing, options: UpdateOptions<T, U> = {}) {
 		await this.ready;
 		const thing = this.getThing(rawThing);
-		const res = await this.send("change", [thing, data]);
-		return this.outputHandler(res, Array.isArray(rawThing));
-	}
 
-	/**
-	 * Applies JSON Patch changes to all records, or a specific record, in the database.
-	 *
-	 * ***NOTE: This function patches the current document / record data with the specified JSON Patch data.***
-	 * @param thing - The table name or the specific record ID to modify.
-	 * @param data - The JSON Patch data with which to modify the records.
-	 */
-	async modify(table: Table, data?: Patch[]): Promise<Patch[]>;
-	async modify(record: RecordId, data?: Patch[]): Promise<Patch>;
-	async modify(rawThing: Thing, data?: Patch[]) {
-		await this.ready;
-		const thing = this.getThing(rawThing);
-		const res = await this.send("modify", [thing, data]);
+		let res;
+		if ("content" in options) {
+			res = await this.send("update", [thing, options.content]);
+		} else if ("merge" in options) {
+			res = await this.send("merge", [thing, options.merge]);
+		} else if ("patch" in options) {
+			res = await this.send("patch", [thing, options.patch]);
+		} else {
+			if (!res) res = await this.send("update", [thing]);
+		}
+
 		return this.outputHandler(res, Array.isArray(rawThing));
 	}
 

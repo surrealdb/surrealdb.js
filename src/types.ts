@@ -23,9 +23,7 @@ export interface Connection {
 
 	select?:
 		| (<T extends Record<string, unknown>>(table: Table) => Promise<T[]>)
-		| (<T extends Record<string, unknown>>(
-			record: RecordId,
-		) => Promise<T>);
+		| (<T extends Record<string, unknown>>(record: RecordId) => Promise<T>);
 
 	create?:
 		| (<T extends Record<string, unknown>>(
@@ -37,40 +35,84 @@ export interface Connection {
 			data?: T,
 		) => Promise<T & { id: string }>);
 
-	update?:
+	update?: // Update
 		| (<T extends Record<string, unknown>>(
 			table: Table,
-			data?: T,
 		) => Promise<(T & { id: string })[]>)
 		| (<T extends Record<string, unknown>>(
 			record: RecordId,
-			data?: T,
-		) => Promise<T & { id: string }>);
-
-	change?:
+		) => Promise<T & { id: string }>)
+		// Content
+		| (<T extends Record<string, unknown>>(
+			table: Table,
+			options: {
+				content: T;
+			},
+		) => Promise<(T & { id: string })[]>)
+		| (<T extends Record<string, unknown>>(
+			record: RecordId,
+			options: {
+				content: T;
+			},
+		) => Promise<T & { id: string }>)
+		// Merge
 		| (<
 			T extends Record<string, unknown>,
 			U extends Record<string, unknown> = T,
 		>(
 			table: Table,
-			data?: Partial<T> & U,
+			options: {
+				merge: Partial<T> & U;
+			},
 		) => Promise<(T & U & { id: string })[]>)
 		| (<
 			T extends Record<string, unknown>,
 			U extends Record<string, unknown> = T,
 		>(
 			record: RecordId,
-			data?: Partial<T> & U,
-		) => Promise<T & U & { id: string }>);
-
-	modify?:
-		| ((table: Table, data?: Patch[]) => Promise<Patch[]>)
-		| ((record: RecordId, data?: Patch[]) => Promise<Patch>);
+			options: {
+				merge: Partial<T> & U;
+			},
+		) => Promise<T & U & { id: string }>)
+		// Patch
+		| ((
+			table: Table,
+			options: {
+				patch: Patch[];
+			},
+		) => Promise<Patch[]>)
+		| ((
+			record: RecordId,
+			options: {
+				patch: Patch[];
+			},
+		) => Promise<Patch>);
 
 	delete?:
 		| ((table: Table) => Promise<void>)
 		| ((record: RecordId) => Promise<void>);
 }
+
+export type UpdateOptions<
+	T extends Record<string, unknown>,
+	U extends Record<string, unknown> = T,
+> = {
+	content?: never;
+	merge?: never;
+	patch?: never;
+} | {
+	content: T;
+	merge?: never;
+	patch?: never;
+} | {
+	content?: never;
+	merge: Partial<T> & U;
+	patch?: never;
+} | {
+	content?: never;
+	merge?: never;
+	patch: Patch[];
+};
 
 export type ConnectionOptions = {
 	prepare?: (connection: Connection) => unknown;
