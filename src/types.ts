@@ -21,100 +21,35 @@ export interface Connection {
 		vars?: Record<string, unknown>,
 	) => Promise<MapQueryResult<T>>;
 
-	select?:
-		| (<T extends Record<string, unknown>>(table: Table) => Promise<T[]>)
-		| (<T extends Record<string, unknown>>(
-			record: RecordId,
-		) => Promise<T | undefined>);
+	select?: <T extends Record<string, unknown>>(thing: string) => Promise<T[]>;
 
-	create?:
-		| (<T extends Record<string, unknown>>(
-			table: Table,
-			data?: T,
-		) => Promise<T & { id: string }>)
-		| (<T extends Record<string, unknown>>(
-			record: RecordId,
-			data?: T,
-		) => Promise<(T & { id: string }) | undefined>);
+	create?: <T extends Record<string, unknown>>(
+		thing: string,
+		data?: T,
+	) => Promise<(T & { id: string })[]>;
 
-	update?: // Update
-		| (<T extends Record<string, unknown>>(
-			table: Table,
-		) => Promise<(T & { id: string })[]>)
-		| (<T extends Record<string, unknown>>(
-			record: RecordId,
-		) => Promise<(T & { id: string }) | undefined>)
-		// Content
-		| (<T extends Record<string, unknown>>(
-			table: Table,
-			options: {
-				content: T;
-			},
-		) => Promise<(T & { id: string })[]>)
-		| (<T extends Record<string, unknown>>(
-			record: RecordId,
-			options: {
-				content: T;
-			},
-		) => Promise<(T & { id: string }) | undefined>)
-		// Merge
-		| (<
-			T extends Record<string, unknown>,
-			U extends Record<string, unknown> = T,
-		>(
-			table: Table,
-			options: {
-				merge: Partial<T> & U;
-			},
-		) => Promise<(T & U & { id: string })[]>)
-		| (<
-			T extends Record<string, unknown>,
-			U extends Record<string, unknown> = T,
-		>(
-			record: RecordId,
-			options: {
-				merge: Partial<T> & U;
-			},
-		) => Promise<(T & U & { id: string }) | undefined>)
-		// Patch
-		| ((
-			table: Table,
-			options: {
-				patch: Patch[];
-			},
-		) => Promise<Patch[]>)
-		| ((
-			record: RecordId,
-			options: {
-				patch: Patch[];
-			},
-		) => Promise<Patch | undefined>);
+	update?: <T extends Record<string, unknown>>(
+		thing: string,
+		data?: T,
+	) => Promise<(T & { id: string })[]>;
 
-	delete?:
-		| ((table: Table) => Promise<void>)
-		| ((record: RecordId) => Promise<void>);
+	merge?: <
+		T extends Record<string, unknown>,
+		U extends Record<string, unknown> = T,
+	>(
+		thing: string,
+		data?: MergeData<T, U>,
+	) => Promise<(MergeData<T, U> & { id: string })[]>;
+
+	patch?: (
+		thing: string,
+		data?: Patch[],
+	) => Promise<Patch[]>;
+
+	delete?: <T extends Record<string, unknown>>(
+		thing: string,
+	) => Promise<(T & { id: string })[]>;
 }
-
-export type UpdateOptions<
-	T extends Record<string, unknown>,
-	U extends Record<string, unknown> = T,
-> = {
-	content?: never;
-	merge?: never;
-	patch?: never;
-} | {
-	content: T;
-	merge?: never;
-	patch?: never;
-} | {
-	content?: never;
-	merge: Partial<T> & U;
-	patch?: never;
-} | {
-	content?: never;
-	merge?: never;
-	patch: Patch[];
-};
 
 export type ConnectionOptions = {
 	prepare?: (connection: Connection) => unknown;
@@ -125,6 +60,11 @@ export type HTTPConnectionOptions<TFetcher = typeof fetch> =
 	& {
 		fetch?: TFetcher;
 	};
+
+export type MergeData<
+	T extends Record<string, unknown>,
+	U extends Record<string, unknown> = T,
+> = T & U;
 
 //////////////////////////////////////////////
 //////////   AUTHENTICATION TYPES   //////////
@@ -286,7 +226,3 @@ export type RawSocketLiveQueryNotification = {
 	method: "notify";
 	params: unknown[];
 };
-
-export type Table = string;
-export type RecordId = [string, string];
-export type Thing = Table | RecordId;
