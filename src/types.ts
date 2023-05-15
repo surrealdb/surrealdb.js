@@ -21,35 +21,34 @@ export interface Connection {
 		vars?: Record<string, unknown>,
 	) => Promise<MapQueryResult<T>>;
 
-	select?: <T, RID extends string>(
-		thing: RID,
-	) => Promise<ReturnsThing<T, RID>>;
+	select?: <T extends Record<string, unknown>>(thing: string) => Promise<T[]>;
 
 	create?: <T extends Record<string, unknown>>(
 		thing: string,
 		data?: T,
-	) => Promise<T & { id: Thing }>;
+	) => Promise<(T & { id: string })[]>;
 
-	update?: <T extends Record<string, unknown>, RID extends string>(
-		thing: RID,
+	update?: <T extends Record<string, unknown>>(
+		thing: string,
 		data?: T,
-	) => Promise<ReturnsThing<T & { id: Thing }, RID>>;
+	) => Promise<(T & { id: string })[]>;
 
-	change?: <
+	merge?: <
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
-		RID extends string | void = void,
 	>(
-		thing: Exclude<RID, void>,
-		data?: Partial<T> & U,
-	) => Promise<ReturnsThing<T & U & { id: string }, Exclude<RID, void>>>;
+		thing: string,
+		data?: MergeData<T, U>,
+	) => Promise<(MergeData<T, U> & { id: string })[]>;
 
-	modify?: <RID extends string>(
-		thing: RID,
+	patch?: (
+		thing: string,
 		data?: Patch[],
-	) => Promise<ReturnsThing<Patch, RID>>;
+	) => Promise<Patch[]>;
 
-	delete?: (thing: string) => Promise<void>;
+	delete?: <T extends Record<string, unknown>>(
+		thing: string,
+	) => Promise<(T & { id: string })[]>;
 }
 
 export type ConnectionOptions = {
@@ -61,6 +60,11 @@ export type HTTPConnectionOptions<TFetcher = typeof fetch> =
 	& {
 		fetch?: TFetcher;
 	};
+
+export type MergeData<
+	T extends Record<string, unknown>,
+	U extends Record<string, unknown> = T,
+> = T & U;
 
 //////////////////////////////////////////////
 //////////   AUTHENTICATION TYPES   //////////
@@ -147,12 +151,6 @@ export type MapQueryResult<T> = {
 	[K in keyof T]: QueryResult<T[K]>;
 };
 
-export type Thing<
-	T extends string = string,
-	U extends string = string,
-> = `${T}:${U}`;
-
-export type ReturnsThing<T, RID extends string> = RID extends Thing ? T : T[];
 export type RawQueryResult =
 	| string
 	| number
