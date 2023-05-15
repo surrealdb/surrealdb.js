@@ -295,7 +295,7 @@ export class WebSocketStrategy implements Connection {
 		} else if ("id" in (res.result ?? {})) {
 			return res.result;
 		} else if (res.result === null) {
-			return isSingleThing ? null : [];
+			return isSingleThing ? undefined : [];
 		}
 
 		console.debug(thing, res);
