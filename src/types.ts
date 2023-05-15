@@ -23,7 +23,9 @@ export interface Connection {
 
 	select?:
 		| (<T extends Record<string, unknown>>(table: Table) => Promise<T[]>)
-		| (<T extends Record<string, unknown>>(record: RecordId) => Promise<T>);
+		| (<T extends Record<string, unknown>>(
+			record: RecordId,
+		) => Promise<T | undefined>);
 
 	create?:
 		| (<T extends Record<string, unknown>>(
@@ -33,7 +35,7 @@ export interface Connection {
 		| (<T extends Record<string, unknown>>(
 			record: RecordId,
 			data?: T,
-		) => Promise<T & { id: string }>);
+		) => Promise<(T & { id: string }) | undefined>);
 
 	update?: // Update
 		| (<T extends Record<string, unknown>>(
@@ -41,7 +43,7 @@ export interface Connection {
 		) => Promise<(T & { id: string })[]>)
 		| (<T extends Record<string, unknown>>(
 			record: RecordId,
-		) => Promise<T & { id: string }>)
+		) => Promise<(T & { id: string }) | undefined>)
 		// Content
 		| (<T extends Record<string, unknown>>(
 			table: Table,
@@ -54,7 +56,7 @@ export interface Connection {
 			options: {
 				content: T;
 			},
-		) => Promise<T & { id: string }>)
+		) => Promise<(T & { id: string }) | undefined>)
 		// Merge
 		| (<
 			T extends Record<string, unknown>,
@@ -73,7 +75,7 @@ export interface Connection {
 			options: {
 				merge: Partial<T> & U;
 			},
-		) => Promise<T & U & { id: string }>)
+		) => Promise<(T & U & { id: string }) | undefined>)
 		// Patch
 		| ((
 			table: Table,
@@ -86,7 +88,7 @@ export interface Connection {
 			options: {
 				patch: Patch[];
 			},
-		) => Promise<Patch>);
+		) => Promise<Patch | undefined>);
 
 	delete?:
 		| ((table: Table) => Promise<void>)

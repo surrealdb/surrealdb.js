@@ -180,7 +180,7 @@ export class WebSocketStrategy implements Connection {
 	async select<T extends Record<string, unknown>>(table: Table): Promise<T[]>;
 	async select<T extends Record<string, unknown>>(
 		record: RecordId,
-	): Promise<T>;
+	): Promise<T | undefined>;
 	async select(rawThing: Thing) {
 		await this.ready;
 		const thing = this.getThing(rawThing);
@@ -221,7 +221,7 @@ export class WebSocketStrategy implements Connection {
 	): Promise<(T & { id: string })[]>;
 	async update<T extends Record<string, unknown>>(
 		record: RecordId,
-	): Promise<T & { id: string }>;
+	): Promise<(T & { id: string }) | undefined>;
 
 	// Update with Content
 	async update<T extends Record<string, unknown>>(
@@ -235,7 +235,7 @@ export class WebSocketStrategy implements Connection {
 		options: {
 			content: T;
 		},
-	): Promise<T & { id: string }>;
+	): Promise<(T & { id: string }) | undefined>;
 
 	// Update with Merge
 	async update<
@@ -255,7 +255,7 @@ export class WebSocketStrategy implements Connection {
 		options: {
 			merge: Partial<T> & U;
 		},
-	): Promise<T & U & { id: string }>;
+	): Promise<(T & U & { id: string }) | undefined>;
 
 	// Update with Patch
 	async update(
@@ -269,7 +269,7 @@ export class WebSocketStrategy implements Connection {
 		options: {
 			patch: Patch[];
 		},
-	): Promise<Patch>;
+	): Promise<Patch | undefined>;
 	async update<
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
