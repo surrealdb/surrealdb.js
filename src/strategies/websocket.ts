@@ -53,7 +53,9 @@ export class WebSocketStrategy implements Connection {
 			url,
 			onOpen: async () => {
 				this.pinger?.start(() => this.ping());
-				if (this.connection.ns && this.connection.db) await this.use({});
+				if (this.connection.ns && this.connection.db) {
+					await this.use({});
+				}
 				if (typeof this.connection.auth === "string") {
 					await this.authenticate(this.connection.auth);
 				} else if (this.connection.auth) {

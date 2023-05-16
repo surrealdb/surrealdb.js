@@ -52,16 +52,18 @@ export interface Connection {
 	) => Promise<(T & { id: string })[]>;
 }
 
-export type ConnectionOptions = {
-	prepare?: (connection: Connection) => unknown;
-	auth?: AnyAuth | Token;
-} & ({
-	ns: string;
-	db: string;
-} | {
-	ns?: never;
-	db?: never;
-});
+export type ConnectionOptions =
+	& {
+		prepare?: (connection: Connection) => unknown;
+		auth?: AnyAuth | Token;
+	}
+	& ({
+		ns: string;
+		db: string;
+	} | {
+		ns?: never;
+		db?: never;
+	});
 
 export type HTTPConnectionOptions<TFetcher = typeof fetch> =
 	& ConnectionOptions

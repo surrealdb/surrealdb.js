@@ -33,10 +33,12 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 */
 	async connect(
 		url: string,
-		{ fetch: fetcher, prepare, auth, ns, db }: HTTPConnectionOptions<TFetcher> = {},
+		{ fetch: fetcher, prepare, auth, ns, db }: HTTPConnectionOptions<
+			TFetcher
+		> = {},
 	) {
 		this.http = new SurrealHTTP<TFetcher>(url, { fetcher });
-		await this.use({ ns, db })
+		await this.use({ ns, db });
 		if (typeof auth === "string") {
 			await this.authenticate(auth);
 		} else if (auth) {
