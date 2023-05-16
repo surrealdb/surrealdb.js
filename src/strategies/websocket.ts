@@ -17,6 +17,11 @@ import {
 export class WebSocketStrategy implements Connection {
 	protected socket?: SurrealSocket;
 	private pinger?: Pinger;
+	private connection: {
+		ns?: string;
+		db?: string;
+		auth?: AnyAuth | Token;
+	} = {};
 
 	public ready: Promise<void>;
 	private resolveReady: () => void;
@@ -35,13 +40,26 @@ export class WebSocketStrategy implements Connection {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	connect(url: string, { prepare }: ConnectionOptions = {}) {
+	connect(url: string, { prepare, auth, ns, db }: ConnectionOptions = {}) {
+		this.connection = {
+			auth,
+			ns,
+			db,
+		};
+
 		this.socket?.close(1000);
 		this.pinger = new Pinger(30000);
 		this.socket = new SurrealSocket({
 			url,
 			onOpen: async () => {
 				this.pinger?.start(() => this.ping());
+				if (this.connection.ns && this.connection.db) await this.use({});
+				if (typeof this.connection.auth === "string") {
+					await this.authenticate(this.connection.auth);
+				} else if (this.connection.auth) {
+					await this.signin(this.connection.auth);
+				}
+
 				await prepare?.(this);
 				this.resolveReady();
 			},
@@ -91,8 +109,19 @@ export class WebSocketStrategy implements Connection {
 	 * @param ns - Switches to a specific namespace.
 	 * @param db - Switches to a specific database.
 	 */
-	async use(ns: string, db: string) {
-		const { error } = await this.send("use", [ns, db]);
+	async use({ ns, db }: { ns?: string; db?: string }) {
+		if (!ns && !this.connection.ns) {
+			throw new Error("Please specify a namespace to use.");
+		}
+		if (!db && !this.connection.db) {
+			throw new Error("Please specify a database to use.");
+		}
+		this.connection.ns = ns ?? this.connection.ns;
+		this.connection.db = db ?? this.connection.db;
+		const { error } = await this.send("use", [
+			this.connection.ns,
+			this.connection.db,
+		]);
 		if (error) throw new Error(error.message);
 	}
 
@@ -113,6 +142,7 @@ export class WebSocketStrategy implements Connection {
 	async signup(vars: ScopeAuth) {
 		const res = await this.send<string>("signup", [vars]);
 		if (res.error) throw new Error(res.error.message);
+		this.connection.auth = res.result;
 		return res.result;
 	}
 
@@ -122,8 +152,9 @@ export class WebSocketStrategy implements Connection {
 	 * @return The authentication token.
 	 */
 	async signin(vars: AnyAuth) {
-		const res = await this.send<string>("signin", [vars]);
+		const res = await this.send<string | undefined>("signin", [vars]);
 		if (res.error) throw new Error(res.error.message);
+		this.connection.auth = res.result ?? vars;
 		return res.result;
 	}
 
@@ -134,6 +165,7 @@ export class WebSocketStrategy implements Connection {
 	async authenticate(token: Token) {
 		const res = await this.send<string>("authenticate", [token]);
 		if (res.error) throw new Error(res.error.message);
+		this.connection.auth = token;
 	}
 
 	/**
@@ -142,6 +174,7 @@ export class WebSocketStrategy implements Connection {
 	async invalidate() {
 		const res = await this.send("invalidate");
 		if (res.error) throw new Error(res.error.message);
+		this.connection.auth = undefined;
 	}
 
 	/**
@@ -150,9 +183,17 @@ export class WebSocketStrategy implements Connection {
 	 * @param val - Assigns the value to the variable name.
 	 */
 	async let(variable: string, value: unknown) {
-		const res = await this.send<string>("let", [variable, value]);
+		const res = await this.send("let", [variable, value]);
 		if (res.error) throw new Error(res.error.message);
-		return res.result;
+	}
+
+	/**
+	 * Remove a variable from the current socket connection.
+	 * @param key - Specifies the name of the variable.
+	 */
+	async unset(variable: string) {
+		const res = await this.send("unset", [variable]);
+		if (res.error) throw new Error(res.error.message);
 	}
 
 	/**

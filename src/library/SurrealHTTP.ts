@@ -36,9 +36,9 @@ export class SurrealHTTP<TFetcher = typeof fetch> {
 		this.authorization = undefined;
 	}
 
-	use(ns: string, db: string) {
-		this.namespace = ns;
-		this.database = db;
+	use({ ns, db }: { ns?: string; db?: string }) {
+		if (ns) this.namespace = ns;
+		if (db) this.database = db;
 	}
 
 	async request<T = unknown>(path: string, options?: {

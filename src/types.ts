@@ -6,7 +6,7 @@ export interface Connection {
 
 	connect: (url: string, options?: ConnectionOptions) => void;
 	ping: () => Promise<void>;
-	use: (ns: string, db: string) => MaybePromise<void>;
+	use: (opt: { ns: string; db: string }) => MaybePromise<void>;
 	info?: () => Promise<void>;
 
 	signup: (vars: ScopeAuth) => Promise<Token>;
@@ -14,7 +14,8 @@ export interface Connection {
 	authenticate: (token: Token) => MaybePromise<void>;
 	invalidate: () => MaybePromise<void>;
 
-	let?: (variable: string, value: unknown) => Promise<string>;
+	let?: (variable: string, value: unknown) => Promise<void>;
+	unset?: (variable: string) => Promise<void>;
 
 	query: <T extends RawQueryResult[]>(
 		query: string,
@@ -53,7 +54,14 @@ export interface Connection {
 
 export type ConnectionOptions = {
 	prepare?: (connection: Connection) => unknown;
-};
+	auth?: AnyAuth | Token;
+} & ({
+	ns: string;
+	db: string;
+} | {
+	ns?: never;
+	db?: never;
+});
 
 export type HTTPConnectionOptions<TFetcher = typeof fetch> =
 	& ConnectionOptions
