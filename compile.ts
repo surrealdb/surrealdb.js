@@ -27,6 +27,7 @@ await build({
 		},
 		dependencies: {
 			"unws": "^0.2.2",
+			"ws": "^8.13.0",
 		},
 		devDependencies: {
 			"@types/node": "^18.7.18",
