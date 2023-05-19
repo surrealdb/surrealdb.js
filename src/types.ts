@@ -173,10 +173,12 @@ export type LiveQueryResponse<
 	T extends Record<string, unknown> = Record<string, unknown>,
 > = {
 	action: "CLOSE";
+	result?: never;
 	detail: string;
 } | {
-	action: string;
+	action: "CREATE" | "UPDATE" | "DELETE";
 	result: T;
+	detail?: never;
 };
 
 export type UnprocessedLiveQueryResponse<

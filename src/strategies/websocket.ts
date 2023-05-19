@@ -199,24 +199,29 @@ export class WebSocketStrategy implements Connection {
 		if (res.error) throw new Error(res.error.message);
 	}
 
-	async live(
+	async live<T extends Record<string, unknown> = Record<string, unknown>>(
 		query: string,
-		callback?: (data: LiveQueryResponse) => unknown,
+		callback?: (data: LiveQueryResponse<T>) => unknown,
 	) {
 		await this.ready;
 		const res = await this.send<string>("live", [query]);
 		if (res.error) throw new Error(res.error.message);
-		if (callback) this.socket?.listenLive(res.result, callback);
+		if (callback) this.listenLive<T>(res.result, callback);
 		return res.result;
 	}
 
-	async listenLive(
+	async listenLive<
+		T extends Record<string, unknown> = Record<string, unknown>,
+	>(
 		query: string,
-		callback: (data: LiveQueryResponse) => unknown,
+		callback: (data: LiveQueryResponse<T>) => unknown,
 	) {
 		await this.ready;
 		if (!this.socket) throw new NoActiveSocket();
-		this.socket.listenLive(query, callback);
+		this.socket.listenLive(
+			query,
+			callback as (data: LiveQueryResponse) => unknown,
+		);
 	}
 
 	/**
