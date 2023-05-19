@@ -26,7 +26,7 @@ await build({
 			url: "https://surrealdb.com",
 		},
 		dependencies: {
-			"unws": "^0.2.2",
+			"unws": "^0.2.3",
 			"ws": "^8.13.0",
 		},
 		devDependencies: {
