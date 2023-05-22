@@ -67,7 +67,7 @@ export default async (db) => {
 	// Easy way to "reset" for each test while debugging...
 	const rand = (Math.random() + 1).toString(36).substring(7);
 	logger.debug(`Select NS "test", DB "test-${rand}"`);
-	await db.use("test", `test-${rand}`);
+	await db.use({ ns: "test", db: `test-${rand}` });
 
 	await test("Create a new person with a specific id", async (expect) => {
 		let created = await db.create("person:tobie", data["person:tobie"]);

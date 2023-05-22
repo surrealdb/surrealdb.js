@@ -33,9 +33,18 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 */
 	async connect(
 		url: string,
-		{ fetch: fetcher, prepare }: HTTPConnectionOptions<TFetcher> = {},
+		{ fetch: fetcher, prepare, auth, ns, db }: HTTPConnectionOptions<
+			TFetcher
+		> = {},
 	) {
 		this.http = new SurrealHTTP<TFetcher>(url, { fetcher });
+		await this.use({ ns, db });
+		if (typeof auth === "string") {
+			await this.authenticate(auth);
+		} else if (auth) {
+			await this.signin(auth);
+		}
+
 		await prepare?.(this);
 		this.resolveReady();
 		await this.ready;
@@ -76,9 +85,9 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @param ns - Switches to a specific namespace.
 	 * @param db - Switches to a specific database.
 	 */
-	use(ns: string, db: string) {
+	use({ ns, db }: { ns?: string; db?: string }) {
 		if (!this.http) throw new NoConnectionDetails();
-		return this.http.use(ns, db);
+		return this.http.use({ ns, db });
 	}
 
 	/**
