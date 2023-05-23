@@ -124,33 +124,33 @@ export class SurrealSocket {
 	}
 
 	async listenLive(
-		query: string,
+		uuid: string,
 		callback: (data: LiveQueryResponse) => unknown,
 	) {
-		if (!(query in this.liveQueue)) this.liveQueue[query] = [];
-		this.liveQueue[query].push(callback);
+		if (!(uuid in this.liveQueue)) this.liveQueue[uuid] = [];
+		this.liveQueue[uuid].push(callback);
 
 		// Cleanup unprocessed messages queue
-		await Promise.all(this.unprocessedLiveResponses[query]?.map(callback));
-		delete this.unprocessedLiveResponses[query];
+		await Promise.all(this.unprocessedLiveResponses[uuid]?.map(callback));
+		delete this.unprocessedLiveResponses[uuid];
 	}
 
-	async kill(query: string) {
-		if (query in this.liveQueue) {
-			this.liveQueue[query].forEach((cb) =>
+	async kill(uuid: string) {
+		if (uuid in this.liveQueue) {
+			this.liveQueue[uuid].forEach((cb) =>
 				cb({
 					action: "CLOSE",
 					detail: "QUERY_KILLED",
 				})
 			);
 
-			delete this.liveQueue[query];
+			delete this.liveQueue[uuid];
 		}
 
 		await new Promise<void>((r) => {
-			this.send("kill", [query], (_) => {
-				if (query in this.unprocessedLiveResponses) {
-					delete this.unprocessedLiveResponses[query];
+			this.send("kill", [uuid], (_) => {
+				if (uuid in this.unprocessedLiveResponses) {
+					delete this.unprocessedLiveResponses[uuid];
 				}
 
 				r();
@@ -159,16 +159,16 @@ export class SurrealSocket {
 	}
 
 	private async handleLiveBatch(messages: UnprocessedLiveQueryResponse[]) {
-		await Promise.all(messages.map(async ({ query, ...message }) => {
-			if (this.liveQueue[query]) {
+		await Promise.all(messages.map(async ({ uuid, ...message }) => {
+			if (this.liveQueue[uuid]) {
 				await Promise.all(
-					this.liveQueue[query].map(async (cb) => await cb(message)),
+					this.liveQueue[uuid].map(async (cb) => await cb(message)),
 				);
 			} else {
-				if (!(query in this.unprocessedLiveResponses)) {
-					this.unprocessedLiveResponses[query] = [];
+				if (!(uuid in this.unprocessedLiveResponses)) {
+					this.unprocessedLiveResponses[uuid] = [];
 				}
-				this.unprocessedLiveResponses[query].push(message);
+				this.unprocessedLiveResponses[uuid].push(message);
 			}
 		}));
 	}
