@@ -199,6 +199,11 @@ export class WebSocketStrategy implements Connection {
 		if (res.error) throw new Error(res.error.message);
 	}
 
+	/**
+	 * Start a live query and listen for the responses
+	 * @param query - The query that you want to receive live results for.
+	 * @param callback - Callback function that receives updates.
+	 */
 	async live<T extends Record<string, unknown> = Record<string, unknown>>(
 		query: string,
 		callback?: (data: LiveQueryResponse<T>) => unknown,
@@ -210,6 +215,11 @@ export class WebSocketStrategy implements Connection {
 		return res.result;
 	}
 
+	/**
+	 * Listen for live query responses by it's uuid
+	 * @param query - The LQ uuid that you want to receive live results for.
+	 * @param callback - Callback function that receives updates.
+	 */
 	async listenLive<
 		T extends Record<string, unknown> = Record<string, unknown>,
 	>(
@@ -224,6 +234,10 @@ export class WebSocketStrategy implements Connection {
 		);
 	}
 
+	/**
+	 * Kill a live query
+	 * @param query - The query that you want to kill.
+	 */
 	async kill(query: string) {
 		await this.ready;
 		if (!this.socket) throw new NoActiveSocket();
