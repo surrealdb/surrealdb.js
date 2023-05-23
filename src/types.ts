@@ -169,12 +169,13 @@ export type RawQueryResult =
 	| RawQueryResult[]
 	| Record<string | number | symbol, unknown>;
 
+export type LiveQueryClosureReason = "SOCKET_CLOSED" | "QUERY_KILLED";
 export type LiveQueryResponse<
 	T extends Record<string, unknown> = Record<string, unknown>,
 > = {
 	action: "CLOSE";
 	result?: never;
-	detail: string;
+	detail: LiveQueryClosureReason;
 } | {
 	action: "CREATE" | "UPDATE" | "DELETE";
 	result: T;

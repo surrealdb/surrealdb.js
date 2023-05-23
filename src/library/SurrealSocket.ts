@@ -75,7 +75,7 @@ export class SurrealSocket {
 				query.map((cb) =>
 					cb({
 						action: "CLOSE",
-						detail: "Socket closed",
+						detail: "SOCKET_CLOSED",
 					})
 				);
 			});
@@ -140,7 +140,7 @@ export class SurrealSocket {
 			this.liveQueue[query].forEach((cb) =>
 				cb({
 					action: "CLOSE",
-					detail: "Query killed",
+					detail: "QUERY_KILLED",
 				})
 			);
 
