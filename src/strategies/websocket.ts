@@ -224,6 +224,12 @@ export class WebSocketStrategy implements Connection {
 		);
 	}
 
+	async kill(query: string) {
+		await this.ready;
+		if (!this.socket) throw new NoActiveSocket();
+		await this.socket.kill(query);
+	}
+
 	/**
 	 * Runs a set of SurrealQL statements against the database.
 	 * @param query - Specifies the SurrealQL statements.

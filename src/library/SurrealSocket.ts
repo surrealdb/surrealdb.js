@@ -135,6 +135,27 @@ export class SurrealSocket {
 		delete this.unprocessedLiveResponses[query];
 	}
 
+	async kill(query: string) {
+		if (query in this.liveQueue) {
+			this.liveQueue[query].forEach(cb => cb({
+				action: "CLOSE",
+				detail: "Query killed"
+			}));
+
+			delete this.liveQueue[query];
+		}
+
+		await new Promise<void>((r) => {
+			this.send('kill', [query], (_) => {
+				if (query in this.unprocessedLiveResponses) {
+					delete this.unprocessedLiveResponses[query];
+				}
+
+				r();
+			});
+		})
+	}
+
 	private async handleLiveBatch(messages: UnprocessedLiveQueryResponse[]) {
 		await Promise.all(messages.map(async ({ query, ...message }) => {
 			if (this.liveQueue[query]) {
