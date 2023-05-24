@@ -131,7 +131,7 @@ export class SurrealSocket {
 		this.liveQueue[uuid].push(callback);
 
 		// Cleanup unprocessed messages queue
-		await Promise.all(this.unprocessedLiveResponses[uuid]?.map(callback));
+		await Promise.all(this.unprocessedLiveResponses[uuid]?.map(callback) ?? []);
 		delete this.unprocessedLiveResponses[uuid];
 	}
 
