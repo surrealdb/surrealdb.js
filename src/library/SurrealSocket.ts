@@ -131,7 +131,9 @@ export class SurrealSocket {
 		this.liveQueue[queryUuid].push(callback);
 
 		// Cleanup unprocessed messages queue
-		await Promise.all(this.unprocessedLiveResponses[queryUuid]?.map(callback) ?? []);
+		await Promise.all(
+			this.unprocessedLiveResponses[queryUuid]?.map(callback) ?? [],
+		);
 		delete this.unprocessedLiveResponses[queryUuid];
 	}
 
@@ -159,18 +161,22 @@ export class SurrealSocket {
 	}
 
 	private async handleLiveBatch(messages: UnprocessedLiveQueryResponse[]) {
-		await Promise.all(messages.map(async ({ query: queryUuid, ...message }) => {
-			if (this.liveQueue[queryUuid]) {
-				await Promise.all(
-					this.liveQueue[queryUuid].map(async (cb) => await cb(message)),
-				);
-			} else {
-				if (!(queryUuid in this.unprocessedLiveResponses)) {
-					this.unprocessedLiveResponses[queryUuid] = [];
+		await Promise.all(
+			messages.map(async ({ query: queryUuid, ...message }) => {
+				if (this.liveQueue[queryUuid]) {
+					await Promise.all(
+						this.liveQueue[queryUuid].map(async (cb) =>
+							await cb(message)
+						),
+					);
+				} else {
+					if (!(queryUuid in this.unprocessedLiveResponses)) {
+						this.unprocessedLiveResponses[queryUuid] = [];
+					}
+					this.unprocessedLiveResponses[queryUuid].push(message);
 				}
-				this.unprocessedLiveResponses[queryUuid].push(message);
-			}
-		}));
+			}),
+		);
 	}
 
 	async close(reason: keyof typeof this.socketClosureReason) {
