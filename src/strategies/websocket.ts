@@ -217,19 +217,19 @@ export class WebSocketStrategy implements Connection {
 
 	/**
 	 * Listen for live query responses by it's uuid
-	 * @param uuid - The LQ uuid that you want to receive live results for.
+	 * @param queryUuid - The LQ uuid that you want to receive live results for.
 	 * @param callback - Callback function that receives updates.
 	 */
 	async listenLive<
 		T extends Record<string, unknown> = Record<string, unknown>,
 	>(
-		uuid: string,
+		queryUuid: string,
 		callback: (data: LiveQueryResponse<T>) => unknown,
 	) {
 		await this.ready;
 		if (!this.socket) throw new NoActiveSocket();
 		this.socket.listenLive(
-			uuid,
+			queryUuid,
 			callback as (data: LiveQueryResponse) => unknown,
 		);
 	}
@@ -238,10 +238,10 @@ export class WebSocketStrategy implements Connection {
 	 * Kill a live query
 	 * @param uuid - The query that you want to kill.
 	 */
-	async kill(uuid: string) {
+	async kill(queryUuid: string) {
 		await this.ready;
 		if (!this.socket) throw new NoActiveSocket();
-		await this.socket.kill(uuid);
+		await this.socket.kill(queryUuid);
 	}
 
 	/**

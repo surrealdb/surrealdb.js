@@ -185,7 +185,7 @@ export type LiveQueryResponse<
 export type UnprocessedLiveQueryResponse<
 	T extends Record<string, unknown> = Record<string, unknown>,
 > = LiveQueryResponse<T> & {
-	uuid: string;
+	query: string;
 };
 
 /////////////////////////////////////

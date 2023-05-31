@@ -124,33 +124,33 @@ export class SurrealSocket {
 	}
 
 	async listenLive(
-		uuid: string,
+		queryUuid: string,
 		callback: (data: LiveQueryResponse) => unknown,
 	) {
-		if (!(uuid in this.liveQueue)) this.liveQueue[uuid] = [];
-		this.liveQueue[uuid].push(callback);
+		if (!(queryUuid in this.liveQueue)) this.liveQueue[queryUuid] = [];
+		this.liveQueue[queryUuid].push(callback);
 
 		// Cleanup unprocessed messages queue
-		await Promise.all(this.unprocessedLiveResponses[uuid]?.map(callback) ?? []);
-		delete this.unprocessedLiveResponses[uuid];
+		await Promise.all(this.unprocessedLiveResponses[queryUuid]?.map(callback) ?? []);
+		delete this.unprocessedLiveResponses[queryUuid];
 	}
 
-	async kill(uuid: string) {
-		if (uuid in this.liveQueue) {
-			this.liveQueue[uuid].forEach((cb) =>
+	async kill(queryUuid: string) {
+		if (queryUuid in this.liveQueue) {
+			this.liveQueue[queryUuid].forEach((cb) =>
 				cb({
 					action: "CLOSE",
 					detail: "QUERY_KILLED",
 				})
 			);
 
-			delete this.liveQueue[uuid];
+			delete this.liveQueue[queryUuid];
 		}
 
 		await new Promise<void>((r) => {
-			this.send("kill", [uuid], (_) => {
-				if (uuid in this.unprocessedLiveResponses) {
-					delete this.unprocessedLiveResponses[uuid];
+			this.send("kill", [queryUuid], (_) => {
+				if (queryUuid in this.unprocessedLiveResponses) {
+					delete this.unprocessedLiveResponses[queryUuid];
 				}
 
 				r();
@@ -159,16 +159,16 @@ export class SurrealSocket {
 	}
 
 	private async handleLiveBatch(messages: UnprocessedLiveQueryResponse[]) {
-		await Promise.all(messages.map(async ({ uuid, ...message }) => {
-			if (this.liveQueue[uuid]) {
+		await Promise.all(messages.map(async ({ query: queryUuid, ...message }) => {
+			if (this.liveQueue[queryUuid]) {
 				await Promise.all(
-					this.liveQueue[uuid].map(async (cb) => await cb(message)),
+					this.liveQueue[queryUuid].map(async (cb) => await cb(message)),
 				);
 			} else {
-				if (!(uuid in this.unprocessedLiveResponses)) {
-					this.unprocessedLiveResponses[uuid] = [];
+				if (!(queryUuid in this.unprocessedLiveResponses)) {
+					this.unprocessedLiveResponses[queryUuid] = [];
 				}
-				this.unprocessedLiveResponses[uuid].push(message);
+				this.unprocessedLiveResponses[queryUuid].push(message);
 			}
 		}));
 	}
