@@ -1,6 +1,8 @@
 import {
+	type LiveQueryResponse,
 	type RawSocketMessageResponse,
 	type Result,
+	type UnprocessedLiveQueryResponse,
 	WebsocketStatus,
 } from "../types.ts";
 import WebSocket from "./WebSocket/deno.ts";
@@ -14,6 +16,12 @@ export class SurrealSocket {
 	private ws?: WebSocket;
 	private status: WebsocketStatus = WebsocketStatus.CLOSED;
 	private queue: Record<string, (data: Result) => unknown> = {};
+	private liveQueue: Record<
+		string,
+		((data: LiveQueryResponse) => unknown)[]
+	> = {};
+
+	private unprocessedLiveResponses: Record<string, LiveQueryResponse[]> = {};
 
 	public ready: Promise<void>;
 	private resolveReady: () => void;
@@ -35,9 +43,9 @@ export class SurrealSocket {
 		onClose?: () => unknown;
 	}) {
 		this.resolveReady = () => {}; // Purely for typescript typing :)
-		this.ready = new Promise((r) => this.resolveReady = r);
+		this.ready = new Promise((r) => (this.resolveReady = r));
 		this.resolveClosed = () => {}; // Purely for typescript typing :)
-		this.closed = new Promise((r) => this.resolveClosed = r);
+		this.closed = new Promise((r) => (this.resolveClosed = r));
 		this.onOpen = onOpen;
 		this.onClose = onClose;
 		this.url = processUrl(url, {
@@ -63,6 +71,19 @@ export class SurrealSocket {
 			this.resolveClosed();
 			this.resetClosed();
 
+			Object.values(this.liveQueue).map((query) => {
+				query.map((cb) =>
+					cb({
+						action: "CLOSE",
+						detail: "SOCKET_CLOSED",
+					})
+				);
+			});
+
+			this.queue = {};
+			this.liveQueue = {};
+			this.unprocessedLiveResponses = {};
+
 			// Connection retry mechanism
 			if (this.status !== WebsocketStatus.CLOSED) {
 				this.status = WebsocketStatus.RECONNECTING;
@@ -79,7 +100,9 @@ export class SurrealSocket {
 			const res = JSON.parse(
 				e.data.toString(),
 			) as RawSocketMessageResponse;
-			if (res.id && res.id in this.queue) {
+			if ("method" in res && res.method === "notify") {
+				this.handleLiveBatch(res.params);
+			} else if (res.id && res.id in this.queue) {
 				this.queue[res.id](res);
 				delete this.queue[res.id];
 			}
@@ -98,6 +121,62 @@ export class SurrealSocket {
 		const id = getIncrementalID();
 		this.queue[id] = callback;
 		this.ws?.send(JSON.stringify({ id, method, params }));
+	}
+
+	async listenLive(
+		queryUuid: string,
+		callback: (data: LiveQueryResponse) => unknown,
+	) {
+		if (!(queryUuid in this.liveQueue)) this.liveQueue[queryUuid] = [];
+		this.liveQueue[queryUuid].push(callback);
+
+		// Cleanup unprocessed messages queue
+		await Promise.all(
+			this.unprocessedLiveResponses[queryUuid]?.map(callback) ?? [],
+		);
+		delete this.unprocessedLiveResponses[queryUuid];
+	}
+
+	async kill(queryUuid: string) {
+		if (queryUuid in this.liveQueue) {
+			this.liveQueue[queryUuid].forEach((cb) =>
+				cb({
+					action: "CLOSE",
+					detail: "QUERY_KILLED",
+				})
+			);
+
+			delete this.liveQueue[queryUuid];
+		}
+
+		await new Promise<void>((r) => {
+			this.send("kill", [queryUuid], (_) => {
+				if (queryUuid in this.unprocessedLiveResponses) {
+					delete this.unprocessedLiveResponses[queryUuid];
+				}
+
+				r();
+			});
+		});
+	}
+
+	private async handleLiveBatch(messages: UnprocessedLiveQueryResponse[]) {
+		await Promise.all(
+			messages.map(async ({ query: queryUuid, ...message }) => {
+				if (this.liveQueue[queryUuid]) {
+					await Promise.all(
+						this.liveQueue[queryUuid].map(async (cb) =>
+							await cb(message)
+						),
+					);
+				} else {
+					if (!(queryUuid in this.unprocessedLiveResponses)) {
+						this.unprocessedLiveResponses[queryUuid] = [];
+					}
+					this.unprocessedLiveResponses[queryUuid].push(message);
+				}
+			}),
+		);
 	}
 
 	async close(reason: keyof typeof this.socketClosureReason) {

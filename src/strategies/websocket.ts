@@ -5,6 +5,7 @@ import {
 	type AnyAuth,
 	type Connection,
 	type ConnectionOptions,
+	type LiveQueryResponse,
 	type MapQueryResult,
 	type MergeData,
 	type Patch,
@@ -196,6 +197,51 @@ export class WebSocketStrategy implements Connection {
 	async unset(variable: string) {
 		const res = await this.send("unset", [variable]);
 		if (res.error) throw new Error(res.error.message);
+	}
+
+	/**
+	 * Start a live query and listen for the responses
+	 * @param query - The query that you want to receive live results for.
+	 * @param callback - Callback function that receives updates.
+	 */
+	async live<T extends Record<string, unknown> = Record<string, unknown>>(
+		query: string,
+		callback?: (data: LiveQueryResponse<T>) => unknown,
+	) {
+		await this.ready;
+		const res = await this.send<string>("live", [query]);
+		if (res.error) throw new Error(res.error.message);
+		if (callback) this.listenLive<T>(res.result, callback);
+		return res.result;
+	}
+
+	/**
+	 * Listen for live query responses by it's uuid
+	 * @param queryUuid - The LQ uuid that you want to receive live results for.
+	 * @param callback - Callback function that receives updates.
+	 */
+	async listenLive<
+		T extends Record<string, unknown> = Record<string, unknown>,
+	>(
+		queryUuid: string,
+		callback: (data: LiveQueryResponse<T>) => unknown,
+	) {
+		await this.ready;
+		if (!this.socket) throw new NoActiveSocket();
+		this.socket.listenLive(
+			queryUuid,
+			callback as (data: LiveQueryResponse) => unknown,
+		);
+	}
+
+	/**
+	 * Kill a live query
+	 * @param uuid - The query that you want to kill.
+	 */
+	async kill(queryUuid: string) {
+		await this.ready;
+		if (!this.socket) throw new NoActiveSocket();
+		await this.socket.kill(queryUuid);
 	}
 
 	/**

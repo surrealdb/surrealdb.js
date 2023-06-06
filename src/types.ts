@@ -169,8 +169,27 @@ export type RawQueryResult =
 	| RawQueryResult[]
 	| Record<string | number | symbol, unknown>;
 
+export type LiveQueryClosureReason = "SOCKET_CLOSED" | "QUERY_KILLED";
+export type LiveQueryResponse<
+	T extends Record<string, unknown> = Record<string, unknown>,
+> = {
+	action: "CLOSE";
+	result?: never;
+	detail: LiveQueryClosureReason;
+} | {
+	action: "CREATE" | "UPDATE" | "DELETE";
+	result: T;
+	detail?: never;
+};
+
+export type UnprocessedLiveQueryResponse<
+	T extends Record<string, unknown> = Record<string, unknown>,
+> = LiveQueryResponse<T> & {
+	query: string;
+};
+
 /////////////////////////////////////
-//////////   QUERY TYPES   //////////
+//////////   PATCH TYPES   //////////
 /////////////////////////////////////
 
 type BasePatch = {
@@ -234,5 +253,5 @@ export type RawSocketMessageResponse =
 export type RawSocketLiveQueryNotification = {
 	id: null;
 	method: "notify";
-	params: unknown[];
+	params: UnprocessedLiveQueryResponse[];
 };
