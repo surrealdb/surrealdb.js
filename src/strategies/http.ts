@@ -1,14 +1,14 @@
 import { NoConnectionDetails } from "../errors.ts";
 import { SurrealHTTP } from "../library/SurrealHTTP.ts";
 import {
-	ActionResult,
+	type ActionResult,
 	type AnyAuth,
 	type Connection,
 	type HTTPAuthenticationResponse,
 	type HTTPConnectionOptions,
 	type InvalidSQL,
 	type MapQueryResult,
-	QueryResult,
+	type QueryResult,
 	type RawQueryResult,
 	type ScopeAuth,
 	type Token,
