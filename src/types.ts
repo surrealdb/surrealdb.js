@@ -22,34 +22,39 @@ export interface Connection {
 		vars?: Record<string, unknown>,
 	) => Promise<MapQueryResult<T>>;
 
-	select?: <T extends Record<string, unknown>>(thing: string) => Promise<T[]>;
-
-	create?: <T extends Record<string, unknown>>(
+	select?: <T extends Record<string, unknown>>(
 		thing: string,
-		data?: T,
-	) => Promise<(T & { id: string })[]>;
+	) => Promise<ActionResult<T>[]>;
 
-	update?: <T extends Record<string, unknown>>(
-		thing: string,
-		data?: T,
-	) => Promise<(T & { id: string })[]>;
-
-	merge?: <
+	create?: <
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
 	>(
 		thing: string,
-		data?: MergeData<T, U>,
-	) => Promise<(MergeData<T, U> & { id: string })[]>;
+		data?: U,
+	) => Promise<ActionResult<T, U>[]>;
 
-	patch?: (
+	update?: <
+		T extends Record<string, unknown>,
+		U extends Record<string, unknown> = T,
+	>(
 		thing: string,
-		data?: Patch[],
-	) => Promise<Patch[]>;
+		data?: U,
+	) => Promise<ActionResult<T, U>[]>;
+
+	merge?: <
+		T extends Record<string, unknown>,
+		U extends Record<string, unknown> = Partial<T>,
+	>(
+		thing: string,
+		data?: U,
+	) => Promise<ActionResult<T, U>[]>;
+
+	patch?: (thing: string, data?: Patch[]) => Promise<Patch[]>;
 
 	delete?: <T extends Record<string, unknown>>(
 		thing: string,
-	) => Promise<(T & { id: string })[]>;
+	) => Promise<ActionResult<T>[]>;
 }
 
 export type ConnectionOptions =
@@ -57,13 +62,16 @@ export type ConnectionOptions =
 		prepare?: (connection: Connection) => unknown;
 		auth?: AnyAuth | Token;
 	}
-	& ({
-		ns: string;
-		db: string;
-	} | {
-		ns?: never;
-		db?: never;
-	});
+	& (
+		| {
+			ns: string;
+			db: string;
+		}
+		| {
+			ns?: never;
+			db?: never;
+		}
+	);
 
 export type HTTPConnectionOptions<TFetcher = typeof fetch> =
 	& ConnectionOptions
@@ -71,10 +79,10 @@ export type HTTPConnectionOptions<TFetcher = typeof fetch> =
 		fetch?: TFetcher;
 	};
 
-export type MergeData<
+export type ActionResult<
 	T extends Record<string, unknown>,
 	U extends Record<string, unknown> = T,
-> = T & U;
+> = T & U & { id: string };
 
 //////////////////////////////////////////////
 //////////   AUTHENTICATION TYPES   //////////
@@ -172,15 +180,17 @@ export type RawQueryResult =
 export type LiveQueryClosureReason = "SOCKET_CLOSED" | "QUERY_KILLED";
 export type LiveQueryResponse<
 	T extends Record<string, unknown> = Record<string, unknown>,
-> = {
-	action: "CLOSE";
-	result?: never;
-	detail: LiveQueryClosureReason;
-} | {
-	action: "CREATE" | "UPDATE" | "DELETE";
-	result: T;
-	detail?: never;
-};
+> =
+	| {
+		action: "CLOSE";
+		result?: never;
+		detail: LiveQueryClosureReason;
+	}
+	| {
+		action: "CREATE" | "UPDATE" | "DELETE";
+		result: T;
+		detail?: never;
+	};
 
 export type UnprocessedLiveQueryResponse<
 	T extends Record<string, unknown> = Record<string, unknown>,
