@@ -2,12 +2,12 @@ import { NoActiveSocket, UnexpectedResponse } from "../errors.ts";
 import { Pinger } from "../library/Pinger.ts";
 import { SurrealSocket } from "../library/SurrealSocket.ts";
 import {
+	type ActionResult,
 	type AnyAuth,
 	type Connection,
 	type ConnectionOptions,
 	type LiveQueryResponse,
 	type MapQueryResult,
-	type MergeData,
 	type Patch,
 	type RawQueryResult,
 	type Result,
@@ -222,10 +222,7 @@ export class WebSocketStrategy implements Connection {
 	 */
 	async listenLive<
 		T extends Record<string, unknown> = Record<string, unknown>,
-	>(
-		queryUuid: string,
-		callback: (data: LiveQueryResponse<T>) => unknown,
-	) {
+	>(queryUuid: string, callback: (data: LiveQueryResponse<T>) => unknown) {
 		await this.ready;
 		if (!this.socket) throw new NoActiveSocket();
 		this.socket.listenLive(
@@ -265,7 +262,7 @@ export class WebSocketStrategy implements Connection {
 	 */
 	async select<T extends Record<string, unknown>>(thing: string) {
 		await this.ready;
-		const res = await this.send<T & { id: string }>("select", [thing]);
+		const res = await this.send<ActionResult<T>>("select", [thing]);
 		return this.outputHandler(res);
 	}
 
@@ -274,9 +271,12 @@ export class WebSocketStrategy implements Connection {
 	 * @param thing - The table name or the specific record ID to create.
 	 * @param data - The document / record data to insert.
 	 */
-	async create<T extends Record<string, unknown>>(thing: string, data?: T) {
+	async create<
+		T extends Record<string, unknown>,
+		U extends Record<string, unknown> = T,
+	>(thing: string, data?: U) {
 		await this.ready;
-		const res = await this.send<T & { id: string }>("create", [
+		const res = await this.send<ActionResult<T, U>>("create", [
 			thing,
 			data,
 		]);
@@ -290,9 +290,12 @@ export class WebSocketStrategy implements Connection {
 	 * @param thing - The table name or the specific record ID to update.
 	 * @param data - The document / record data to insert.
 	 */
-	async update<T extends Record<string, unknown>>(thing: string, data?: T) {
+	async update<
+		T extends Record<string, unknown>,
+		U extends Record<string, unknown> = T,
+	>(thing: string, data?: U) {
 		await this.ready;
-		const res = await this.send<T & { id: string }>("update", [
+		const res = await this.send<ActionResult<T, U>>("update", [
 			thing,
 			data,
 		]);
@@ -308,13 +311,10 @@ export class WebSocketStrategy implements Connection {
 	 */
 	async merge<
 		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = T,
-	>(thing: string, data?: MergeData<T, U>) {
+		U extends Record<string, unknown> = Partial<T>,
+	>(thing: string, data?: U) {
 		await this.ready;
-		const res = await this.send<MergeData<T, U> & { id: string }>("merge", [
-			thing,
-			data,
-		]);
+		const res = await this.send<ActionResult<T, U>>("merge", [thing, data]);
 		return this.outputHandler(res);
 	}
 
@@ -339,7 +339,7 @@ export class WebSocketStrategy implements Connection {
 		thing: string,
 	) {
 		await this.ready;
-		const res = await this.send<T & { id: string }>("delete", [thing]);
+		const res = await this.send<ActionResult<T>>("delete", [thing]);
 		return this.outputHandler(res);
 	}
 
