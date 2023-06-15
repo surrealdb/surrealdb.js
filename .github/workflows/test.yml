@@ -24,6 +24,9 @@ jobs:
         with:
           bun-version: 0.1.13
 
+      - name: Install NPM dependencies
+        run: npm install
+
       - name: Build NPM package
         run: deno task build
 
