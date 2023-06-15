@@ -58,16 +58,17 @@ async function test(name, cb) {
  */
 export default async (db) => {
 	logger.debug("Signin as a namespace, database, or root user");
-	await db.signin({
-		user: "root",
-		pass: "root",
-	});
 
 	// We need a random database because some tests depend on row count.
 	// Easy way to "reset" for each test while debugging...
 	const rand = (Math.random() + 1).toString(36).substring(7);
 	logger.debug(`Select NS "test", DB "test-${rand}"`);
 	await db.use({ ns: "test", db: `test-${rand}` });
+
+	await db.signin({
+		user: "root",
+		pass: "root",
+	});
 
 	await test("Create a new person with a specific id", async (expect) => {
 		let created = await db.create("person:tobie", data["person:tobie"]);
@@ -93,12 +94,18 @@ export default async (db) => {
 	});
 
 	await test("Perform a custom advanced query", async (expect) => {
-		let groups = await db.query(
-			"SELECT marketing, count() FROM type::table($tb) GROUP BY marketing",
-			{
-				tb: "person",
-			}
-		);
+		let groups =
+			db.strategy == "ws"
+				? await db.query(
+						"SELECT marketing, count() FROM type::table($tb) GROUP BY marketing",
+						{
+							tb: "person",
+						}
+				  )
+				: // The HTTP protocol cannot accept variables, so needs to test different
+				  await db.query(
+						"SELECT marketing, count() FROM person GROUP BY marketing"
+				  );
 
 		expect(groups[0].status).toBe("OK");
 		expect(groups[0].result).toEqualStringified([

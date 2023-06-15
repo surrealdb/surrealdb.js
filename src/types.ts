@@ -4,6 +4,7 @@ export interface Connection {
 		(url?: string, options?: ConnectionOptions) => void
 	>;
 
+	strategy: 'ws' | 'http';
 	connect: (url: string, options?: ConnectionOptions) => void;
 	ping: () => Promise<void>;
 	use: (opt: { ns: string; db: string }) => MaybePromise<void>;
@@ -22,11 +23,11 @@ export interface Connection {
 		vars?: Record<string, unknown>,
 	) => Promise<MapQueryResult<T>>;
 
-	select?: <T extends Record<string, unknown>>(
+	select: <T extends Record<string, unknown>>(
 		thing: string,
 	) => Promise<ActionResult<T>[]>;
 
-	create?: <
+	create: <
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
 	>(
@@ -34,7 +35,7 @@ export interface Connection {
 		data?: U,
 	) => Promise<ActionResult<T, U>[]>;
 
-	update?: <
+	update: <
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
 	>(
@@ -42,7 +43,7 @@ export interface Connection {
 		data?: U,
 	) => Promise<ActionResult<T, U>[]>;
 
-	merge?: <
+	merge: <
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = Partial<T>,
 	>(
@@ -50,9 +51,10 @@ export interface Connection {
 		data?: U,
 	) => Promise<ActionResult<T, U>[]>;
 
+	// Patch method is not available in the HTTP REST API
 	patch?: (thing: string, data?: Patch[]) => Promise<Patch[]>;
 
-	delete?: <T extends Record<string, unknown>>(
+	delete: <T extends Record<string, unknown>>(
 		thing: string,
 	) => Promise<ActionResult<T>[]>;
 }

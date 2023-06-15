@@ -1,6 +1,7 @@
 import { NoConnectionDetails } from "../errors.ts";
 import { SurrealHTTP } from "../library/SurrealHTTP.ts";
 import {
+	QueryResult,
 	type AnyAuth,
 	type Connection,
 	type HTTPAuthenticationResponse,
@@ -10,12 +11,15 @@ import {
 	type RawQueryResult,
 	type ScopeAuth,
 	type Token,
+	ActionResult,
 } from "../types.ts";
 
 export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	protected http?: SurrealHTTP<TFetcher>;
 	public ready: Promise<void>;
 	private resolveReady: () => void;
+
+	public strategy: "ws" | "http" = 'http';
 
 	/**
 	 * Establish a socket connection to the database
@@ -33,9 +37,13 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 */
 	async connect(
 		url: string,
-		{ fetch: fetcher, prepare, auth, ns, db }: HTTPConnectionOptions<
-			TFetcher
-		> = {},
+		{
+			fetch: fetcher,
+			prepare,
+			auth,
+			ns,
+			db,
+		}: HTTPConnectionOptions<TFetcher> = {}
 	) {
 		this.http = new SurrealHTTP<TFetcher>(url, { fetcher });
 		await this.use({ ns, db });
@@ -159,9 +167,120 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 		return res;
 	}
 
+	/**
+	 * Selects all records in a table, or a specific record, from the database.
+	 * @param thing - The table name or a record ID to select.
+	 */
+	async select<T extends Record<string, unknown>>(thing: string) {
+		await this.ready;
+		const url = `/key/${this.modifyThing(thing)}`;
+		const [res] = await this.request<[QueryResult<ActionResult<T>[]>]>(
+			url,
+			{
+				method: "GET",
+			}
+		);
+
+		if (res.status == "ERR") throw new Error(res.detail);
+		return res.result;
+	}
+
+	/**
+	 * Creates a record in the database.
+	 * @param thing - The table name or the specific record ID to create.
+	 * @param data - The document / record data to insert.
+	 */
+	async create<
+		T extends Record<string, unknown>,
+		U extends Record<string, unknown> = T
+	>(thing: string, data?: U) {
+		await this.ready;
+		const url = `/key/${this.modifyThing(thing)}`;
+		const [res] = await this.request<[QueryResult<ActionResult<T, U>[]>]>(
+			url,
+			{
+				method: "POST",
+				body: data,
+			}
+		);
+
+		if (res.status == "ERR") throw new Error(res.detail);
+		return res.result;
+	}
+
+	/**
+	 * Updates all records in a table, or a specific record, in the database.
+	 *
+	 * ***NOTE: This function replaces the current document / record data with the specified data.***
+	 * @param thing - The table name or the specific record ID to update.
+	 * @param data - The document / record data to insert.
+	 */
+	async update<
+		T extends Record<string, unknown>,
+		U extends Record<string, unknown> = T
+	>(thing: string, data?: U) {
+		await this.ready;
+		const url = `/key/${this.modifyThing(thing)}`;
+		const [res] = await this.request<[QueryResult<ActionResult<T, U>[]>]>(
+			url,
+			{
+				method: "PUT",
+				body: data,
+			}
+		);
+
+		if (res.status == "ERR") throw new Error(res.detail);
+		return res.result;
+	}
+
+	/**
+	 * Modifies all records in a table, or a specific record, in the database.
+	 *
+	 * ***NOTE: This function merges the current document / record data with the specified data.***
+	 * @param thing - The table name or the specific record ID to change.
+	 * @param data - The document / record data to insert.
+	 */
+	async merge<
+		T extends Record<string, unknown>,
+		U extends Record<string, unknown> = Partial<T>
+	>(thing: string, data?: U) {
+		await this.ready;
+		const url = `/key/${this.modifyThing(thing)}`;
+		const [res] = await this.request<[QueryResult<ActionResult<T, U>[]>]>(
+			url,
+			{
+				method: "PATCH",
+				body: data,
+			}
+		);
+
+		if (res.status == "ERR") throw new Error(res.detail);
+		return res.result;
+	}
+
+	/**
+	 * Deletes all records in a table, or a specific record, from the database.
+	 * @param thing - The table name or a record ID to select.
+	 */
+	async delete<T extends Record<string, unknown> = Record<string, unknown>>(
+		thing: string
+	) {
+		await this.ready;
+		const url = `/key/${this.modifyThing(thing)}`;
+		const [res] = await this.request<[QueryResult<ActionResult<T>[]>]>(
+			url,
+			{
+				method: "DELETE",
+			}
+		);
+
+		if (res.status == "ERR") throw new Error(res.detail);
+		return res.result;
+	}
+
 	protected get request() {
 		if (!this.http) throw new NoConnectionDetails();
-		return this.http.request;
+		return this.http.request.bind(this.http);
 	}
 
 	/**
@@ -169,5 +288,11 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 */
 	private resetReady() {
 		this.ready = new Promise((r) => (this.resolveReady = r));
+	}
+
+	private modifyThing(thing: string) {
+		const regex = /([^`:⟨⟩]+|\`.+\`|⟨.+⟩):([^`:⟨⟩]+|\`.+\`|⟨.+⟩)/;
+		thing = thing.replace(regex, "$1/$2");
+		return thing;
 	}
 }

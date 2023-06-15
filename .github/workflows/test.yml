@@ -13,6 +13,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
+          cache: 'npm'
       - name: Setup deno
         uses: denoland/setup-deno@v1
         with:
