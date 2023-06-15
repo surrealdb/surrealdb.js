@@ -156,6 +156,12 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @param vars - Assigns variables which can be used in the query.
 	 */
 	async query<T extends RawQueryResult[]>(query: string) {
+		if (arguments[1]) {
+			throw new Error(
+				"The query function in the HTTP strategy does not support data as the second argument.",
+			);
+		}
+
 		await this.ready;
 		const res = await this.request<InvalidSQL | MapQueryResult<T>>("/sql", {
 			body: query,
