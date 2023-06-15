@@ -9,12 +9,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v3
       - name: Setup node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
           cache: 'npm'
-          cache-dependency-path: package-lock.json
       - name: Setup deno
         uses: denoland/setup-deno@v1
         with:
@@ -23,8 +23,6 @@ jobs:
         uses: antongolub/action-setup-bun@v1
         with:
           bun-version: 0.1.13
-
-      - uses: actions/checkout@v3
 
       - name: Build NPM package
         run: deno task build
