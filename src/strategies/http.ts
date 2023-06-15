@@ -1,17 +1,17 @@
 import { NoConnectionDetails } from "../errors.ts";
 import { SurrealHTTP } from "../library/SurrealHTTP.ts";
 import {
-	QueryResult,
+	ActionResult,
 	type AnyAuth,
 	type Connection,
 	type HTTPAuthenticationResponse,
 	type HTTPConnectionOptions,
 	type InvalidSQL,
 	type MapQueryResult,
+	QueryResult,
 	type RawQueryResult,
 	type ScopeAuth,
 	type Token,
-	ActionResult,
 } from "../types.ts";
 
 export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
@@ -19,7 +19,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	public ready: Promise<void>;
 	private resolveReady: () => void;
 
-	public strategy: "ws" | "http" = 'http';
+	public strategy: "ws" | "http" = "http";
 
 	/**
 	 * Establish a socket connection to the database
@@ -43,7 +43,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 			auth,
 			ns,
 			db,
-		}: HTTPConnectionOptions<TFetcher> = {}
+		}: HTTPConnectionOptions<TFetcher> = {},
 	) {
 		this.http = new SurrealHTTP<TFetcher>(url, { fetcher });
 		await this.use({ ns, db });
@@ -178,7 +178,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 			url,
 			{
 				method: "GET",
-			}
+			},
 		);
 
 		if (res.status == "ERR") throw new Error(res.detail);
@@ -192,7 +192,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 */
 	async create<
 		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = T
+		U extends Record<string, unknown> = T,
 	>(thing: string, data?: U) {
 		await this.ready;
 		const url = `/key/${this.modifyThing(thing)}`;
@@ -201,7 +201,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 			{
 				method: "POST",
 				body: data,
-			}
+			},
 		);
 
 		if (res.status == "ERR") throw new Error(res.detail);
@@ -217,7 +217,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 */
 	async update<
 		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = T
+		U extends Record<string, unknown> = T,
 	>(thing: string, data?: U) {
 		await this.ready;
 		const url = `/key/${this.modifyThing(thing)}`;
@@ -226,7 +226,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 			{
 				method: "PUT",
 				body: data,
-			}
+			},
 		);
 
 		if (res.status == "ERR") throw new Error(res.detail);
@@ -242,7 +242,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 */
 	async merge<
 		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = Partial<T>
+		U extends Record<string, unknown> = Partial<T>,
 	>(thing: string, data?: U) {
 		await this.ready;
 		const url = `/key/${this.modifyThing(thing)}`;
@@ -251,7 +251,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 			{
 				method: "PATCH",
 				body: data,
-			}
+			},
 		);
 
 		if (res.status == "ERR") throw new Error(res.detail);
@@ -263,7 +263,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @param thing - The table name or a record ID to select.
 	 */
 	async delete<T extends Record<string, unknown> = Record<string, unknown>>(
-		thing: string
+		thing: string,
 	) {
 		await this.ready;
 		const url = `/key/${this.modifyThing(thing)}`;
@@ -271,7 +271,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 			url,
 			{
 				method: "DELETE",
-			}
+			},
 		);
 
 		if (res.status == "ERR") throw new Error(res.detail);

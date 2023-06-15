@@ -4,7 +4,7 @@ export interface Connection {
 		(url?: string, options?: ConnectionOptions) => void
 	>;
 
-	strategy: 'ws' | 'http';
+	strategy: "ws" | "http";
 	connect: (url: string, options?: ConnectionOptions) => void;
 	ping: () => Promise<void>;
 	use: (opt: { ns: string; db: string }) => MaybePromise<void>;

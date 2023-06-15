@@ -27,7 +27,7 @@ export class WebSocketStrategy implements Connection {
 	public ready: Promise<void>;
 	private resolveReady: () => void;
 
-	public strategy: "ws" | "http" = 'ws';
+	public strategy: "ws" | "http" = "ws";
 
 	/**
 	 * Establish a socket connection to the database
