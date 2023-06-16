@@ -1,8 +1,14 @@
-import Surreal from "../../src/index.ts";
+import Surreal, { ExperimentalSurrealHTTP } from "../../src/index.ts";
 import handler from "./shared.js";
 
-const client = new Surreal("http://127.0.0.1:8000/rpc");
+const ws = new Surreal("http://127.0.0.1:8000/rpc");
+const http = new ExperimentalSurrealHTTP("http://127.0.0.1:8000");
 
-await handler(client);
+console.log("\n Testing Websocket");
+await handler(ws);
 
-client.close();
+console.log("\n Testing HTTP");
+await handler(http);
+
+ws.close();
+http.close();

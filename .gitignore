@@ -27,6 +27,7 @@ Temporary Items
 
 /.test_data
 npm
+node_modules
 
 
 # -----------------------------------
