@@ -89,6 +89,16 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	}
 
 	/**
+	 * Get the authenticated user details
+	 */
+	async info() {
+		const res = await this.request("/info");
+
+		if (res.status == "ERR") throw new Error(res.detail);
+		return res.result;
+	}
+
+	/**
 	 * Switch to a specific namespace and database.
 	 * @param ns - Switches to a specific namespace.
 	 * @param db - Switches to a specific database.

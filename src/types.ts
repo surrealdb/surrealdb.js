@@ -8,7 +8,7 @@ export interface Connection {
 	connect: (url: string, options?: ConnectionOptions) => void;
 	ping: () => Promise<void>;
 	use: (opt: { ns: string; db: string }) => MaybePromise<void>;
-	info?: () => Promise<void>;
+	info: () => Promise<{ result: any }>;
 
 	signup: (vars: ScopeAuth) => Promise<Token>;
 	signin: (vars: AnyAuth) => Promise<Token | void>;

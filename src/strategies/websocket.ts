@@ -132,11 +132,12 @@ export class WebSocketStrategy implements Connection {
 
 	/**
 	 * Retrieve info about the current Surreal instance
-	 * @return Returns nothing!
+	 * @return The authenticated user.
 	 */
 	async info() {
 		const res = await this.send("info");
 		if (res.error) throw new Error(res.error.message);
+		return res.result;
 	}
 
 	/**
