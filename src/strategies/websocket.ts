@@ -131,12 +131,17 @@ export class WebSocketStrategy implements Connection {
 	}
 
 	/**
-	 * Retrieve info about the current Surreal instance
-	 * @return Returns nothing!
+	 * Selects everything from the [$auth](https://surrealdb.com/docs/surrealql/parameters) variable.
+	 * ```sql
+	 * SELECT * FROM $auth;
+	 * ```
+	 * Make sure the user actually has the permission to select their own record, otherwise you'll get back an empty result.
+	 * @return The record linked to the record ID used for authentication
 	 */
-	async info() {
-		const res = await this.send("info");
+	async info<T extends Record<string, unknown> = Record<string, unknown>>() {
+		const res = await this.send<ActionResult<T> | undefined>("info");
 		if (res.error) throw new Error(res.error.message);
+		return res.result ?? undefined;
 	}
 
 	/**
