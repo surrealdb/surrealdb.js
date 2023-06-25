@@ -139,6 +139,7 @@ export class WebSocketStrategy implements Connection {
 	 * @return The record linked to the record ID used for authentication
 	 */
 	async info<T extends Record<string, unknown> = Record<string, unknown>>() {
+		await this.ready;
 		const res = await this.send<ActionResult<T> | undefined>("info");
 		if (res.error) throw new Error(res.error.message);
 		return res.result ?? undefined;
