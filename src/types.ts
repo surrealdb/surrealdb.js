@@ -11,7 +11,7 @@ export interface Connection {
 	info?: <T extends Record<string, unknown> = Record<string, unknown>>() =>
 		Promise<T | undefined>;
 
-	signup: (vars: ScopeAuth) => Promise<Token>;
+	signup: (vars: Partial<ScopeAuth> & Pick<ScopeAuth, "SC">) => Promise<Token>;
 	signin: (vars: AnyAuth) => Promise<Token | void>;
 	authenticate: (token: Token) => MaybePromise<void>;
 	invalidate: () => MaybePromise<void>;

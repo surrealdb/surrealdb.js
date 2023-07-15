@@ -103,10 +103,14 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @param vars - Variables used in a signup query.
 	 * @return The authentication token.
 	 */
-	async signup(vars: ScopeAuth) {
+	async signup({
+		NS = this.http?.namespace,
+		DB = this.http?.database,
+		...rest
+	}: Partial<ScopeAuth> & Pick<ScopeAuth, "SC">) {
 		const res = await this.request<HTTPAuthenticationResponse>("/signup", {
 			method: "POST",
-			body: vars,
+			body: { NS, DB, ...rest },
 		});
 
 		if (res.description) throw new Error(res.description);

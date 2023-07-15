@@ -4,9 +4,10 @@ import { processUrl } from "./processUrl.ts";
 export class SurrealHTTP<TFetcher = typeof fetch> {
 	private url: string;
 	private authorization?: string;
-	private namespace?: string;
-	private database?: string;
 	private fetch: TFetcher;
+
+	_namespace?: string;
+	_database?: string;
 
 	constructor(url: string, {
 		fetcher,
@@ -18,6 +19,14 @@ export class SurrealHTTP<TFetcher = typeof fetch> {
 			ws: "http",
 			wss: "https",
 		});
+	}
+
+	get namespace() {
+		return this._namespace;
+	}
+
+	get database() {
+		return this._database;
 	}
 
 	ready() {
@@ -37,8 +46,8 @@ export class SurrealHTTP<TFetcher = typeof fetch> {
 	}
 
 	use({ ns, db }: { ns?: string; db?: string }) {
-		if (ns) this.namespace = ns;
-		if (db) this.database = db;
+		if (ns) this._namespace = ns;
+		if (db) this._database = db;
 	}
 
 	async request<T = unknown>(path: string, options?: {
