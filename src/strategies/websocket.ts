@@ -1,6 +1,7 @@
 import { NoActiveSocket, UnexpectedResponse } from "../errors.ts";
 import { Pinger } from "../library/Pinger.ts";
 import { SurrealSocket } from "../library/SurrealSocket.ts";
+import { isNil } from "../library/utils.ts";
 import {
 	type ActionResult,
 	type AnyAuth,
@@ -150,8 +151,19 @@ export class WebSocketStrategy implements Connection {
 	 * @param vars - Variables used in a signup query.
 	 * @return The authentication token.
 	 */
-	async signup(vars: ScopeAuth) {
-		const res = await this.send<string>("signup", [vars]);
+	async signup({
+		NS = this.connection.ns,
+		DB = this.connection.db,
+		...rest
+	}: Partial<ScopeAuth> & Pick<ScopeAuth, "SC">) {
+		if (isNil(NS)) {
+			throw new Error("Please specify a namespace to use.");
+		}
+		if (isNil(DB)) {
+			throw new Error("Please specify a database to use.");
+		}
+
+		const res = await this.send<string>("signup", [{ NS, DB, ...rest }]);
 		if (res.error) throw new Error(res.error.message);
 		this.connection.auth = res.result;
 		return res.result;
