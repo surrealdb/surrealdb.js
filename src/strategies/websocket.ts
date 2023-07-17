@@ -151,19 +151,9 @@ export class WebSocketStrategy implements Connection {
 	 * @param vars - Variables used in a signup query.
 	 * @return The authentication token.
 	 */
-	async signup({
-		NS = this.connection.ns,
-		DB = this.connection.db,
-		...rest
-	}: Partial<ScopeAuth> & Pick<ScopeAuth, "SC">) {
-		if (isNil(NS)) {
-			throw new Error("Please specify a namespace to use.");
-		}
-		if (isNil(DB)) {
-			throw new Error("Please specify a database to use.");
-		}
-
-		const res = await this.send<string>("signup", [{ NS, DB, ...rest }]);
+	async signup(vars: ScopeAuth) {
+		const { NS, DB } = this.authParamDefaults(vars);
+		const res = await this.send<string>("signup", [{ ...vars, NS, DB }]);
 		if (res.error) throw new Error(res.error.message);
 		this.connection.auth = res.result;
 		return res.result;
@@ -402,5 +392,25 @@ export class WebSocketStrategy implements Connection {
 	 */
 	private resetReady() {
 		this.ready = new Promise((r) => (this.resolveReady = r));
+	}
+
+	private authParamDefaults(args: {
+		NS?: string,
+		DB?: string,
+	}) {
+		const namespace = args.NS ?? this.connection.ns;
+		const database = args.DB ?? this.connection.db;
+
+		if (isNil(namespace)) {
+			throw new Error("Please specify a namespace to use.");
+		}
+		if (isNil(database)) {
+			throw new Error("Please specify a database to use.");
+		}
+
+		return {
+			NS: namespace,
+			DB: database,
+		};
 	}
 }

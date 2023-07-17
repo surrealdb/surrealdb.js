@@ -110,8 +110,8 @@ export type DatabaseAuth = {
 };
 
 export type ScopeAuth = {
-	NS: string;
-	DB: string;
+	NS?: string;
+	DB?: string;
 	SC: string;
 	[T: string]: unknown;
 };

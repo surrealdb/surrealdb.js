@@ -1,5 +1,6 @@
 import { NoConnectionDetails } from "../errors.ts";
 import { SurrealHTTP } from "../library/SurrealHTTP.ts";
+import { isNil } from "../library/utils.ts";
 import {
 	type ActionResult,
 	type AnyAuth,
@@ -103,14 +104,11 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @param vars - Variables used in a signup query.
 	 * @return The authentication token.
 	 */
-	async signup({
-		NS = this.http?.namespace,
-		DB = this.http?.database,
-		...rest
-	}: Partial<ScopeAuth> & Pick<ScopeAuth, "SC">) {
+	async signup(vars: ScopeAuth) {
+		const { NS, DB } = this.authParamDefaults(vars);
 		const res = await this.request<HTTPAuthenticationResponse>("/signup", {
 			method: "POST",
-			body: { NS, DB, ...rest },
+			body: { ...vars, NS, DB },
 		});
 
 		if (res.description) throw new Error(res.description);
@@ -298,6 +296,26 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 */
 	private resetReady() {
 		this.ready = new Promise((r) => (this.resolveReady = r));
+	}
+
+	private authParamDefaults(args: {
+		NS?: string,
+		DB?: string,
+	}) {
+		const namespace = args.NS ?? this.http?.namespace;
+		const database = args.DB ?? this.http?.database;
+
+		if (isNil(namespace)) {
+			throw new Error("Please specify a namespace to use.");
+		}
+		if (isNil(database)) {
+			throw new Error("Please specify a database to use.");
+		}
+
+		return {
+			NS: namespace,
+			DB: database,
+		};
 	}
 
 	private modifyThing(thing: string) {
