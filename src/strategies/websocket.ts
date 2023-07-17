@@ -3,6 +3,7 @@ import { Pinger } from "../library/Pinger.ts";
 import { SurrealSocket } from "../library/SurrealSocket.ts";
 import { isNil } from "../library/utils.ts";
 import {
+DatabaseAuth,
 	type ActionResult,
 	type AnyAuth,
 	type Connection,
@@ -14,6 +15,9 @@ import {
 	type Result,
 	type ScopeAuth,
 	type Token,
+NamespaceAuth,
+SuperUserAuth,
+AuthType,
 } from "../types.ts";
 
 export class WebSocketStrategy implements Connection {
@@ -63,7 +67,20 @@ export class WebSocketStrategy implements Connection {
 				if (typeof this.connection.auth === "string") {
 					await this.authenticate(this.connection.auth);
 				} else if (this.connection.auth) {
-					await this.signin(this.connection.auth);
+					switch (this.connection.auth.type) {
+						case AuthType.SUPER_USER:
+							await this.superUserSignin(this.connection.auth.data);
+							break;
+						case AuthType.NAMESPACE:
+							await this.namespaceSignin(this.connection.auth.data);
+							break;
+						case AuthType.DATABASE:
+							await this.databaseSignin(this.connection.auth.data);
+							break;
+						case AuthType.SCOPED:
+							await this.signin(this.connection.auth.data);
+							break;
+					}
 				}
 
 				await prepare?.(this);
@@ -153,6 +170,9 @@ export class WebSocketStrategy implements Connection {
 	 */
 	async signup(vars: ScopeAuth) {
 		const { NS, DB } = this.authParamDefaults(vars);
+		if (isNil(NS)) throw new Error("Please specify a namespace to use.");
+		if (isNil(DB)) throw new Error("Please specify a database to use.");
+
 		const res = await this.send<string>("signup", [{ ...vars, NS, DB }]);
 		if (res.error) throw new Error(res.error.message);
 		this.connection.auth = res.result;
@@ -160,15 +180,70 @@ export class WebSocketStrategy implements Connection {
 	}
 
 	/**
-	 * Signs in to a specific authentication scope.
+	 * Signs in to a specific authentication scope or as a Database user.
 	 * @param vars - Variables used in a signin query.
 	 * @return The authentication token.
 	 */
-	async signin(vars: AnyAuth) {
-		const res = await this.send<string | undefined>("signin", [vars]);
-		if (res.error) throw new Error(res.error.message);
-		this.connection.auth = res.result ?? vars;
-		return res.result;
+	async signin(vars: ScopeAuth) {
+		const { NS, DB } = this.authParamDefaults(vars);
+		if (isNil(NS)) throw new Error("Please specify a namespace to use.");
+		if (isNil(DB)) throw new Error("Please specify a database to use.");
+		const data = { ...vars, NS, DB };
+		const result = await this._genericSignup(data);
+		this.connection.auth = {
+			type: AuthType.SCOPED,
+			data,
+		}
+		return result;
+	}
+
+	/**
+	 * Signs in to a specific authentication scope or as a Database user.
+	 * @param vars - Variables used in a signin query.
+	 * @return The authentication token.
+	 */
+	async databaseSignin(vars: DatabaseAuth) {
+		const { NS, DB } = this.authParamDefaults(vars);
+		if (isNil(NS)) throw new Error("Please specify a namespace to use.");
+		if (isNil(DB)) throw new Error("Please specify a database to use.");
+		const data = { ...vars, NS, DB };
+		const result = await this._genericSignup(data);
+		this.connection.auth = {
+			type: AuthType.DATABASE,
+			data,
+		}
+		return result;
+	}
+
+	/**
+	 * Signs in to a specific Namespace user.
+	 * @param vars - Variables used in a signin query.
+	 * @return The authentication token.
+	 */
+	async namespaceSignin({ user, pass, ...rest }: NamespaceAuth) {
+		const { NS } = this.authParamDefaults(rest);
+		if (isNil(NS)) throw new Error("Please specify a namespace to use.");
+		const data = { user, pass, NS };
+		const result = await this._genericSignup(data);
+		this.connection.auth = {
+			type: AuthType.DATABASE,
+			data,
+		}
+		return result;
+	}
+
+	/**
+	 * Signs in as the Super User.
+	 * @param vars - Variables used in a signin query.
+	 * @return The authentication token.
+	 */
+	async superUserSignin(vars: SuperUserAuth) {
+		const result = await this._genericSignup(vars);
+		this.connection.auth = {
+			type: AuthType.SUPER_USER,
+			data: vars,
+		}
+		return result;
 	}
 
 	/**
@@ -401,16 +476,15 @@ export class WebSocketStrategy implements Connection {
 		const namespace = args.NS ?? this.connection.ns;
 		const database = args.DB ?? this.connection.db;
 
-		if (isNil(namespace)) {
-			throw new Error("Please specify a namespace to use.");
-		}
-		if (isNil(database)) {
-			throw new Error("Please specify a database to use.");
-		}
-
 		return {
 			NS: namespace,
 			DB: database,
 		};
+	}
+
+	private async _genericSignup(vars: ScopeAuth | DatabaseAuth | NamespaceAuth | SuperUserAuth) {
+		const res = await this.send<string | undefined>("signin", [vars]);
+		if (res.error) throw new Error(res.error.message);
+		return res.result;
 	}
 }

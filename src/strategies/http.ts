@@ -2,6 +2,7 @@ import { NoConnectionDetails } from "../errors.ts";
 import { SurrealHTTP } from "../library/SurrealHTTP.ts";
 import { isNil } from "../library/utils.ts";
 import {
+NamespaceAuth,
 	type ActionResult,
 	type AnyAuth,
 	type Connection,
@@ -13,6 +14,8 @@ import {
 	type RawQueryResult,
 	type ScopeAuth,
 	type Token,
+SuperUserAuth,
+DatabaseAuth,
 } from "../types.ts";
 
 export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
@@ -51,7 +54,8 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 		if (typeof auth === "string") {
 			await this.authenticate(auth);
 		} else if (auth) {
-			await this.signin(auth);
+			// TODO: Implement type switch
+			// await this.signin(auth);
 		}
 
 		await prepare?.(this);
@@ -122,7 +126,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @param vars - Variables used in a signin query.
 	 * @return The authentication token, unless signed in as root.
 	 */
-	async signin(vars: AnyAuth) {
+	async signin(vars: ScopeAuth) {
 		const res = await this.request<HTTPAuthenticationResponse>("/signin", {
 			method: "POST",
 			body: vars,
@@ -136,6 +140,10 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 			return res.token;
 		}
 	}
+
+	async namespaceSignin(_vars: NamespaceAuth) {}
+	async databaseSignin(_vars: DatabaseAuth) {}
+	async superUserSignin(_vars: SuperUserAuth) {}
 
 	/**
 	 * Authenticates the current connection with a JWT token.

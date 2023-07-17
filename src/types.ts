@@ -11,8 +11,11 @@ export interface Connection {
 	info?: <T extends Record<string, unknown> = Record<string, unknown>>() =>
 		Promise<T | undefined>;
 
-	signup: (vars: Partial<ScopeAuth> & Pick<ScopeAuth, "SC">) => Promise<Token>;
-	signin: (vars: AnyAuth) => Promise<Token | void>;
+	signup: (vars: ScopeAuth) => Promise<Token>;
+	signin: (vars: ScopeAuth) => Promise<Token | void>;
+	databaseSignin: (vars: DatabaseAuth) => Promise<Token | void>;
+	namespaceSignin: (vars: NamespaceAuth) => Promise<Token | void>;
+	superUserSignin: (vars: SuperUserAuth) => Promise<Token | void>;
 	authenticate: (token: Token) => MaybePromise<void>;
 	invalidate: () => MaybePromise<void>;
 
@@ -103,8 +106,8 @@ export type NamespaceAuth = {
 };
 
 export type DatabaseAuth = {
-	NS: string;
-	DB: string;
+	NS?: string;
+	DB?: string;
 	user: string;
 	pass: string;
 };
@@ -116,7 +119,19 @@ export type ScopeAuth = {
 	[T: string]: unknown;
 };
 
-export type AnyAuth = SuperUserAuth | NamespaceAuth | DatabaseAuth | ScopeAuth;
+export enum AuthType {
+	SUPER_USER = 'SUPER_USER',
+	NAMESPACE = 'NAMESPACE',
+	DATABASE = 'DATABASE',
+	SCOPED = 'SCOPED',
+}
+
+export type AnyAuth =
+	| { type: AuthType.SUPER_USER, data: SuperUserAuth }
+	| { type: AuthType.NAMESPACE, data: NamespaceAuth }
+	| { type: AuthType.DATABASE, data: DatabaseAuth }
+	| { type: AuthType.SCOPED, data: ScopeAuth };
+
 export type Token = string;
 
 export type HTTPAuthenticationResponse =
