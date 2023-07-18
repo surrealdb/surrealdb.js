@@ -1,6 +1,7 @@
 import { NoActiveSocket, UnexpectedResponse } from "../errors.ts";
 import { Pinger } from "../library/Pinger.ts";
 import { SurrealSocket } from "../library/SurrealSocket.ts";
+import { processAuthVars } from "../library/processAuthVars.ts";
 import {
 	type ActionResult,
 	type AnyAuth,
@@ -151,6 +152,11 @@ export class WebSocketStrategy implements Connection {
 	 * @return The authentication token.
 	 */
 	async signup(vars: ScopeAuth) {
+		vars = processAuthVars(vars, {
+			namespace: this.connection.ns,
+			database: this.connection.db,
+		});
+
 		const res = await this.send<string>("signup", [vars]);
 		if (res.error) throw new Error(res.error.message);
 		this.connection.auth = res.result;
@@ -163,6 +169,11 @@ export class WebSocketStrategy implements Connection {
 	 * @return The authentication token.
 	 */
 	async signin(vars: AnyAuth) {
+		vars = processAuthVars(vars, {
+			namespace: this.connection.ns,
+			database: this.connection.db,
+		});
+
 		const res = await this.send<string | undefined>("signin", [vars]);
 		if (res.error) throw new Error(res.error.message);
 		this.connection.auth = res.result ?? vars;
