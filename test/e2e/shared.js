@@ -120,6 +120,38 @@ export default async (db) => {
 		expect(people).toEqualStringified([dataFilled["person:jaime"]]);
 	});
 
+	// Preparation for testing if scope authentication works :)
+	await db.query(/* surql */ `
+		DEFINE SCOPE user SIGNIN (
+			SELECT * FROM user WHERE username = $username AND crypto::argon2::compare(password, $password)
+		);
+
+		DEFINE TABLE user SCHEMAFULL
+			PERMISSIONS
+				FOR select WHERE id = $auth.id;
+
+		DEFINE FIELD username ON user TYPE string;
+		DEFINE FIELD password ON user TYPE string;
+
+		CREATE user CONTENT {
+			username: "johndoe",
+			password: crypto::argon2::generate("Password1!")
+		};
+	`);
+
+	await test("Scope authentication", async (expect) => {
+		const token = await db.signin({
+			SC: "user",
+			username: "johndoe",
+			password: "Password1!",
+		});
+
+		expect(typeof token).toBe('string');
+
+		const [{ username }] = await db.select('user');
+		expect(username).toBe('johndoe');
+	});
+
 	logger.debug("closing");
 	db.close();
 };

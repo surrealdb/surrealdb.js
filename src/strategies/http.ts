@@ -1,5 +1,6 @@
 import { NoConnectionDetails } from "../errors.ts";
 import { SurrealHTTP } from "../library/SurrealHTTP.ts";
+import { processAuthVars } from "../library/processAuthVars.ts";
 import {
 	type ActionResult,
 	type AnyAuth,
@@ -104,6 +105,11 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @return The authentication token.
 	 */
 	async signup(vars: ScopeAuth) {
+		vars = processAuthVars(vars, {
+			namespace: this.http?.namespace,
+			database: this.http?.database,
+		});
+
 		const res = await this.request<HTTPAuthenticationResponse>("/signup", {
 			method: "POST",
 			body: vars,
@@ -121,6 +127,11 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @return The authentication token, unless signed in as root.
 	 */
 	async signin(vars: AnyAuth) {
+		vars = processAuthVars(vars, {
+			namespace: this.http?.namespace,
+			database: this.http?.database,
+		});
+
 		const res = await this.request<HTTPAuthenticationResponse>("/signin", {
 			method: "POST",
 			body: vars,

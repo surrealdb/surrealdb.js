@@ -20,7 +20,7 @@ fi
 
 echo "Checking if docker deamon is running"
 
-if (! docker stats --no-stream ); then
+if ! docker info > /dev/null 2>&1; then
   echo "Please start the docker daemon"
   exit 1
 fi

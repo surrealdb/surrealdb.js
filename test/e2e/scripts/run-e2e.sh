@@ -12,7 +12,9 @@ echo "-----------------------------------------"
 deno task build
 
 sh $WORKING_DIR/docker-restart.sh
-
+if [ $? -eq 1 ]; then
+	exit 1;
+fi
 
 echo " "
 echo "Running deno tests"
