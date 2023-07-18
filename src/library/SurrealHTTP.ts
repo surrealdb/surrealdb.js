@@ -4,8 +4,8 @@ import { processUrl } from "./processUrl.ts";
 export class SurrealHTTP<TFetcher = typeof fetch> {
 	private url: string;
 	private authorization?: string;
-	private namespace?: string;
-	private database?: string;
+	private _namespace?: string;
+	private _database?: string;
 	private fetch: TFetcher;
 
 	constructor(url: string, {
@@ -21,7 +21,7 @@ export class SurrealHTTP<TFetcher = typeof fetch> {
 	}
 
 	ready() {
-		return !!(this.url && this.namespace && this.database);
+		return !!(this.url && this._namespace && this._database);
 	}
 
 	setTokenAuth(token: string) {
@@ -37,8 +37,16 @@ export class SurrealHTTP<TFetcher = typeof fetch> {
 	}
 
 	use({ ns, db }: { ns?: string; db?: string }) {
-		if (ns) this.namespace = ns;
-		if (db) this.database = db;
+		if (ns) this._namespace = ns;
+		if (db) this._database = db;
+	}
+
+	get namespace() {
+		return this._namespace;
+	}
+
+	get database() {
+		return this._database;
 	}
 
 	async request<T = unknown>(path: string, options?: {
@@ -57,8 +65,8 @@ export class SurrealHTTP<TFetcher = typeof fetch> {
 						? "text/plain"
 						: "application/json",
 					"Accept": "application/json",
-					"NS": this.namespace!,
-					"DB": this.database!,
+					"NS": this._namespace!,
+					"DB": this._database!,
 					...(this.authorization
 						? { "Authorization": this.authorization }
 						: {}),
