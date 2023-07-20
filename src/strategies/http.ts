@@ -166,18 +166,24 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @param query - Specifies the SurrealQL statements.
 	 * @param vars - Assigns variables which can be used in the query.
 	 */
-	async query<T extends RawQueryResult[]>(query: string) {
-		if (arguments[1]) {
-			throw new Error(
-				"The query function in the HTTP strategy does not support data as the second argument.",
-			);
-		}
-
+	async query<T extends RawQueryResult[]>(
+		query: string,
+		vars?: Record<string, unknown>,
+	) {
 		await this.ready;
 		const res = await this.request<InvalidSQL | MapQueryResult<T>>("/sql", {
 			body: query,
 			plainBody: true,
 			method: "POST",
+			searchParams: vars &&
+				new URLSearchParams(
+					Object.fromEntries(
+						Object.entries(vars).map(([k, v]) => [
+							k,
+							typeof v == "object" ? JSON.stringify(v) : `${v}`,
+						]),
+					),
+				),
 		});
 
 		if ("information" in res) throw new Error(res.information);

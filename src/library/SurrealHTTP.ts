@@ -8,12 +8,15 @@ export class SurrealHTTP<TFetcher = typeof fetch> {
 	private _database?: string;
 	private fetch: TFetcher;
 
-	constructor(url: string, {
-		fetcher,
-	}: {
-		fetcher?: TFetcher;
-	} = {}) {
-		this.fetch = fetcher ?? fetch as TFetcher;
+	constructor(
+		url: string,
+		{
+			fetcher,
+		}: {
+			fetcher?: TFetcher;
+		} = {},
+	) {
+		this.fetch = fetcher ?? (fetch as TFetcher);
 		this.url = processUrl(url, {
 			ws: "http",
 			wss: "https",
@@ -49,32 +52,40 @@ export class SurrealHTTP<TFetcher = typeof fetch> {
 		return this._database;
 	}
 
-	async request<T = unknown>(path: string, options?: {
-		method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-		plainBody?: boolean;
-		body?: Record<string, unknown> | string;
-	}): Promise<T> {
+	async request<T = unknown>(
+		path: string,
+		options?: {
+			method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+			plainBody?: boolean;
+			body?: Record<string, unknown> | string;
+			searchParams?: URLSearchParams;
+		},
+	): Promise<T> {
 		path = path.startsWith("/") ? path.slice(1) : path;
 		if (!this.ready()) throw new NoConnectionDetails();
-		return (await (this.fetch as typeof fetch)(
-			`${this.url}/${path}`,
-			{
-				method: options?.method ?? "POST",
-				headers: {
-					"Content-Type": options?.plainBody
-						? "text/plain"
-						: "application/json",
-					"Accept": "application/json",
-					"NS": this._namespace!,
-					"DB": this._database!,
-					...(this.authorization
-						? { "Authorization": this.authorization }
-						: {}),
+		return (
+			await (this.fetch as typeof fetch)(
+				`${this.url}/${path}${
+					options?.searchParams ? `?${options?.searchParams}` : ""
+				}`,
+				{
+					method: options?.method ?? "POST",
+					headers: {
+						"Content-Type": options?.plainBody
+							? "text/plain"
+							: "application/json",
+						Accept: "application/json",
+						NS: this._namespace!,
+						DB: this._database!,
+						...(this.authorization
+							? { Authorization: this.authorization }
+							: {}),
+					},
+					body: typeof options?.body == "string"
+						? options?.body
+						: JSON.stringify(options?.body),
 				},
-				body: typeof options?.body == "string"
-					? options?.body
-					: JSON.stringify(options?.body),
-			},
-		)).json() as T;
+			)
+		).json() as T;
 	}
 }

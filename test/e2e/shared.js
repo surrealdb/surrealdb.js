@@ -94,18 +94,12 @@ export default async (db) => {
 	});
 
 	await test("Perform a custom advanced query", async (expect) => {
-		let groups =
-			db.strategy == "ws"
-				? await db.query(
-						"SELECT marketing, count() FROM type::table($tb) GROUP BY marketing",
-						{
-							tb: "person",
-						}
-				  )
-				: // The HTTP protocol cannot accept variables, so needs to test different
-				  await db.query(
-						"SELECT marketing, count() FROM person GROUP BY marketing"
-				  );
+		let groups = await db.query(
+			"SELECT marketing, count() FROM type::table($tb) GROUP BY marketing",
+			{
+				tb: "person",
+			}
+	    );
 
 		expect(groups[0].status).toBe("OK");
 		expect(groups[0].result).toEqualStringified([
