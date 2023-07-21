@@ -8,6 +8,8 @@ export interface Connection {
 	connect: (url: string, options?: ConnectionOptions) => void;
 	ping: () => Promise<void>;
 	use: (opt: { ns: string; db: string }) => MaybePromise<void>;
+
+	// Info method is not available in the HTTP REST API
 	info?: <T extends Record<string, unknown> = Record<string, unknown>>() =>
 		Promise<T | undefined>;
 
@@ -16,6 +18,7 @@ export interface Connection {
 	authenticate: (token: Token) => MaybePromise<void>;
 	invalidate: () => MaybePromise<void>;
 
+	// Let/unset methods are not available in the HTTP REST API
 	let?: (variable: string, value: unknown) => Promise<void>;
 	unset?: (variable: string) => Promise<void>;
 
@@ -34,6 +37,15 @@ export interface Connection {
 	>(
 		thing: string,
 		data?: U,
+	) => Promise<ActionResult<T, U>[]>;
+
+	// Insert method is not available in the HTTP REST API
+	insert?: <
+		T extends Record<string, unknown>,
+		U extends Record<string, unknown> = T,
+	>(
+		thing: string,
+		data?: U | U[],
 	) => Promise<ActionResult<T, U>[]>;
 
 	update: <
