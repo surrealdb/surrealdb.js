@@ -222,13 +222,15 @@ export class WebSocketStrategy implements Connection {
 	 * Start a live query and listen for the responses
 	 * @param query - The query that you want to receive live results for.
 	 * @param callback - Callback function that receives updates.
+	 * @param diff - If set to true, will return a set of patches instead of complete records
 	 */
 	async live<T extends Record<string, unknown> = Record<string, unknown>>(
 		query: string,
 		callback?: (data: LiveQueryResponse<T>) => unknown,
+		diff?: boolean,
 	) {
 		await this.ready;
-		const res = await this.send<string>("live", [query]);
+		const res = await this.send<string>("live", [query, diff]);
 		if (res.error) throw new Error(res.error.message);
 		if (callback) this.listenLive<T>(res.result, callback);
 		return res.result;

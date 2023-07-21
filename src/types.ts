@@ -217,27 +217,27 @@ export type UnprocessedLiveQueryResponse<
 //////////   PATCH TYPES   //////////
 /////////////////////////////////////
 
-type BasePatch = {
-	path: string;
+type BasePatch<T = string> = {
+	path: T;
 };
 
-export type AddPatch = BasePatch & {
+export type AddPatch<T = string, U = unknown> = BasePatch<T> & {
 	op: "add";
-	value: unknown;
+	value: U;
 };
 
-export type RemovePatch = BasePatch & {
+export type RemovePatch<T = string> = BasePatch<T> & {
 	op: "remove";
 };
 
-export type ReplacePatch = BasePatch & {
+export type ReplacePatch<T = string, U = unknown> = BasePatch<T> & {
 	op: "replace";
-	value: unknown;
+	value: U;
 };
 
-export type ChangePatch = BasePatch & {
+export type ChangePatch<T = string, U = string> = BasePatch<T> & {
 	op: "change";
-	value: string;
+	value: U;
 };
 
 export type Patch = AddPatch | RemovePatch | ReplacePatch | ChangePatch;
