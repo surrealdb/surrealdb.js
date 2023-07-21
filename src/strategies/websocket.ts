@@ -303,6 +303,23 @@ export class WebSocketStrategy implements Connection {
 	}
 
 	/**
+	 * Inserts one or multiple records in the database.
+	 * @param thing - The table name or the specific record ID to create.
+	 * @param data - The document(s) / record(s) to insert.
+	 */
+	async insert<
+		T extends Record<string, unknown>,
+		U extends Record<string, unknown> = T,
+	>(thing: string, data?: U | U[]) {
+		await this.ready;
+		const res = await this.send<ActionResult<T, U>>("insert", [
+			thing,
+			data,
+		]);
+		return this.outputHandler(res);
+	}
+
+	/**
 	 * Updates all records in a table, or a specific record, in the database.
 	 *
 	 * ***NOTE: This function replaces the current document / record data with the specified data.***
