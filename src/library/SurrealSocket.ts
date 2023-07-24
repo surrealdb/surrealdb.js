@@ -120,7 +120,6 @@ export class SurrealSocket {
 
 		const id = getIncrementalID();
 		this.queue[id] = callback;
-		console.log("message", JSON.stringify({ id, method, params }));
 		this.ws?.send(JSON.stringify({ id, method, params }));
 	}
 
