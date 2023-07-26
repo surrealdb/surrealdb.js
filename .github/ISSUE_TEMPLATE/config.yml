@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: Question or idea
-    url: https://github.com/surrealdb/surrealdb.js/discussions
+    url: https://github.com/surrealdb/discussions
     about: Ask questions and discuss ideas here.
   - name: Security issues
     url: https://surrealdb.com/legal/security
