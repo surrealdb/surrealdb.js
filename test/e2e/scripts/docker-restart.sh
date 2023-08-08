@@ -38,7 +38,7 @@ if docker container ls -a --filter "name=$CONTAINER_NAME" | grep $CONTAINER_NAME
 fi
 
 echo "Starting container..."
-docker run -v $DATA_PATH:/data --name $CONTAINER_NAME -p 8000:8000 surrealdb/surrealdb:nightly start --user root --pass root -- "file://data"
+docker run -d -v $DATA_PATH:/data --name $CONTAINER_NAME -p 8000:8000 surrealdb/surrealdb:nightly start --user root --pass root -- "memory"
 
 echo " "
 echo "Container is running!"
