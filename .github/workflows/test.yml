@@ -33,10 +33,10 @@ jobs:
       - name: Start SurrealDB
         run: sh ./test/e2e/scripts/docker-restart.sh
 
-      - name: Run Deno
-        run: deno test -A --trace-ops ./test/e2e/deno.js
       - name: Run Node
         run: node ./test/e2e/node.js
+      - name: Run Deno
+        run: deno test -A --trace-ops ./test/e2e/deno.js
       - name: Run Bun
         run: bun run ./test/e2e/bun.js
 
