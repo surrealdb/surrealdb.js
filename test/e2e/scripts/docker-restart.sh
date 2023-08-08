@@ -42,7 +42,7 @@ docker run -d -v $DATA_PATH:/data --name $CONTAINER_NAME -p 8000:8000 surrealdb/
 
 echo " "
 echo "Container is running!"
-echo "Waiting 1 seconds"
+echo "Waiting 5 seconds"
 echo "-----------------------------------------"
 
-sleep 1
+sleep 5
