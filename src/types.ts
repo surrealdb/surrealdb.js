@@ -22,6 +22,18 @@ export interface Connection {
 	let?: (variable: string, value: unknown) => Promise<void>;
 	unset?: (variable: string) => Promise<void>;
 
+	// Live query functions
+	live?: <T extends Record<string, unknown>>(
+		table: string,
+		callback?: (data: LiveQueryResponse<T>) => unknown,
+		diff?: boolean,
+	) => Promise<string>;
+	listenLive?: <T extends Record<string, unknown>>(
+		queryUuid: string,
+		callback: (data: LiveQueryResponse<T>) => unknown,
+	) => Promise<void>;
+	kill?: (queryUuid: string) => Promise<void>;
+
 	query: <T extends RawQueryResult[]>(
 		query: string,
 		vars?: Record<string, unknown>,
@@ -210,7 +222,7 @@ export type LiveQueryResponse<
 export type UnprocessedLiveQueryResponse<
 	T extends Record<string, unknown> = Record<string, unknown>,
 > = LiveQueryResponse<T> & {
-	query: string;
+	id: string;
 };
 
 /////////////////////////////////////
@@ -276,7 +288,5 @@ export type RawSocketMessageResponse =
 	| (Result & { id: number })
 	| RawSocketLiveQueryNotification;
 export type RawSocketLiveQueryNotification = {
-	id: null;
-	method: "notify";
-	params: UnprocessedLiveQueryResponse[];
+	result: UnprocessedLiveQueryResponse;
 };

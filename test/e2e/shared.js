@@ -114,6 +114,70 @@ export default async (db) => {
 		expect(people).toEqualStringified([dataFilled["person:jaime"]]);
 	});
 
+	if (db.strategy === 'ws') await test("Live queries", async (expect) => {
+		let round = 0;
+		let responses = [
+			{
+				action: "CREATE",
+				result: {
+					id: "live_test:1"
+				}
+			},
+			{
+				action: "CREATE",
+				result: {
+					id: "live_test:2",
+					prop: 1,
+				}
+			},
+			{
+				action: "UPDATE",
+				result: {
+					id: "live_test:2",
+					prop: 2,
+				}
+			},
+			{
+				action: "DELETE",
+				result: "live_test:1"
+			},
+			{
+				action: "DELETE",
+				result: "live_test:2"
+			},
+		];
+
+		const uuid = await db.live('live_test', (data) => {
+			if (data.action !== 'CLOSE') {
+				expect(data).toEqualStringified(responses[round]);
+				round++;
+			}
+		});
+
+		// We need to wait a bit every time to ensure that we are processing the correct message
+
+		const wait = () => new Promise(r => setTimeout(r, 100))
+
+		await db.create("live_test:1");
+		await wait();
+
+		await db.create("live_test:2", { prop: 1 });
+		await wait();
+
+		await db.update("live_test:2", { prop: 2 });
+		await wait();
+
+		await db.delete("live_test:1");
+		await wait();
+
+		await db.delete("live_test:2");
+		await wait();
+
+		await db.kill(uuid);
+	});
+
+	// !!!! WARNING: The scope tests musts always be last because we change auth
+
 	// Preparation for testing if scope authentication works :)
 	await db.query(/* surql */ `
 		DEFINE SCOPE user SIGNIN (

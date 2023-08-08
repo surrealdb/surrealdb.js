@@ -1,5 +1,6 @@
 import {
 	type LiveQueryResponse,
+	type RawSocketLiveQueryNotification,
 	type RawSocketMessageResponse,
 	type Result,
 	type UnprocessedLiveQueryResponse,
@@ -100,8 +101,8 @@ export class SurrealSocket {
 			const res = JSON.parse(
 				e.data.toString(),
 			) as RawSocketMessageResponse;
-			if ("method" in res && res.method === "notify") {
-				this.handleLiveBatch(res.params);
+			if (SurrealSocket.isLiveNotification(res)) {
+				this.handleLiveBatch(res.result);
 			} else if (res.id && res.id in this.queue) {
 				this.queue[res.id](res);
 				delete this.queue[res.id];
@@ -160,23 +161,19 @@ export class SurrealSocket {
 		});
 	}
 
-	private async handleLiveBatch(messages: UnprocessedLiveQueryResponse[]) {
-		await Promise.all(
-			messages.map(async ({ query: queryUuid, ...message }) => {
-				if (this.liveQueue[queryUuid]) {
-					await Promise.all(
-						this.liveQueue[queryUuid].map(async (cb) =>
-							await cb(message)
-						),
-					);
-				} else {
-					if (!(queryUuid in this.unprocessedLiveResponses)) {
-						this.unprocessedLiveResponses[queryUuid] = [];
-					}
-					this.unprocessedLiveResponses[queryUuid].push(message);
-				}
-			}),
-		);
+	private async handleLiveBatch(
+		{ id: queryUuid, ...message }: UnprocessedLiveQueryResponse,
+	) {
+		if (this.liveQueue[queryUuid]) {
+			await Promise.all(
+				this.liveQueue[queryUuid].map(async (cb) => await cb(message)),
+			);
+		} else {
+			if (!(queryUuid in this.unprocessedLiveResponses)) {
+				this.unprocessedLiveResponses[queryUuid] = [];
+			}
+			this.unprocessedLiveResponses[queryUuid].push(message);
+		}
 	}
 
 	async close(reason: keyof typeof this.socketClosureReason) {
@@ -196,5 +193,19 @@ export class SurrealSocket {
 
 	private resetClosed() {
 		this.closed = new Promise((r) => (this.resetClosed = r));
+	}
+
+	public static isLiveNotification(
+		message: Record<string, unknown>,
+	): message is RawSocketLiveQueryNotification {
+		return !!(
+			!("id" in message) &&
+			"result" in message &&
+			typeof message.result === "object" &&
+			message.result !== null &&
+			"action" in message.result &&
+			"id" in message.result &&
+			"result" in message.result
+		);
 	}
 }

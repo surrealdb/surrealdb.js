@@ -38,11 +38,11 @@ if docker container ls -a --filter "name=$CONTAINER_NAME" | grep $CONTAINER_NAME
 fi
 
 echo "Starting container..."
-docker run -d -v $DATA_PATH:/data --name $CONTAINER_NAME -p 8000:8000 surrealdb/surrealdb:latest start --user root --pass root -- "file://data"
+docker run -d -v $DATA_PATH:/data --name $CONTAINER_NAME -p 8000:8000 surrealdb/surrealdb:nightly start --user root --pass root -- "file://data"
 
 echo " "
 echo "Container is running!"
-echo "Waiting 5 seconds"
+echo "Waiting 1 seconds"
 echo "-----------------------------------------"
 
-sleep 5
+sleep 1
