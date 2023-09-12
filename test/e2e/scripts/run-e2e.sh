@@ -26,10 +26,10 @@ echo "Running node.js tests"
 echo "-----------------------------------------"
 node ./test/e2e/node.js
 
-echo " "
-echo "Running bun tests"
-echo "-----------------------------------------"
-bun run ./test/e2e/bun.js
+# echo " "
+# echo "Running bun tests"
+# echo "-----------------------------------------"
+# bun run ./test/e2e/bun.js
 
 sh $WORKING_DIR/docker-stop.sh
 

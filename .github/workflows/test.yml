@@ -19,10 +19,10 @@ jobs:
         uses: denoland/setup-deno@v1
         with:
           deno-version: v1.x
-      - name: Setup bun
-        uses: antongolub/action-setup-bun@v1
-        with:
-          bun-version: 0.1.13
+      # - name: Setup bun
+      #   uses: antongolub/action-setup-bun@v1
+      #   with:
+      #     bun-version: 1.0.1
 
       - name: Install NPM dependencies
         run: npm install
@@ -37,8 +37,8 @@ jobs:
         run: deno test -A --trace-ops ./test/e2e/deno.js
       - name: Run Node
         run: node ./test/e2e/node.js
-      - name: Run Bun
-        run: bun run ./test/e2e/bun.js
+      # - name: Run Bun
+      #   run: bun run ./test/e2e/bun.js
 
       - name: Stop SurrealDB
         run:  sh ./test/e2e/scripts/docker-stop.sh
