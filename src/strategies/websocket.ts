@@ -25,8 +25,9 @@ export class WebSocketStrategy implements Connection {
 		auth?: AnyAuth | Token;
 	} = {};
 
-	public ready: Promise<void>;
-	private resolveReady: () => void;
+	public ready?: Promise<void>;
+	private resolveReady?: () => void;
+	private rejectReady?: (e: Error) => void;
 
 	public strategy: "ws" | "http" = "ws";
 
@@ -34,17 +35,12 @@ export class WebSocketStrategy implements Connection {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	constructor(url?: string, options: ConnectionOptions = {}) {
-		this.resolveReady = () => {}; // Purely for typescript typing :)
-		this.ready = new Promise((r) => (this.resolveReady = r));
-		if (url) this.connect(url, options);
-	}
+	async connect(url: string, { prepare, auth, ns, db }: ConnectionOptions = {}) {
+		this.ready = new Promise((resolve, reject) => {
+			this.resolveReady = resolve;
+			this.rejectReady = reject;
+		});
 
-	/**
-	 * Establish a socket connection to the database
-	 * @param connection - Connection details
-	 */
-	connect(url: string, { prepare, auth, ns, db }: ConnectionOptions = {}) {
 		this.connection = {
 			auth,
 			ns,
@@ -67,15 +63,15 @@ export class WebSocketStrategy implements Connection {
 				}
 
 				await prepare?.(this);
-				this.resolveReady();
+				this.resolveReady?.();
 			},
 			onClose: () => {
 				this.pinger?.stop();
-				this.resetReady();
 			},
 		});
 
-		this.socket.open();
+		await this.socket.open().catch(this.rejectReady);
+		return this.ready;
 	}
 
 	/**
@@ -413,12 +409,5 @@ export class WebSocketStrategy implements Connection {
 
 		console.debug({ res });
 		throw new UnexpectedResponse();
-	}
-
-	/**
-	 * Reset the ready mechanism.
-	 */
-	private resetReady() {
-		this.ready = new Promise((r) => (this.resolveReady = r));
 	}
 }

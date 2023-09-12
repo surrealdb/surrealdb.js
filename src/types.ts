@@ -1,8 +1,6 @@
 export type ConnectionStrategy = "websocket" | "experimental_http";
 export interface Connection {
-	constructor: Constructor<
-		(url?: string, options?: ConnectionOptions) => void
-	>;
+	constructor: Constructor<() => void>;
 
 	strategy: "ws" | "http";
 	connect: (url: string, options?: ConnectionOptions) => void;
