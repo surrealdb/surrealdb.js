@@ -71,9 +71,12 @@ Here you have a simple example!
 > (https://caniuse.com/mdn-javascript_operators_await_top_level).
 
 ```ts
-const db = new Surreal("http://127.0.0.1:8000/rpc");
+const db = new Surreal();
 
 try {
+	// Connect to the database
+	await db.connect("http://127.0.0.1:8000/rpc");
+
 	// Signin as a namespace, database, or root user
 	await db.signin({
 		user: "root",
