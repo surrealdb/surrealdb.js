@@ -1,8 +1,6 @@
 export type ConnectionStrategy = "websocket" | "experimental_http";
 export interface Connection {
-	constructor: Constructor<
-		(url?: string, options?: ConnectionOptions) => void
-	>;
+	constructor: Constructor<() => void>;
 
 	strategy: "ws" | "http";
 	connect: (url: string, options?: ConnectionOptions) => void;
@@ -15,7 +13,7 @@ export interface Connection {
 
 	signup: (vars: ScopeAuth) => Promise<Token>;
 	signin: (vars: AnyAuth) => Promise<Token | void>;
-	authenticate: (token: Token) => MaybePromise<void>;
+	authenticate: (token: Token) => MaybePromise<boolean>;
 	invalidate: () => MaybePromise<void>;
 
 	// Let/unset methods are not available in the HTTP REST API

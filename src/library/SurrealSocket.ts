@@ -24,11 +24,9 @@ export class SurrealSocket {
 
 	private unprocessedLiveResponses: Record<string, LiveQueryResponse[]> = {};
 
-	public ready: Promise<void>;
-	private resolveReady: () => void;
-
-	public closed: Promise<void>;
-	private resolveClosed: () => void;
+	public ready?: Promise<void>;
+	public closed?: Promise<void>;
+	private resolveClosed?: () => void;
 
 	public socketClosureReason: Record<number, string> = {
 		1000: "CLOSE_NORMAL",
@@ -43,10 +41,6 @@ export class SurrealSocket {
 		onOpen?: () => unknown;
 		onClose?: () => unknown;
 	}) {
-		this.resolveReady = () => {}; // Purely for typescript typing :)
-		this.ready = new Promise((r) => (this.resolveReady = r));
-		this.resolveClosed = () => {}; // Purely for typescript typing :)
-		this.closed = new Promise((r) => (this.resolveClosed = r));
 		this.onOpen = onOpen;
 		this.onClose = onClose;
 		this.url = processUrl(url, {
@@ -58,19 +52,34 @@ export class SurrealSocket {
 	open() {
 		// Close any possibly connected sockets, reset status;
 		this.close(1000);
-		this.resetReady();
 
 		// Connect to Surreal instance
-		this.ws = new WebSocket(this.url);
-		this.ws.addEventListener("open", (_e) => {
-			this.status = WebsocketStatus.OPEN;
-			this.resolveReady();
-			this.onOpen?.();
+		let resolved = false;
+		const ws = new WebSocket(this.url);
+		this.ready = new Promise((resolve, reject) => {
+			ws.addEventListener("open", (_e) => {
+				this.status = WebsocketStatus.OPEN;
+				if (!resolved) {
+					resolved = true;
+					resolve();
+				}
+
+				this.onOpen?.();
+			});
+
+			ws.addEventListener("error", (e) => {
+				if (e instanceof ErrorEvent) {
+					this.status = WebsocketStatus.CLOSED;
+					if (!resolved) {
+						resolved = true;
+						reject(e.error);
+					}
+				}
+			});
 		});
 
-		this.ws.addEventListener("close", (_e) => {
-			this.resolveClosed();
-			this.resetClosed();
+		ws.addEventListener("close", (_e) => {
+			this.resolveClosed?.();
 
 			Object.values(this.liveQueue).map((query) => {
 				query.map((cb) =>
@@ -97,7 +106,7 @@ export class SurrealSocket {
 			}
 		});
 
-		this.ws.addEventListener("message", (e) => {
+		ws.addEventListener("message", (e) => {
 			const res = JSON.parse(
 				e.data.toString(),
 			) as RawSocketMessageResponse;
@@ -108,6 +117,9 @@ export class SurrealSocket {
 				delete this.queue[res.id];
 			}
 		});
+
+		this.ws = ws;
+		return this.ready;
 	}
 
 	// Extracting the pure object to prevent any getters/setters that could break stuff
@@ -178,6 +190,7 @@ export class SurrealSocket {
 
 	async close(reason: keyof typeof this.socketClosureReason) {
 		this.status = WebsocketStatus.CLOSED;
+		this.closed = new Promise((r) => this.resolveClosed = r);
 		this.ws?.close(reason, this.socketClosureReason[reason]);
 		this.onClose?.();
 		await this.closed;
@@ -185,14 +198,6 @@ export class SurrealSocket {
 
 	get connectionStatus() {
 		return this.status;
-	}
-
-	private resetReady() {
-		this.ready = new Promise((r) => (this.resolveReady = r));
-	}
-
-	private resetClosed() {
-		this.closed = new Promise((r) => (this.resetClosed = r));
 	}
 
 	public static isLiveNotification(
