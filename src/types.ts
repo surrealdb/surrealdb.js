@@ -13,7 +13,7 @@ export interface Connection {
 
 	signup: (vars: ScopeAuth) => Promise<Token>;
 	signin: (vars: AnyAuth) => Promise<Token | void>;
-	authenticate: (token: Token) => MaybePromise<void>;
+	authenticate: (token: Token) => MaybePromise<boolean>;
 	invalidate: () => MaybePromise<void>;
 
 	// Let/unset methods are not available in the HTTP REST API

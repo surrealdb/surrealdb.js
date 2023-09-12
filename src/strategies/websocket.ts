@@ -184,6 +184,7 @@ export class WebSocketStrategy implements Connection {
 		const res = await this.send<string>("authenticate", [token]);
 		if (res.error) throw new Error(res.error.message);
 		this.connection.auth = token;
+		return !!token;
 	}
 
 	/**

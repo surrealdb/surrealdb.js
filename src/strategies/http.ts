@@ -152,6 +152,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 */
 	authenticate(token: Token) {
 		this.http?.setTokenAuth(token);
+		return true;
 	}
 
 	/**
