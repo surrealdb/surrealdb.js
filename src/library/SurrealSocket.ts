@@ -76,7 +76,7 @@ export class SurrealSocket {
 					}
 				}
 			});
-		})
+		});
 
 		ws.addEventListener("close", (_e) => {
 			this.resolveClosed?.();

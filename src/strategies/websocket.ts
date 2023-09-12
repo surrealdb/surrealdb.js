@@ -35,7 +35,10 @@ export class WebSocketStrategy implements Connection {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	async connect(url: string, { prepare, auth, ns, db }: ConnectionOptions = {}) {
+	async connect(
+		url: string,
+		{ prepare, auth, ns, db }: ConnectionOptions = {},
+	) {
 		this.ready = new Promise((resolve, reject) => {
 			this.resolveReady = resolve;
 			this.rejectReady = reject;
