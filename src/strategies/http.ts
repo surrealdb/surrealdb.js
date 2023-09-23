@@ -181,7 +181,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 					Object.fromEntries(
 						Object.entries(vars).map(([k, v]) => [
 							k,
-							typeof v == "object" ? JSON.stringify(v) : `${v}`,
+							JSON.stringify(v),
 						]),
 					),
 				),
