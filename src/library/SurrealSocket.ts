@@ -68,12 +68,10 @@ export class SurrealSocket {
 			});
 
 			ws.addEventListener("error", (e) => {
-				if (e instanceof ErrorEvent) {
-					this.status = WebsocketStatus.CLOSED;
-					if (!resolved) {
-						resolved = true;
-						reject(e.error);
-					}
+				this.status = WebsocketStatus.CLOSED;
+				if (!resolved) {
+					resolved = true;
+					reject("error" in e ? e.error : e.toString());
 				}
 			});
 		});
