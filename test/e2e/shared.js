@@ -47,6 +47,16 @@ async function test(name, cb) {
 					throw new Error("toBe failed", a, b);
 				}
 			},
+			toOnlyInclude: (b) => {
+				if (!Array.isArray(a)) {
+					throw new Error("Expected value to be an array", a);
+				}
+
+				if (a.filter(a => a != b).length > 0) {
+					logger.error(name, { expect: a, toOnlyInclude: b });
+					throw new Error("toOnlyInclude failed", a, b);
+				}
+			}
 		};
 	}
 
@@ -113,6 +123,31 @@ export default async (db) => {
 		let people = await db.select("person");
 		expect(people).toEqualStringified([dataFilled["person:jaime"]]);
 	});
+
+	await test("Ensure .query() variables are encoded correctly", async (expect) => {
+		let [{ status, result }] = await db.query(/* surql */ `
+			RETURN [
+				$object == {},
+				$array == [],
+				$string == "String with a \\\" character, and ' too.",
+				$number == 123.456,
+				$null == null,
+				$true == true,
+				$false == false,
+			];
+		`, {
+			object: {},
+			array: [],
+			string: "String with a \" character, and ' too.",
+			number: 123.456,
+			null: null,
+			true: true,
+			false: false
+		});
+
+		expect(status).toBe("OK");
+		expect(result).toOnlyInclude(true);
+	})
 
 	if (db.strategy === 'ws') {
 		logger.debug("== Running WS specific tests ==");
