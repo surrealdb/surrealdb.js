@@ -71,7 +71,7 @@ export class SurrealSocket {
 				this.status = WebsocketStatus.CLOSED;
 				if (!resolved) {
 					resolved = true;
-					reject('error' in e ? e.error : e.toString());
+					reject("error" in e ? e.error : e.toString());
 				}
 			});
 		});
