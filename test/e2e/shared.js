@@ -73,11 +73,11 @@ export default async (db) => {
 	// Easy way to "reset" for each test while debugging...
 	const rand = (Math.random() + 1).toString(36).substring(7);
 	logger.debug(`Select NS "test", DB "test-${rand}"`);
-	await db.use({ ns: "test", db: `test-${rand}` });
+	await db.use({ namespace: "test", database: `test-${rand}` });
 
 	await db.signin({
-		user: "root",
-		pass: "root",
+		username: "root",
+		password: "root",
 	});
 
 	await test("Create a new person with a specific id", async (expect) => {
@@ -252,7 +252,7 @@ export default async (db) => {
 
 	await test("Scope authentication", async (expect) => {
 		const token = await db.signin({
-			SC: "user",
+			scope: "user",
 			username: "johndoe",
 			password: "Password1!",
 		});

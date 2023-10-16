@@ -1,3 +1,5 @@
+import { z } from "npm:zod@3.22.4";
+
 export type ConnectionStrategy = "websocket" | "experimental_http";
 export interface Connection {
 	constructor: Constructor<() => void>;
@@ -5,7 +7,7 @@ export interface Connection {
 	strategy: "ws" | "http";
 	connect: (url: string, options?: ConnectionOptions) => void;
 	ping: () => Promise<void>;
-	use: (opt: { ns: string; db: string }) => MaybePromise<void>;
+	use: (opt: { namespace: string; database: string }) => MaybePromise<void>;
 
 	// Info method is not available in the HTTP REST API
 	info?: <T extends Record<string, unknown> = Record<string, unknown>>() =>
@@ -82,25 +84,28 @@ export interface Connection {
 	) => Promise<ActionResult<T>[]>;
 }
 
+export const UseOptions = z.object({
+	namespace: z.coerce.string(),
+	database: z.coerce.string(),
+});
+
+export type UseOptions = z.infer<typeof UseOptions>;
+
 export type ConnectionOptions =
 	& {
 		prepare?: (connection: Connection) => unknown;
 		auth?: AnyAuth | Token;
 	}
 	& (
+		| UseOptions
 		| {
-			ns: string;
-			db: string;
-		}
-		| {
-			ns?: never;
-			db?: never;
+			namespace?: never;
+			database?: never;
 		}
 	);
 
-export type HTTPConnectionOptions<TFetcher = typeof fetch> =
-	& ConnectionOptions
-	& {
+export type HTTPConstructorOptions<TFetcher = typeof fetch> =
+	{
 		fetch?: TFetcher;
 	};
 
@@ -113,39 +118,88 @@ export type ActionResult<
 //////////   AUTHENTICATION TYPES   //////////
 //////////////////////////////////////////////
 
-export type SuperUserAuth = {
-	user: string;
-	pass: string;
-};
+export const SuperUserAuth = z.object({
+	namespace: z.never().optional(),
+	database: z.never().optional(),
+	scope: z.never().optional(),
+	username: z.coerce.string(),
+	password: z.coerce.string(),
+})
 
-export type NamespaceAuth = {
-	NS: string;
-	user: string;
-	pass: string;
-};
+export type SuperUserAuth = z.infer<typeof SuperUserAuth>;
 
-export type DatabaseAuth = {
-	NS: string;
-	DB: string;
-	user: string;
-	pass: string;
-};
+export const NamespaceAuth = z.object({
+	namespace: z.coerce.string(),
+	database: z.never().optional(),
+	scope: z.never().optional(),
+	username: z.coerce.string(),
+	password: z.coerce.string(),
+})
 
-export type ScopeAuth = {
-	NS?: string;
-	DB?: string;
-	SC: string;
-	[T: string]: unknown;
-};
+export type NamespaceAuth = z.infer<typeof NamespaceAuth>;
 
-export type AnyAuth = SuperUserAuth | NamespaceAuth | DatabaseAuth | ScopeAuth;
+export const DatabaseAuth = z.object({
+	namespace: z.coerce.string(),
+	database: z.coerce.string(),
+	scope: z.never().optional(),
+	username: z.coerce.string(),
+	password: z.coerce.string(),
+})
+
+export type DatabaseAuth = z.infer<typeof DatabaseAuth>;
+
+export const ScopeAuth = z.object({
+	namespace: z.coerce.string().optional(),
+	database: z.coerce.string().optional(),
+	scope: z.coerce.string(),
+}).catchall(z.unknown());
+
+export type ScopeAuth = z.infer<typeof ScopeAuth>;
+
+export const AnyAuth = z.union([SuperUserAuth, NamespaceAuth, DatabaseAuth, ScopeAuth]);
+export type AnyAuth = z.infer<typeof AnyAuth>;
 export type Token = string;
+
+export const TransformAuth = z.union([
+	z.object({
+		namespace: z.string().optional(),
+		database: z.string().optional(),
+		scope: z.never().optional(),
+		username: z.string(),
+		password: z.string(),
+	}).transform(({
+		namespace,
+		database,
+		username,
+		password,
+	}) => ({
+		ns: namespace,
+		db: database,
+		user: username,
+		pass: password,
+	})),
+	z.object({
+		namespace: z.string(),
+		database: z.string(),
+		scope: z.string(),
+	}).catchall(z.unknown()).transform(({
+		namespace,
+		database,
+		scope,
+		...rest
+	}) => ({
+		ns: namespace,
+		db: database,
+		sc: scope,
+		...rest
+	}))
+]);
 
 export type HTTPAuthenticationResponse =
 	| {
 		code: 200;
 		details: "Authentication succeeded";
-		token?: string;
+		token: string;
 		description?: never;
 		information?: never;
 	}

@@ -2,23 +2,26 @@ import { NoConnectionDetails } from "../errors.ts";
 import { SurrealHTTP } from "../library/SurrealHTTP.ts";
 import { processAuthVars } from "../library/processAuthVars.ts";
 import {
+AnyAuth,
 	type ActionResult,
-	type AnyAuth,
 	type Connection,
 	type HTTPAuthenticationResponse,
-	type HTTPConnectionOptions,
 	type InvalidSQL,
 	type MapQueryResult,
 	type QueryResult,
-	type RawQueryResult,
-	type ScopeAuth,
+	type RawQueryResult, ScopeAuth,
 	type Token,
+	type HTTPConstructorOptions,
+ConnectionOptions,
+TransformAuth,
+UseOptions,
 } from "../types.ts";
 
 export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	protected http?: SurrealHTTP<TFetcher>;
 	public ready: Promise<void>;
 	private resolveReady: () => void;
+	private fetch: TFetcher;
 
 	public strategy: "ws" | "http" = "http";
 
@@ -26,10 +29,10 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	constructor(url?: string, options: HTTPConnectionOptions<TFetcher> = {}) {
+	constructor({ fetch: f }: HTTPConstructorOptions<TFetcher> = {}) {
+		this.fetch = f ?? (fetch as TFetcher);
 		this.resolveReady = () => {}; // Purely for typescript typing :)
 		this.ready = new Promise((r) => (this.resolveReady = r));
-		if (url) this.connect(url, options);
 	}
 
 	/**
@@ -39,15 +42,14 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	async connect(
 		url: string,
 		{
-			fetch: fetcher,
 			prepare,
 			auth,
-			ns,
-			db,
-		}: HTTPConnectionOptions<TFetcher> = {},
+			namespace,
+			database,
+		}: ConnectionOptions = {},
 	) {
-		this.http = new SurrealHTTP<TFetcher>(url, { fetcher });
-		await this.use({ ns, db });
+		this.http = new SurrealHTTP<TFetcher>(url, { fetch: this.fetch });
+		await this.use({ namespace, database });
 		if (typeof auth === "string") {
 			await this.authenticate(auth);
 		} else if (auth) {
@@ -94,9 +96,12 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @param ns - Switches to a specific namespace.
 	 * @param db - Switches to a specific database.
 	 */
-	use({ ns, db }: { ns?: string; db?: string }) {
+	use(opt: Partial<UseOptions>) {
 		if (!this.http) throw new NoConnectionDetails();
-		return this.http.use({ ns, db });
+
+		const { namespace, database } = UseOptions.partial().parse(opt);
+		if (namespace) this.http.namespace = namespace;
+		if (database) this.http.database = database;
 	}
 
 	/**
@@ -105,6 +110,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @return The authentication token.
 	 */
 	async signup(vars: ScopeAuth) {
+		vars = ScopeAuth.parse(vars);
 		vars = processAuthVars(vars, {
 			namespace: this.http?.namespace,
 			database: this.http?.database,
@@ -112,10 +118,10 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 
 		const res = await this.request<HTTPAuthenticationResponse>("/signup", {
 			method: "POST",
-			body: vars,
+			body: TransformAuth.parse(vars),
 		});
 
-		if (res.description) throw new Error(res.description);
+		if (res.description === 'string') throw new Error(res.description);
 		if (!res.token) throw new Error("Did not receive authentication token");
 		this.http?.setTokenAuth(res.token);
 		return res.token;
@@ -127,6 +133,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @return The authentication token, unless signed in as root.
 	 */
 	async signin(vars: AnyAuth) {
+		vars = AnyAuth.parse(vars);
 		vars = processAuthVars(vars, {
 			namespace: this.http?.namespace,
 			database: this.http?.database,
@@ -134,16 +141,13 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 
 		const res = await this.request<HTTPAuthenticationResponse>("/signin", {
 			method: "POST",
-			body: vars,
+			body: TransformAuth.parse(vars),
 		});
 
-		if (res.description) throw new Error(res.description);
-		if (!res.token) {
-			this.http?.createRootAuth(vars.user as string, vars.pass as string);
-		} else {
-			this.http?.setTokenAuth(res.token);
-			return res.token;
-		}
+		if (typeof res.description === 'string') throw new Error(res.description);
+		if (!res.token) throw new Error("Did not receive authentication token");
+		this.http?.setTokenAuth(res.token);
+		return res.token;
 	}
 
 	/**

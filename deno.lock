@@ -139,5 +139,17 @@
     "https://deno.land/x/ts_morph@18.0.0/common/ts_morph_common.js": "845671ca951073400ce142f8acefa2d39ea9a51e29ca80928642f3f8cf2b7700",
     "https://deno.land/x/ts_morph@18.0.0/common/typescript.d.ts": "21c0786dddf52537611499340166278507eb9784628d321c2cb6acc696cba0f6",
     "https://deno.land/x/ts_morph@18.0.0/common/typescript.js": "d5c598b6a2db2202d0428fca5fd79fc9a301a71880831a805d778797d2413c59"
+  },
+  "npm": {
+    "specifiers": {
+      "zod": "zod@3.22.4",
+      "zod@3.22.4": "zod@3.22.4"
+    },
+    "packages": {
+      "zod@3.22.4": {
+        "integrity": "sha512-iC+8Io04lddc+mVqQ9AZ7OQ2MrUKGN+oIQyq1vemgt46jwCwLfhq7/pwnBnNXXXZb8VTVLKwp9EDkx+ryxIWmg==",
+        "dependencies": {}
+      }
+    }
   }
 }

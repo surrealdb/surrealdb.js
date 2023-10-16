@@ -1,22 +1,19 @@
 import { NoConnectionDetails } from "../errors.ts";
+import { HTTPConstructorOptions } from "../types.ts";
 import { processUrl } from "./processUrl.ts";
 
 export class SurrealHTTP<TFetcher = typeof fetch> {
 	private url: string;
 	private authorization?: string;
-	private _namespace?: string;
-	private _database?: string;
 	private fetch: TFetcher;
+	public namespace?: string;
+	public database?: string;
 
 	constructor(
 		url: string,
-		{
-			fetcher,
-		}: {
-			fetcher?: TFetcher;
-		} = {},
+		{ fetch: f }: HTTPConstructorOptions<TFetcher> = {},
 	) {
-		this.fetch = fetcher ?? (fetch as TFetcher);
+		this.fetch = f ?? (fetch as TFetcher);
 		this.url = processUrl(url, {
 			ws: "http",
 			wss: "https",
@@ -24,32 +21,15 @@ export class SurrealHTTP<TFetcher = typeof fetch> {
 	}
 
 	ready() {
-		return !!(this.url && this._namespace && this._database);
+		return !!(this.url && this.namespace && this.database);
 	}
 
 	setTokenAuth(token: string) {
 		this.authorization = `Bearer ${token}`;
 	}
 
-	createRootAuth(username: string, password: string) {
-		this.authorization = `Basic ${btoa(`${username}:${password}`)}`;
-	}
-
 	clearAuth() {
 		this.authorization = undefined;
-	}
-
-	use({ ns, db }: { ns?: string; db?: string }) {
-		if (ns) this._namespace = ns;
-		if (db) this._database = db;
-	}
-
-	get namespace() {
-		return this._namespace;
-	}
-
-	get database() {
-		return this._database;
 	}
 
 	async request<T = unknown>(
@@ -75,8 +55,8 @@ export class SurrealHTTP<TFetcher = typeof fetch> {
 							? "text/plain"
 							: "application/json",
 						Accept: "application/json",
-						NS: this._namespace!,
-						DB: this._database!,
+						NS: this.namespace!,
+						DB: this.database!,
 						...(this.authorization
 							? { Authorization: this.authorization }
 							: {}),
