@@ -106,7 +106,7 @@ export const SuperUserAuth = z.object({
 	scope: z.never().optional(),
 	username: z.coerce.string(),
 	password: z.coerce.string(),
-})
+});
 
 export type SuperUserAuth = z.infer<typeof SuperUserAuth>;
 
@@ -116,7 +116,7 @@ export const NamespaceAuth = z.object({
 	scope: z.never().optional(),
 	username: z.coerce.string(),
 	password: z.coerce.string(),
-})
+});
 
 export type NamespaceAuth = z.infer<typeof NamespaceAuth>;
 
@@ -126,7 +126,7 @@ export const DatabaseAuth = z.object({
 	scope: z.never().optional(),
 	username: z.coerce.string(),
 	password: z.coerce.string(),
-})
+});
 
 export type DatabaseAuth = z.infer<typeof DatabaseAuth>;
 
@@ -138,7 +138,12 @@ export const ScopeAuth = z.object({
 
 export type ScopeAuth = z.infer<typeof ScopeAuth>;
 
-export const AnyAuth = z.union([SuperUserAuth, NamespaceAuth, DatabaseAuth, ScopeAuth]);
+export const AnyAuth = z.union([
+	SuperUserAuth,
+	NamespaceAuth,
+	DatabaseAuth,
+	ScopeAuth,
+]);
 export type AnyAuth = z.infer<typeof AnyAuth>;
 
 export const Token = z.string({ invalid_type_error: "Not a valid token" });
@@ -175,25 +180,30 @@ export const TransformAuth = z.union([
 		ns: namespace,
 		db: database,
 		sc: scope,
-		...rest
-	}))
+		...rest,
+	})),
 ]);
 
-export const HTTPAuthenticationResponse = z.discriminatedUnion('code', [
+export const HTTPAuthenticationResponse = z.discriminatedUnion("code", [
 	z.object({
 		code: z.literal(200),
 		details: z.string(),
-		token: z.string({ required_error: "Did not recieve an authentication token", invalid_type_error: "Received an invalid token" }),
+		token: z.string({
+			required_error: "Did not recieve an authentication token",
+			invalid_type_error: "Received an invalid token",
+		}),
 	}),
 	z.object({
 		code: z.literal(403),
 		details: z.string(),
 		description: z.string(),
 		information: z.string(),
-	})
+	}),
 ], { invalid_type_error: "Unexpected authentication response" });
 
-export type HTTPAuthenticationResponse = z.infer<typeof HTTPAuthenticationResponse>;
+export type HTTPAuthenticationResponse = z.infer<
+	typeof HTTPAuthenticationResponse
+>;
 
 /////////////////////////////////////
 //////////   QUERY TYPES   //////////
@@ -338,10 +348,9 @@ export const HTTPConstructorOptions = z.object({
 	fetch: z.function().optional(),
 });
 
-export type HTTPConstructorOptions<TFetcher = typeof fetch> =
-	{
-		fetch?: TFetcher;
-	};
+export type HTTPConstructorOptions<TFetcher = typeof fetch> = {
+	fetch?: TFetcher;
+};
 
 ///////////////////////////////
 //////////   OTHER   //////////
@@ -379,11 +388,12 @@ export function processConnectionOptions({
 }: ConnectionOptions) {
 	z.function().optional().parse(prepare);
 	z.union([Token, AnyAuth]).optional().parse(auth);
-	const useOpts = namespace || database ?
-		UseOptions.parse({
+	const useOpts = namespace || database
+		? UseOptions.parse({
 			namespace,
 			database,
-		}) : { namespace: undefined, database: undefined };
+		})
+		: { namespace: undefined, database: undefined };
 
 	return { prepare, auth, ...useOpts } satisfies ConnectionOptions;
 }

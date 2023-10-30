@@ -8,7 +8,9 @@ export function processAuthVars<T extends AnyAuth>(vars: T, fallback?: {
 	if ("scope" in vars) {
 		if (!vars.namespace) vars.namespace = fallback?.namespace;
 		if (!vars.database) vars.database = fallback?.database;
-		if (isNil(vars.namespace)) throw new Error("No namespace was specified!");
+		if (isNil(vars.namespace)) {
+			throw new Error("No namespace was specified!");
+		}
 		if (isNil(vars.database)) throw new Error("No database was specified!");
 	}
 

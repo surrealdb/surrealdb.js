@@ -2,17 +2,21 @@ import { NoConnectionDetails } from "../errors.ts";
 import { SurrealHTTP } from "../library/SurrealHTTP.ts";
 import { processAuthVars } from "../library/processAuthVars.ts";
 import {
-AnyAuth,
 	type ActionResult,
-	type Connection, HTTPAuthenticationResponse,
+	AnyAuth,
+	type Connection,
+	ConnectionOptions,
+	HTTPAuthenticationResponse,
+	HTTPConstructorOptions,
 	type InvalidSQL,
 	type MapQueryResult,
+	processConnectionOptions,
 	type QueryResult,
-	type RawQueryResult, ScopeAuth, Token, HTTPConstructorOptions,
-ConnectionOptions,
-TransformAuth,
-UseOptions,
-processConnectionOptions,
+	type RawQueryResult,
+	ScopeAuth,
+	Token,
+	TransformAuth,
+	UseOptions,
 } from "../types.ts";
 
 export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
@@ -42,7 +46,9 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 		url: string,
 		opts: ConnectionOptions = {},
 	) {
-		const { prepare, auth, namespace, database } = processConnectionOptions(opts);
+		const { prepare, auth, namespace, database } = processConnectionOptions(
+			opts,
+		);
 		this.http = new SurrealHTTP<TFetcher>(url, { fetch: this.fetch });
 		await this.use({ namespace, database });
 
@@ -95,7 +101,9 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	use(opt: Partial<UseOptions>) {
 		if (!this.http) throw new NoConnectionDetails();
 
-		const { namespace, database } = UseOptions.partial().strict().parse(opt);
+		const { namespace, database } = UseOptions.partial().strict().parse(
+			opt,
+		);
 		if (namespace) this.http.namespace = namespace;
 		if (database) this.http.database = database;
 	}
