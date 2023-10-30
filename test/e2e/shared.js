@@ -75,9 +75,20 @@ export default async (db) => {
 	logger.debug(`Select NS "test", DB "test-${rand}"`);
 	await db.use({ namespace: "test", database: `test-${rand}` });
 
-	await db.signin({
-		username: "root",
-		password: "root",
+	await test("Root authentication", async (expect) => {
+		const token = await db.signin({
+			username: "root",
+			password: "root",
+		});
+
+		expect(typeof token).toBe('string');
+
+		const res = await new Promise((r) => r(db.authenticate(token))).catch((e) => {
+			console.error(e);
+			return false;
+		});
+
+		expect(res).toBe(true);
 	});
 
 	await test("Create a new person with a specific id", async (expect) => {
@@ -258,6 +269,13 @@ export default async (db) => {
 		});
 
 		expect(typeof token).toBe('string');
+
+		const res = await new Promise((r) => r(db.authenticate(token))).catch((e) => {
+			console.error(e);
+			return false;
+		});
+
+		expect(res).toBe(true);
 
 		const [{ username }] = await db.select('user');
 		expect(username).toBe('johndoe');
