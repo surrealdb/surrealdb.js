@@ -4,24 +4,26 @@ import { SurrealSocket } from "../library/SurrealSocket.ts";
 import { processAuthVars } from "../library/processAuthVars.ts";
 import {
 	type ActionResult,
-	type AnyAuth,
+	AnyAuth,
 	type Connection,
 	type ConnectionOptions,
 	type LiveQueryResponse,
 	type MapQueryResult,
 	type Patch,
+	processConnectionOptions,
 	type RawQueryResult,
 	type Result,
-	type ScopeAuth,
-	type Token,
+	ScopeAuth,
+	Token,
+	TransformAuth,
 } from "../types.ts";
 
 export class WebSocketStrategy implements Connection {
 	protected socket?: SurrealSocket;
 	private pinger?: Pinger;
 	private connection: {
-		ns?: string;
-		db?: string;
+		namespace?: string;
+		database?: string;
 		auth?: AnyAuth | Token;
 	} = {};
 
@@ -37,8 +39,11 @@ export class WebSocketStrategy implements Connection {
 	 */
 	async connect(
 		url: string,
-		{ prepare, auth, ns, db }: ConnectionOptions = {},
+		opts: ConnectionOptions = {},
 	) {
+		const { prepare, auth, namespace, database } = processConnectionOptions(
+			opts,
+		);
 		this.ready = new Promise((resolve, reject) => {
 			this.resolveReady = resolve;
 			this.rejectReady = reject;
@@ -46,8 +51,8 @@ export class WebSocketStrategy implements Connection {
 
 		this.connection = {
 			auth,
-			ns,
-			db,
+			namespace,
+			database,
 		};
 
 		this.socket?.close(1000);
@@ -56,7 +61,7 @@ export class WebSocketStrategy implements Connection {
 			url,
 			onOpen: async () => {
 				this.pinger?.start(() => this.ping());
-				if (this.connection.ns && this.connection.db) {
+				if (this.connection.namespace && this.connection.database) {
 					await this.use({});
 				}
 				if (typeof this.connection.auth === "string") {
@@ -111,22 +116,26 @@ export class WebSocketStrategy implements Connection {
 
 	/**
 	 * Switch to a specific namespace and database.
-	 * @param ns - Switches to a specific namespace.
+	 * @param database - Switches to a specific namespace.
 	 * @param db - Switches to a specific database.
 	 */
-	async use({ ns, db }: { ns?: string; db?: string }) {
-		if (!ns && !this.connection.ns) {
+	async use(
+		{ namespace, database }: { namespace?: string; database?: string },
+	) {
+		if (!namespace && !this.connection.namespace) {
 			throw new Error("Please specify a namespace to use.");
 		}
-		if (!db && !this.connection.db) {
+		if (!database && !this.connection.database) {
 			throw new Error("Please specify a database to use.");
 		}
-		this.connection.ns = ns ?? this.connection.ns;
-		this.connection.db = db ?? this.connection.db;
+
+		this.connection.namespace = namespace ?? this.connection.namespace;
+		this.connection.database = database ?? this.connection.database;
 		const { error } = await this.send("use", [
-			this.connection.ns,
-			this.connection.db,
+			this.connection.namespace,
+			this.connection.database,
 		]);
+
 		if (error) throw new Error(error.message);
 	}
 
@@ -151,13 +160,19 @@ export class WebSocketStrategy implements Connection {
 	 * @return The authentication token.
 	 */
 	async signup(vars: ScopeAuth) {
+		vars = ScopeAuth.parse(vars);
 		vars = processAuthVars(vars, {
-			namespace: this.connection.ns,
-			database: this.connection.db,
+			namespace: this.connection.namespace,
+			database: this.connection.database,
 		});
 
-		const res = await this.send<string>("signup", [vars]);
+		const res = await this.send<string>("signup", [
+			TransformAuth.parse(vars),
+		]);
 		if (res.error) throw new Error(res.error.message);
+		if (!res.result) {
+			throw new Error("Did not receive authentication token");
+		}
 		this.connection.auth = res.result;
 		return res.result;
 	}
@@ -168,14 +183,20 @@ export class WebSocketStrategy implements Connection {
 	 * @return The authentication token.
 	 */
 	async signin(vars: AnyAuth) {
+		vars = AnyAuth.parse(vars);
 		vars = processAuthVars(vars, {
-			namespace: this.connection.ns,
-			database: this.connection.db,
+			namespace: this.connection.namespace,
+			database: this.connection.database,
 		});
 
-		const res = await this.send<string | undefined>("signin", [vars]);
+		const res = await this.send<string>("signin", [
+			TransformAuth.parse(vars),
+		]);
 		if (res.error) throw new Error(res.error.message);
-		this.connection.auth = res.result ?? vars;
+		if (!res.result) {
+			throw new Error("Did not receive authentication token");
+		}
+		this.connection.auth = res.result;
 		return res.result;
 	}
 
@@ -184,7 +205,9 @@ export class WebSocketStrategy implements Connection {
 	 * @param token - The JWT authentication token.
 	 */
 	async authenticate(token: Token) {
-		const res = await this.send<string>("authenticate", [token]);
+		const res = await this.send<string>("authenticate", [
+			Token.parse(token),
+		]);
 		if (res.error) throw new Error(res.error.message);
 		this.connection.auth = token;
 		return !!token;
