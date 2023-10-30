@@ -116,7 +116,7 @@ export class WebSocketStrategy implements Connection {
 
 	/**
 	 * Switch to a specific namespace and database.
-	 * @param ns - Switches to a specific namespace.
+	 * @param database - Switches to a specific namespace.
 	 * @param db - Switches to a specific database.
 	 */
 	async use(
