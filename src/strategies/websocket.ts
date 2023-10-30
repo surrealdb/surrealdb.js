@@ -14,6 +14,7 @@ import {
 	type RawQueryResult,
 	type Result,
 	ScopeAuth,
+	type StatusHooks,
 	Token,
 	TransformAuth,
 } from "../types.ts";
@@ -32,6 +33,12 @@ export class WebSocketStrategy implements Connection {
 	private rejectReady?: (e: Error) => void;
 
 	public strategy: "ws" | "http" = "ws";
+
+	private readonly hooks: StatusHooks;
+
+	constructor(hooks: StatusHooks = {}) {
+		this.hooks = hooks;
+	}
 
 	/**
 	 * Establish a socket connection to the database
@@ -59,7 +66,7 @@ export class WebSocketStrategy implements Connection {
 		this.pinger = new Pinger(30000);
 		this.socket = new SurrealSocket({
 			url,
-			onOpen: async () => {
+			onConnect: async () => {
 				this.pinger?.start(() => this.ping());
 				if (this.connection.namespace && this.connection.database) {
 					await this.use({});
@@ -72,10 +79,13 @@ export class WebSocketStrategy implements Connection {
 
 				await prepare?.(this);
 				this.resolveReady?.();
+				this.hooks.onConnect?.();
 			},
 			onClose: () => {
 				this.pinger?.stop();
+				this.hooks.onClose?.();
 			},
+			onError: this.hooks.onError,
 		});
 
 		await this.socket.open().catch(this.rejectReady);

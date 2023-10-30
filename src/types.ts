@@ -2,7 +2,7 @@ import { z } from "npm:zod@^3.22.4";
 
 export type ConnectionStrategy = "websocket" | "experimental_http";
 export interface Connection {
-	constructor: Constructor<() => void>;
+	constructor: Constructor<(hooks: StatusHooks) => void>;
 
 	strategy: "ws" | "http";
 	connect: (url: string, options?: ConnectionOptions) => void;
@@ -83,6 +83,12 @@ export interface Connection {
 		thing: string,
 	) => Promise<ActionResult<T>[]>;
 }
+
+export type StatusHooks = {
+	onConnect?: () => unknown;
+	onClose?: () => unknown;
+	onError?: () => unknown;
+};
 
 export const UseOptions = z.object({
 	namespace: z.coerce.string(),

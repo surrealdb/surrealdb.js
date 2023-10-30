@@ -3,6 +3,7 @@ import {
 	type RawSocketLiveQueryNotification,
 	type RawSocketMessageResponse,
 	type Result,
+	type StatusHooks,
 	type UnprocessedLiveQueryResponse,
 	WebsocketStatus,
 } from "../types.ts";
@@ -12,8 +13,7 @@ import { processUrl } from "./processUrl.ts";
 
 export class SurrealSocket {
 	private url: string;
-	private onOpen?: () => unknown;
-	private onClose?: () => unknown;
+	private readonly hooks: StatusHooks;
 	private ws?: WebSocket;
 	private status: WebsocketStatus = WebsocketStatus.CLOSED;
 	private queue: Record<string, (data: Result) => unknown> = {};
@@ -34,15 +34,13 @@ export class SurrealSocket {
 
 	constructor({
 		url,
-		onOpen,
+		onConnect,
 		onClose,
+		onError,
 	}: {
 		url: string;
-		onOpen?: () => unknown;
-		onClose?: () => unknown;
-	}) {
-		this.onOpen = onOpen;
-		this.onClose = onClose;
+	} & StatusHooks) {
+		this.hooks = { onConnect, onClose, onError };
 		this.url = processUrl(url, {
 			http: "ws",
 			https: "wss",
@@ -64,7 +62,7 @@ export class SurrealSocket {
 					resolve();
 				}
 
-				this.onOpen?.();
+				this.hooks.onConnect?.();
 			});
 
 			ws.addEventListener("error", (e) => {
@@ -72,6 +70,7 @@ export class SurrealSocket {
 				if (!resolved) {
 					resolved = true;
 					reject("error" in e ? e.error : e.toString());
+					this.hooks.onError?.();
 				}
 			});
 		});
@@ -100,7 +99,7 @@ export class SurrealSocket {
 					this.open();
 				}, 2500);
 
-				this.onClose?.();
+				this.hooks.onClose?.();
 			}
 		});
 
@@ -190,7 +189,7 @@ export class SurrealSocket {
 		this.status = WebsocketStatus.CLOSED;
 		this.closed = new Promise((r) => this.resolveClosed = r);
 		this.ws?.close(reason, this.socketClosureReason[reason]);
-		this.onClose?.();
+		this.hooks.onClose?.();
 		await this.closed;
 	}
 
