@@ -11,9 +11,9 @@ AnyAuth,
 	type MapQueryResult,
 	type Patch,
 	type RawQueryResult,
-	type Result, ScopeAuth,
-	type Token,
+	type Result, ScopeAuth, Token,
 TransformAuth,
+processConnectionOptions,
 } from "../types.ts";
 
 export class WebSocketStrategy implements Connection {
@@ -37,8 +37,9 @@ export class WebSocketStrategy implements Connection {
 	 */
 	async connect(
 		url: string,
-		{ prepare, auth, namespace, database }: ConnectionOptions = {},
+		opts: ConnectionOptions = {},
 	) {
+		const { prepare, auth, namespace, database } = processConnectionOptions(opts);
 		this.ready = new Promise((resolve, reject) => {
 			this.resolveReady = resolve;
 			this.rejectReady = reject;
@@ -188,7 +189,7 @@ export class WebSocketStrategy implements Connection {
 	 * @param token - The JWT authentication token.
 	 */
 	async authenticate(token: Token) {
-		const res = await this.send<string>("authenticate", [token]);
+		const res = await this.send<string>("authenticate", [Token.parse(token)]);
 		if (res.error) throw new Error(res.error.message);
 		this.connection.auth = token;
 		return !!token;

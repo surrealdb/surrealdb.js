@@ -4,17 +4,15 @@ import { processAuthVars } from "../library/processAuthVars.ts";
 import {
 AnyAuth,
 	type ActionResult,
-	type Connection,
-	type HTTPAuthenticationResponse,
+	type Connection, HTTPAuthenticationResponse,
 	type InvalidSQL,
 	type MapQueryResult,
 	type QueryResult,
-	type RawQueryResult, ScopeAuth,
-	type Token,
-	type HTTPConstructorOptions,
+	type RawQueryResult, ScopeAuth, Token, HTTPConstructorOptions,
 ConnectionOptions,
 TransformAuth,
 UseOptions,
+processConnectionOptions,
 } from "../types.ts";
 
 export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
@@ -29,8 +27,9 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	constructor({ fetch: f }: HTTPConstructorOptions<TFetcher> = {}) {
-		this.fetch = f ?? (fetch as TFetcher);
+	constructor(opts: HTTPConstructorOptions<TFetcher> = {}) {
+		HTTPConstructorOptions.parse(opts);
+		this.fetch = opts.fetch ?? (fetch as TFetcher);
 		this.resolveReady = () => {}; // Purely for typescript typing :)
 		this.ready = new Promise((r) => (this.resolveReady = r));
 	}
@@ -41,15 +40,12 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 */
 	async connect(
 		url: string,
-		{
-			prepare,
-			auth,
-			namespace,
-			database,
-		}: ConnectionOptions = {},
+		opts: ConnectionOptions = {},
 	) {
+		const { prepare, auth, namespace, database } = processConnectionOptions(opts);
 		this.http = new SurrealHTTP<TFetcher>(url, { fetch: this.fetch });
 		await this.use({ namespace, database });
+
 		if (typeof auth === "string") {
 			await this.authenticate(auth);
 		} else if (auth) {
@@ -99,7 +95,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	use(opt: Partial<UseOptions>) {
 		if (!this.http) throw new NoConnectionDetails();
 
-		const { namespace, database } = UseOptions.partial().parse(opt);
+		const { namespace, database } = UseOptions.partial().strict().parse(opt);
 		if (namespace) this.http.namespace = namespace;
 		if (database) this.http.database = database;
 	}
@@ -116,13 +112,12 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 			database: this.http?.database,
 		});
 
-		const res = await this.request<HTTPAuthenticationResponse>("/signup", {
+		const res = await this.request("/signup", {
 			method: "POST",
 			body: TransformAuth.parse(vars),
-		});
+		}).then(HTTPAuthenticationResponse.parse);
 
-		if (res.description === 'string') throw new Error(res.description);
-		if (!res.token) throw new Error("Did not receive authentication token");
+		if (res.code === 403) throw new Error(res.description);
 		this.http?.setTokenAuth(res.token);
 		return res.token;
 	}
@@ -139,13 +134,12 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 			database: this.http?.database,
 		});
 
-		const res = await this.request<HTTPAuthenticationResponse>("/signin", {
+		const res = await this.request("/signin", {
 			method: "POST",
 			body: TransformAuth.parse(vars),
-		});
+		}).then(HTTPAuthenticationResponse.parse);
 
-		if (typeof res.description === 'string') throw new Error(res.description);
-		if (!res.token) throw new Error("Did not receive authentication token");
+		if (res.code === 403) throw new Error(res.description);
 		this.http?.setTokenAuth(res.token);
 		return res.token;
 	}
@@ -155,7 +149,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	 * @param token - The JWT authentication token.
 	 */
 	authenticate(token: Token) {
-		this.http?.setTokenAuth(token);
+		this.http?.setTokenAuth(Token.parse(token));
 		return true;
 	}
 

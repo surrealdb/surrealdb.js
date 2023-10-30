@@ -91,24 +91,6 @@ export const UseOptions = z.object({
 
 export type UseOptions = z.infer<typeof UseOptions>;
 
-export type ConnectionOptions =
-	& {
-		prepare?: (connection: Connection) => unknown;
-		auth?: AnyAuth | Token;
-	}
-	& (
-		| UseOptions
-		| {
-			namespace?: never;
-			database?: never;
-		}
-	);
-
-export type HTTPConstructorOptions<TFetcher = typeof fetch> =
-	{
-		fetch?: TFetcher;
-	};
-
 export type ActionResult<
 	T extends Record<string, unknown>,
 	U extends Record<string, unknown> = T,
@@ -158,7 +140,9 @@ export type ScopeAuth = z.infer<typeof ScopeAuth>;
 
 export const AnyAuth = z.union([SuperUserAuth, NamespaceAuth, DatabaseAuth, ScopeAuth]);
 export type AnyAuth = z.infer<typeof AnyAuth>;
-export type Token = string;
+
+export const Token = z.string({ invalid_type_error: "Not a valid token" });
+export type Token = z.infer<typeof Token>;
 
 export const TransformAuth = z.union([
 	z.object({
@@ -195,21 +179,21 @@ export const TransformAuth = z.union([
 	}))
 ]);
 
-export type HTTPAuthenticationResponse =
-	| {
-		code: 200;
-		details: "Authentication succeeded";
-		token: string;
-		description?: never;
-		information?: never;
-	}
-	| {
-		code: 403;
-		details: "Authentication failed";
-		token?: never;
-		description: string;
-		information: string;
-	};
+export const HTTPAuthenticationResponse = z.discriminatedUnion('code', [
+	z.object({
+		code: z.literal(200),
+		details: z.string(),
+		token: z.string({ required_error: "Did not recieve an authentication token", invalid_type_error: "Received an invalid token" }),
+	}),
+	z.object({
+		code: z.literal(403),
+		details: z.string(),
+		description: z.string(),
+		information: z.string(),
+	})
+], { invalid_type_error: "Unexpected authentication response" });
+
+export type HTTPAuthenticationResponse = z.infer<typeof HTTPAuthenticationResponse>;
 
 /////////////////////////////////////
 //////////   QUERY TYPES   //////////
@@ -350,6 +334,15 @@ export type InvalidSQL = {
 	information: string;
 };
 
+export const HTTPConstructorOptions = z.object({
+	fetch: z.function().optional(),
+});
+
+export type HTTPConstructorOptions<TFetcher = typeof fetch> =
+	{
+		fetch?: TFetcher;
+	};
+
 ///////////////////////////////
 //////////   OTHER   //////////
 ///////////////////////////////
@@ -364,3 +357,33 @@ export type RawSocketMessageResponse =
 export type RawSocketLiveQueryNotification = {
 	result: UnprocessedLiveQueryResponse;
 };
+
+export type ConnectionOptions =
+	& {
+		prepare?: (connection: Connection) => unknown;
+		auth?: AnyAuth | Token;
+	}
+	& (
+		| UseOptions
+		| {
+			namespace?: never;
+			database?: never;
+		}
+	);
+
+export function processConnectionOptions({
+	prepare,
+	auth,
+	namespace,
+	database,
+}: ConnectionOptions) {
+	z.function().optional().parse(prepare);
+	z.union([Token, AnyAuth]).optional().parse(auth);
+	const useOpts = namespace || database ?
+		UseOptions.parse({
+			namespace,
+			database,
+		}) : { namespace: undefined, database: undefined };
+
+	return { prepare, auth, ...useOpts } satisfies ConnectionOptions;
+}
