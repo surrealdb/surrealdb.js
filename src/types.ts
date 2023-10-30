@@ -245,6 +245,7 @@ export type MapQueryResult<T> = {
 export type RawQueryResult =
 	| string
 	| number
+	| boolean
 	| symbol
 	| null
 	| RawQueryResult[]
