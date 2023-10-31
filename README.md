@@ -84,7 +84,7 @@ try {
 	});
 
 	// Select a specific namespace / database
-	await db.use({ ns: "test", db: "test" });
+	await db.use({ namespace: "test", database: "test" });
 
 	// Create a new person with a random id
 	let created = await db.create("person", {
