@@ -1,4 +1,5 @@
 import { NoActiveSocket, UnexpectedResponse } from "../errors.ts";
+import { PreparedQuery } from "../index.ts";
 import { Pinger } from "../library/Pinger.ts";
 import { SurrealSocket } from "../library/SurrealSocket.ts";
 import { processAuthVars } from "../library/processAuthVars.ts";
@@ -298,13 +299,13 @@ export class WebSocketStrategy implements Connection {
 	/**
 	 * Runs a set of SurrealQL statements against the database.
 	 * @param query - Specifies the SurrealQL statements.
-	 * @param vars - Assigns variables which can be used in the query.
+	 * @param bindings - Assigns variables which can be used in the query.
 	 */
 	async query<T extends RawQueryResult[]>(
-		query: string,
-		vars?: Record<string, unknown>,
+		query: string | PreparedQuery,
+		bindings?: Record<string, unknown>,
 	) {
-		const raw = await this.query_raw<T>(query, vars);
+		const raw = await this.query_raw<T>(query, bindings);
 		return raw.map(({ status, result, detail }) => {
 			if (status == "ERR") throw new Error(detail ?? result);
 			return result;
@@ -314,14 +315,23 @@ export class WebSocketStrategy implements Connection {
 	/**
 	 * Runs a set of SurrealQL statements against the database.
 	 * @param query - Specifies the SurrealQL statements.
-	 * @param vars - Assigns variables which can be used in the query.
+	 * @param bindings - Assigns variables which can be used in the query.
 	 */
 	async query_raw<T extends RawQueryResult[]>(
-		query: string,
-		vars?: Record<string, unknown>,
+		query: string | PreparedQuery,
+		bindings?: Record<string, unknown>,
 	) {
+		if (typeof query !== "string") {
+			bindings = bindings ?? {};
+			bindings = { ...bindings, ...query.bindings };
+			query = query.query;
+		}
+
 		await this.ready;
-		const res = await this.send<MapQueryResult<T>>("query", [query, vars]);
+		const res = await this.send<MapQueryResult<T>>("query", [
+			query,
+			bindings,
+		]);
 		if (res.error) throw new Error(res.error.message);
 		return res.result;
 	}

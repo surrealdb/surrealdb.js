@@ -66,7 +66,7 @@ async function test(name, cb) {
 /**
  * @type{(a: import('../../src/index.ts').default) => void}
  */
-export default async (db) => {
+export default async (db, { surrealql, PreparedQuery }) => {
 	logger.debug("Signin as a namespace, database, or root user");
 
 	// We need a random database because some tests depend on row count.
@@ -179,6 +179,29 @@ export default async (db) => {
 			expect(e.message).toBe("An error occurred: example error");
 		}
 	});
+
+	await test("Prepared queries and tagged templates", async (expect) => {
+		const name = "John Doe";
+		const age = 44;
+
+		{
+			const query = new PreparedQuery(
+				/* surql */`RETURN $name; RETURN $age`,
+				{ name, age }
+			);
+
+			const res = await db.query(query);
+			expect(res).toEqualStringified([name, age]);
+		};
+
+		{
+			const res = await db.query(
+				surrealql`RETURN ${name}; RETURN ${age}`
+			);
+
+			expect(res).toEqualStringified([name, age]);
+		};
+	})
 
 	if (db.strategy === 'ws') {
 		logger.debug("== Running WS specific tests ==");

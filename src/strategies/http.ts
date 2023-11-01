@@ -1,4 +1,5 @@
 import { NoConnectionDetails } from "../errors.ts";
+import { PreparedQuery } from "../index.ts";
 import { SurrealHTTP } from "../library/SurrealHTTP.ts";
 import { processAuthVars } from "../library/processAuthVars.ts";
 import {
@@ -171,13 +172,13 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	/**
 	 * Runs a set of SurrealQL statements against the database.
 	 * @param query - Specifies the SurrealQL statements.
-	 * @param vars - Assigns variables which can be used in the query.
+	 * @param bindings - Assigns variables which can be used in the query.
 	 */
 	async query<T extends RawQueryResult[]>(
-		query: string,
-		vars?: Record<string, unknown>,
+		query: string | PreparedQuery,
+		bindings?: Record<string, unknown>,
 	) {
-		const raw = await this.query_raw<T>(query, vars);
+		const raw = await this.query_raw<T>(query, bindings);
 		return raw.map(({ status, result, detail }) => {
 			if (status == "ERR") throw new Error(detail ?? result);
 			return result;
@@ -187,21 +188,27 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	/**
 	 * Runs a set of SurrealQL statements against the database.
 	 * @param query - Specifies the SurrealQL statements.
-	 * @param vars - Assigns variables which can be used in the query.
+	 * @param bindings - Assigns variables which can be used in the query.
 	 */
 	async query_raw<T extends RawQueryResult[]>(
-		query: string,
-		vars?: Record<string, unknown>,
+		query: string | PreparedQuery,
+		bindings?: Record<string, unknown>,
 	) {
+		if (typeof query !== "string") {
+			bindings = bindings ?? {};
+			bindings = { ...bindings, ...query.bindings };
+			query = query.query;
+		}
+
 		await this.ready;
 		const res = await this.request<InvalidSQL | MapQueryResult<T>>("/sql", {
 			body: query,
 			plainBody: true,
 			method: "POST",
-			searchParams: vars &&
+			searchParams: bindings &&
 				new URLSearchParams(
 					Object.fromEntries(
-						Object.entries(vars).map(([k, v]) => [
+						Object.entries(bindings).map(([k, v]) => [
 							k,
 							JSON.stringify(v),
 						]),
