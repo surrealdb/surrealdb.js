@@ -1,5 +1,3 @@
-import { surrealql, PreparedQuery } from "../../npm/esm/index.js";
-
 const logger = {
 	error(...args) {
 		console.error("TEST ERROR: ", ...args);
@@ -68,7 +66,7 @@ async function test(name, cb) {
 /**
  * @type{(a: import('../../src/index.ts').default) => void}
  */
-export default async (db) => {
+export default async (db, { surrealql, PreparedQuery }) => {
 	logger.debug("Signin as a namespace, database, or root user");
 
 	// We need a random database because some tests depend on row count.
