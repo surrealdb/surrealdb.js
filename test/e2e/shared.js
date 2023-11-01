@@ -72,8 +72,11 @@ export default async (db, { surrealql, PreparedQuery }) => {
 	// We need a random database because some tests depend on row count.
 	// Easy way to "reset" for each test while debugging...
 	const rand = (Math.random() + 1).toString(36).substring(7);
-	logger.debug(`Select NS "test", DB "test-${rand}"`);
-	await db.use({ namespace: "test", database: `test-${rand}` });
+	const namespace = 'test';
+	const database = `test-${rand}`;
+
+	logger.debug(`Select NS "${namespace}", DB "${database}"`);
+	await db.use({ namespace, database });
 
 	await test("Root authentication", async (expect) => {
 		const token = await db.signin({
@@ -285,11 +288,18 @@ export default async (db, { surrealql, PreparedQuery }) => {
 
 	// !!!! WARNING: The scope tests musts always be last because we change auth
 
-	// Preparation for testing if scope authentication works :)
+	// Preparation for testing if namespace, database and scope authentication works :)
 	await db.query(/* surql */ `
-		DEFINE SCOPE user SIGNIN (
-			SELECT * FROM user WHERE username = $username AND crypto::argon2::compare(password, $password)
-		);
+		DEFINE USER nsuser ON NAMESPACE PASSWORD 'test' ROLES OWNER;
+		DEFINE USER dbuser ON DATABASE PASSWORD 'test' ROLES OWNER;
+
+		DEFINE SCOPE user
+			SIGNIN (
+				SELECT * FROM user WHERE username = $username AND crypto::argon2::compare(password, $password)
+			)
+			SIGNUP (
+				CREATE user SET username = $username, password = crypto::argon2::generate($password)
+			);
 
 		DEFINE TABLE user SCHEMAFULL
 			PERMISSIONS
@@ -297,14 +307,67 @@ export default async (db, { surrealql, PreparedQuery }) => {
 
 		DEFINE FIELD username ON user TYPE string;
 		DEFINE FIELD password ON user TYPE string;
-
-		CREATE user CONTENT {
-			username: "johndoe",
-			password: crypto::argon2::generate("Password1!")
-		};
 	`);
 
-	await test("Scope authentication", async (expect) => {
+	// The ordering of scope signup -> db users -> scope signin is intentional
+	// This way we make sure that the session is not the one of the scope user when we try signin
+
+	await test("Scope signup", async (expect) => {
+		const token = await db.signup({
+			scope: "user",
+			username: "johndoe",
+			password: "Password1!",
+		});
+
+		expect(typeof token).toBe('string');
+
+		const res = await new Promise((r) => r(db.authenticate(token))).catch((e) => {
+			console.error(e);
+			return false;
+		});
+
+		expect(res).toBe(true);
+
+		const [{ username }] = await db.select('user');
+		expect(username).toBe('johndoe');
+	});
+
+	await test("Namespace authentication", async (expect) => {
+		const token = await db.signin({
+			namespace,
+			username: 'nsuser',
+			password: 'test',
+		});
+
+		expect(typeof token).toBe('string');
+
+		const res = await new Promise((r) => r(db.authenticate(token))).catch((e) => {
+			console.error(e);
+			return false;
+		});
+
+		expect(res).toBe(true);
+	});
+
+	await test("Database authentication", async (expect) => {
+		const token = await db.signin({
+			namespace,
+			database,
+			username: 'dbuser',
+			password: 'test',
+		});
+
+		expect(typeof token).toBe('string');
+
+		const res = await new Promise((r) => r(db.authenticate(token))).catch((e) => {
+			console.error(e);
+			return false;
+		});
+
+		expect(res).toBe(true);
+	});
+
+	await test("Scope signin", async (expect) => {
 		const token = await db.signin({
 			scope: "user",
 			username: "johndoe",
