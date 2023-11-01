@@ -1,4 +1,5 @@
 import { z } from "npm:zod@^3.22.4";
+import { PreparedQuery } from "./index.ts";
 
 export type ConnectionStrategy = "websocket" | "experimental_http";
 export interface Connection {
@@ -35,13 +36,13 @@ export interface Connection {
 	kill?: (queryUuid: string) => Promise<void>;
 
 	query: <T extends RawQueryResult[]>(
-		query: string,
-		vars?: Record<string, unknown>,
+		query: string | PreparedQuery,
+		bindings?: Record<string, unknown>,
 	) => Promise<T>;
 
 	query_raw: <T extends RawQueryResult[]>(
-		query: string,
-		vars?: Record<string, unknown>,
+		query: string | PreparedQuery,
+		bindings?: Record<string, unknown>,
 	) => Promise<MapQueryResult<T>>;
 
 	select: <T extends Record<string, unknown>>(
