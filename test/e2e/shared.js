@@ -115,7 +115,7 @@ export default async (db) => {
 	});
 
 	await test("Perform a custom advanced query", async (expect) => {
-		let groups = await db.query(
+		let groups = await db.query_raw(
 			"SELECT marketing, count() FROM type::table($tb) GROUP BY marketing",
 			{
 				tb: "person",
@@ -135,8 +135,8 @@ export default async (db) => {
 		expect(people).toEqualStringified([dataFilled["person:jaime"]]);
 	});
 
-	await test("Ensure .query() variables are encoded correctly", async (expect) => {
-		let [{ status, result }] = await db.query(/* surql */ `
+	await test("Ensure that query variables are encoded correctly", async (expect) => {
+		let [{ status, result }] = await db.query_raw(/* surql */ `
 			RETURN [
 				$object == {},
 				$array == [],
@@ -158,7 +158,27 @@ export default async (db) => {
 
 		expect(status).toBe("OK");
 		expect(result).toOnlyInclude(true);
-	})
+	});
+
+	await test("Ensure that query_raw to query conversion works as expected", async (expect) => {
+		const result = await db.query(/* surql */ `
+			RETURN true;
+			RETURN [1, 2, 3];
+			RETURN { a: 'b' };
+		`);
+
+		expect(result).toEqualStringified([
+			true,
+			[1, 2, 3],
+			{ a: 'b' },
+		]);
+
+		try {
+			await db.query('THROW "example error"');
+		} catch(e) {
+			expect(e.message).toBe("An error occurred: example error");
+		}
+	});
 
 	if (db.strategy === 'ws') {
 		logger.debug("== Running WS specific tests ==");

@@ -179,7 +179,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 	) {
 		const raw = await this.query_raw<T>(query, vars);
 		return raw.map(({ status, result, detail }) => {
-			if (status == "ERR") throw new Error(detail);
+			if (status == "ERR") throw new Error(detail ?? result);
 			return result;
 		}) as T;
 	}
