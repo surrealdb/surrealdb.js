@@ -37,6 +37,11 @@ export interface Connection {
 	query: <T extends RawQueryResult[]>(
 		query: string,
 		vars?: Record<string, unknown>,
+	) => Promise<T>;
+
+	query_raw: <T extends RawQueryResult[]>(
+		query: string,
+		vars?: Record<string, unknown>,
 	) => Promise<MapQueryResult<T>>;
 
 	select: <T extends Record<string, unknown>>(
