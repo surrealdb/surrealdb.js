@@ -1,3 +1,5 @@
+import { surrealql, PreparedQuery } from "../../npm/esm/index.js";
+
 const logger = {
 	error(...args) {
 		console.error("TEST ERROR: ", ...args);
@@ -179,6 +181,29 @@ export default async (db) => {
 			expect(e.message).toBe("An error occurred: example error");
 		}
 	});
+
+	await test("Prepared queries and tagged templates", async (expect) => {
+		const name = "John Doe";
+		const age = 44;
+
+		{
+			const query = new PreparedQuery(
+				/* surql */`RETURN $name; RETURN $age`,
+				{ name, age }
+			);
+
+			const res = await db.query(query);
+			expect(res).toEqualStringified([name, age]);
+		};
+
+		{
+			const res = await db.query(
+				surrealql`RETURN ${name}; RETURN ${age}`
+			);
+
+			expect(res).toEqualStringified([name, age]);
+		};
+	})
 
 	if (db.strategy === 'ws') {
 		logger.debug("== Running WS specific tests ==");
