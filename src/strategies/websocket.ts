@@ -304,6 +304,22 @@ export class WebSocketStrategy implements Connection {
 		query: string,
 		vars?: Record<string, unknown>,
 	) {
+		const raw = await this.query_raw<T>(query, vars);
+		return raw.map(({ status, result, detail }) => {
+			if (status == "ERR") throw new Error(detail);
+			return result;
+		}) as T;
+	}
+
+	/**
+	 * Runs a set of SurrealQL statements against the database.
+	 * @param query - Specifies the SurrealQL statements.
+	 * @param vars - Assigns variables which can be used in the query.
+	 */
+	async query_raw<T extends RawQueryResult[]>(
+		query: string,
+		vars?: Record<string, unknown>,
+	) {
 		await this.ready;
 		const res = await this.send<MapQueryResult<T>>("query", [query, vars]);
 		if (res.error) throw new Error(res.error.message);
