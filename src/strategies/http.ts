@@ -194,7 +194,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 		query: string | PreparedQuery,
 		bindings?: Record<string, unknown>,
 	) {
-		if (typeof query !== 'string') {
+		if (typeof query !== "string") {
 			bindings = bindings ?? {};
 			bindings = { ...bindings, ...query.bindings };
 			query = query.query;
