@@ -79,8 +79,8 @@ try {
 
 	// Signin as a namespace, database, or root user
 	await db.signin({
-		user: "root",
-		pass: "root",
+		username: "root",
+		password: "root",
 	});
 
 	// Select a specific namespace / database
