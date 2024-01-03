@@ -331,7 +331,7 @@ export class HTTPStrategy<TFetcher = typeof fetch> implements Connection {
 		return res.result;
 	}
 
-	protected get request() {
+	protected get request(): SurrealHTTP<TFetcher>["request"] {
 		if (!this.http) throw new NoConnectionDetails();
 		return this.http.request.bind(this.http);
 	}
