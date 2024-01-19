@@ -1,4 +1,4 @@
-import { WebSocketStrategy } from "./strategies/websocket.ts";
+import { WebSocketStrategy } from "./surreal.ts";
 import { HTTPStrategy } from "./strategies/http.ts";
 
 export { WebSocketStrategy as Surreal, WebSocketStrategy as SurrealWebSocket };

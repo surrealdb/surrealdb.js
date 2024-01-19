@@ -1,44 +1,42 @@
-import { NoActiveSocket, UnexpectedResponse } from "../errors.ts";
-import { PreparedQuery } from "../index.ts";
-import { Pinger } from "../library/Pinger.ts";
-import { SurrealSocket } from "../library/SurrealSocket.ts";
-import { processAuthVars } from "../library/processAuthVars.ts";
+import { NoActiveSocket, UnexpectedResponse } from "./errors.ts";
+import { PreparedQuery } from "./index.ts";
+import { Pinger } from "./library/Pinger.ts";
+import { SurrealSocket } from "./library/SurrealSocket.ts";
+import { Connection, WebsocketConnection } from "./library/connection.ts";
+import { RecordId } from "./library/data/recordid.ts";
+import { Action, LiveHandler } from "./library/live.ts";
+import { processAuthVars } from "./library/processAuthVars.ts";
+import { RpcResponse } from "./library/rpc.ts";
 import {
 	type ActionResult,
 	AnyAuth,
-	type Connection,
 	type ConnectionOptions,
-	type LiveQueryResponse,
 	type MapQueryResult,
 	type Patch,
 	processConnectionOptions,
 	type RawQueryResult,
-	type Result,
 	ScopeAuth,
 	type StatusHooks,
 	Token,
 	TransformAuth,
-} from "../types.ts";
+} from "./types.ts";
 
-export class WebSocketStrategy implements Connection {
-	protected socket?: SurrealSocket;
+export class Surreal {
+	public connection: Connection | undefined;
 	private pinger?: Pinger;
-	private connection: {
-		namespace?: string;
-		database?: string;
-		auth?: AnyAuth | Token;
-	} = {};
-
-	public ready?: Promise<void>;
-	private resolveReady?: () => void;
-	private rejectReady?: (e: Error) => void;
-
-	public strategy: "ws" | "http" = "ws";
-
+	public readonly strategy: 'websocket' | 'http';
 	private readonly hooks: StatusHooks;
+	ready?: Promise<void>;
 
-	constructor(hooks: StatusHooks = {}) {
-		this.hooks = hooks;
+	constructor({
+		hooks,
+		strategy
+	}: {
+		strategy?: 'websocket' | 'http';
+		hooks?: StatusHooks;
+	} = {}) {
+		this.hooks = hooks ?? {};
+		this.strategy = strategy ?? 'websocket';
 	}
 
 	/**
@@ -52,10 +50,8 @@ export class WebSocketStrategy implements Connection {
 		const { prepare, auth, namespace, database } = processConnectionOptions(
 			opts,
 		);
-		this.ready = new Promise((resolve, reject) => {
-			this.resolveReady = resolve;
-			this.rejectReady = reject;
-		});
+		this.connection = new WebsocketConnection();
+		this.ready = this.connection.connect(url);
 
 		this.connection = {
 			auth,
@@ -258,15 +254,17 @@ export class WebSocketStrategy implements Connection {
 	 * @param callback - Callback function that receives updates.
 	 * @param diff - If set to true, will return a set of patches instead of complete records
 	 */
-	async live<T extends Record<string, unknown> = Record<string, unknown>>(
+	async live<Result extends Record<string, unknown> | Patch = Record<string, unknown>>(
 		table: string,
-		callback?: (data: LiveQueryResponse<T>) => unknown,
+		callback?: LiveHandler<Result>,
 		diff?: boolean,
 	) {
 		await this.ready;
 		const res = await this.send<string>("live", [table, diff]);
+
 		if (res.error) throw new Error(res.error.message);
-		if (callback) this.listenLive<T>(res.result, callback);
+		if (callback) this.subscribeLive<Result>(res.result, callback);
+
 		return res.result;
 	}
 
@@ -275,14 +273,31 @@ export class WebSocketStrategy implements Connection {
 	 * @param queryUuid - The LQ uuid that you want to receive live results for.
 	 * @param callback - Callback function that receives updates.
 	 */
-	async listenLive<
-		T extends Record<string, unknown> = Record<string, unknown>,
-	>(queryUuid: string, callback: (data: LiveQueryResponse<T>) => unknown) {
+	async subscribeLive<
+		Result extends Record<string, unknown> | Patch = Record<string, unknown>,
+	>(queryUuid: string, callback: LiveHandler<Result>) {
 		await this.ready;
-		if (!this.socket) throw new NoActiveSocket();
-		this.socket.listenLive(
-			queryUuid,
-			callback as (data: LiveQueryResponse) => unknown,
+		if (!this.connection) throw new NoActiveSocket();
+		this.connection.emitter.subscribe(
+			`live-${queryUuid}`,
+			callback as (action: Action, result: Record<string, unknown> | Patch) => unknown,
+			true
+		);
+	}
+
+	/**
+	 * Listen for live query responses by it's uuid
+	 * @param queryUuid - The LQ uuid that you want to receive live results for.
+	 * @param callback - Callback function that receives updates.
+	 */
+	async unSubscribeLive<
+		Result extends Record<string, unknown> | Patch = Record<string, unknown>,
+	>(queryUuid: string, callback: LiveHandler<Result>) {
+		await this.ready;
+		if (!this.connection) throw new NoActiveSocket();
+		this.connection.emitter.unSubscribe(
+			`live-${queryUuid}`,
+			callback as (action: Action, result: Record<string, unknown> | Patch) => unknown
 		);
 	}
 
@@ -290,10 +305,23 @@ export class WebSocketStrategy implements Connection {
 	 * Kill a live query
 	 * @param uuid - The query that you want to kill.
 	 */
-	async kill(queryUuid: string) {
+	async kill(queryUuid: string | string[]) {
 		await this.ready;
-		if (!this.socket) throw new NoActiveSocket();
-		await this.socket.kill(queryUuid);
+		if (!this.connection) throw new NoActiveSocket();
+		if (Array.isArray(queryUuid)) {
+			await Promise.all(queryUuid.map((u) => this.send('kill', [u])));
+			const toBeKilled = queryUuid.map(u => `live-${u}` as const);
+			this.connection.emitter.reset({
+				collectable: toBeKilled,
+				listeners: toBeKilled,
+			});
+		} else {
+			await this.send('kill', [queryUuid]);
+			this.connection.emitter.reset({
+				collectable: `live-${queryUuid}`,
+				listeners: `live-${queryUuid}`,
+			});
+		}
 	}
 
 	/**
@@ -340,7 +368,7 @@ export class WebSocketStrategy implements Connection {
 	 * Selects all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
 	 */
-	async select<T extends Record<string, unknown>>(thing: string) {
+	async select<T extends Record<string, unknown>>(thing: string | RecordId) {
 		await this.ready;
 		const res = await this.send<ActionResult<T>>("select", [thing]);
 		return this.outputHandler(res);
@@ -354,7 +382,7 @@ export class WebSocketStrategy implements Connection {
 	async create<
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
-	>(thing: string, data?: U) {
+	>(thing: string | RecordId, data?: U) {
 		await this.ready;
 		const res = await this.send<ActionResult<T, U>>("create", [
 			thing,
@@ -371,7 +399,7 @@ export class WebSocketStrategy implements Connection {
 	async insert<
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
-	>(thing: string, data?: U | U[]) {
+	>(thing: string | RecordId, data?: U | U[]) {
 		await this.ready;
 		const res = await this.send<ActionResult<T, U>>("insert", [
 			thing,
@@ -390,7 +418,7 @@ export class WebSocketStrategy implements Connection {
 	async update<
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = T,
-	>(thing: string, data?: U) {
+	>(thing: string | RecordId, data?: U) {
 		await this.ready;
 		const res = await this.send<ActionResult<T, U>>("update", [
 			thing,
@@ -409,9 +437,9 @@ export class WebSocketStrategy implements Connection {
 	async merge<
 		T extends Record<string, unknown>,
 		U extends Record<string, unknown> = Partial<T>,
-	>(thing: string, data?: U) {
+	>(thing: string | RecordId, data?: U) {
 		await this.ready;
-		const res = await this.send<ActionResult<T, U>>("merge", [thing, data]);
+		const res = await this.send<ActionResult<U>>("merge", [thing, data]);
 		return this.outputHandler(res);
 	}
 
@@ -422,7 +450,7 @@ export class WebSocketStrategy implements Connection {
 	 * @param thing - The table name or the specific record ID to modify.
 	 * @param data - The JSON Patch data with which to modify the records.
 	 */
-	async patch(thing: string, data?: Patch[]) {
+	async patch(thing: RecordId, data?: Patch[]) {
 		await this.ready;
 		const res = await this.send<Patch>("patch", [thing, data]);
 		return this.outputHandler(res);
@@ -433,7 +461,7 @@ export class WebSocketStrategy implements Connection {
 	 * @param thing - The table name or a record ID to select.
 	 */
 	async delete<T extends Record<string, unknown> = Record<string, unknown>>(
-		thing: string,
+		thing: string | RecordId<string>,
 	) {
 		await this.ready;
 		const res = await this.send<ActionResult<T>>("delete", [thing]);
@@ -445,14 +473,12 @@ export class WebSocketStrategy implements Connection {
 	 * @param method - Type of message to send.
 	 * @param params - Parameters for the message.
 	 */
-	protected send<T = unknown, U = Result<T>>(
+	protected send<Result extends unknown>(
 		method: string,
 		params?: unknown[],
 	) {
-		return new Promise<U>((resolve) => {
-			if (!this.socket) throw new NoActiveSocket();
-			this.socket.send(method, params ?? [], (r) => resolve(r as U));
-		});
+		if (!this.connection) throw new NoActiveSocket();
+		return this.connection.send<typeof method, typeof params, Result>({ method, params });
 	}
 
 	/**
@@ -460,7 +486,7 @@ export class WebSocketStrategy implements Connection {
 	 * @param res - The raw response
 	 * @param thing - What thing did you query (table vs record).
 	 */
-	private outputHandler<T extends Record<string, unknown>>(res: Result<T>) {
+	private outputHandler<T extends Record<string, unknown>>(res: RpcResponse<T>) {
 		if (res.error) throw new Error(res.error.message);
 		if (Array.isArray(res.result)) {
 			return res.result as T[];

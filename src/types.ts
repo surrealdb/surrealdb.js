@@ -1,5 +1,6 @@
 import { z } from "npm:zod@^3.22.4";
 import { PreparedQuery } from "./index.ts";
+import { RecordId } from "./library/data/recordid.ts";
 
 export type ConnectionStrategy = "websocket" | "experimental_http";
 export interface Connection {
@@ -106,7 +107,11 @@ export type UseOptions = z.infer<typeof UseOptions>;
 export type ActionResult<
 	T extends Record<string, unknown>,
 	U extends Record<string, unknown> = T,
-> = T & U & { id: string };
+> = TidyObject<T & U & { id: RecordId }>;
+
+type TidyObject<T extends Record<string, unknown>> = {
+	[K in keyof T]: T[K]
+};
 
 //////////////////////////////////////////////
 //////////   AUTHENTICATION TYPES   //////////
