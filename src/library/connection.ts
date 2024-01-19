@@ -113,6 +113,10 @@ export class WebsocketConnection implements Connection {
 			this.token = z.string().parse(request.params?.[0]);
 		}
 
+		if (request.method == 'invalidate' && response.result == undefined) {
+			this.token = undefined;
+		}
+
 		if (request.method == 'signin' && typeof response.result == 'string') {
 			this.token = response.result
 		}

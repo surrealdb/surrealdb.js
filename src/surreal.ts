@@ -1,7 +1,6 @@
 import { NoActiveSocket, UnexpectedResponse } from "./errors.ts";
 import { PreparedQuery } from "./index.ts";
 import { Pinger } from "./library/Pinger.ts";
-import { SurrealSocket } from "./library/SurrealSocket.ts";
 import { Connection, WebsocketConnection } from "./library/connection.ts";
 import { RecordId } from "./library/data/recordid.ts";
 import { Action, LiveHandler } from "./library/live.ts";
@@ -14,7 +13,6 @@ import {
 	type MapQueryResult,
 	type Patch,
 	processConnectionOptions,
-	type RawQueryResult,
 	ScopeAuth,
 	type StatusHooks,
 	Token,
@@ -24,68 +22,75 @@ import {
 export class Surreal {
 	public connection: Connection | undefined;
 	private pinger?: Pinger;
-	public readonly strategy: 'websocket' | 'http';
+	public readonly strategy: "websocket" | "http";
 	private readonly hooks: StatusHooks;
 	ready?: Promise<void>;
 
 	constructor({
 		hooks,
-		strategy
+		strategy,
 	}: {
-		strategy?: 'websocket' | 'http';
+		strategy?: "websocket" | "http";
 		hooks?: StatusHooks;
 	} = {}) {
 		this.hooks = hooks ?? {};
-		this.strategy = strategy ?? 'websocket';
+		this.strategy = strategy ?? "websocket";
 	}
 
 	/**
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	async connect(
-		url: string,
-		opts: ConnectionOptions = {},
-	) {
-		const { prepare, auth, namespace, database } = processConnectionOptions(
-			opts,
-		);
-		this.connection = new WebsocketConnection();
-		this.ready = this.connection.connect(url);
+	async connect(url: string, opts: ConnectionOptions = {}) {
+		const { prepare, auth, namespace, database } =
+			processConnectionOptions(opts);
 
-		this.connection = {
-			auth,
-			namespace,
-			database,
-		};
+		// Close any existing connections
+		await this.close();
 
-		this.socket?.close(1000);
-		this.pinger = new Pinger(30000);
-		this.socket = new SurrealSocket({
-			url,
-			onConnect: async () => {
-				this.pinger?.start(() => this.ping());
-				if (this.connection.namespace && this.connection.database) {
-					await this.use({});
-				}
-				if (typeof this.connection.auth === "string") {
-					await this.authenticate(this.connection.auth);
-				} else if (this.connection.auth) {
-					await this.signin(this.connection.auth);
-				}
+		// The promise does not know if `this.connection` is undefined or not, but it does about `connection`
+		const connection = new WebsocketConnection();
+		this.connection = connection;
 
-				await prepare?.(this);
-				this.resolveReady?.();
-				this.hooks.onConnect?.();
-			},
-			onClose: () => {
-				this.pinger?.stop();
-				this.hooks.onClose?.();
-			},
-			onError: this.hooks.onError,
+		this.connection.emitter.subscribe('disconnected', () => {
+			this.pinger?.stop();
+			this.hooks.onDisconnect?.();
 		});
 
-		await this.socket.open().catch(this.rejectReady);
+		this.connection.emitter.subscribe('error', (error) => {
+			this.pinger?.stop();
+			this.hooks.onError?.(error);
+		});
+
+		if (this.hooks.onReconnect) {
+			this.connection.emitter.subscribe('error', this.hooks.onReconnect);
+		}
+
+		this.pinger = new Pinger(30000);
+		this.ready = new Promise((resolve, reject) =>
+			connection.connect(url)
+				.then(async () => {
+					this.pinger?.start(() => this.ping());
+					if (namespace || database) {
+						await this.use({
+							namespace,
+							database,
+						});
+					}
+
+					if (typeof auth === "string") {
+						await this.authenticate(auth);
+					} else if (auth) {
+						await this.signin(auth);
+					}
+
+					await prepare?.(this);
+					resolve();
+					this.hooks.onConnect?.();
+				})
+				.catch(reject)
+		);
+
 		return this.ready;
 	}
 
@@ -93,24 +98,25 @@ export class Surreal {
 	 * Disconnect the socket to the database
 	 */
 	async close() {
-		await this.socket?.close(1000);
-		this.socket = undefined;
+		if (this.connection) {
+			await this.connection.disconnect();
+			this.connection.emitter.reset({
+				collectable: true,
+				listeners: true
+			});
+		}
+
+		if (this.pinger) {
+			this.pinger.stop();
+		}
 	}
 
 	/**
 	 * Check if connection is ready
 	 */
 	async wait() {
-		if (!this.socket) throw new NoActiveSocket();
+		if (!this.connection) throw new NoActiveSocket();
 		await this.ready;
-	}
-
-	/**
-	 * Get status of the socket connection
-	 */
-	get status() {
-		if (!this.socket) throw new NoActiveSocket();
-		return this.socket.connectionStatus;
 	}
 
 	/**
@@ -126,9 +132,15 @@ export class Surreal {
 	 * @param database - Switches to a specific namespace.
 	 * @param db - Switches to a specific database.
 	 */
-	async use(
-		{ namespace, database }: { namespace?: string; database?: string },
-	) {
+	async use({
+		namespace,
+		database,
+	}: {
+		namespace?: string;
+		database?: string;
+	}) {
+		if (!this.connection) throw new NoActiveSocket();
+
 		if (!namespace && !this.connection.namespace) {
 			throw new Error("Please specify a namespace to use.");
 		}
@@ -136,11 +148,9 @@ export class Surreal {
 			throw new Error("Please specify a database to use.");
 		}
 
-		this.connection.namespace = namespace ?? this.connection.namespace;
-		this.connection.database = database ?? this.connection.database;
 		const { error } = await this.send("use", [
-			this.connection.namespace,
-			this.connection.database,
+			namespace,
+			database,
 		]);
 
 		if (error) throw new Error(error.message);
@@ -167,6 +177,8 @@ export class Surreal {
 	 * @return The authentication token.
 	 */
 	async signup(vars: ScopeAuth) {
+		if (!this.connection) throw new NoActiveSocket();
+
 		vars = ScopeAuth.parse(vars);
 		vars = processAuthVars(vars, {
 			namespace: this.connection.namespace,
@@ -180,7 +192,6 @@ export class Surreal {
 		if (!res.result) {
 			throw new Error("Did not receive authentication token");
 		}
-		this.connection.auth = res.result;
 		return res.result;
 	}
 
@@ -190,6 +201,8 @@ export class Surreal {
 	 * @return The authentication token.
 	 */
 	async signin(vars: AnyAuth) {
+		if (!this.connection) throw new NoActiveSocket();
+
 		vars = AnyAuth.parse(vars);
 		vars = processAuthVars(vars, {
 			namespace: this.connection.namespace,
@@ -203,7 +216,6 @@ export class Surreal {
 		if (!res.result) {
 			throw new Error("Did not receive authentication token");
 		}
-		this.connection.auth = res.result;
 		return res.result;
 	}
 
@@ -216,7 +228,6 @@ export class Surreal {
 			Token.parse(token),
 		]);
 		if (res.error) throw new Error(res.error.message);
-		this.connection.auth = token;
 		return !!token;
 	}
 
@@ -226,7 +237,6 @@ export class Surreal {
 	async invalidate() {
 		const res = await this.send("invalidate");
 		if (res.error) throw new Error(res.error.message);
-		this.connection.auth = undefined;
 	}
 
 	/**
@@ -254,11 +264,9 @@ export class Surreal {
 	 * @param callback - Callback function that receives updates.
 	 * @param diff - If set to true, will return a set of patches instead of complete records
 	 */
-	async live<Result extends Record<string, unknown> | Patch = Record<string, unknown>>(
-		table: string,
-		callback?: LiveHandler<Result>,
-		diff?: boolean,
-	) {
+	async live<
+		Result extends Record<string, unknown> | Patch = Record<string, unknown>
+	>(table: string, callback?: LiveHandler<Result>, diff?: boolean) {
 		await this.ready;
 		const res = await this.send<string>("live", [table, diff]);
 
@@ -274,13 +282,16 @@ export class Surreal {
 	 * @param callback - Callback function that receives updates.
 	 */
 	async subscribeLive<
-		Result extends Record<string, unknown> | Patch = Record<string, unknown>,
+		Result extends Record<string, unknown> | Patch = Record<string, unknown>
 	>(queryUuid: string, callback: LiveHandler<Result>) {
 		await this.ready;
 		if (!this.connection) throw new NoActiveSocket();
 		this.connection.emitter.subscribe(
 			`live-${queryUuid}`,
-			callback as (action: Action, result: Record<string, unknown> | Patch) => unknown,
+			callback as (
+				action: Action,
+				result: Record<string, unknown> | Patch
+			) => unknown,
 			true
 		);
 	}
@@ -291,13 +302,16 @@ export class Surreal {
 	 * @param callback - Callback function that receives updates.
 	 */
 	async unSubscribeLive<
-		Result extends Record<string, unknown> | Patch = Record<string, unknown>,
+		Result extends Record<string, unknown> | Patch = Record<string, unknown>
 	>(queryUuid: string, callback: LiveHandler<Result>) {
 		await this.ready;
 		if (!this.connection) throw new NoActiveSocket();
 		this.connection.emitter.unSubscribe(
 			`live-${queryUuid}`,
-			callback as (action: Action, result: Record<string, unknown> | Patch) => unknown
+			callback as (
+				action: Action,
+				result: Record<string, unknown> | Patch
+			) => unknown
 		);
 	}
 
@@ -309,14 +323,14 @@ export class Surreal {
 		await this.ready;
 		if (!this.connection) throw new NoActiveSocket();
 		if (Array.isArray(queryUuid)) {
-			await Promise.all(queryUuid.map((u) => this.send('kill', [u])));
-			const toBeKilled = queryUuid.map(u => `live-${u}` as const);
+			await Promise.all(queryUuid.map((u) => this.send("kill", [u])));
+			const toBeKilled = queryUuid.map((u) => `live-${u}` as const);
 			this.connection.emitter.reset({
 				collectable: toBeKilled,
 				listeners: toBeKilled,
 			});
 		} else {
-			await this.send('kill', [queryUuid]);
+			await this.send("kill", [queryUuid]);
 			this.connection.emitter.reset({
 				collectable: `live-${queryUuid}`,
 				listeners: `live-${queryUuid}`,
@@ -329,9 +343,9 @@ export class Surreal {
 	 * @param query - Specifies the SurrealQL statements.
 	 * @param bindings - Assigns variables which can be used in the query.
 	 */
-	async query<T extends RawQueryResult[]>(
+	async query<T extends unknown[]>(
 		query: string | PreparedQuery,
-		bindings?: Record<string, unknown>,
+		bindings?: Record<string, unknown>
 	) {
 		const raw = await this.query_raw<T>(query, bindings);
 		return raw.map(({ status, result, detail }) => {
@@ -345,9 +359,9 @@ export class Surreal {
 	 * @param query - Specifies the SurrealQL statements.
 	 * @param bindings - Assigns variables which can be used in the query.
 	 */
-	async query_raw<T extends RawQueryResult[]>(
+	async query_raw<T extends unknown[]>(
 		query: string | PreparedQuery,
-		bindings?: Record<string, unknown>,
+		bindings?: Record<string, unknown>
 	) {
 		if (typeof query !== "string") {
 			bindings = bindings ?? {};
@@ -381,7 +395,7 @@ export class Surreal {
 	 */
 	async create<
 		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = T,
+		U extends Record<string, unknown> = T
 	>(thing: string | RecordId, data?: U) {
 		await this.ready;
 		const res = await this.send<ActionResult<T, U>>("create", [
@@ -398,7 +412,7 @@ export class Surreal {
 	 */
 	async insert<
 		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = T,
+		U extends Record<string, unknown> = T
 	>(thing: string | RecordId, data?: U | U[]) {
 		await this.ready;
 		const res = await this.send<ActionResult<T, U>>("insert", [
@@ -417,7 +431,7 @@ export class Surreal {
 	 */
 	async update<
 		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = T,
+		U extends Record<string, unknown> = T
 	>(thing: string | RecordId, data?: U) {
 		await this.ready;
 		const res = await this.send<ActionResult<T, U>>("update", [
@@ -436,7 +450,7 @@ export class Surreal {
 	 */
 	async merge<
 		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = Partial<T>,
+		U extends Record<string, unknown> = Partial<T>
 	>(thing: string | RecordId, data?: U) {
 		await this.ready;
 		const res = await this.send<ActionResult<U>>("merge", [thing, data]);
@@ -461,7 +475,7 @@ export class Surreal {
 	 * @param thing - The table name or a record ID to select.
 	 */
 	async delete<T extends Record<string, unknown> = Record<string, unknown>>(
-		thing: string | RecordId<string>,
+		thing: string | RecordId<string>
 	) {
 		await this.ready;
 		const res = await this.send<ActionResult<T>>("delete", [thing]);
@@ -473,12 +487,12 @@ export class Surreal {
 	 * @param method - Type of message to send.
 	 * @param params - Parameters for the message.
 	 */
-	protected send<Result extends unknown>(
-		method: string,
-		params?: unknown[],
-	) {
+	protected send<Result extends unknown>(method: string, params?: unknown[]) {
 		if (!this.connection) throw new NoActiveSocket();
-		return this.connection.send<typeof method, typeof params, Result>({ method, params });
+		return this.connection.send<typeof method, typeof params, Result>({
+			method,
+			params,
+		});
 	}
 
 	/**
@@ -486,7 +500,9 @@ export class Surreal {
 	 * @param res - The raw response
 	 * @param thing - What thing did you query (table vs record).
 	 */
-	private outputHandler<T extends Record<string, unknown>>(res: RpcResponse<T>) {
+	private outputHandler<T extends Record<string, unknown>>(
+		res: RpcResponse<T>
+	) {
 		if (res.error) throw new Error(res.error.message);
 		if (Array.isArray(res.result)) {
 			return res.result as T[];

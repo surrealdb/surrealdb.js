@@ -1,6 +1,7 @@
 import { z } from "npm:zod@^3.22.4";
 import { PreparedQuery } from "./index.ts";
 import { RecordId } from "./library/data/recordid.ts";
+import { Surreal } from "./surreal.ts";
 
 export type ConnectionStrategy = "websocket" | "experimental_http";
 export interface Connection {
@@ -93,8 +94,9 @@ export interface Connection {
 
 export type StatusHooks = {
 	onConnect?: () => unknown;
-	onClose?: () => unknown;
-	onError?: () => unknown;
+	onReconnect?: () => unknown;
+	onDisconnect?: () => unknown;
+	onError?: (error: Error) => unknown;
 };
 
 export const UseOptions = z.object({
@@ -387,7 +389,7 @@ export type RawSocketLiveQueryNotification = {
 
 export type ConnectionOptions =
 	& {
-		prepare?: (connection: Connection) => unknown;
+		prepare?: (connection: Surreal) => unknown;
 		auth?: AnyAuth | Token;
 	}
 	& (
