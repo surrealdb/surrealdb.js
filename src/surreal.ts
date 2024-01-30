@@ -1,8 +1,10 @@
 import { NoActiveSocket, UnexpectedResponse } from "./errors.ts";
 import { PreparedQuery } from "./index.ts";
 import { Pinger } from "./library/Pinger.ts";
+import { EmitterEvents } from "./library/connection.ts";
 import { Connection, WebsocketConnection } from "./library/connection.ts";
 import { RecordId } from "./library/data/recordid.ts";
+import { Emitter } from "./library/emitter.ts";
 import { Action, LiveHandler } from "./library/live.ts";
 import { processAuthVars } from "./library/processAuthVars.ts";
 import { RpcResponse } from "./library/rpc.ts";
@@ -25,6 +27,7 @@ export class Surreal {
 	public readonly strategy: "websocket" | "http";
 	private readonly hooks: StatusHooks;
 	ready?: Promise<void>;
+	emitter: Emitter<EmitterEvents>;
 
 	constructor({
 		hooks,
@@ -33,6 +36,7 @@ export class Surreal {
 		strategy?: "websocket" | "http";
 		hooks?: StatusHooks;
 	} = {}) {
+		this.emitter = new Emitter();
 		this.hooks = hooks ?? {};
 		this.strategy = strategy ?? "websocket";
 	}
@@ -49,24 +53,18 @@ export class Surreal {
 		await this.close();
 
 		// The promise does not know if `this.connection` is undefined or not, but it does about `connection`
-		const connection = new WebsocketConnection();
+		const connection = new WebsocketConnection(this.emitter);
 		this.connection = connection;
+		this.pinger = new Pinger(30000);
 
 		this.connection.emitter.subscribe('disconnected', () => {
 			this.pinger?.stop();
-			this.hooks.onDisconnect?.();
 		});
 
-		this.connection.emitter.subscribe('error', (error) => {
+		this.connection.emitter.subscribe('error', () => {
 			this.pinger?.stop();
-			this.hooks.onError?.(error);
 		});
 
-		if (this.hooks.onReconnect) {
-			this.connection.emitter.subscribe('error', this.hooks.onReconnect);
-		}
-
-		this.pinger = new Pinger(30000);
 		this.ready = new Promise((resolve, reject) =>
 			connection.connect(url)
 				.then(async () => {

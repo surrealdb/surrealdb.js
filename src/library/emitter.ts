@@ -10,6 +10,20 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 		[K in keyof Events]: Listener<Events[K]>[]
 	}> = {};
 
+	private readonly interceptors: Partial<{
+		[K in keyof Events]: (...args: Events[K]) => Promise<Events[K]>;
+	}>;
+
+	constructor({
+		interceptors
+	}: {
+		interceptors?: Partial<{
+			[K in keyof Events]: (...args: Events[K]) => Promise<Events[K]>;
+		}>
+	} = {}) {
+		this.interceptors = interceptors ?? {};
+	}
+
 	subscribe<Event extends keyof Events>(event: Event, listener: Listener<Events[Event]>, historic = false) {
 		if (!this.listeners[event]) {
 			this.listeners[event] = [];
@@ -54,7 +68,10 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 		return !!this.listeners[event]?.includes(listener);
 	}
 
-	emit<Event extends keyof Events>(event: Event, args: Events[Event], collectable = false) {
+	async emit<Event extends keyof Events>(event: Event, args: Events[Event], collectable = false) {
+		const interceptor = this.interceptors[event];
+		args = interceptor ? await interceptor(...args) : args;
+
 		if (this.listeners[event]?.length == 0 && collectable) {
 			if (!this.collectable[event]) {
 				this.collectable[event] = [];

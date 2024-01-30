@@ -7,18 +7,25 @@ import { decode, encode } from "./data/cbor.ts";
 import { Action, LiveResult } from "./live.ts";
 import { Patch } from "../types.ts";
 
-export type Events = {
+export type EmitterEvents = {
+	'adapter-connecting': [],
+	'adapter-connected': [],
+	'adapter-disconnected': [],
+	'adapter-reconnecting': [],
+	'adapter-error': [],
+
 	connecting: [],
 	connected: [],
 	disconnected: [],
 	reconnecting: [],
 	error: [Error],
+
 	[K: `rpc-${string | number}`]: [RpcResponse],
 	[K: `live-${string}`]: [Action, Record<string, unknown> | Patch],
 };
 
 export abstract class Connection {
-	abstract emitter: Emitter<Events>;
+	abstract emitter: Emitter<EmitterEvents>;
 	abstract ready?: Promise<void>;
 	abstract connected?: boolean;
 	abstract connect(url: string): Promise<void>;
@@ -36,19 +43,19 @@ export class WebsocketConnection implements Connection {
 	database?: string;
 	token?: string;
 
-	readonly emitter: Emitter<Events>;
+	readonly emitter: Emitter<EmitterEvents>;
 	private socket?: WebSocket;
 
-	constructor() {
-		this.emitter = new Emitter<Events>();
+	constructor(emitter: Emitter<EmitterEvents>) {
+		this.emitter = emitter;
 	}
 
 	async connect(url: string) {
-		this.emitter.emit('connecting', []);
+		this.emitter.emit('adapter-connecting', []);
 		const socket = new WebSocket(url, 'cbor');
 		const ready = new Promise<void>((resolve, reject) => {
 			socket.addEventListener("open", () => {
-				this.emitter.emit('connected', []);
+				this.emitter.emit('adapter-connected', []);
 				resolve();
 			});
 
@@ -133,7 +140,7 @@ export class WebsocketConnection implements Connection {
 
 export class HttpConnection implements Connection {
 	ready?: Promise<void>;
-	readonly emitter: Emitter<Events>;
+	readonly emitter: Emitter<EmitterEvents>;
 	private connection?: {
 		url: string;
 		namespace?: string;
@@ -141,8 +148,8 @@ export class HttpConnection implements Connection {
 		token?: string;
 	}
 
-	constructor() {
-		this.emitter = new Emitter<Events>();
+	constructor(emitter: Emitter<EmitterEvents>) {
+		this.emitter = emitter;
 	}
 
 	connect(url: string) {
