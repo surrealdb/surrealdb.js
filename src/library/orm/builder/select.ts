@@ -91,7 +91,7 @@ export class SelectQuery<
 		}
 
 		if (start) query += /* surql */ ` START $${start}`;
-		if (start) query += /* surql */ ` LIMIT $${limit}`;
+		if (limit) query += /* surql */ ` LIMIT $${limit}`;
 
 		return query;
 	}
