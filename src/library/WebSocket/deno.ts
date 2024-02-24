@@ -1,1 +1,1 @@
-export default WebSocket;
+export { WebSocket as default } from "unws";

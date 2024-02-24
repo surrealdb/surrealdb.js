@@ -1,4 +1,4 @@
-import { z } from "npm:zod@^3.22.4";
+import { z } from "zod";
 import { PreparedQuery } from "./index.ts";
 import { RecordId } from "./library/data/recordid.ts";
 import { Surreal } from "./surreal.ts";

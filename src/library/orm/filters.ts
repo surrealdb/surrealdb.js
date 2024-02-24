@@ -1,4 +1,4 @@
-import { ZodArray } from "npm:zod@^3.22.4";
+import { ZodArray } from "zod";
 import { DisplayUtils } from "./display.ts";
 import { QueryPart } from "./query.ts";
 import { Field } from "./schema.ts";
@@ -13,6 +13,8 @@ export abstract class Filter extends QueryPart {
 	validator() {
 		return z.never();
 	}
+
+	cacher() {}
 }
 export const JoiningKind = z.union([z.literal("OR"), z.literal("AND")]);
 export const PrefixKind = z.literal("!");

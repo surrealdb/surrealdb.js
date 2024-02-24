@@ -1,4 +1,4 @@
-import { z } from "npm:zod@^3.22.4";
+import { z } from "zod";
 import { RecordIdValue } from "./recordid.ts";
 
 export class Thing<Tb extends string> {

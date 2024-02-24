@@ -12,3 +12,28 @@ SELECT VALUE {
 } FROM test
   WHERE ...
 ```
+
+
+```ts
+class ORM<Tables extends string[]> {
+    tables: Tables;
+
+    constructor(tables: Tables) {
+        this.tables = tables;
+    }
+
+    where(cb: (filters: Filters<this>) => unknown) {
+        cb({
+            eq: (table) => table
+        });
+    }
+};
+
+type Filters<O extends ORM<string[]>> = {
+    eq: (table: O['tables'][number]) => unknown;
+}
+
+const db = new ORM(['test', 'other'] as const);
+
+db.where(f => f.eq(''))
+```

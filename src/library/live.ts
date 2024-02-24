@@ -1,4 +1,4 @@
-import { z } from "npm:zod@^3.22.4";
+import { z } from "zod";
 import { Patch } from "../types.ts";
 
 export const Action = z.union([

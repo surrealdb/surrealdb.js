@@ -1,7 +1,8 @@
-import z, { ZodType } from "npm:zod@^3.22.4";
+import z, { ZodType } from "zod";
 import * as t from "./types.ts";
 import { RecordId } from "../data/recordid.ts";
 import { ZodTypeDef } from "./types.ts";
+import { ORM, GenericTables } from "./orm.ts";
 
 export const tbName: unique symbol = Symbol("tbName");
 
@@ -55,15 +56,19 @@ export function table<
 
 export function getTableZodType<
 	Name extends string,
-	Fields extends GenericFields
+	Fields extends GenericFields,
 >(schema: Table<Name, Fields>) {
 	// Exclude the tbName symbol from the schema
-	const { [tbName]: _, fields } = schema;
+	const { [tbName]: tb, fields } = schema;
+
+	type Doc = inferZodTypes<Table<Name, Fields>>;
 
 	// Reform the `Field` classes back to just the type
 	const parsable = Object.fromEntries(
 		Object.entries(fields).map(([name, { type }]) => [name, type])
-	) as inferZodTypes<Table<Name, Fields>>;
+	) as {
+		[F in keyof Doc]: Doc[F];
+	};
 
 	// Parse as object
 	return z.object(parsable)
@@ -71,7 +76,7 @@ export function getTableZodType<
 
 export function parseTableRecord<
 	Name extends string,
-	Fields extends GenericFields
+	Fields extends GenericFields,
 >(schema: Table<Name, Fields>, data: unknown) {
 	return getTableZodType(schema).parse(data);
 }
@@ -94,17 +99,14 @@ export type Table<Name extends string, Fields extends GenericFields> = {
 
 export type inferZodTypes<Ta extends Table<string, GenericFields>> = Omit<
 	{
-		-readonly [F in keyof Ta]: Ta[F]["type"];
+		-readonly [F in keyof Ta]: Ta[F]["type"]
 	},
 	typeof tbName
 >;
 
-export type infer<Ta extends Table<string, GenericFields>> = Omit<
-	{
-		-readonly [F in keyof Ta]: z.infer<Ta[F]["type"]>;
-	},
-	typeof tbName
->;
+export type infer<Ta extends Table<string, GenericFields>> = z.infer<
+	t.ZodObject<inferZodTypes<Ta>>
+>
 
 // Generic fields
 
@@ -114,6 +116,6 @@ export type GenericFields = {
 
 // Typescript workaround where an object with string keys, still gives back all possible object key types :(
 
-type KeyToString<T extends string | number | symbol> = ReturnType<
+export type KeyToString<T extends string | number | symbol> = ReturnType<
 	T["toString"]
 >;

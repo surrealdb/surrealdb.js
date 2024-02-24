@@ -1,5 +1,4 @@
-// @deno-types="npm:@types/uuid"
-import { validate, v4 } from 'npm:uuid@9.0.1';
+import { validate, v4 } from 'uuid';
 
 export class Uuid {
 	public readonly uuid: string;

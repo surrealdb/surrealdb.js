@@ -1,1 +1,1 @@
-export { Duration } from "npm:@icholy/duration@5.1.0";
+export { Duration } from "@icholy/duration";

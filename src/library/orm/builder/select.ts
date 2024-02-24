@@ -1,4 +1,4 @@
-import { RecordId, RecordIdValue } from "../../data/recordid.ts";
+import { RecordId } from "../../data/recordid.ts";
 import { Filter } from "../filters.ts";
 import {
 	tbName,
@@ -9,29 +9,27 @@ import {
 } from "../schema.ts";
 import { Query, QueryPart } from "../query.ts";
 import { DisplayUtils } from "../display.ts";
-import { ZodType, z } from "npm:zod@^3.22.4";
-import Surreal from "../../../index.ts";
+import { z } from "zod";
+import { ORM, GenericTables } from '../orm.ts';
 
 type SideEffects = Record<string, QueryPart>;
 
 export class SelectQuery<
+	O extends ORM<GenericTables>,
 	T extends Table<string, GenericFields>,
-	I extends RecordIdValue | undefined,
 	S extends SideEffects = SideEffects
-> extends Query {
+> extends Query<O> {
 	readonly tb: T;
-	readonly id?: I;
 	private _filter?: Filter;
 	private _start?: number;
 	private _limit?: number;
 	private _sideEffects: S = {} as S;
-	surreal: Surreal;
+	orm: O;
 
-	constructor(surreal: Surreal, tb: T, id?: I) {
+	constructor(orm: O, tb: T) {
 		super();
-		this.surreal = surreal;
+		this.orm = orm;
 		this.tb = tb;
-		this.id = id;
 	}
 
 	where(filter: Filter) {
@@ -64,8 +62,8 @@ export class SelectQuery<
 		};
 
 		return this as unknown as SelectQuery<
+			O,
 			T,
-			I,
 			{
 				[K in keyof Merged]: Merged[K];
 			}
@@ -73,9 +71,7 @@ export class SelectQuery<
 	}
 
 	display(utils: DisplayUtils) {
-		const thing = utils.var(
-			this.id ? new RecordId(this.tb[tbName], this.id) : this.tb[tbName]
-		);
+		const thing = utils.var(this.tb[tbName]);
 		const start = this._start && utils.var(this._start);
 		const limit = this._limit && utils.var(this._limit);
 		const sideEffects = `{${Object.entries(this._sideEffects).map(
@@ -98,11 +94,11 @@ export class SelectQuery<
 
 	readonly inferrable = true;
 	get infer() {
-		type Table = inferTableTypes<T>;
+		type Doc = inferTableTypes<T>;
 
 		return undefined as unknown as {
 			document: {
-				[K in keyof Table]: Table[K];
+				[K in keyof Doc]: Doc[K];
 			};
 			sideEffects: {
 				[K in keyof S]: S[K]["infer"];
@@ -123,6 +119,18 @@ export class SelectQuery<
 					)
 				),
 			})
-		) as ZodType<this['infer']>;
+		);
 	}
+
+	cacher<O extends ORM<GenericTables>>(orm: O, input: this['infer']) {
+		input.forEach(({ document, sideEffects }) => {
+			const { tb, id } = document.id as RecordId<T[typeof tbName]>;
+			orm.cache.set(tb, id, document);
+
+			let effect: keyof S;
+			for (effect in this._sideEffects) {
+				this._sideEffects[effect].cacher(orm, sideEffects[effect]);
+			}
+		});
+	};
 }

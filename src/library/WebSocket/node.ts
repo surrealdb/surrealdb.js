@@ -1,1 +1,1 @@
-export { WebSocket as default } from "npm:unws";
+export { WebSocket as default } from "unws";

@@ -1,4 +1,4 @@
-import { z } from "npm:zod@^3.22.4";
+import { z } from "zod";
 
 export const RecordIdValue = z.union([
 	z.string(),
@@ -16,5 +16,12 @@ export class RecordId<Tb extends string = string> {
 	constructor(tb: Tb, id: RecordIdValue) {
 		this.tb = z.string().parse(tb) as Tb;
 		this.id = RecordIdValue.parse(id);
+	}
+
+	toJSON() {
+		return {
+			tb: this.tb,
+			id: this.id,
+		}
 	}
 }

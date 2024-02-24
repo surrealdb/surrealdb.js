@@ -1,4 +1,4 @@
-import { z } from "npm:zod@^3.22.4";
+import { z } from "zod";
 import { Emitter } from "./emitter.ts";
 import { getIncrementalID } from "./getIncrementalID.ts";
 import { RpcRequest, RpcResponse } from "./rpc.ts";
@@ -71,7 +71,7 @@ export class WebsocketConnection implements Connection {
 			});
 
 			socket.addEventListener("message", async ({ data }) => {
-				const { id, ...res } = decode(await data.arrayBuffer());
+				const { id, ...res } = decode(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
 
 				if (id) {
 					this.emitter.emit(`rpc-${id}`, [res]);

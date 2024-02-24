@@ -1,4 +1,4 @@
-import { TaggedValue, encode as encode_cbor, decode as decode_cbor } from "npm:cbor-redux@^1.0.0";
+import { TaggedValue, encode as encode_cbor, decode as decode_cbor } from "cbor-redux";
 import { RecordId } from "./recordid.ts";
 import { Uuid } from "./uuid.ts";
 import { Duration } from "./duration.ts";

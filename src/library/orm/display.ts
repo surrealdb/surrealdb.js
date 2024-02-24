@@ -10,17 +10,17 @@ export function createVariableStore() {
 	return [variables, v] as const;
 }
 
-export function createDisplayUtils() {
+export function createDisplayUtils(upstream: Partial<DisplayUtils> = {}) {
 	const [variables, v] = createVariableStore();
 
 	return {
+		var: v,
 		variables,
-		utils: {
-			var: v
-		} satisfies DisplayUtils
-	}
+		...upstream,
+	} satisfies DisplayUtils;
 }
 
 export type DisplayUtils = {
 	var: (value: unknown) => string;
+	variables: Record<string, unknown>;
 };

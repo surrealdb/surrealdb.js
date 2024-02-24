@@ -1,11 +1,12 @@
-import { Surreal } from "../../../mod.ts";
 import { DisplayUtils, createDisplayUtils } from "./display.ts";
 import { ZodType } from "./types.ts";
+import { ORMAwaitable, ORM, GenericTables } from "./orm.ts";
 
 export abstract class QueryPart {
 	abstract display(utils: DisplayUtils): string;
+	abstract cacher<O extends ORM<GenericTables>>(orm: O, value: this['infer']): void;
 	abstract validator(): ZodType;
-	abstract infer: unknown
+	abstract infer: unknown;
 	abstract readonly inferrable: boolean;
 
 	clone(): this {
@@ -13,8 +14,10 @@ export abstract class QueryPart {
 	}
 };
 
-export abstract class Query extends QueryPart implements Promise<unknown> {
+export abstract class Query<O extends ORM<GenericTables>> extends QueryPart implements ORMAwaitable<O> {
 	[Symbol.toStringTag] = 'Query';
+
+	abstract orm: O;
 
 	catch<TResult = never>(
 		onRejected?: ((reason: unknown) => TResult | PromiseLike<TResult>) | null | undefined,
@@ -42,11 +45,11 @@ export abstract class Query extends QueryPart implements Promise<unknown> {
 		return this.execute().then(onFulfilled, onRejected);
 	}
 
-	abstract surreal: Surreal;
 	async execute() {
-		const { variables, utils } = createDisplayUtils();
+		const utils = createDisplayUtils();
 		const query = this.display(utils);
-		const [result] = await this.surreal.query<[this['infer']]>(query, variables);
-		return this.validator().parse(result);
+		const [result] = await this.orm.surreal.query<[this['infer']]>(query, utils.variables);
+		const data = this.validator().parse(result);
+		return data as this['infer'];
 	}
 };

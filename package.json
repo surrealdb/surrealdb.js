@@ -1,5 +1,17 @@
 {
+	"type": "module",
 	"devDependencies": {
-		"node-fetch": "^3.3.1"
+		"@types/node": "^20.11.16",
+		"node-fetch": "^3.3.1",
+		"typescript": "^5.3.3"
+	},
+	"dependencies": {
+		"@icholy/duration": "^5.1.0",
+		"@types/uuid": "^9.0.8",
+		"cbor-redux": "^1.0.0",
+		"decimal.js": "^10.4.3",
+		"unws": "^0.2.4",
+		"uuid": "^9.0.1",
+		"zod": "^3.22.4"
 	}
 }
