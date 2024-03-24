@@ -47,9 +47,84 @@ export function recordId<Tb extends string>(tb?: Tb) {
 	return new ZodRecordId({ tb });
 }
 
-export const duration = z.instanceof(Duration);
-export const decimal = z.instanceof(Decimal);
-export const uuid = z.instanceof(Uuid);
+export class ZodDuration extends ZodType<Duration> {
+	_parse(input: ParseInput): ParseReturnType<Duration> {
+		if (!(input.data instanceof Duration)) {
+			const ctx = this._getOrReturnCtx(input);
+			addIssueToContext(
+				ctx,
+				{
+					code: ZodIssueCode.custom,
+					message: `Expected input to be instance of Duration, but found a value of type ${typeof input.data}`
+				}
+			);
+
+			return INVALID;
+		}
+
+		return {
+			status: "valid",
+			value: input.data
+		}
+	}
+}
+
+export function duration() {
+	return new ZodDuration({});
+}
+
+export class ZodDecimal extends ZodType<Decimal> {
+	_parse(input: ParseInput): ParseReturnType<Decimal> {
+		if (!(input.data instanceof Decimal)) {
+			const ctx = this._getOrReturnCtx(input);
+			addIssueToContext(
+				ctx,
+				{
+					code: ZodIssueCode.custom,
+					message: `Expected input to be instance of Decimal, but found a value of type ${typeof input.data}`
+				}
+			);
+
+			return INVALID;
+		}
+
+		return {
+			status: "valid",
+			value: input.data
+		}
+	}
+}
+
+export function decimal() {
+	return new ZodDecimal({});
+}
+
+export class ZodUuid extends ZodType<Uuid> {
+	_parse(input: ParseInput): ParseReturnType<Uuid> {
+		if (!(input.data instanceof Uuid)) {
+			const ctx = this._getOrReturnCtx(input);
+			addIssueToContext(
+				ctx,
+				{
+					code: ZodIssueCode.custom,
+					message: `Expected input to be instance of Uuid, but found a value of type ${typeof input.data}`
+				}
+			);
+
+			return INVALID;
+		}
+
+		return {
+			status: "valid",
+			value: input.data
+		}
+	}
+}
+
+export function uuid() {
+	return new ZodUuid({});
+}
+
 export const none = z.undefined;
 
 export * from 'zod';

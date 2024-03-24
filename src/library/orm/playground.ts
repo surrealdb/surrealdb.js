@@ -38,10 +38,6 @@ const db = new ORM(surreal, {
 	authored,
 });
 
-const { fy, eq, to, from } = db.utils();
-
-fy
-
 type a = inferZodTypes<typeof post>
 const b = {} as {
 	[F in keyof a]: a[F];
@@ -65,11 +61,9 @@ function getAuthorAndPosts(
 ) {
 	return db
 		.select('person')
-		.where(({ eq }) => eq('id', ...))
 		.sideEffect(
 			'posts',
 			idiom(
-				graph.to(post),
 				graph.to(authored),
 				graph.to(post),
 				or(
@@ -87,6 +81,20 @@ const _posts = getAuthorAndPosts(
 		content: 'bla'
 	}
 )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 type posts = (typeof _posts)['infer'];
 
