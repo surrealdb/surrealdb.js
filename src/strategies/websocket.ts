@@ -449,9 +449,11 @@ export class WebSocketStrategy implements Connection {
 		method: string,
 		params?: unknown[],
 	) {
-		return new Promise<U>((resolve) => {
+		return new Promise<U>((resolve, reject) => {
 			if (!this.socket) throw new NoActiveSocket();
-			this.socket.send(method, params ?? [], (r) => resolve(r as U));
+			this.socket
+				.send(method, params ?? [], (r) => resolve(r as U))
+				.catch((e) => reject(e));
 		});
 	}
 
