@@ -3,7 +3,9 @@ import { Duration } from "./src/library/data/duration.ts";
 import { Uuid } from "./src/library/data/uuid.ts";
 import { Decimal } from "./src/library/data/decimal.ts";
 import { Surreal } from "./src/index.ts";
-import { recordId } from "./src/library/orm/types.ts";
+import { encode } from "./src/library/data/cbor.ts";
+import { GeometryCollection, GeometryLine, GeometryPoint } from "./src/library/data/geometry.ts";
+// import { recordId } from "./src/library/orm/types.ts";
 
 const surreal = new Surreal();
 await surreal.connect('ws://127.0.0.1:8000/rpc');
@@ -14,7 +16,7 @@ await surreal.use({
 
 // console.log(
 // 	await surreal.query<[unknown[]]>(
-// 		"[$d, $r, $c, $u, $dur, $none, NONE, $a, <string> $a]",
+// 		"[$d, $r, $c, $u, $dur, $none, NONE, $a, <string> $a, $nan, $geo]",
 // 		{
 // 			d: new Date(),
 // 			r: new RecordId('person', 'tobie'),
@@ -29,10 +31,42 @@ await surreal.use({
 // 			u: new Uuid(),
 // 			dur: new Duration('1d20m'),
 // 			none: undefined,
-// 			a: 9223372036854775807n
+// 			a: 9223372036854775807n,
+// 			nan: NaN,
+// 			geo: new GeometryCollection([
+// 				new GeometryPoint([1, 2]),
+// 				new GeometryLine([ new GeometryPoint([1, 2]), new GeometryPoint([3, 4]) ])
+// 			])
 // 		}
 // 	)
 // )
 
-const rid = recordId('test');
-console.log(rid.parse(new RecordId('tesst', 123) ))
+console.log(
+	await surreal.query<[unknown, Duration]>(
+		"$dur; 2d1ns",
+		{
+			dur: 123
+		}
+	).then(([_, r]) => r.toString()),
+	new Duration("2d1ns").toString()
+)
+
+// function bufferToHex (buffer: ArrayBuffer) {
+//     return [...new Uint8Array (buffer)]
+//         .map (b => b.toString (16).padStart (2, "0"))
+//         .join ("");
+// }
+
+// console.log(bufferToHex(encode(new RecordId('recording', [
+// 	new Date(),
+// 	'London',
+// 	new Uuid(),
+// 	{
+// 		temparature: new Decimal("10.00003")
+// 	}
+// ]))))
+
+// const rid = recordId('test');
+// console.log(rid.parse(new RecordId('tesst', 123) ))
+
+// console.log()

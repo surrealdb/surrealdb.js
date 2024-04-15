@@ -75,9 +75,16 @@ export class WebsocketConnection implements Connection {
 
 				if (id) {
 					this.emitter.emit(`rpc-${id}`, [res]);
+				} else if (res.error) {
+					// TODO Handle generic errors, should the connection close? If an error is thrown, where will it be catched?
 				} else {
-					const { id, action, result } = LiveResult.parse(res.result);
-					this.emitter.emit(`live-${id}`, [action, result], true);
+					const live = LiveResult.safeParse(res.result);
+					if (live.success) {
+						const { id, action, result } = live.data;
+						this.emitter.emit(`live-${id}`, [action, result], true);
+					} else {
+						// TODO We received an unknown message, if an error is thrown, where will it be catched?
+					}
 				}
 			})
 		})
