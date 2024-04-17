@@ -246,11 +246,16 @@ export default async (db, { surrealql, PreparedQuery }) => {
 				},
 				{
 					action: "DELETE",
-					result: "live_test:1"
+					result: {
+						id: "live_test:1"
+					}
 				},
 				{
 					action: "DELETE",
-					result: "live_test:2"
+					result: {
+						id: "live_test:2",
+						prop: 2,
+					}
 				},
 			];
 
