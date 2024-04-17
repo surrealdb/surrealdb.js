@@ -1,96 +1,6 @@
 import { z } from "zod";
-import { PreparedQuery } from "./index.ts";
 import { RecordId } from "./library/data/recordid.ts";
 import { Surreal } from "./surreal.ts";
-
-export type ConnectionStrategy = "websocket" | "experimental_http";
-export interface Connection {
-	constructor: Constructor<(hooks: StatusHooks) => void>;
-
-	strategy: "ws" | "http";
-	connect: (url: string, options?: ConnectionOptions) => void;
-	ping: () => Promise<void>;
-	use: (opt: { namespace: string; database: string }) => MaybePromise<void>;
-
-	// Info method is not available in the HTTP REST API
-	info?: <T extends Record<string, unknown> = Record<string, unknown>>() =>
-		Promise<T | undefined>;
-
-	signup: (vars: ScopeAuth) => Promise<Token>;
-	signin: (vars: AnyAuth) => Promise<Token | void>;
-	authenticate: (token: Token) => MaybePromise<boolean>;
-	invalidate: () => MaybePromise<void>;
-
-	// Let/unset methods are not available in the HTTP REST API
-	let?: (variable: string, value: unknown) => Promise<void>;
-	unset?: (variable: string) => Promise<void>;
-
-	// Live query functions
-	live?: <T extends Record<string, unknown>>(
-		table: string,
-		callback?: (data: LiveQueryResponse<T>) => unknown,
-		diff?: boolean,
-	) => Promise<string>;
-	listenLive?: <T extends Record<string, unknown>>(
-		queryUuid: string,
-		callback: (data: LiveQueryResponse<T>) => unknown,
-	) => Promise<void>;
-	kill?: (queryUuid: string) => Promise<void>;
-
-	query: <T extends RawQueryResult[]>(
-		query: string | PreparedQuery,
-		bindings?: Record<string, unknown>,
-	) => Promise<T>;
-
-	query_raw: <T extends RawQueryResult[]>(
-		query: string | PreparedQuery,
-		bindings?: Record<string, unknown>,
-	) => Promise<MapQueryResult<T>>;
-
-	select: <T extends Record<string, unknown>>(
-		thing: string,
-	) => Promise<ActionResult<T>[]>;
-
-	create: <
-		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = T,
-	>(
-		thing: string,
-		data?: U,
-	) => Promise<ActionResult<T, U>[]>;
-
-	// Insert method is not available in the HTTP REST API
-	insert?: <
-		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = T,
-	>(
-		thing: string,
-		data?: U | U[],
-	) => Promise<ActionResult<T, U>[]>;
-
-	update: <
-		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = T,
-	>(
-		thing: string,
-		data?: U,
-	) => Promise<ActionResult<T, U>[]>;
-
-	merge: <
-		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = Partial<T>,
-	>(
-		thing: string,
-		data?: U,
-	) => Promise<ActionResult<T, U>[]>;
-
-	// Patch method is not available in the HTTP REST API
-	patch?: (thing: string, data?: Patch[]) => Promise<Patch[]>;
-
-	delete: <T extends Record<string, unknown>>(
-		thing: string,
-	) => Promise<ActionResult<T>[]>;
-}
 
 export type StatusHooks = {
 	onConnect?: () => unknown;
@@ -108,12 +18,11 @@ export type UseOptions = z.infer<typeof UseOptions>;
 
 export type ActionResult<
 	T extends Record<string, unknown>,
-	U extends Record<string, unknown> = T,
-> = TidyObject<T & U & { id: RecordId }>;
+> = Prettify<T['id'] extends RecordId ? T : { id: RecordId } & T>
 
-type TidyObject<T extends Record<string, unknown>> = {
-	[K in keyof T]: T[K]
-};
+export type Prettify<T> = {
+	[K in keyof T]: T[K];
+} & {};
 
 //////////////////////////////////////////////
 //////////   AUTHENTICATION TYPES   //////////

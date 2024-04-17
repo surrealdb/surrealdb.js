@@ -19,9 +19,11 @@ import {
 	type StatusHooks,
 	Token,
 	TransformAuth,
+	Prettify,
 } from "./types.ts";
 
 type Engines = Record<string, new (emitter: Emitter<EmitterEvents>) => Engine>;
+type R = Prettify<Record<string, unknown>>;
 
 export class Surreal {
 	public connection: Engine | undefined;
@@ -397,10 +399,12 @@ export class Surreal {
 	 * Selects all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
 	 */
-	async select<T extends Record<string, unknown>>(thing: string | RecordId) {
+	async select<T extends R>(thing: string): Promise<ActionResult<T>[]>;
+	async select<T extends R>(thing: RecordId): Promise<ActionResult<T>>;
+	async select<T extends R>(thing: RecordId | string) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("select", [thing]);
-		return this.outputHandler(res);
+		return this.outputHandler(res, thing instanceof RecordId);
 	}
 
 	/**
@@ -408,16 +412,15 @@ export class Surreal {
 	 * @param thing - The table name or the specific record ID to create.
 	 * @param data - The document / record data to insert.
 	 */
-	async create<
-		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = T
-	>(thing: string | RecordId, data?: U) {
+	async create<T extends R, U extends R = T>(thing: string, data?: U): Promise<ActionResult<T>[]>;
+	async create<T extends R, U extends R = T>(thing: RecordId, data?: U): Promise<ActionResult<T>[]>;
+	async create<T extends R, U extends R = T>(thing: RecordId | string, data?: U) {
 		await this.ready;
-		const res = await this.rpc<ActionResult<T, U>>("create", [
+		const res = await this.rpc<ActionResult<T>>("create", [
 			thing,
 			data,
 		]);
-		return this.outputHandler(res);
+		return this.outputHandler(res, thing instanceof RecordId);
 	}
 
 	/**
@@ -425,16 +428,15 @@ export class Surreal {
 	 * @param thing - The table name or the specific record ID to create.
 	 * @param data - The document(s) / record(s) to insert.
 	 */
-	async insert<
-		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = T
-	>(thing: string | RecordId, data?: U | U[]) {
+	async insert<T extends R, U extends R = T>(thing: string, data?: U | U[]): Promise<ActionResult<T>[]>;
+	async insert<T extends R, U extends R = T>(thing: RecordId, data?: U): Promise<ActionResult<T>>;
+	async insert<T extends R, U extends R = T>(thing: RecordId | string, data?: U | U[]) {
 		await this.ready;
-		const res = await this.rpc<ActionResult<T, U>>("insert", [
+		const res = await this.rpc<ActionResult<T>>("insert", [
 			thing,
 			data,
 		]);
-		return this.outputHandler(res);
+		return this.outputHandler(res, thing instanceof RecordId);
 	}
 
 	/**
@@ -444,16 +446,15 @@ export class Surreal {
 	 * @param thing - The table name or the specific record ID to update.
 	 * @param data - The document / record data to insert.
 	 */
-	async update<
-		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = T
-	>(thing: string | RecordId, data?: U) {
+	async update<T extends R, U extends R = T>(thing: string, data?: U): Promise<ActionResult<T>[]>;
+	async update<T extends R, U extends R = T>(thing: RecordId, data?: U): Promise<ActionResult<T>>;
+	async update<T extends R, U extends R = T>(thing: RecordId | string, data?: U) {
 		await this.ready;
-		const res = await this.rpc<ActionResult<T, U>>("update", [
+		const res = await this.rpc<ActionResult<T>>("update", [
 			thing,
 			data,
 		]);
-		return this.outputHandler(res);
+		return this.outputHandler(res, thing instanceof RecordId);
 	}
 
 	/**
@@ -463,13 +464,15 @@ export class Surreal {
 	 * @param thing - The table name or the specific record ID to change.
 	 * @param data - The document / record data to insert.
 	 */
-	async merge<
-		T extends Record<string, unknown>,
-		U extends Record<string, unknown> = Partial<T>
-	>(thing: string | RecordId, data?: U) {
+	async merge<T extends R, U extends R = T>(thing: string, data?: U): Promise<ActionResult<T>[]>;
+	async merge<T extends R, U extends R = T>(thing: RecordId, data?: U): Promise<ActionResult<T>>;
+	async merge<T extends R, U extends R = T>(thing: RecordId | string, data?: U) {
 		await this.ready;
-		const res = await this.rpc<ActionResult<U>>("merge", [thing, data]);
-		return this.outputHandler(res);
+		const res = await this.rpc<ActionResult<T>>("merge", [
+			thing,
+			data,
+		]);
+		return this.outputHandler(res, thing instanceof RecordId);
 	}
 
 	/**
@@ -479,22 +482,25 @@ export class Surreal {
 	 * @param thing - The table name or the specific record ID to modify.
 	 * @param data - The JSON Patch data with which to modify the records.
 	 */
-	async patch(thing: RecordId, data?: Patch[]) {
+	async patch<T extends R>(thing: RecordId, data?: Patch[], diff?: false): Promise<ActionResult<T>>;
+	async patch<T extends R>(thing: string, data?: Patch[], diff?: false): Promise<ActionResult<T>[]>;
+	async patch(thing: RecordId | string, data: undefined | Patch[], diff: true): Promise<Patch[]>;
+	async patch(thing: RecordId | string, data?: Patch[], diff?: boolean) {
 		await this.ready;
-		const res = await this.rpc<Patch>("patch", [thing, data]);
-		return this.outputHandler(res);
+		const res = await this.rpc<any>("patch", [thing, data, diff]);
+		return this.outputHandler(res, thing instanceof RecordId);
 	}
 
 	/**
 	 * Deletes all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
 	 */
-	async delete<T extends Record<string, unknown> = Record<string, unknown>>(
-		thing: string | RecordId<string>
-	) {
+	async delete<T extends R>(thing: string): Promise<ActionResult<T>[]>;
+	async delete<T extends R>(thing: RecordId): Promise<ActionResult<T>>;
+	async delete<T extends R>(thing: RecordId | string) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("delete", [thing]);
-		return this.outputHandler(res);
+		return this.outputHandler(res, thing instanceof RecordId);
 	}
 
 	/**
@@ -516,15 +522,16 @@ export class Surreal {
 	 * @param thing - What thing did you query (table vs record).
 	 */
 	private outputHandler<T extends Record<string, unknown>>(
-		res: RpcResponse<T>
+		res: RpcResponse<T>,
+		single?: boolean,
 	) {
 		if (res.error) throw new ResponseError(res.error.message);
 		if (Array.isArray(res.result)) {
-			return res.result as T[];
+			return single ? res.result as T[] : res.result[0] as T | undefined;
 		} else if ("id" in (res.result ?? {})) {
-			return [res.result] as T[];
+			return single ? res.result as T | undefined : [res.result] as T[];
 		} else if (res.result === null) {
-			return [] as T[];
+			return single ? undefined : [] as T[];
 		}
 
 		throw new UnexpectedResponse();
