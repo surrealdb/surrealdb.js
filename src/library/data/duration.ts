@@ -11,7 +11,6 @@ export function durationToCborCustomDuration(duration: Duration) {
 export function cborCustomDurationToDuration([s, ns]: [number, number]) {
 	s = s ?? 0;
 	ns = ns ?? 0;
-	console.log('a', s, ns);
 	const ms = (s * 1000) + (ns / 1000000);
 	return new Duration(ms);
 }

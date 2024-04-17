@@ -1,8 +1,8 @@
-import { NoActiveSocket, UnexpectedResponse } from "./errors.ts";
+import { EngineDisconnected, NoActiveSocket, NoDatabaseSpecified, NoNamespaceSpecified, NoTokenReturned, ResponseError, UnexpectedResponse, UnsupportedEngine } from "./errors.ts";
 import { PreparedQuery } from "./index.ts";
 import { Pinger } from "./library/Pinger.ts";
-import { EmitterEvents } from "./library/connection.ts";
-import { Connection, WebsocketConnection } from "./library/connection.ts";
+import { EmitterEvents } from "./library/engine.ts";
+import { Engine, WebsocketEngine, HttpEngine } from "./library/engine.ts";
 import { RecordId } from "./library/data/recordid.ts";
 import { Emitter } from "./library/emitter.ts";
 import { Action, LiveHandler } from "./library/live.ts";
@@ -21,31 +21,46 @@ import {
 	TransformAuth,
 } from "./types.ts";
 
+type Engines = Record<string, new (emitter: Emitter<EmitterEvents>) => Engine>;
+
 export class Surreal {
-	public connection: Connection | undefined;
+	public connection: Engine | undefined;
 	private pinger?: Pinger;
-	public readonly strategy: "websocket" | "http";
-	private readonly hooks: StatusHooks;
 	ready?: Promise<void>;
 	emitter: Emitter<EmitterEvents>;
+	protected engines: Engines = {
+		ws: WebsocketEngine,
+		wss: WebsocketEngine,
+		http: HttpEngine,
+		https: HttpEngine,
+	};
 
 	constructor({
-		hooks,
-		strategy,
+		engines
 	}: {
-		strategy?: "websocket" | "http";
-		hooks?: StatusHooks;
+		engines?: Engines;
 	} = {}) {
 		this.emitter = new Emitter();
-		this.hooks = hooks ?? {};
-		this.strategy = strategy ?? "websocket";
+		this.emitter.subscribe('disconnected', () => this.clean());
+		this.emitter.subscribe('error', () => this.close());
+
+		if (engines) this.engines = {
+			...this.engines,
+			...engines
+		}
 	}
 
 	/**
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	async connect(url: string, opts: ConnectionOptions = {}) {
+	async connect(url: string | URL, opts: ConnectionOptions = {}) {
+		url = new URL(url);
+		url.pathname = '/rpc';
+		const engineName = url.protocol.slice(0, -1);
+		const engine = this.engines[engineName];
+		if (!engine) throw new UnsupportedEngine(engineName);
+
 		const { prepare, auth, namespace, database } =
 			processConnectionOptions(opts);
 
@@ -53,28 +68,20 @@ export class Surreal {
 		await this.close();
 
 		// The promise does not know if `this.connection` is undefined or not, but it does about `connection`
-		const connection = new WebsocketConnection(this.emitter);
+		const connection = new engine(this.emitter);
+
 		this.connection = connection;
 		this.pinger = new Pinger(30000);
 
-		this.connection.emitter.subscribe('disconnected', () => {
-			this.pinger?.stop();
-		});
-
-		this.connection.emitter.subscribe('error', () => {
-			this.pinger?.stop();
-		});
-
 		this.ready = new Promise((resolve, reject) =>
-			connection.connect(url)
+			connection.connect(url as URL)
 				.then(async () => {
 					this.pinger?.start(() => this.ping());
-					if (namespace || database) {
+					if (namespace || database)
 						await this.use({
 							namespace,
 							database,
 						});
-					}
 
 					if (typeof auth === "string") {
 						await this.authenticate(auth);
@@ -84,7 +91,7 @@ export class Surreal {
 
 					await prepare?.(this);
 					resolve();
-					this.hooks.onConnect?.();
+
 				})
 				.catch(reject)
 		);
@@ -96,33 +103,39 @@ export class Surreal {
 	 * Disconnect the socket to the database
 	 */
 	async close() {
-		if (this.connection) {
-			await this.connection.disconnect();
-			this.connection.emitter.reset({
-				collectable: true,
-				listeners: true
-			});
-		}
+		this.clean();
+		await this.connection?.disconnect();
+	}
 
-		if (this.pinger) {
-			this.pinger.stop();
-		}
+	private clean() {
+		this.pinger?.stop();
+
+		// Scan all pending rpc requests
+		const pending = this.emitter.scanListeners((k) => k.startsWith('rpc-'))
+
+		// Ensure all rpc requests get a connection closed response
+		pending.map(k => this.emitter.emit(k, [new EngineDisconnected()]));
+
+		// Cleanup subscriptions and yet to be collected emisions
+		this.emitter.reset({
+			collectable: true,
+			listeners: pending
+		});
 	}
 
 	/**
 	 * Check if connection is ready
 	 */
-	async wait() {
-		if (!this.connection) throw new NoActiveSocket();
-		await this.ready;
+	get status() {
+		return this.connection?.status;
 	}
 
 	/**
 	 * Ping SurrealDB instance
 	 */
 	async ping() {
-		const { error } = await this.send("ping");
-		if (error) throw new Error(error.message);
+		const { error } = await this.rpc("ping");
+		if (error) throw new ResponseError(error.message);
 	}
 
 	/**
@@ -140,18 +153,18 @@ export class Surreal {
 		if (!this.connection) throw new NoActiveSocket();
 
 		if (!namespace && !this.connection.namespace) {
-			throw new Error("Please specify a namespace to use.");
+			throw new NoNamespaceSpecified();
 		}
 		if (!database && !this.connection.database) {
-			throw new Error("Please specify a database to use.");
+			throw new NoDatabaseSpecified();
 		}
 
-		const { error } = await this.send("use", [
+		const { error } = await this.rpc("use", [
 			namespace,
 			database,
 		]);
 
-		if (error) throw new Error(error.message);
+		if (error) throw new ResponseError(error.message);
 	}
 
 	/**
@@ -164,8 +177,8 @@ export class Surreal {
 	 */
 	async info<T extends Record<string, unknown> = Record<string, unknown>>() {
 		await this.ready;
-		const res = await this.send<ActionResult<T> | undefined>("info");
-		if (res.error) throw new Error(res.error.message);
+		const res = await this.rpc<ActionResult<T> | undefined>("info");
+		if (res.error) throw new ResponseError(res.error.message);
 		return res.result ?? undefined;
 	}
 
@@ -183,13 +196,14 @@ export class Surreal {
 			database: this.connection.database,
 		});
 
-		const res = await this.send<string>("signup", [
+		const res = await this.rpc<string>("signup", [
 			TransformAuth.parse(vars),
 		]);
-		if (res.error) throw new Error(res.error.message);
+		if (res.error) throw new ResponseError(res.error.message);
 		if (!res.result) {
-			throw new Error("Did not receive authentication token");
+			throw new NoTokenReturned();
 		}
+
 		return res.result;
 	}
 
@@ -207,13 +221,14 @@ export class Surreal {
 			database: this.connection.database,
 		});
 
-		const res = await this.send<string>("signin", [
+		const res = await this.rpc<string>("signin", [
 			TransformAuth.parse(vars),
 		]);
-		if (res.error) throw new Error(res.error.message);
+		if (res.error) throw new ResponseError(res.error.message);
 		if (!res.result) {
-			throw new Error("Did not receive authentication token");
+			throw new NoTokenReturned();
 		}
+
 		return res.result;
 	}
 
@@ -222,19 +237,20 @@ export class Surreal {
 	 * @param token - The JWT authentication token.
 	 */
 	async authenticate(token: Token) {
-		const res = await this.send<string>("authenticate", [
+		const res = await this.rpc<string>("authenticate", [
 			Token.parse(token),
 		]);
-		if (res.error) throw new Error(res.error.message);
-		return !!token;
+		if (res.error) throw new ResponseError(res.error.message);
+		return true;
 	}
 
 	/**
 	 * Invalidates the authentication for the current connection.
 	 */
 	async invalidate() {
-		const res = await this.send("invalidate");
-		if (res.error) throw new Error(res.error.message);
+		const res = await this.rpc("invalidate");
+		if (res.error) throw new ResponseError(res.error.message);
+		return true;
 	}
 
 	/**
@@ -243,8 +259,9 @@ export class Surreal {
 	 * @param val - Assigns the value to the variable name.
 	 */
 	async let(variable: string, value: unknown) {
-		const res = await this.send("let", [variable, value]);
-		if (res.error) throw new Error(res.error.message);
+		const res = await this.rpc("let", [variable, value]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return true;
 	}
 
 	/**
@@ -252,8 +269,8 @@ export class Surreal {
 	 * @param key - Specifies the name of the variable.
 	 */
 	async unset(variable: string) {
-		const res = await this.send("unset", [variable]);
-		if (res.error) throw new Error(res.error.message);
+		const res = await this.rpc("unset", [variable]);
+		if (res.error) throw new ResponseError(res.error.message);
 	}
 
 	/**
@@ -266,9 +283,9 @@ export class Surreal {
 		Result extends Record<string, unknown> | Patch = Record<string, unknown>
 	>(table: string, callback?: LiveHandler<Result>, diff?: boolean) {
 		await this.ready;
-		const res = await this.send<string>("live", [table, diff]);
+		const res = await this.rpc<string>("live", [table, diff]);
 
-		if (res.error) throw new Error(res.error.message);
+		if (res.error) throw new ResponseError(res.error.message);
 		if (callback) this.subscribeLive<Result>(res.result, callback);
 
 		return res.result;
@@ -321,14 +338,14 @@ export class Surreal {
 		await this.ready;
 		if (!this.connection) throw new NoActiveSocket();
 		if (Array.isArray(queryUuid)) {
-			await Promise.all(queryUuid.map((u) => this.send("kill", [u])));
+			await Promise.all(queryUuid.map((u) => this.rpc("kill", [u])));
 			const toBeKilled = queryUuid.map((u) => `live-${u}` as const);
 			this.connection.emitter.reset({
 				collectable: toBeKilled,
 				listeners: toBeKilled,
 			});
 		} else {
-			await this.send("kill", [queryUuid]);
+			await this.rpc("kill", [queryUuid]);
 			this.connection.emitter.reset({
 				collectable: `live-${queryUuid}`,
 				listeners: `live-${queryUuid}`,
@@ -347,7 +364,7 @@ export class Surreal {
 	) {
 		const raw = await this.query_raw<T>(query, bindings);
 		return raw.map(({ status, result, detail }) => {
-			if (status == "ERR") throw new Error(detail ?? result);
+			if (status == "ERR") throw new ResponseError(detail ?? result);
 			return result;
 		}) as T;
 	}
@@ -368,11 +385,11 @@ export class Surreal {
 		}
 
 		await this.ready;
-		const res = await this.send<MapQueryResult<T>>("query", [
+		const res = await this.rpc<MapQueryResult<T>>("query", [
 			query,
 			bindings,
 		]);
-		if (res.error) throw new Error(res.error.message);
+		if (res.error) throw new ResponseError(res.error.message);
 		return res.result;
 	}
 
@@ -382,7 +399,7 @@ export class Surreal {
 	 */
 	async select<T extends Record<string, unknown>>(thing: string | RecordId) {
 		await this.ready;
-		const res = await this.send<ActionResult<T>>("select", [thing]);
+		const res = await this.rpc<ActionResult<T>>("select", [thing]);
 		return this.outputHandler(res);
 	}
 
@@ -396,7 +413,7 @@ export class Surreal {
 		U extends Record<string, unknown> = T
 	>(thing: string | RecordId, data?: U) {
 		await this.ready;
-		const res = await this.send<ActionResult<T, U>>("create", [
+		const res = await this.rpc<ActionResult<T, U>>("create", [
 			thing,
 			data,
 		]);
@@ -413,7 +430,7 @@ export class Surreal {
 		U extends Record<string, unknown> = T
 	>(thing: string | RecordId, data?: U | U[]) {
 		await this.ready;
-		const res = await this.send<ActionResult<T, U>>("insert", [
+		const res = await this.rpc<ActionResult<T, U>>("insert", [
 			thing,
 			data,
 		]);
@@ -432,7 +449,7 @@ export class Surreal {
 		U extends Record<string, unknown> = T
 	>(thing: string | RecordId, data?: U) {
 		await this.ready;
-		const res = await this.send<ActionResult<T, U>>("update", [
+		const res = await this.rpc<ActionResult<T, U>>("update", [
 			thing,
 			data,
 		]);
@@ -451,7 +468,7 @@ export class Surreal {
 		U extends Record<string, unknown> = Partial<T>
 	>(thing: string | RecordId, data?: U) {
 		await this.ready;
-		const res = await this.send<ActionResult<U>>("merge", [thing, data]);
+		const res = await this.rpc<ActionResult<U>>("merge", [thing, data]);
 		return this.outputHandler(res);
 	}
 
@@ -464,7 +481,7 @@ export class Surreal {
 	 */
 	async patch(thing: RecordId, data?: Patch[]) {
 		await this.ready;
-		const res = await this.send<Patch>("patch", [thing, data]);
+		const res = await this.rpc<Patch>("patch", [thing, data]);
 		return this.outputHandler(res);
 	}
 
@@ -476,7 +493,7 @@ export class Surreal {
 		thing: string | RecordId<string>
 	) {
 		await this.ready;
-		const res = await this.send<ActionResult<T>>("delete", [thing]);
+		const res = await this.rpc<ActionResult<T>>("delete", [thing]);
 		return this.outputHandler(res);
 	}
 
@@ -485,9 +502,9 @@ export class Surreal {
 	 * @param method - Type of message to send.
 	 * @param params - Parameters for the message.
 	 */
-	protected send<Result extends unknown>(method: string, params?: unknown[]) {
+	protected rpc<Result extends unknown>(method: string, params?: unknown[]) {
 		if (!this.connection) throw new NoActiveSocket();
-		return this.connection.send<typeof method, typeof params, Result>({
+		return this.connection.rpc<typeof method, typeof params, Result>({
 			method,
 			params,
 		});
@@ -501,7 +518,7 @@ export class Surreal {
 	private outputHandler<T extends Record<string, unknown>>(
 		res: RpcResponse<T>
 	) {
-		if (res.error) throw new Error(res.error.message);
+		if (res.error) throw new ResponseError(res.error.message);
 		if (Array.isArray(res.result)) {
 			return res.result as T[];
 		} else if ("id" in (res.result ?? {})) {
@@ -510,7 +527,6 @@ export class Surreal {
 			return [] as T[];
 		}
 
-		console.debug({ res });
 		throw new UnexpectedResponse();
 	}
 }

@@ -99,11 +99,17 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 		}
 
 		if (Array.isArray(listeners)) {
-			listeners.forEach(k => delete this.collectable[k]);
+			listeners.forEach(k => delete this.listeners[k]);
 		} else if (typeof listeners === 'string') {
 			delete this.listeners[listeners];
 		} else if (listeners !== false) {
 			this.listeners = {};
 		}
+	}
+
+	scanListeners(filter?: (k: keyof Events) => boolean) {
+		let listeners = Object.keys(this.listeners) as (keyof Events)[];
+		if (filter) listeners = listeners.filter(filter);
+		return listeners;
 	}
 }
