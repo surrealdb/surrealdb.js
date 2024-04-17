@@ -8,9 +8,6 @@ dependencies:
   '@icholy/duration':
     specifier: ^5.1.0
     version: 5.1.0
-  '@types/uuid':
-    specifier: ^9.0.8
-    version: 9.0.8
   cbor-redux:
     specifier: ^1.0.0
     version: 1.0.0
@@ -20,9 +17,9 @@ dependencies:
   unws:
     specifier: ^0.2.4
     version: 0.2.4(ws@8.16.0)
-  uuid:
-    specifier: ^9.0.1
-    version: 9.0.1
+  uuidv7:
+    specifier: ^0.6.3
+    version: 0.6.3
   zod:
     specifier: ^3.22.4
     version: 3.22.4
@@ -60,10 +57,6 @@ packages:
     dependencies:
       undici-types: 5.26.5
     dev: true
-
-  /@types/uuid@9.0.8:
-    resolution: {integrity: sha512-jg+97EGIcY9AGHJJRaaPVgetKDsrTgbRjQ5Msgjh/DQKEFl0DtyRr/VCOyD1T2R1MNeWPK/u7JoGhlDZnKBAfA==}
-    dev: false
 
   /cbor-redux@1.0.0:
     resolution: {integrity: sha512-nqCD/Yu2FON0XgZYdUNsMx1Tc08MOY3noh9bO2MvkjlyLZyqIVWjuz6A0mDrPJncdOfacokFUtF7zlzzP5oK5A==}
@@ -132,8 +125,8 @@ packages:
       ws: 8.16.0
     dev: false
 
-  /uuid@9.0.1:
-    resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
+  /uuidv7@0.6.3:
+    resolution: {integrity: sha512-zV3eW2NlXTsun/aJ7AixxZjH/byQcH/r3J99MI0dDEkU2cJIBJxhEWUHDTpOaLPRNhebPZoeHuykYREkI9HafA==}
     hasBin: true
     dev: false
 

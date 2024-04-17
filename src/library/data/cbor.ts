@@ -1,6 +1,6 @@
 import { TaggedValue, encode as encode_cbor, decode as decode_cbor } from "cbor-redux";
 import { RecordId } from "./recordid.ts";
-import { Uuid } from "./uuid.ts";
+import { UUID } from "./uuid.ts";
 import { Duration, cborCustomDurationToDuration, durationToCborCustomDuration } from "./duration.ts";
 import { Decimal } from "./decimal.ts"
 import {
@@ -43,7 +43,7 @@ export function encode<T extends unknown>(data: T) {
 	return encode_cbor<T>(data, (_, v) => {
 		if (v instanceof Date)     				return new TaggedValue(dateToCborCustomDate(v), 		TAG_CUSTOM_DATETIME);
 		if (v === undefined)       				return new TaggedValue(null,            				TAG_NONE);
-		if (v instanceof Uuid)     				return new TaggedValue(v.uuid,          				TAG_STRING_UUID);
+		if (v instanceof UUID)     				return new TaggedValue(v.bytes.buffer,     				TAG_SPEC_UUID);
 		if (v instanceof Decimal)  				return new TaggedValue(v.toString(),    				TAG_STRING_DECIMAL);
 		if (v instanceof Duration) 				return new TaggedValue(durationToCborCustomDuration(v),	TAG_CUSTOM_DURATION);
 		if (v instanceof RecordId) 				return new TaggedValue([v.tb, v.id],					TAG_RECORDID);
@@ -65,9 +65,10 @@ export function decode(data: ArrayBuffer) {
 
 		switch (v.tag) {
 			case TAG_SPEC_DATETIME: 		return new Date(v.value);
+			case TAG_SPEC_UUID:				return UUID.ofInner(new Uint8Array(v.value));
 			case TAG_CUSTOM_DATETIME:		return cborCustomDateToDate(v.value);
 			case TAG_NONE: 					return undefined;
-			case TAG_STRING_UUID: 			return new Uuid(v.value);
+			case TAG_STRING_UUID: 			return UUID.parse(v.value);
 			case TAG_STRING_DECIMAL: 		return new Decimal(v.value);
 			case TAG_STRING_DURATION: 		return new Duration(v.value);
 			case TAG_CUSTOM_DURATION:		return cborCustomDurationToDuration(v.value);

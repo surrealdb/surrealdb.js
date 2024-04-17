@@ -7,11 +7,10 @@
 	},
 	"dependencies": {
 		"@icholy/duration": "^5.1.0",
-		"@types/uuid": "^9.0.8",
 		"cbor-redux": "^1.0.0",
 		"decimal.js": "^10.4.3",
 		"unws": "^0.2.4",
-		"uuid": "^9.0.1",
+		"uuidv7": "^0.6.3",
 		"zod": "^3.22.4"
 	}
 }

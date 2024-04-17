@@ -1,6 +1,6 @@
 import { RecordId } from "./src/library/data/recordid.ts";
 import { Duration } from "./src/library/data/duration.ts";
-import { Uuid } from "./src/library/data/uuid.ts";
+import { UUID } from "./src/library/data/uuid.ts";
 import { Decimal } from "./src/library/data/decimal.ts";
 import { Surreal } from "./src/index.ts";
 import { encode } from "./src/library/data/cbor.ts";
@@ -41,14 +41,15 @@ await surreal.use({
 // 	)
 // )
 
+const uuid = new Duration("2w6d100ms");
 console.log(
-	await surreal.query<[unknown, Duration]>(
-		"$dur; 2d1ns",
+	456,
+	await surreal.query<[UUID, string]>(
+		"$uuid; <string> $uuid",
 		{
-			dur: 123
+			uuid
 		}
-	).then(([_, r]) => r.toString()),
-	new Duration("2d1ns").toString()
+	).then(([u, a]) => [u.toString(), a])
 )
 
 // function bufferToHex (buffer: ArrayBuffer) {
