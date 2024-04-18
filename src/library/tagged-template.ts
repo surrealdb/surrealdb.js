@@ -1,7 +1,7 @@
 import { PreparedQuery } from "./PreparedQuery.ts";
 
 export function surrealql(
-	query_raw: TemplateStringsArray,
+	query_raw: string[] | TemplateStringsArray,
 	...values: unknown[]
 ) {
 	const mapped_bindings = values.map((v, i) =>
