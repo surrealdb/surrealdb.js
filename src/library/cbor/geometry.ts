@@ -31,15 +31,16 @@ export class GeometryPolygon extends Geometry {
 	constructor(
 		polygon:
 			| [GeometryLine, GeometryLine, ...GeometryLine[]]
-			| GeometryPolygon
+			| GeometryPolygon,
 	) {
 		super();
-		polygon =
-			polygon instanceof GeometryPolygon ? polygon.polygon : polygon;
+		polygon = polygon instanceof GeometryPolygon
+			? polygon.polygon
+			: polygon;
 		this.polygon = polygon.map((line) => new GeometryLine(line)) as [
 			GeometryLine,
 			GeometryLine,
-			...GeometryLine[]
+			...GeometryLine[],
 		];
 	}
 }
@@ -52,7 +53,7 @@ export class GeometryMultiPoint extends Geometry {
 		points = points instanceof GeometryMultiPoint ? points.points : points;
 		this.points = points.map((point) => new GeometryPoint(point)) as [
 			GeometryPoint,
-			...GeometryPoint[]
+			...GeometryPoint[],
 		];
 	}
 }
@@ -65,7 +66,7 @@ export class GeometryMultiLine extends Geometry {
 		lines = lines instanceof GeometryMultiLine ? lines.lines : lines;
 		this.lines = lines.map((line) => new GeometryLine(line)) as [
 			GeometryLine,
-			...GeometryLine[]
+			...GeometryLine[],
 		];
 	}
 }
@@ -75,13 +76,12 @@ export class GeometryMultiPolygon extends Geometry {
 
 	constructor(polygons: [GeometryPolygon, ...GeometryPolygon[]]) {
 		super();
-		polygons =
-			polygons instanceof GeometryMultiPolygon
-				? polygons.polygons
-				: polygons;
+		polygons = polygons instanceof GeometryMultiPolygon
+			? polygons.polygons
+			: polygons;
 
 		this.polygons = polygons.map(
-			(polygon) => new GeometryPolygon(polygon)
+			(polygon) => new GeometryPolygon(polygon),
 		) as [GeometryPolygon, ...GeometryPolygon[]];
 	}
 }
@@ -91,7 +91,9 @@ export class GeometryCollection extends Geometry {
 
 	constructor(collection: [Geometry, ...Geometry[]]) {
 		super();
-		collection = collection instanceof GeometryCollection ? collection.collection : collection;
+		collection = collection instanceof GeometryCollection
+			? collection.collection
+			: collection;
 		this.collection = collection;
 	}
 }

@@ -3,40 +3,56 @@ import { Emitter } from "./emitter.ts";
 import { getIncrementalID } from "./getIncrementalID.ts";
 import WebSocket from "./WebSocket/deno.ts";
 import { decodeCbor, encodeCbor } from "./cbor/index.ts";
-import { Patch, Action, LiveResult, RpcRequest, RpcResponse } from "../types.ts";
-import { ConnectionUnavailable, EngineDisconnected, ResponseError, UnexpectedConnectionError, UnexpectedServerResponse } from "../errors.ts";
+import {
+	Action,
+	LiveResult,
+	Patch,
+	RpcRequest,
+	RpcResponse,
+} from "../types.ts";
+import {
+	ConnectionUnavailable,
+	EngineDisconnected,
+	ResponseError,
+	UnexpectedConnectionError,
+	UnexpectedServerResponse,
+} from "../errors.ts";
 
 export type EmitterEvents = {
-	connecting: [],
-	connected: [],
-	disconnected: [],
-	error: [Error],
+	connecting: [];
+	connected: [];
+	disconnected: [];
+	error: [Error];
 
-	[K: `rpc-${string | number}`]: [RpcResponse | EngineDisconnected],
-	[K: `live-${string}`]: [Action, Record<string, unknown> | Patch],
+	[K: `rpc-${string | number}`]: [RpcResponse | EngineDisconnected];
+	[K: `live-${string}`]: [Action, Record<string, unknown> | Patch];
 };
 
 export enum ConnectionStatus {
-	Disconnected = 'disconnected',
-	Connecting = 'connecting',
-	Connected = 'connected',
-	Error = 'error',
+	Disconnected = "disconnected",
+	Connecting = "connecting",
+	Connected = "connected",
+	Error = "error",
 }
 
 export abstract class Engine {
-	constructor(...[_]: [emitter: Emitter<EmitterEvents>]) {};
+	constructor(...[_]: [emitter: Emitter<EmitterEvents>]) {}
 	abstract emitter: Emitter<EmitterEvents>;
 	abstract ready?: Promise<void>;
 	abstract status?: ConnectionStatus;
 	abstract connect(url: URL): Promise<void>;
 	abstract disconnect(): Promise<void>;
-	abstract rpc<Method extends string, Params extends unknown[] | undefined, Result extends unknown>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>>;
+	abstract rpc<
+		Method extends string,
+		Params extends unknown[] | undefined,
+		Result extends unknown,
+	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>>;
 	abstract connection: {
 		url?: URL;
 		namespace?: string;
 		database?: string;
 		token?: string;
-	}
+	};
 }
 
 export class WebsocketEngine implements Engine {
@@ -56,7 +72,10 @@ export class WebsocketEngine implements Engine {
 		this.emitter = emitter;
 	}
 
-	private setStatus<T extends ConnectionStatus>(status: T, ...args: EmitterEvents[T]) {
+	private setStatus<T extends ConnectionStatus>(
+		status: T,
+		...args: EmitterEvents[T]
+	) {
 		this.status = status;
 		this.emitter.emit(status, args);
 	}
@@ -64,7 +83,7 @@ export class WebsocketEngine implements Engine {
 	async connect(url: URL) {
 		this.connection.url = url;
 		this.setStatus(ConnectionStatus.Connecting);
-		const socket = new WebSocket(url.toString(), 'cbor');
+		const socket = new WebSocket(url.toString(), "cbor");
 		const ready = new Promise<void>((resolve, reject) => {
 			socket.addEventListener("open", () => {
 				this.setStatus(ConnectionStatus.Connected);
@@ -72,7 +91,9 @@ export class WebsocketEngine implements Engine {
 			});
 
 			socket.addEventListener("error", (e) => {
-				const error = new UnexpectedConnectionError('error' in e ? e.error : "An unexpected error occurred");
+				const error = new UnexpectedConnectionError(
+					"error" in e ? e.error : "An unexpected error occurred",
+				);
 				this.setStatus(ConnectionStatus.Error, error);
 				reject(error);
 			});
@@ -85,16 +106,25 @@ export class WebsocketEngine implements Engine {
 				const decoded = decodeCbor(
 					data instanceof Blob
 						? await data.arrayBuffer()
-						: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+						: data.buffer.slice(
+							data.byteOffset,
+							data.byteOffset + data.byteLength,
+						),
 				);
 
-				if (typeof decoded == 'object' && !Array.isArray(decoded) && decoded != null) {
+				if (
+					typeof decoded == "object" && !Array.isArray(decoded) &&
+					decoded != null
+				) {
 					this.handleRpcResponse(decoded);
 				} else {
-					this.setStatus(ConnectionStatus.Error, new UnexpectedServerResponse(decoded))
+					this.setStatus(
+						ConnectionStatus.Error,
+						new UnexpectedServerResponse(decoded),
+					);
 				}
-			})
-		})
+			});
+		});
 
 		this.ready = ready;
 		return await ready.finally(() => {
@@ -109,7 +139,11 @@ export class WebsocketEngine implements Engine {
 		await this.socket.close();
 	}
 
-	async rpc<Method extends string, Params extends unknown[] | undefined, Result extends unknown>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
+	async rpc<
+		Method extends string,
+		Params extends unknown[] | undefined,
+		Result extends unknown,
+	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
 		await this.ready;
 		if (!this.socket) throw new ConnectionUnavailable();
 
@@ -119,30 +153,35 @@ export class WebsocketEngine implements Engine {
 
 		const id = getIncrementalID();
 		const response = this.emitter.subscribeOnce(`rpc-${id}`);
-		this.socket.send(encodeCbor({ id, ...request }))
+		this.socket.send(encodeCbor({ id, ...request }));
 		return response.then(([res]) => {
 			if (res instanceof EngineDisconnected) throw res;
 
-			if ('result' in res) {
+			if ("result" in res) {
 				switch (request.method) {
-					case 'use': {
-						this.connection.namespace = z.string().parse(request.params?.[0]);
-						this.connection.database = z.string().parse(request.params?.[1]);
+					case "use": {
+						this.connection.namespace = z.string().parse(
+							request.params?.[0],
+						);
+						this.connection.database = z.string().parse(
+							request.params?.[1],
+						);
 						break;
 					}
 
-					case 'signin':
-					case 'signup': {
+					case "signin":
+					case "signup": {
 						this.connection.token = res.result as string;
 						break;
-					};
+					}
 
-					case 'authenticate': {
-						this.connection.token = request.params?.[0] as string
+					case "authenticate": {
+						this.connection.token = request.params
+							?.[0] as string;
 						break;
-					};
+					}
 
-					case 'invalidate': {
+					case "invalidate": {
 						delete this.connection.token;
 						break;
 					}
@@ -158,14 +197,20 @@ export class WebsocketEngine implements Engine {
 		if (id) {
 			this.emitter.emit(`rpc-${id}`, [res]);
 		} else if (res.error) {
-			this.setStatus(ConnectionStatus.Error, new ResponseError(res.error));
+			this.setStatus(
+				ConnectionStatus.Error,
+				new ResponseError(res.error),
+			);
 		} else {
 			const live = LiveResult.safeParse(res.result);
 			if (live.success) {
 				const { id, action, result } = live.data;
 				this.emitter.emit(`live-${id}`, [action, result], true);
 			} else {
-				this.setStatus(ConnectionStatus.Error, new UnexpectedServerResponse({ id, ...res }));
+				this.setStatus(
+					ConnectionStatus.Error,
+					new UnexpectedServerResponse({ id, ...res }),
+				);
 			}
 		}
 	}
@@ -183,7 +228,7 @@ export class HttpEngine implements Engine {
 		namespace?: string;
 		database?: string;
 		token?: string;
-		variables: Record<string, unknown>
+		variables: Record<string, unknown>;
 	} = { variables: {} };
 
 	constructor(emitter: Emitter<EmitterEvents>) {
@@ -191,58 +236,66 @@ export class HttpEngine implements Engine {
 	}
 
 	connect(url: URL) {
-		this.emitter.emit('connecting', []);
+		this.emitter.emit("connecting", []);
 		this.connection.url = url;
-		this.emitter.emit('connected', []);
-		this.ready = new Promise<void>(r => r())
+		this.emitter.emit("connected", []);
+		this.ready = new Promise<void>((r) => r());
 		return this.ready;
 	}
 
 	disconnect(): Promise<void> {
 		this.connection = { variables: {} };
-		this.emitter.emit('disconnected', []);
-		return new Promise<void>(r => r());
+		this.emitter.emit("disconnected", []);
+		return new Promise<void>((r) => r());
 	}
 
-	async rpc<Method extends string, Params extends unknown[] | undefined, Result extends unknown>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
+	async rpc<
+		Method extends string,
+		Params extends unknown[] | undefined,
+		Result extends unknown,
+	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
 		await this.ready;
 		if (!this.connection.url) {
 			throw new ConnectionUnavailable();
 		}
 
-		if (request.method == 'use') {
-			const [namespace, database] = z.tuple([z.string(), z.string()]).parse(request.params);
+		if (request.method == "use") {
+			const [namespace, database] = z.tuple([z.string(), z.string()])
+				.parse(request.params);
 			if (namespace) this.connection.namespace = namespace;
 			if (database) this.connection.database = database;
 			return {
-				result: true as Result
+				result: true as Result,
 			};
 		}
 
-		if (request.method == 'let') {
-			const [key, value] = z.tuple([z.string(), z.unknown()]).parse(request.params);
+		if (request.method == "let") {
+			const [key, value] = z.tuple([z.string(), z.unknown()]).parse(
+				request.params,
+			);
 			this.connection.variables[key] = value;
 			return {
-				result: true as Result
+				result: true as Result,
 			};
 		}
 
-		if (request.method == 'unset') {
+		if (request.method == "unset") {
 			const [key] = z.tuple([z.string()]).parse(request.params);
 			delete this.connection.variables[key];
 			return {
-				result: true as Result
+				result: true as Result,
 			};
 		}
 
-		if (request.method == 'query')
+		if (request.method == "query") {
 			request.params = [
 				request.params?.[0],
 				{
 					...this.connection.variables,
-					...(request.params?.[1] ?? {})
-				}
+					...(request.params?.[1] ?? {}),
+				},
 			] as Params;
+		}
 
 		if (!this.connection.namespace || !this.connection.database) {
 			throw new ConnectionUnavailable();
@@ -256,27 +309,29 @@ export class HttpEngine implements Engine {
 				Accept: "application/cbor",
 				NS: this.connection.namespace,
 				DB: this.connection.database,
-				...(this.connection.token ? { Authorization: `Bearer ${this.connection.token}`} : {})
+				...(this.connection.token
+					? { Authorization: `Bearer ${this.connection.token}` }
+					: {}),
 			},
-			body: encodeCbor({ id, ...request })
+			body: encodeCbor({ id, ...request }),
 		});
 
 		const response: RpcResponse = decodeCbor(await raw.arrayBuffer());
 
-		if ('result' in response) {
+		if ("result" in response) {
 			switch (request.method) {
-				case 'signin':
-				case 'signup': {
+				case "signin":
+				case "signup": {
 					this.connection.token = response.result as string;
 					break;
-				};
+				}
 
-				case 'authenticate': {
-					this.connection.token = request.params?.[0] as string
+				case "authenticate": {
+					this.connection.token = request.params?.[0] as string;
 					break;
-				};
+				}
 
-				case 'invalidate': {
+				case "invalidate": {
 					delete this.connection.token;
 					break;
 				}

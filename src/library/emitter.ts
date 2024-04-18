@@ -2,29 +2,41 @@ type Listener<Args extends unknown[] = unknown[]> = (...args: Args) => unknown;
 type UnknownEvents = Record<string, unknown[]>;
 
 export class Emitter<Events extends UnknownEvents = UnknownEvents> {
-	private collectable: Partial<{
-		[K in keyof Events]: Events[K][]
-	}> = {};
+	private collectable: Partial<
+		{
+			[K in keyof Events]: Events[K][];
+		}
+	> = {};
 
-	private listeners: Partial<{
-		[K in keyof Events]: Listener<Events[K]>[]
-	}> = {};
+	private listeners: Partial<
+		{
+			[K in keyof Events]: Listener<Events[K]>[];
+		}
+	> = {};
 
-	private readonly interceptors: Partial<{
-		[K in keyof Events]: (...args: Events[K]) => Promise<Events[K]>;
-	}>;
+	private readonly interceptors: Partial<
+		{
+			[K in keyof Events]: (...args: Events[K]) => Promise<Events[K]>;
+		}
+	>;
 
 	constructor({
-		interceptors
+		interceptors,
 	}: {
-		interceptors?: Partial<{
-			[K in keyof Events]: (...args: Events[K]) => Promise<Events[K]>;
-		}>
+		interceptors?: Partial<
+			{
+				[K in keyof Events]: (...args: Events[K]) => Promise<Events[K]>;
+			}
+		>;
 	} = {}) {
 		this.interceptors = interceptors ?? {};
 	}
 
-	subscribe<Event extends keyof Events>(event: Event, listener: Listener<Events[Event]>, historic = false) {
+	subscribe<Event extends keyof Events>(
+		event: Event,
+		listener: Listener<Events[Event]>,
+		historic = false,
+	) {
 		if (!this.listeners[event]) {
 			this.listeners[event] = [];
 		}
@@ -49,26 +61,38 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 					this.unSubscribe(event, listener);
 					resolve(args);
 				}
-			}
+			};
 
 			this.subscribe(event, listener, historic);
-		})
+		});
 	}
 
-	unSubscribe<Event extends keyof Events>(event: Event, listener: Listener<Events[Event]>) {
+	unSubscribe<Event extends keyof Events>(
+		event: Event,
+		listener: Listener<Events[Event]>,
+	) {
 		if (this.listeners[event]) {
-			const index = this.listeners[event]?.findIndex((v) => v == listener);
+			const index = this.listeners[event]?.findIndex((v) =>
+				v == listener
+			);
 			if (index) {
 				this.listeners[event]?.splice(index, 1);
 			}
 		}
 	}
 
-	isSubscribed<Event extends keyof Events>(event: Event, listener: Listener<Events[Event]>) {
+	isSubscribed<Event extends keyof Events>(
+		event: Event,
+		listener: Listener<Events[Event]>,
+	) {
 		return !!this.listeners[event]?.includes(listener);
 	}
 
-	async emit<Event extends keyof Events>(event: Event, args: Events[Event], collectable = false) {
+	async emit<Event extends keyof Events>(
+		event: Event,
+		args: Events[Event],
+		collectable = false,
+	) {
 		const interceptor = this.interceptors[event];
 		args = interceptor ? await interceptor(...args) : args;
 
@@ -91,16 +115,16 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 		listeners?: boolean | keyof Events | (keyof Events)[];
 	}) {
 		if (Array.isArray(collectable)) {
-			collectable.forEach(k => delete this.collectable[k]);
-		} else if (typeof collectable === 'string') {
+			collectable.forEach((k) => delete this.collectable[k]);
+		} else if (typeof collectable === "string") {
 			delete this.collectable[collectable];
 		} else if (collectable !== false) {
 			this.collectable = {};
 		}
 
 		if (Array.isArray(listeners)) {
-			listeners.forEach(k => delete this.listeners[k]);
-		} else if (typeof listeners === 'string') {
+			listeners.forEach((k) => delete this.listeners[k]);
+		} else if (typeof listeners === "string") {
 			delete this.listeners[listeners];
 		} else if (listeners !== false) {
 			this.listeners = {};

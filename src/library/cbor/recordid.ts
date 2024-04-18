@@ -22,6 +22,6 @@ export class RecordId<Tb extends string = string> {
 		return {
 			tb: this.tb,
 			id: this.id,
-		}
+		};
 	}
 }

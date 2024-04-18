@@ -11,12 +11,14 @@ export type UseOptions = z.infer<typeof UseOptions>;
 
 export type ActionResult<
 	T extends Record<string, unknown>,
-> = Prettify<T['id'] extends RecordId ? T : { id: RecordId } & T>
+> = Prettify<T["id"] extends RecordId ? T : { id: RecordId } & T>;
 
-export type Prettify<T> = {
-	[K in keyof T]: T[K];
+export type Prettify<T> =
+	& {
+		[K in keyof T]: T[K];
+	}
 	// deno-lint-ignore ban-types
-} & {};
+	& {};
 
 //////////////////////////////////////////////
 //////////   AUTHENTICATION TYPES   //////////
@@ -125,9 +127,11 @@ export type QueryResultErr = {
 	detail: string;
 };
 
-export type MapQueryResult<T> = Prettify<{
-	[K in keyof T]: QueryResult<T[K]>;
-}>;
+export type MapQueryResult<T> = Prettify<
+	{
+		[K in keyof T]: QueryResult<T[K]>;
+	}
+>;
 
 /////////////////////////////////////
 //////////   PATCH TYPES   //////////
@@ -180,7 +184,6 @@ export type Patch =
 	| MovePatch
 	| TestPatch;
 
-
 // Connection options
 
 export type ConnectionOptions =
@@ -216,12 +219,17 @@ export function processConnectionOptions({
 
 // RPC
 
-export type RpcRequest<Method extends string = string, Params extends unknown[] | undefined = unknown[]> = {
+export type RpcRequest<
+	Method extends string = string,
+	Params extends unknown[] | undefined = unknown[],
+> = {
 	method: Method;
-	params?: Params
+	params?: Params;
 };
 
-export type RpcResponse<Result extends unknown = unknown> = RpcResponseOk<Result> | RpcResponseErr;
+export type RpcResponse<Result extends unknown = unknown> =
+	| RpcResponseOk<Result>
+	| RpcResponseErr;
 
 export type RpcResponseOk<Result extends unknown = unknown> = {
 	result: Result;
@@ -249,10 +257,11 @@ export type Action = z.infer<typeof Action>;
 export const LiveResult = z.object({
 	id: z.string().uuid(),
 	action: Action,
-	result: z.record(z.unknown())
+	result: z.record(z.unknown()),
 });
 
 export type LiveResult = z.infer<typeof LiveResult>;
 
-export type LiveHandler<Result extends Record<string, unknown> | Patch = Record<string, unknown>> =
-	(action: Action, result: Result) => unknown;
+export type LiveHandler<
+	Result extends Record<string, unknown> | Patch = Record<string, unknown>,
+> = (action: Action, result: Result) => unknown;

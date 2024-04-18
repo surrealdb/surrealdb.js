@@ -26,8 +26,7 @@ export class InvalidURLProvided extends SurrealDbError {
 
 export class EngineDisconnected extends SurrealDbError {
 	name = "EngineDisconnected";
-	message =
-		"The engine reported the connection to SurrealDB has dropped";
+	message = "The engine reported the connection to SurrealDB has dropped";
 }
 
 export class UnexpectedServerResponse extends SurrealDbError {
@@ -51,7 +50,7 @@ export class UnexpectedConnectionError extends SurrealDbError {
 export class UnsupportedEngine extends SurrealDbError {
 	name = "UnsupportedEngine";
 	message =
-		"The engine you are trying to connect to is not supported or configured."
+		"The engine you are trying to connect to is not supported or configured.";
 
 	constructor(public readonly engine: string) {
 		super();
@@ -60,8 +59,7 @@ export class UnsupportedEngine extends SurrealDbError {
 
 export class ConnectionUnavailable extends SurrealDbError {
 	name = "ConnectionUnavailable";
-	message =
-		"There is no connection available at this moment."
+	message = "There is no connection available at this moment.";
 }
 
 export class ResponseError extends SurrealDbError {
@@ -74,18 +72,15 @@ export class ResponseError extends SurrealDbError {
 
 export class NoNamespaceSpecified extends SurrealDbError {
 	name = "NoNamespaceSpecified";
-	message =
-		"Please specify a namespace to use."
+	message = "Please specify a namespace to use.";
 }
 
 export class NoDatabaseSpecified extends SurrealDbError {
 	name = "NoDatabaseSpecified";
-	message =
-		"Please specify a database to use."
+	message = "Please specify a database to use.";
 }
 
 export class NoTokenReturned extends SurrealDbError {
 	name = "NoTokenReturned";
-	message =
-		"Did not receive an authentication token."
+	message = "Did not receive an authentication token.";
 }

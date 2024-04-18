@@ -1,24 +1,32 @@
-import { EngineDisconnected, NoActiveSocket, NoDatabaseSpecified, NoNamespaceSpecified, NoTokenReturned, ResponseError, UnsupportedEngine } from "./errors.ts";
+import {
+	EngineDisconnected,
+	NoActiveSocket,
+	NoDatabaseSpecified,
+	NoNamespaceSpecified,
+	NoTokenReturned,
+	ResponseError,
+	UnsupportedEngine,
+} from "./errors.ts";
 import { PreparedQuery } from "./index.ts";
 import { Pinger } from "./library/Pinger.ts";
 import { EmitterEvents } from "./library/engine.ts";
-import { Engine, WebsocketEngine, HttpEngine } from "./library/engine.ts";
+import { Engine, HttpEngine, WebsocketEngine } from "./library/engine.ts";
 import { RecordId } from "./library/cbor/recordid.ts";
 import { Emitter } from "./library/emitter.ts";
 import { processAuthVars } from "./library/processAuthVars.ts";
 import {
+	Action,
 	type ActionResult,
 	AnyAuth,
 	type ConnectionOptions,
+	LiveHandler,
 	type MapQueryResult,
 	type Patch,
+	Prettify,
 	processConnectionOptions,
 	ScopeAuth,
 	Token,
 	TransformAuth,
-	Prettify,
-	Action,
-	LiveHandler
 } from "./types.ts";
 import { ConnectionStatus } from "./library/engine.ts";
 
@@ -38,17 +46,19 @@ export class Surreal {
 	};
 
 	constructor({
-		engines
+		engines,
 	}: {
 		engines?: Engines;
 	} = {}) {
 		this.emitter = new Emitter();
-		this.emitter.subscribe('disconnected', () => this.clean());
-		this.emitter.subscribe('error', () => this.close());
+		this.emitter.subscribe("disconnected", () => this.clean());
+		this.emitter.subscribe("error", () => this.close());
 
-		if (engines) this.engines = {
-			...this.engines,
-			...engines
+		if (engines) {
+			this.engines = {
+				...this.engines,
+				...engines,
+			};
 		}
 	}
 
@@ -58,13 +68,14 @@ export class Surreal {
 	 */
 	async connect(url: string | URL, opts: ConnectionOptions = {}) {
 		url = new URL(url);
-		url.pathname = '/rpc';
+		url.pathname = "/rpc";
 		const engineName = url.protocol.slice(0, -1);
 		const engine = this.engines[engineName];
 		if (!engine) throw new UnsupportedEngine(engineName);
 
-		const { prepare, auth, namespace, database } =
-			processConnectionOptions(opts);
+		const { prepare, auth, namespace, database } = processConnectionOptions(
+			opts,
+		);
 
 		// Close any existing connections
 		await this.close();
@@ -79,11 +90,12 @@ export class Surreal {
 			connection.connect(url as URL)
 				.then(async () => {
 					this.pinger?.start(() => this.ping());
-					if (namespace || database)
+					if (namespace || database) {
 						await this.use({
 							namespace,
 							database,
 						});
+					}
 
 					if (typeof auth === "string") {
 						await this.authenticate(auth);
@@ -93,7 +105,6 @@ export class Surreal {
 
 					await prepare?.(this);
 					resolve();
-
 				})
 				.catch(reject)
 		);
@@ -108,28 +119,29 @@ export class Surreal {
 		this.clean();
 		const queue: Promise<unknown>[] = [];
 		if (this.connection) {
-			if (this.connection.status != ConnectionStatus.Disconnected)
-				queue.push(this.emitter.subscribeOnce('disconnected'));
+			if (this.connection.status != ConnectionStatus.Disconnected) {
+				queue.push(this.emitter.subscribeOnce("disconnected"));
+			}
 
 			queue.push(this.connection?.disconnect());
 		}
 
-		await Promise.all(queue)
+		await Promise.all(queue);
 	}
 
 	private clean() {
 		this.pinger?.stop();
 
 		// Scan all pending rpc requests
-		const pending = this.emitter.scanListeners((k) => k.startsWith('rpc-'))
+		const pending = this.emitter.scanListeners((k) => k.startsWith("rpc-"));
 
 		// Ensure all rpc requests get a connection closed response
-		pending.map(k => this.emitter.emit(k, [new EngineDisconnected()]));
+		pending.map((k) => this.emitter.emit(k, [new EngineDisconnected()]));
 
 		// Cleanup subscriptions and yet to be collected emisions
 		this.emitter.reset({
 			collectable: true,
-			listeners: pending
+			listeners: pending,
 		});
 	}
 
@@ -284,7 +296,10 @@ export class Surreal {
 	 * @param diff - If set to true, will return a set of patches instead of complete records
 	 */
 	async live<
-		Result extends Record<string, unknown> | Patch = Record<string, unknown>
+		Result extends Record<string, unknown> | Patch = Record<
+			string,
+			unknown
+		>,
 	>(table: string, callback?: LiveHandler<Result>, diff?: boolean) {
 		await this.ready;
 		const res = await this.rpc<string>("live", [table, diff]);
@@ -301,7 +316,10 @@ export class Surreal {
 	 * @param callback - Callback function that receives updates.
 	 */
 	async subscribeLive<
-		Result extends Record<string, unknown> | Patch = Record<string, unknown>
+		Result extends Record<string, unknown> | Patch = Record<
+			string,
+			unknown
+		>,
 	>(queryUuid: string, callback: LiveHandler<Result>) {
 		await this.ready;
 		if (!this.connection) throw new NoActiveSocket();
@@ -309,9 +327,9 @@ export class Surreal {
 			`live-${queryUuid}`,
 			callback as (
 				action: Action,
-				result: Record<string, unknown> | Patch
+				result: Record<string, unknown> | Patch,
 			) => unknown,
-			true
+			true,
 		);
 	}
 
@@ -321,7 +339,10 @@ export class Surreal {
 	 * @param callback - Callback function that receives updates.
 	 */
 	async unSubscribeLive<
-		Result extends Record<string, unknown> | Patch = Record<string, unknown>
+		Result extends Record<string, unknown> | Patch = Record<
+			string,
+			unknown
+		>,
 	>(queryUuid: string, callback: LiveHandler<Result>) {
 		await this.ready;
 		if (!this.connection) throw new NoActiveSocket();
@@ -329,8 +350,8 @@ export class Surreal {
 			`live-${queryUuid}`,
 			callback as (
 				action: Action,
-				result: Record<string, unknown> | Patch
-			) => unknown
+				result: Record<string, unknown> | Patch,
+			) => unknown,
 		);
 	}
 
@@ -364,7 +385,7 @@ export class Surreal {
 	 */
 	async query<T extends unknown[]>(
 		query: string | PreparedQuery,
-		bindings?: Record<string, unknown>
+		bindings?: Record<string, unknown>,
 	) {
 		const raw = await this.query_raw<T>(query, bindings);
 		return raw.map(({ status, result, detail }) => {
@@ -380,7 +401,7 @@ export class Surreal {
 	 */
 	async query_raw<T extends unknown[]>(
 		query: string | PreparedQuery,
-		bindings?: Record<string, unknown>
+		bindings?: Record<string, unknown>,
 	) {
 		if (typeof query !== "string") {
 			bindings = bindings ?? {};
@@ -415,9 +436,18 @@ export class Surreal {
 	 * @param thing - The table name or the specific record ID to create.
 	 * @param data - The document / record data to insert.
 	 */
-	async create<T extends R, U extends R = T>(thing: string, data?: U): Promise<ActionResult<T>[]>;
-	async create<T extends R, U extends R = T>(thing: RecordId, data?: U): Promise<ActionResult<T>>;
-	async create<T extends R, U extends R = T>(thing: RecordId | string, data?: U) {
+	async create<T extends R, U extends R = T>(
+		thing: string,
+		data?: U,
+	): Promise<ActionResult<T>[]>;
+	async create<T extends R, U extends R = T>(
+		thing: RecordId,
+		data?: U,
+	): Promise<ActionResult<T>>;
+	async create<T extends R, U extends R = T>(
+		thing: RecordId | string,
+		data?: U,
+	) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("create", [
 			thing,
@@ -432,9 +462,18 @@ export class Surreal {
 	 * @param thing - The table name or the specific record ID to create.
 	 * @param data - The document(s) / record(s) to insert.
 	 */
-	async insert<T extends R, U extends R = T>(thing: string, data?: U | U[]): Promise<ActionResult<T>[]>;
-	async insert<T extends R, U extends R = T>(thing: RecordId, data?: U): Promise<ActionResult<T>>;
-	async insert<T extends R, U extends R = T>(thing: RecordId | string, data?: U | U[]) {
+	async insert<T extends R, U extends R = T>(
+		thing: string,
+		data?: U | U[],
+	): Promise<ActionResult<T>[]>;
+	async insert<T extends R, U extends R = T>(
+		thing: RecordId,
+		data?: U,
+	): Promise<ActionResult<T>>;
+	async insert<T extends R, U extends R = T>(
+		thing: RecordId | string,
+		data?: U | U[],
+	) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("insert", [
 			thing,
@@ -451,9 +490,18 @@ export class Surreal {
 	 * @param thing - The table name or the specific record ID to update.
 	 * @param data - The document / record data to insert.
 	 */
-	async update<T extends R, U extends R = T>(thing: string, data?: U): Promise<ActionResult<T>[]>;
-	async update<T extends R, U extends R = T>(thing: RecordId, data?: U): Promise<ActionResult<T>>;
-	async update<T extends R, U extends R = T>(thing: RecordId | string, data?: U) {
+	async update<T extends R, U extends R = T>(
+		thing: string,
+		data?: U,
+	): Promise<ActionResult<T>[]>;
+	async update<T extends R, U extends R = T>(
+		thing: RecordId,
+		data?: U,
+	): Promise<ActionResult<T>>;
+	async update<T extends R, U extends R = T>(
+		thing: RecordId | string,
+		data?: U,
+	) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("update", [
 			thing,
@@ -470,9 +518,18 @@ export class Surreal {
 	 * @param thing - The table name or the specific record ID to change.
 	 * @param data - The document / record data to insert.
 	 */
-	async merge<T extends R, U extends R = Partial<T>>(thing: string, data?: U): Promise<ActionResult<T>[]>;
-	async merge<T extends R, U extends R = Partial<T>>(thing: RecordId, data?: U): Promise<ActionResult<T>>;
-	async merge<T extends R, U extends R = Partial<T>>(thing: RecordId | string, data?: U) {
+	async merge<T extends R, U extends R = Partial<T>>(
+		thing: string,
+		data?: U,
+	): Promise<ActionResult<T>[]>;
+	async merge<T extends R, U extends R = Partial<T>>(
+		thing: RecordId,
+		data?: U,
+	): Promise<ActionResult<T>>;
+	async merge<T extends R, U extends R = Partial<T>>(
+		thing: RecordId | string,
+		data?: U,
+	) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("merge", [
 			thing,
@@ -489,10 +546,26 @@ export class Surreal {
 	 * @param thing - The table name or the specific record ID to modify.
 	 * @param data - The JSON Patch data with which to modify the records.
 	 */
-	async patch<T extends R>(thing: RecordId, data?: Patch[], diff?: false): Promise<ActionResult<T>>;
-	async patch<T extends R>(thing: string, data?: Patch[], diff?: false): Promise<ActionResult<T>[]>;
-	async patch<T extends R>(thing: RecordId , data: undefined | Patch[], diff: true): Promise<Patch[]>;
-	async patch<T extends R>(thing: string, data: undefined | Patch[], diff: true): Promise<Patch[][]>;
+	async patch<T extends R>(
+		thing: RecordId,
+		data?: Patch[],
+		diff?: false,
+	): Promise<ActionResult<T>>;
+	async patch<T extends R>(
+		thing: string,
+		data?: Patch[],
+		diff?: false,
+	): Promise<ActionResult<T>[]>;
+	async patch<T extends R>(
+		thing: RecordId,
+		data: undefined | Patch[],
+		diff: true,
+	): Promise<Patch[]>;
+	async patch<T extends R>(
+		thing: string,
+		data: undefined | Patch[],
+		diff: true,
+	): Promise<Patch[][]>;
 	async patch(thing: RecordId | string, data?: Patch[], diff?: boolean) {
 		await this.ready;
 		// deno-lint-ignore no-explicit-any

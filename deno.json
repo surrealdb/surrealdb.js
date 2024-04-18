@@ -14,7 +14,7 @@
 	"tasks": {
 		"build": "deno run -A ./compile.ts && cd npm && npm run build:web"
 	},
-  "test": {
-    "include": ["tests/integration/ws.ts", "tests/integration/http.ts"]
-  }
+	"test": {
+		"include": ["tests/integration/ws.ts", "tests/integration/http.ts"]
+	}
 }
