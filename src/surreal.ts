@@ -7,7 +7,7 @@ import {
 	ResponseError,
 	UnsupportedEngine,
 } from "./errors.ts";
-import { PreparedQuery } from "./index.ts";
+import { PreparedQuery } from "./library/PreparedQuery.ts";
 import { Pinger } from "./library/Pinger.ts";
 import { EngineEvents } from "./library/engine.ts";
 import { Engine, HttpEngine, WebsocketEngine } from "./library/engine.ts";
