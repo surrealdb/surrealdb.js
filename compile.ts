@@ -26,8 +26,12 @@ await build({
 			url: "https://surrealdb.com",
 		},
 		dependencies: {
-			"unws": "^0.2.3",
-			"ws": "^8.13.0",
+			"isows": "^1.0.4",
+			"ws": "^8.16.0",
+		},
+		optionalDependencies: {
+			"bufferutil": "^4.0.8",
+			"utf-8-validate": "^6.0.3",
 		},
 		devDependencies: {
 			"@types/node": "^18.7.18",
