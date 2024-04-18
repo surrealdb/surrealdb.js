@@ -32,7 +32,8 @@ jobs:
       - name: Setup SurrealDB
         run: curl -sSf https://install.surrealdb.com | sh
 
+      - name:
+        run: ls -al
+
       - name: Run Deno
-        run:
-          ls -al
-          deno test --allow-net --allow-run --trace-leaks tests/integration/ws.ts tests/integration/http.ts
+        run: deno test --allow-net --allow-run --trace-leaks tests/integration/ws.ts tests/integration/http.ts
