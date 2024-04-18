@@ -127,11 +127,10 @@ export type QueryResultErr = {
 	detail: string;
 };
 
-export type MapQueryResult<T> = Prettify<
+export type MapQueryResult<T> =
 	{
 		[K in keyof T]: QueryResult<T[K]>;
-	}
->;
+	};
 
 /////////////////////////////////////
 //////////   PATCH TYPES   //////////

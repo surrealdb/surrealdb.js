@@ -391,7 +391,7 @@ export class Surreal {
 		return raw.map(({ status, result, detail }) => {
 			if (status == "ERR") throw new ResponseError(detail ?? result);
 			return result;
-		}) as T;
+		});
 	}
 
 	/**
