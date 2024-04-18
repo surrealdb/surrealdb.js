@@ -126,14 +126,12 @@ export type QueryResultOk<T> = {
 	status: "OK";
 	time: string;
 	result: T;
-	detail?: never;
 };
 
 export type QueryResultErr = {
 	status: "ERR";
 	time: string;
-	result?: never;
-	detail: string;
+	result: string;
 };
 
 export type MapQueryResult<T> = {

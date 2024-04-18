@@ -388,8 +388,8 @@ export class Surreal {
 		bindings?: Record<string, unknown>,
 	) {
 		const raw = await this.query_raw<T>(query, bindings);
-		return raw.map(({ status, result, detail }) => {
-			if (status == "ERR") throw new ResponseError(detail ?? result);
+		return raw.map(({ status, result }) => {
+			if (status == "ERR") throw new ResponseError(result);
 			return result;
 		});
 	}
