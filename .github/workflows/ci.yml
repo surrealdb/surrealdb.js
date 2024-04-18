@@ -1,0 +1,37 @@
+name: CI
+
+on: push
+
+jobs:
+  lint:
+    name: Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Check formatting
+        run: deno fmt --check
+      - name: Run linting
+        run: deno lint
+
+  test:
+    name: Testing
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Setup SurrealDB
+        run: curl -sSf https://install.surrealdb.com | sh
+
+      - name: Run Deno
+        run: deno test --allow-net --allow-run --trace-leaks

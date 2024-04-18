@@ -46,7 +46,7 @@ import Surreal from "surrealdb.js";
 or when you use CommonJS
 
 ```ts
-const { default: Surreal } = require("surrealdb.js");
+const { Surreal } = require("surrealdb.js");
 ```
 
 #### CDN for Browser
@@ -71,50 +71,50 @@ Here you have a simple example!
 > (https://caniuse.com/mdn-javascript_operators_await_top_level).
 
 ```ts
+import { Surreal, RecordId, Table } from "surrealdb.js";
+
 const db = new Surreal();
 
-try {
-	// Connect to the database
-	await db.connect("http://127.0.0.1:8000/rpc");
+// Connect to the database
+await db.connect("http://127.0.0.1:8000/rpc");
 
-	// Signin as a namespace, database, or root user
-	await db.signin({
-		username: "root",
-		password: "root",
-	});
+// Signin as a namespace, database, or root user
+await db.signin({
+	username: "root",
+	password: "root",
+});
 
-	// Select a specific namespace / database
-	await db.use({ namespace: "test", database: "test" });
+// Select a specific namespace / database
+await db.use({ 
+	namespace: "test", 
+	database: "test" 
+});
 
-	// Create a new person with a random id
-	let created = await db.create("person", {
-		title: "Founder & CEO",
-		name: {
-			first: "Tobie",
-			last: "Morgan Hitchcock",
-		},
-		marketing: true,
-		identifier: Math.random().toString(36).substr(2, 10),
-	});
+// Create a new person with a random id
+let created = await db.create("person", {
+	title: "Founder & CEO",
+	name: {
+		first: "Tobie",
+		last: "Morgan Hitchcock",
+	},
+	marketing: true,
+});
 
-	// Update a person record with a specific id
-	let updated = await db.merge("person:jaime", {
-		marketing: true,
-	});
+// Update a person record with a specific id
+let updated = await db.merge(new RecordId('person', 'jaime'), {
+	marketing: true,
+});
 
-	// Select all people records
-	let people = await db.select("person");
+// Select all people records
+let people = await db.select("person");
 
-	// Perform a custom advanced query
-	let groups = await db.query(
-		"SELECT marketing, count() FROM type::table($tb) GROUP BY marketing",
-		{
-			tb: "person",
-		},
-	);
-} catch (e) {
-	console.error("ERROR", e);
-}
+// Perform a custom advanced query
+let groups = await db.query(
+	"SELECT marketing, count() FROM $tb GROUP BY marketing",
+	{
+		tb: new Table("person"),
+	},
+);
 ```
 
 ## More informations
@@ -141,10 +141,7 @@ works for NodeJS, Bun, browsers with bundlers.
 ### Requirements
 
 - Deno
-- npm
-- NodeJS
-- Docker (for e2e tests)
-- Bun (for e2e tests)
+- SurrealDB (for testing)
 
 ### Build for all supported environments
 
@@ -160,10 +157,14 @@ For Deno, no build is needed. For all other environments run
 
 `deno lint`
 
+### Run tests
+
+`deno test --allow-net --allow-run --trace-leaks`
+
 ### PRs
 
 Before you commit, please format and lint your code accordingly to check for
-errors.
+errors, and ensure all tests still pass
 
 ### Local setup
 
@@ -174,8 +175,8 @@ for VSCode is helpful (hint: local Deno installation required).
 ### Directory structure
 
 - `./mod.ts` is the deno entypoint. This is just a reexport of `./src/index.ts`
-- `./deno.json` include settings for linting + formating.
+- `./deno.json` include settings for linting, formatting and testing.
 - `./compile.ts` include the build script for the npm package.
 - `./src` includes all source code. `./src/index.ts` is the main entrypoint.
 - `./npm` is build by `./compile.ts` and includes the generated npm package.
-- `./test` includes all test files. To add a test modify `./test/e2e/shared.js`.
+- `./tests` includes all test files.

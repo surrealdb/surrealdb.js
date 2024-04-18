@@ -1,3 +1,4 @@
+import { NoDatabaseSpecified, NoNamespaceSpecified } from "../errors.ts";
 import { AnyAuth } from "../types.ts";
 import { isNil } from "./isNil.ts";
 
@@ -9,9 +10,9 @@ export function processAuthVars<T extends AnyAuth>(vars: T, fallback?: {
 		if (!vars.namespace) vars.namespace = fallback?.namespace;
 		if (!vars.database) vars.database = fallback?.database;
 		if (isNil(vars.namespace)) {
-			throw new Error("No namespace was specified!");
+			throw new NoNamespaceSpecified();
 		}
-		if (isNil(vars.database)) throw new Error("No database was specified!");
+		if (isNil(vars.database)) throw new NoDatabaseSpecified();
 	}
 
 	return vars;

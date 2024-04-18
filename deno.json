@@ -1,21 +1,24 @@
 {
 	"lint": {
-		"files": {
-			"include": ["src/", "./mod.ts", "./compile.ts", "./deno.json"]
-		}
+		"include": ["src/", "tests/", "./mod.ts", "./compile.ts", "./deno.json"]
 	},
 	"fmt": {
-		"files": {
-			"include": ["src/", "./mod.ts", "./compile.ts", "./deno.json"]
-		},
-		"options": {
-			"useTabs": true,
-			"lineWidth": 80,
-			"indentWidth": 4,
-			"singleQuote": false
-		}
+		"include": [
+			"src/",
+			"tests/",
+			"./mod.ts",
+			"./compile.ts",
+			"./deno.json"
+		],
+		"useTabs": true,
+		"lineWidth": 80,
+		"indentWidth": 4,
+		"singleQuote": false
 	},
 	"tasks": {
 		"build": "deno run -A ./compile.ts && cd npm && npm run build:web"
+	},
+	"test": {
+		"include": ["tests/integration/ws.ts", "tests/integration/http.ts"]
 	}
 }

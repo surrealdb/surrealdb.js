@@ -1,9 +1,6 @@
-import { WebSocketStrategy } from "./strategies/websocket.ts";
-import { HTTPStrategy } from "./strategies/http.ts";
-
-export { WebSocketStrategy as Surreal, WebSocketStrategy as SurrealWebSocket };
-export { HTTPStrategy as ExperimentalSurrealHTTP };
-export default WebSocketStrategy;
-
-export { PreparedQuery } from "./library/PreparedQuery.ts";
+export { Surreal, Surreal as default } from "./surreal.ts";
+export * from "./library/cbor/index.ts";
 export { surql, surrealql } from "./library/tagged-template.ts";
+export { PreparedQuery } from "./library/PreparedQuery.ts";
+export * from "./errors.ts";
+export * from "./types.ts";

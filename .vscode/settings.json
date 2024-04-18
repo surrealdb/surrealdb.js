@@ -1,11 +1,3 @@
 {
-  "deno.enable": true,
-  "deno.enablePaths": [
-    "src",
-    "compile.ts",
-    "mod.ts",
-    "test/e2e/shared.js",
-    "test/e2e/deno.js",
-    "test/e2e/scripts/compare-dump.js"
-  ]
+  "deno.enable": true
 }

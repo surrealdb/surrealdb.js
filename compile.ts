@@ -1,4 +1,4 @@
-import { build, emptyDir } from "https://deno.land/x/dnt/mod.ts";
+import { build, emptyDir } from "https://deno.land/x/dnt@0.34.0/mod.ts";
 import project from "./project.json" with { type: "json" };
 
 await emptyDir("./npm");
@@ -26,8 +26,12 @@ await build({
 			url: "https://surrealdb.com",
 		},
 		dependencies: {
-			"unws": "^0.2.3",
-			"ws": "^8.13.0",
+			"isows": "^1.0.4",
+			"ws": "^8.16.0",
+		},
+		optionalDependencies: {
+			"bufferutil": "^4.0.8",
+			"utf-8-validate": "^6.0.3",
 		},
 		devDependencies: {
 			"@types/node": "^18.7.18",
