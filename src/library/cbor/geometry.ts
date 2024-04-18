@@ -48,7 +48,7 @@ export class GeometryPolygon extends Geometry {
 export class GeometryMultiPoint extends Geometry {
 	readonly points: [GeometryPoint, ...GeometryPoint[]];
 
-	constructor(points: [GeometryPoint, ...GeometryPoint[]]) {
+	constructor(points: [GeometryPoint, ...GeometryPoint[]] | GeometryMultiPoint) {
 		super();
 		points = points instanceof GeometryMultiPoint ? points.points : points;
 		this.points = points.map((point) => new GeometryPoint(point)) as [
@@ -61,7 +61,7 @@ export class GeometryMultiPoint extends Geometry {
 export class GeometryMultiLine extends Geometry {
 	readonly lines: [GeometryLine, ...GeometryLine[]];
 
-	constructor(lines: [GeometryLine, ...GeometryLine[]]) {
+	constructor(lines: [GeometryLine, ...GeometryLine[]] | GeometryMultiLine) {
 		super();
 		lines = lines instanceof GeometryMultiLine ? lines.lines : lines;
 		this.lines = lines.map((line) => new GeometryLine(line)) as [
@@ -74,7 +74,7 @@ export class GeometryMultiLine extends Geometry {
 export class GeometryMultiPolygon extends Geometry {
 	readonly polygons: [GeometryPolygon, ...GeometryPolygon[]];
 
-	constructor(polygons: [GeometryPolygon, ...GeometryPolygon[]]) {
+	constructor(polygons: [GeometryPolygon, ...GeometryPolygon[]] | GeometryMultiPolygon) {
 		super();
 		polygons = polygons instanceof GeometryMultiPolygon
 			? polygons.polygons
@@ -89,7 +89,7 @@ export class GeometryMultiPolygon extends Geometry {
 export class GeometryCollection extends Geometry {
 	readonly collection: [Geometry, ...Geometry[]];
 
-	constructor(collection: [Geometry, ...Geometry[]]) {
+	constructor(collection: [Geometry, ...Geometry[]] | GeometryCollection) {
 		super();
 		collection = collection instanceof GeometryCollection
 			? collection.collection
