@@ -85,12 +85,21 @@ export const TransformAuth = z.union([
 		database,
 		username,
 		password,
-	}) => ({
-		ns: namespace,
-		db: database,
-		user: username,
-		pass: password,
-	})),
+	}) => {
+		const vars: Record<string, unknown> = {
+			user: username,
+			pass: password,
+		};
+
+		if (namespace) {
+			vars.ns = namespace;
+			if (database) {
+				vars.db = database;
+			}
+		}
+
+		return vars;
+	}),
 	z.object({
 		namespace: z.string(),
 		database: z.string(),
@@ -117,14 +126,12 @@ export type QueryResultOk<T> = {
 	status: "OK";
 	time: string;
 	result: T;
-	detail?: never;
 };
 
 export type QueryResultErr = {
 	status: "ERR";
 	time: string;
-	result?: never;
-	detail: string;
+	result: string;
 };
 
 export type MapQueryResult<T> = {
