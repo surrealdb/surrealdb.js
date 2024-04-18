@@ -24,6 +24,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name:
+        run: pwd
+
       - name: Setup deno
         uses: denoland/setup-deno@v1
         with:
@@ -33,7 +36,7 @@ jobs:
         run: curl -sSf https://install.surrealdb.com | sh
 
       - name:
-        run: ls -al
+        run: pwd
 
       - name: Run Deno
         run: deno test --allow-net --allow-run --trace-leaks tests/integration/ws.ts tests/integration/http.ts
