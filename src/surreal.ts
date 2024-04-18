@@ -9,7 +9,7 @@ import {
 } from "./errors.ts";
 import { PreparedQuery } from "./index.ts";
 import { Pinger } from "./library/Pinger.ts";
-import { EmitterEvents } from "./library/engine.ts";
+import { EngineEvents } from "./library/engine.ts";
 import { Engine, HttpEngine, WebsocketEngine } from "./library/engine.ts";
 import { RecordId } from "./library/cbor/recordid.ts";
 import { Emitter } from "./library/emitter.ts";
@@ -30,14 +30,14 @@ import {
 } from "./types.ts";
 import { ConnectionStatus } from "./library/engine.ts";
 
-type Engines = Record<string, new (emitter: Emitter<EmitterEvents>) => Engine>;
+type Engines = Record<string, new (emitter: Emitter<EngineEvents>) => Engine>;
 type R = Prettify<Record<string, unknown>>;
 
 export class Surreal {
 	public connection: Engine | undefined;
 	private pinger?: Pinger;
 	ready?: Promise<void>;
-	emitter: Emitter<EmitterEvents>;
+	emitter: Emitter<EngineEvents>;
 	protected engines: Engines = {
 		ws: WebsocketEngine,
 		wss: WebsocketEngine,

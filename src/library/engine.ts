@@ -18,7 +18,7 @@ import {
 	UnexpectedServerResponse,
 } from "../errors.ts";
 
-export type EmitterEvents = {
+export type EngineEvents = {
 	connecting: [];
 	connected: [];
 	disconnected: [];
@@ -36,8 +36,8 @@ export enum ConnectionStatus {
 }
 
 export abstract class Engine {
-	constructor(...[_]: [emitter: Emitter<EmitterEvents>]) {}
-	abstract emitter: Emitter<EmitterEvents>;
+	constructor(...[_]: [emitter: Emitter<EngineEvents>]) {}
+	abstract emitter: Emitter<EngineEvents>;
 	abstract ready?: Promise<void>;
 	abstract status?: ConnectionStatus;
 	abstract connect(url: URL): Promise<void>;
@@ -65,16 +65,16 @@ export class WebsocketEngine implements Engine {
 		token?: string;
 	} = {};
 
-	readonly emitter: Emitter<EmitterEvents>;
+	readonly emitter: Emitter<EngineEvents>;
 	private socket?: WebSocket;
 
-	constructor(emitter: Emitter<EmitterEvents>) {
+	constructor(emitter: Emitter<EngineEvents>) {
 		this.emitter = emitter;
 	}
 
 	private setStatus<T extends ConnectionStatus>(
 		status: T,
-		...args: EmitterEvents[T]
+		...args: EngineEvents[T]
 	) {
 		this.status = status;
 		this.emitter.emit(status, args);
@@ -222,7 +222,7 @@ export class WebsocketEngine implements Engine {
 
 export class HttpEngine implements Engine {
 	ready?: Promise<void>;
-	readonly emitter: Emitter<EmitterEvents>;
+	readonly emitter: Emitter<EngineEvents>;
 	connection: {
 		url?: URL;
 		namespace?: string;
@@ -231,7 +231,7 @@ export class HttpEngine implements Engine {
 		variables: Record<string, unknown>;
 	} = { variables: {} };
 
-	constructor(emitter: Emitter<EmitterEvents>) {
+	constructor(emitter: Emitter<EngineEvents>) {
 		this.emitter = emitter;
 	}
 
@@ -307,8 +307,8 @@ export class HttpEngine implements Engine {
 			headers: {
 				"Content-Type": "application/cbor",
 				Accept: "application/cbor",
-				'Surreal-NS': this.connection.namespace,
-				'Surreal-DB': this.connection.database,
+				"Surreal-NS": this.connection.namespace,
+				"Surreal-DB": this.connection.database,
 				...(this.connection.token
 					? { Authorization: `Bearer ${this.connection.token}` }
 					: {}),
