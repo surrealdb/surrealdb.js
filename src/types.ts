@@ -127,10 +127,9 @@ export type QueryResultErr = {
 	detail: string;
 };
 
-export type MapQueryResult<T> =
-	{
-		[K in keyof T]: QueryResult<T[K]>;
-	};
+export type MapQueryResult<T> = {
+	[K in keyof T]: QueryResult<T[K]>;
+};
 
 /////////////////////////////////////
 //////////   PATCH TYPES   //////////
