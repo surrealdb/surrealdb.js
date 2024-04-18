@@ -8,8 +8,8 @@ import { RecordId, ResponseError } from "../../../mod.ts";
 Deno.test("root signin", async () => {
 	const surreal = await createSurreal();
 
-	const res = await surreal.signin(createAuth('root')).catch(() => false);
-	assertEquals(typeof res, 'string', 'Returned token to be string');
+	const res = await surreal.signin(createAuth("root")).catch(() => false);
+	assertEquals(typeof res, "string", "Returned token to be string");
 
 	await surreal.close();
 });
@@ -17,7 +17,7 @@ Deno.test("root signin", async () => {
 Deno.test("invalid credentials", async () => {
 	const surreal = await createSurreal();
 
-	const req = () => surreal.signin(createAuth('invalid'));
+	const req = () => surreal.signin(createAuth("invalid"));
 	await assertRejects(req, ResponseError);
 
 	await surreal.close();
@@ -32,30 +32,30 @@ Deno.test("scope signup/signin/info", async () => {
 			DEFINE SCOPE user
 				SIGNUP ( CREATE type::thing('user', $id) )
 				SIGNIN ( SELECT * FROM type::thing('user', $id) );
-		`
+		`,
 	);
 
 	{
 		const signup = await surreal.signup({
-			scope: 'user',
+			scope: "user",
 			id: 123,
 		});
 
-		assertEquals(typeof signup, 'string', 'scope signin');
+		assertEquals(typeof signup, "string", "scope signin");
 	}
 
 	{
 		const signin = await surreal.signin({
-			scope: 'user',
+			scope: "user",
 			id: 123,
 		});
 
-		assertEquals(typeof signin, 'string', 'scope signin');
+		assertEquals(typeof signin, "string", "scope signin");
 	}
 
 	{
-		const info = await surreal.info<{ id: RecordId<'user'> }>();
-		assertEquals(info, { id: new RecordId('user', 123) }, 'scope info');
+		const info = await surreal.info<{ id: RecordId<"user"> }>();
+		assertEquals(info, { id: new RecordId("user", 123) }, "scope info");
 	}
 
 	await surreal.close();

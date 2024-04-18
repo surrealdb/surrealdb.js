@@ -1,5 +1,2 @@
-Object.assign(window, {
-	protocol: 'http',
-});
-
+globalThis.protocol = "http";
 import "./mod.ts";
