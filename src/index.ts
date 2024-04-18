@@ -1,7 +1,5 @@
-import { Surreal } from "./surreal.ts";
-
-export { Surreal };
-export default Surreal;
-
-export { PreparedQuery } from "./library/PreparedQuery.ts";
+export { Surreal, Surreal as default } from "./surreal.ts";
+export * from "./library/cbor/index.ts";
 export { surql, surrealql } from "./library/tagged-template.ts";
+export * from "./errors.ts";
+export * from "./types.ts";
