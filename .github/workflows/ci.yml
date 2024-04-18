@@ -1,11 +1,12 @@
-name: linting
+name: CI
 
 on:
   - push
   - pull_request
 
 jobs:
-  build:
+  lint:
+    name: Linting
     runs-on: ubuntu-latest
 
     steps:
@@ -24,5 +25,22 @@ jobs:
         run: deno fmt --check
       - name: Run linting
         run: deno lint
-      - name: Attempt building
+
+  test:
+    name: Testing
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Setup SurrealDB
+        run: curl -sSf https://install.surrealdb.com | sh
+
+      - name: Build NPM package
         run: deno task build
+
+      - name: Run Deno
+        run: deno test --allow-net --allow-run --trace-ops
