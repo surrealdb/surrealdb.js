@@ -1,5 +1,7 @@
-type Listener<Args extends unknown[] = unknown[]> = (...args: Args) => unknown;
-type UnknownEvents = Record<string, unknown[]>;
+export type Listener<Args extends unknown[] = unknown[]> = (
+	...args: Args
+) => unknown;
+export type UnknownEvents = Record<string, unknown[]>;
 
 export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 	private collectable: Partial<

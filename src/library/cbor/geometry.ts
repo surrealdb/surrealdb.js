@@ -48,7 +48,9 @@ export class GeometryPolygon extends Geometry {
 export class GeometryMultiPoint extends Geometry {
 	readonly points: [GeometryPoint, ...GeometryPoint[]];
 
-	constructor(points: [GeometryPoint, ...GeometryPoint[]] | GeometryMultiPoint) {
+	constructor(
+		points: [GeometryPoint, ...GeometryPoint[]] | GeometryMultiPoint,
+	) {
 		super();
 		points = points instanceof GeometryMultiPoint ? points.points : points;
 		this.points = points.map((point) => new GeometryPoint(point)) as [
@@ -74,7 +76,11 @@ export class GeometryMultiLine extends Geometry {
 export class GeometryMultiPolygon extends Geometry {
 	readonly polygons: [GeometryPolygon, ...GeometryPolygon[]];
 
-	constructor(polygons: [GeometryPolygon, ...GeometryPolygon[]] | GeometryMultiPolygon) {
+	constructor(
+		polygons:
+			| [GeometryPolygon, ...GeometryPolygon[]]
+			| GeometryMultiPolygon,
+	) {
 		super();
 		polygons = polygons instanceof GeometryMultiPolygon
 			? polygons.polygons
