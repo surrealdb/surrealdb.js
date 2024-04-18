@@ -259,6 +259,7 @@ Deno.test("query", async () => {
 		undefined: undefined,
 		array: [123],
 		object: { num: 456 },
+		date: new Date(),
 
 		// Custom
 		// Decimals are currently bugged on SurrealDB side of decoding

@@ -7,8 +7,8 @@ export function nsToMs(ns: number) {
 }
 
 export function dateToCborCustomDate(date: Date) {
-	const s = date.getUTCSeconds();
-	const ms = date.getMilliseconds();
+	const s = Math.floor(date.getTime() / 1000);
+	const ms = date.getTime() - s * 1000;
 	return [s, ms * 1000000];
 }
 
