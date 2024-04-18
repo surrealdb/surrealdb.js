@@ -40,4 +40,4 @@ jobs:
         run: curl -sSf https://install.surrealdb.com | sh
 
       - name: Run Deno
-        run: deno test --allow-net --allow-run --trace-ops
+        run: deno test --allow-net --allow-run --trace-leaks tests/integration/ws.ts tests/integration/http.ts
