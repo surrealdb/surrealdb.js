@@ -307,8 +307,8 @@ export class HttpEngine implements Engine {
 			headers: {
 				"Content-Type": "application/cbor",
 				Accept: "application/cbor",
-				NS: this.connection.namespace,
-				DB: this.connection.database,
+				'Surreal-NS': this.connection.namespace,
+				'Surreal-DB': this.connection.database,
 				...(this.connection.token
 					? { Authorization: `Bearer ${this.connection.token}` }
 					: {}),
