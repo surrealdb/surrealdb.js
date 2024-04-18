@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "npm:zod";
 
 export const RecordIdValue = z.union([
 	z.string(),

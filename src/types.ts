@@ -1,13 +1,6 @@
-import { z } from "zod";
-import { RecordId } from "./library/data/recordid.ts";
+import { z } from "npm:zod";
+import { RecordId } from "./library/cbor/recordid.ts";
 import { Surreal } from "./surreal.ts";
-
-export type StatusHooks = {
-	onConnect?: () => unknown;
-	onReconnect?: () => unknown;
-	onDisconnect?: () => unknown;
-	onError?: (error: Error) => unknown;
-};
 
 export const UseOptions = z.object({
 	namespace: z.coerce.string(),
@@ -22,6 +15,7 @@ export type ActionResult<
 
 export type Prettify<T> = {
 	[K in keyof T]: T[K];
+	// deno-lint-ignore ban-types
 } & {};
 
 //////////////////////////////////////////////
@@ -112,44 +106,9 @@ export const TransformAuth = z.union([
 	})),
 ]);
 
-export const HTTPAuthenticationResponse = z.discriminatedUnion("code", [
-	z.object({
-		code: z.literal(200),
-		details: z.string(),
-		token: z.string({
-			required_error: "Did not recieve an authentication token",
-			invalid_type_error: "Received an invalid token",
-		}),
-	}),
-	z.object({
-		code: z.literal(403),
-		details: z.string(),
-		description: z.string(),
-		information: z.string(),
-	}),
-], { invalid_type_error: "Unexpected authentication response" });
-
-export type HTTPAuthenticationResponse = z.infer<
-	typeof HTTPAuthenticationResponse
->;
-
 /////////////////////////////////////
 //////////   QUERY TYPES   //////////
 /////////////////////////////////////
-
-export type Result<T = unknown> = ResultOk<T> | ResultErr;
-export type ResultOk<T> = {
-	result: T;
-	error?: never;
-};
-
-export type ResultErr = {
-	result?: never;
-	error: {
-		code: number;
-		message: string;
-	};
-};
 
 export type QueryResult<T = unknown> = QueryResultOk<T> | QueryResultErr;
 export type QueryResultOk<T> = {
@@ -166,39 +125,9 @@ export type QueryResultErr = {
 	detail: string;
 };
 
-export type MapQueryResult<T> = {
+export type MapQueryResult<T> = Prettify<{
 	[K in keyof T]: QueryResult<T[K]>;
-};
-
-export type RawQueryResult =
-	| string
-	| number
-	| boolean
-	| symbol
-	| null
-	| RawQueryResult[]
-	| Record<string | number | symbol, unknown>;
-
-export type LiveQueryClosureReason = "SOCKET_CLOSED" | "QUERY_KILLED";
-export type LiveQueryResponse<
-	T extends Record<string, unknown> = Record<string, unknown>,
-> =
-	| {
-		action: "CLOSE";
-		result?: never;
-		detail: LiveQueryClosureReason;
-	}
-	| {
-		action: "CREATE" | "UPDATE" | "DELETE";
-		result: T;
-		detail?: never;
-	};
-
-export type UnprocessedLiveQueryResponse<
-	T extends Record<string, unknown> = Record<string, unknown>,
-> = LiveQueryResponse<T> & {
-	id: string;
-};
+}>;
 
 /////////////////////////////////////
 //////////   PATCH TYPES   //////////
@@ -251,50 +180,8 @@ export type Patch =
 	| MovePatch
 	| TestPatch;
 
-///////////////////////////////////
-//////////   WEBSOCKET   //////////
-///////////////////////////////////
 
-export enum WebsocketStatus {
-	OPEN,
-	CLOSED,
-	RECONNECTING,
-}
-
-//////////////////////////////
-//////////   HTTP   //////////
-//////////////////////////////
-
-export type InvalidSQL = {
-	code: 400;
-	details: "Request problems detected";
-	description:
-		"There is a problem with your request. Refer to the documentation for further information.";
-	information: string;
-};
-
-export const HTTPConstructorOptions = z.object({
-	fetch: z.function().optional(),
-});
-
-export type HTTPConstructorOptions<TFetcher = typeof fetch> = {
-	fetch?: TFetcher;
-};
-
-///////////////////////////////
-//////////   OTHER   //////////
-///////////////////////////////
-
-// deno-lint-ignore ban-types
-type Constructor<T> = Function & { prototype: T };
-type MaybePromise<T> = T | Promise<T>;
-
-export type RawSocketMessageResponse =
-	| (Result & { id: number })
-	| RawSocketLiveQueryNotification;
-export type RawSocketLiveQueryNotification = {
-	result: UnprocessedLiveQueryResponse;
-};
+// Connection options
 
 export type ConnectionOptions =
 	& {
@@ -326,3 +213,46 @@ export function processConnectionOptions({
 
 	return { prepare, auth, ...useOpts } satisfies ConnectionOptions;
 }
+
+// RPC
+
+export type RpcRequest<Method extends string = string, Params extends unknown[] | undefined = unknown[]> = {
+	method: Method;
+	params?: Params
+};
+
+export type RpcResponse<Result extends unknown = unknown> = RpcResponseOk<Result> | RpcResponseErr;
+
+export type RpcResponseOk<Result extends unknown = unknown> = {
+	result: Result;
+	error?: never;
+};
+
+export type RpcResponseErr = {
+	result?: never;
+	error: {
+		code: number;
+		message: string;
+	};
+};
+
+// Live
+
+export const Action = z.union([
+	z.literal("CREATE"),
+	z.literal("UPDATE"),
+	z.literal("DELETE"),
+]);
+
+export type Action = z.infer<typeof Action>;
+
+export const LiveResult = z.object({
+	id: z.string().uuid(),
+	action: Action,
+	result: z.record(z.unknown())
+});
+
+export type LiveResult = z.infer<typeof LiveResult>;
+
+export type LiveHandler<Result extends Record<string, unknown> | Patch = Record<string, unknown>> =
+	(action: Action, result: Result) => unknown;

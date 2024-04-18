@@ -1,5 +1,5 @@
-import Duration from "@icholy/duration";
-export { Duration } from "@icholy/duration";
+import { Duration } from "npm:@icholy/duration@^5.1.0";
+export { Duration }
 
 export function durationToCborCustomDuration(duration: Duration) {
 	const ms = duration.milliseconds();

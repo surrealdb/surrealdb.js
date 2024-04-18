@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "npm:zod";
 
 export class Table<Tb extends string = string> {
 	public readonly tb: Tb;

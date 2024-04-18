@@ -1,6 +1,6 @@
-import { TaggedValue, encode as encode_cbor, decode as decode_cbor } from "cbor-redux";
+import { TaggedValue, encode as encode_cbor, decode as decode_cbor } from "npm:cbor-redux@1.0.0";
 import { RecordId } from "./recordid.ts";
-import { UUID } from "./uuid.ts";
+import { UUID, uuidv4, uuidv7 } from "./uuid.ts";
 import { Duration, cborCustomDurationToDuration, durationToCborCustomDuration } from "./duration.ts";
 import { Decimal } from "./decimal.ts"
 import {
@@ -39,7 +39,7 @@ const TAG_GEOMETRY_MULTILINE = 92;
 const TAG_GEOMETRY_MULTIPOLYGON = 93;
 const TAG_GEOMETRY_COLLECTION = 94;
 
-export function encode<T extends unknown>(data: T) {
+export function encodeCbor<T extends unknown>(data: T) {
 	return encode_cbor<T>(data, (_, v) => {
 		if (v instanceof Date)     				return new TaggedValue(dateToCborCustomDate(v), 		TAG_CUSTOM_DATETIME);
 		if (v === undefined)       				return new TaggedValue(null,            				TAG_NONE);
@@ -59,7 +59,7 @@ export function encode<T extends unknown>(data: T) {
 	});
 }
 
-export function decode(data: ArrayBuffer) {
+export function decodeCbor(data: ArrayBuffer) {
 	return decode_cbor(data, (_, v) => {
 		if (!(v instanceof TaggedValue)) return v;
 
@@ -83,3 +83,5 @@ export function decode(data: ArrayBuffer) {
 		}
 	});
 }
+
+export { RecordId, UUID, uuidv4, uuidv7, Duration, Decimal, GeometryCollection, GeometryLine, GeometryMultiLine, GeometryMultiPoint, GeometryMultiPolygon, GeometryPoint, GeometryPolygon, Table };

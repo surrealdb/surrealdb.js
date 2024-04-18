@@ -1,11 +1,9 @@
-import { z } from "zod";
+import { z } from "npm:zod";
 import { Emitter } from "./emitter.ts";
 import { getIncrementalID } from "./getIncrementalID.ts";
-import { RpcRequest, RpcResponse } from "./rpc.ts";
-import WebSocket from "./WebSocket/native.ts";
-import { decode, encode } from "./data/cbor.ts";
-import { Action, LiveResult } from "./live.ts";
-import { Patch } from "../types.ts";
+import WebSocket from "./WebSocket/deno.ts";
+import { decodeCbor, encodeCbor } from "./cbor/index.ts";
+import { Patch, Action, LiveResult, RpcRequest, RpcResponse } from "../types.ts";
 import { ConnectionUnavailable, EngineDisconnected, ResponseError, UnexpectedConnectionError, UnexpectedServerResponse } from "../errors.ts";
 
 export type EmitterEvents = {
@@ -26,25 +24,30 @@ export enum ConnectionStatus {
 }
 
 export abstract class Engine {
-	constructor(...[]: [emitter: Emitter<EmitterEvents>]) {};
+	constructor(...[_]: [emitter: Emitter<EmitterEvents>]) {};
 	abstract emitter: Emitter<EmitterEvents>;
 	abstract ready?: Promise<void>;
 	abstract status?: ConnectionStatus;
 	abstract connect(url: URL): Promise<void>;
 	abstract disconnect(): Promise<void>;
 	abstract rpc<Method extends string, Params extends unknown[] | undefined, Result extends unknown>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>>;
-	abstract namespace?: string;
-	abstract database?: string;
-	abstract token?: string;
+	abstract connection: {
+		url?: URL;
+		namespace?: string;
+		database?: string;
+		token?: string;
+	}
 }
 
 export class WebsocketEngine implements Engine {
 	ready?: Promise<void>;
 	status: ConnectionStatus = ConnectionStatus.Disconnected;
-
-	namespace?: string;
-	database?: string;
-	token?: string;
+	connection: {
+		url?: URL;
+		namespace?: string;
+		database?: string;
+		token?: string;
+	} = {};
 
 	readonly emitter: Emitter<EmitterEvents>;
 	private socket?: WebSocket;
@@ -59,6 +62,7 @@ export class WebsocketEngine implements Engine {
 	}
 
 	async connect(url: URL) {
+		this.connection.url = url;
 		this.setStatus(ConnectionStatus.Connecting);
 		const socket = new WebSocket(url.toString(), 'cbor');
 		const ready = new Promise<void>((resolve, reject) => {
@@ -78,7 +82,12 @@ export class WebsocketEngine implements Engine {
 			});
 
 			socket.addEventListener("message", async ({ data }) => {
-				const decoded = decode(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
+				const decoded = decodeCbor(
+					data instanceof Blob
+						? await data.arrayBuffer()
+						: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+				);
+
 				if (typeof decoded == 'object' && !Array.isArray(decoded) && decoded != null) {
 					this.handleRpcResponse(decoded);
 				} else {
@@ -94,8 +103,10 @@ export class WebsocketEngine implements Engine {
 	}
 
 	async disconnect(): Promise<void> {
+		this.connection = {};
 		await this.ready;
 		if (!this.socket) throw new ConnectionUnavailable();
+		await this.socket.close();
 	}
 
 	async rpc<Method extends string, Params extends unknown[] | undefined, Result extends unknown>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
@@ -108,13 +119,41 @@ export class WebsocketEngine implements Engine {
 
 		const id = getIncrementalID();
 		const response = this.emitter.subscribeOnce(`rpc-${id}`);
-		this.socket.send(encode({ id, ...request }))
+		this.socket.send(encodeCbor({ id, ...request }))
 		return response.then(([res]) => {
 			if (res instanceof EngineDisconnected) throw res;
+
+			if ('result' in res) {
+				switch (request.method) {
+					case 'use': {
+						this.connection.namespace = z.string().parse(request.params?.[0]);
+						this.connection.database = z.string().parse(request.params?.[1]);
+						break;
+					}
+
+					case 'signin':
+					case 'signup': {
+						this.connection.token = res.result as string;
+						break;
+					};
+
+					case 'authenticate': {
+						this.connection.token = request.params?.[0] as string
+						break;
+					};
+
+					case 'invalidate': {
+						delete this.connection.token;
+						break;
+					}
+				}
+			}
+
 			return res as RpcResponse<Result>;
 		});
 	}
 
+	// deno-lint-ignore no-explicit-any
 	handleRpcResponse({ id, ...res }: any) {
 		if (id) {
 			this.emitter.emit(`rpc-${id}`, [res]);
@@ -139,13 +178,13 @@ export class WebsocketEngine implements Engine {
 export class HttpEngine implements Engine {
 	ready?: Promise<void>;
 	readonly emitter: Emitter<EmitterEvents>;
-	private connection?: {
-		url: string;
+	connection: {
+		url?: URL;
 		namespace?: string;
 		database?: string;
 		token?: string;
 		variables: Record<string, unknown>
-	}
+	} = { variables: {} };
 
 	constructor(emitter: Emitter<EmitterEvents>) {
 		this.emitter = emitter;
@@ -153,21 +192,21 @@ export class HttpEngine implements Engine {
 
 	connect(url: URL) {
 		this.emitter.emit('connecting', []);
-		this.connection = { url: url.toString(), variables: {} };
+		this.connection.url = url;
 		this.emitter.emit('connected', []);
 		this.ready = new Promise<void>(r => r())
 		return this.ready;
 	}
 
 	disconnect(): Promise<void> {
-		this.connection = undefined;
+		this.connection = { variables: {} };
 		this.emitter.emit('disconnected', []);
 		return new Promise<void>(r => r());
 	}
 
 	async rpc<Method extends string, Params extends unknown[] | undefined, Result extends unknown>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
 		await this.ready;
-		if (!this.connection) {
+		if (!this.connection.url) {
 			throw new ConnectionUnavailable();
 		}
 
@@ -219,10 +258,10 @@ export class HttpEngine implements Engine {
 				DB: this.connection.database,
 				...(this.connection.token ? { Authorization: `Bearer ${this.connection.token}`} : {})
 			},
-			body: encode({ id, ...request })
+			body: encodeCbor({ id, ...request })
 		});
 
-		const response = decode(await raw.arrayBuffer());
+		const response: RpcResponse = decodeCbor(await raw.arrayBuffer());
 
 		if ('result' in response) {
 			switch (request.method) {
@@ -249,6 +288,6 @@ export class HttpEngine implements Engine {
 	}
 
 	get connected() {
-		return !!this.connection;
+		return !!this.connection.url;
 	}
 }

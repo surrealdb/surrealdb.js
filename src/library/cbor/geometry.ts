@@ -1,5 +1,4 @@
-import Decimal from "decimal.js";
-import { z } from "zod";
+import { Decimal } from "npm:decimal.js@^10.4.3";
 
 export class Geometry {}
 
