@@ -197,7 +197,7 @@ export class Surreal {
 	 * Make sure the user actually has the permission to select their own record, otherwise you'll get back an empty result.
 	 * @return The record linked to the record ID used for authentication
 	 */
-	async info<T extends Record<string, unknown> = Record<string, unknown>>() {
+	async info<T extends R>(): Promise<ActionResult<T> | undefined> {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T> | undefined>("info");
 		if (res.error) throw new ResponseError(res.error.message);
