@@ -1,6 +1,7 @@
 import { z } from "npm:zod";
 import { RecordId } from "./library/cbor/recordid.ts";
 import { Surreal } from "./surreal.ts";
+import { UUID } from "./library/cbor/uuid.ts";
 
 export const UseOptions = z.object({
 	namespace: z.coerce.string(),
@@ -260,7 +261,11 @@ export const Action = z.union([
 export type Action = z.infer<typeof Action>;
 
 export const LiveResult = z.object({
-	id: z.string().uuid(),
+	id: z.instanceof(UUID as never) as z.ZodType<
+		typeof UUID,
+		z.ZodTypeDef,
+		typeof UUID
+	>,
 	action: Action,
 	result: z.record(z.unknown()),
 });
