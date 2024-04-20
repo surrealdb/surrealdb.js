@@ -38,8 +38,8 @@ export enum ConnectionStatus {
 export abstract class Engine {
 	constructor(...[_]: [emitter: Emitter<EngineEvents>]) {}
 	abstract emitter: Emitter<EngineEvents>;
-	abstract ready?: Promise<void>;
-	abstract status?: ConnectionStatus;
+	abstract ready: Promise<void> | undefined;
+	abstract status: ConnectionStatus;
 	abstract connect(url: URL): Promise<void>;
 	abstract disconnect(): Promise<void>;
 	abstract rpc<
@@ -56,7 +56,7 @@ export abstract class Engine {
 }
 
 export class WebsocketEngine implements Engine {
-	ready?: Promise<void>;
+	ready: Promise<void> | undefined = undefined;
 	status: ConnectionStatus = ConnectionStatus.Disconnected;
 	connection: {
 		url?: URL;
@@ -138,6 +138,9 @@ export class WebsocketEngine implements Engine {
 		await this.socket?.close();
 		this.ready = undefined;
 		this.socket = undefined;
+		if (this.status !== ConnectionStatus.Disconnected) {
+			this.setStatus(ConnectionStatus.Disconnected);
+		}
 	}
 
 	async rpc<
@@ -222,7 +225,8 @@ export class WebsocketEngine implements Engine {
 }
 
 export class HttpEngine implements Engine {
-	ready?: Promise<void>;
+	ready: Promise<void> | undefined = undefined;
+	status: ConnectionStatus = ConnectionStatus.Disconnected;
 	readonly emitter: Emitter<EngineEvents>;
 	connection: {
 		url?: URL;
@@ -236,17 +240,26 @@ export class HttpEngine implements Engine {
 		this.emitter = emitter;
 	}
 
+	private setStatus<T extends ConnectionStatus>(
+		status: T,
+		...args: EngineEvents[T]
+	) {
+		this.status = status;
+		this.emitter.emit(status, args);
+	}
+
 	connect(url: URL) {
-		this.emitter.emit("connecting", []);
+		this.setStatus(ConnectionStatus.Connecting);
 		this.connection.url = url;
-		this.emitter.emit("connected", []);
+		this.setStatus(ConnectionStatus.Connected);
 		this.ready = new Promise<void>((r) => r());
 		return this.ready;
 	}
 
 	disconnect(): Promise<void> {
 		this.connection = { variables: {} };
-		this.emitter.emit("disconnected", []);
+		this.ready = undefined;
+		this.setStatus(ConnectionStatus.Disconnected);
 		return new Promise<void>((r) => r());
 	}
 
