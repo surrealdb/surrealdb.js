@@ -127,16 +127,17 @@ export class WebsocketEngine implements Engine {
 		});
 
 		this.ready = ready;
-		return await ready.finally(() => {
+		return await ready.then(() => {
 			this.socket = socket;
 		});
 	}
 
 	async disconnect(): Promise<void> {
 		this.connection = {};
-		await this.ready;
-		if (!this.socket) throw new ConnectionUnavailable();
-		await this.socket.close();
+		await this.ready?.catch(() => {});
+		await this.socket?.close();
+		this.ready = undefined;
+		this.socket = undefined;
 	}
 
 	async rpc<
