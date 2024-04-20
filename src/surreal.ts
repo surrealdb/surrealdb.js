@@ -14,6 +14,7 @@ import { Engine, HttpEngine, WebsocketEngine } from "./library/engine.ts";
 import { RecordId } from "./library/cbor/recordid.ts";
 import { Emitter } from "./library/emitter.ts";
 import { processAuthVars } from "./library/processAuthVars.ts";
+import type { UUID } from "./library/cbor/uuid.ts";
 import {
 	Action,
 	type ActionResult,
@@ -302,7 +303,7 @@ export class Surreal {
 		>,
 	>(table: string, callback?: LiveHandler<Result>, diff?: boolean) {
 		await this.ready;
-		const res = await this.rpc<string>("live", [table, diff]);
+		const res = await this.rpc<UUID>("live", [table, diff]);
 
 		if (res.error) throw new ResponseError(res.error.message);
 		if (callback) this.subscribeLive<Result>(res.result, callback);
@@ -320,7 +321,7 @@ export class Surreal {
 			string,
 			unknown
 		>,
-	>(queryUuid: string, callback: LiveHandler<Result>) {
+	>(queryUuid: UUID, callback: LiveHandler<Result>) {
 		await this.ready;
 		if (!this.connection) throw new NoActiveSocket();
 		this.connection.emitter.subscribe(
@@ -343,7 +344,7 @@ export class Surreal {
 			string,
 			unknown
 		>,
-	>(queryUuid: string, callback: LiveHandler<Result>) {
+	>(queryUuid: UUID, callback: LiveHandler<Result>) {
 		await this.ready;
 		if (!this.connection) throw new NoActiveSocket();
 		this.connection.emitter.unSubscribe(
@@ -357,9 +358,9 @@ export class Surreal {
 
 	/**
 	 * Kill a live query
-	 * @param uuid - The query that you want to kill.
+	 * @param queryUuid - The query that you want to kill.
 	 */
-	async kill(queryUuid: string | string[]) {
+	async kill(queryUuid: UUID | readonly UUID[]) {
 		await this.ready;
 		if (!this.connection) throw new NoActiveSocket();
 		if (Array.isArray(queryUuid)) {
