@@ -14,16 +14,18 @@ declare global {
 export async function createSurreal({
 	protocol,
 	auth,
+	flatMode,
 }: {
 	protocol?: Protocol;
 	auth?: PremadeAuth;
+	flatMode?: boolean;
 } = {}) {
 	protocol = protocol
 		? protocol
 		: "protocol" in globalThis
-		? globalThis.protocol as Protocol
+		? (globalThis.protocol as Protocol)
 		: "ws";
-	const surreal = new Surreal();
+	const surreal = new Surreal({ flatMode });
 	await surreal.connect(`${protocol}://127.0.0.1:${SURREAL_PORT}/rpc`, {
 		namespace: SURREAL_NS,
 		database: SURREAL_DB,

@@ -30,6 +30,8 @@ import {
 	TransformAuth,
 } from "./types.ts";
 import { ConnectionStatus } from "./library/engine.ts";
+import config from "./config.ts";
+import { flatten } from "./library/flatten.ts";
 
 type Engines = Record<string, new (emitter: Emitter<EngineEvents>) => Engine>;
 type R = Prettify<Record<string, unknown>>;
@@ -46,14 +48,24 @@ export class Surreal {
 		https: HttpEngine,
 	};
 
+	/**
+	 * Constructs a new instance of the SurrealDB client with optional configurations.
+	 *
+	 * 	 @param {Object} options - The options for configuring the instance.
+	 *   @param {Engines} [options.engines] - Engines to be integrated within the class.
+	 *   @param {boolean} [options.flatMode=false] - If true, flatten SurrealDB responses into Plain Javascript Objects.
+	 */
 	constructor({
 		engines,
+		flatMode = false,
 	}: {
 		engines?: Engines;
+		flatMode?: boolean;
 	} = {}) {
 		this.emitter = new Emitter();
 		this.emitter.subscribe("disconnected", () => this.clean());
 		this.emitter.subscribe("error", () => this.close());
+		config.flatMode = flatMode;
 
 		if (engines) {
 			this.engines = {
@@ -88,7 +100,8 @@ export class Surreal {
 		this.pinger = new Pinger(30000);
 
 		this.ready = new Promise((resolve, reject) =>
-			connection.connect(url as URL)
+			connection
+				.connect(url as URL)
 				.then(async () => {
 					this.pinger?.start(() => this.ping());
 					if (namespace || database) {
@@ -166,13 +179,9 @@ export class Surreal {
 	 * @param database - Switches to a specific namespace.
 	 * @param db - Switches to a specific database.
 	 */
-	async use({
-		namespace,
-		database,
-	}: {
-		namespace?: string;
-		database?: string;
-	}) {
+	async use(
+		{ namespace, database }: { namespace?: string; database?: string },
+	) {
 		if (!this.connection) throw new NoActiveSocket();
 
 		if (!namespace && !this.connection.connection.namespace) {
@@ -202,6 +211,7 @@ export class Surreal {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T> | undefined>("info");
 		if (res.error) throw new ResponseError(res.error.message);
+		if (config.flatMode === true) return flatten(res.result) ?? undefined;
 		return res.result ?? undefined;
 	}
 
@@ -223,7 +233,6 @@ export class Surreal {
 		if (!res.result) {
 			throw new NoTokenReturned();
 		}
-
 		return res.result;
 	}
 
@@ -301,7 +310,11 @@ export class Surreal {
 			string,
 			unknown
 		>,
-	>(table: string, callback?: LiveHandler<Result>, diff?: boolean) {
+	>(
+		table: string,
+		callback?: LiveHandler<Result>,
+		diff?: boolean,
+	) {
 		await this.ready;
 		const res = await this.rpc<UUID>("live", [table, diff]);
 
@@ -321,7 +334,10 @@ export class Surreal {
 			string,
 			unknown
 		>,
-	>(queryUuid: UUID, callback: LiveHandler<Result>) {
+	>(
+		queryUuid: UUID,
+		callback: LiveHandler<Result>,
+	) {
 		await this.ready;
 		if (!this.connection) throw new NoActiveSocket();
 		this.connection.emitter.subscribe(
@@ -344,7 +360,10 @@ export class Surreal {
 			string,
 			unknown
 		>,
-	>(queryUuid: UUID, callback: LiveHandler<Result>) {
+	>(
+		queryUuid: UUID,
+		callback: LiveHandler<Result>,
+	) {
 		await this.ready;
 		if (!this.connection) throw new NoActiveSocket();
 		this.connection.emitter.unSubscribe(
@@ -391,6 +410,7 @@ export class Surreal {
 		const raw = await this.query_raw<T>(query, bindings);
 		return raw.map(({ status, result }) => {
 			if (status == "ERR") throw new ResponseError(result);
+			if (config.flatMode === true) return flatten(result);
 			return result;
 		});
 	}
@@ -416,6 +436,7 @@ export class Surreal {
 			bindings,
 		]);
 		if (res.error) throw new ResponseError(res.error.message);
+		if (config.flatMode === true) return flatten(res.result);
 		return res.result;
 	}
 
@@ -429,6 +450,7 @@ export class Surreal {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("select", [thing]);
 		if (res.error) throw new ResponseError(res.error.message);
+		if (config.flatMode === true) return flatten(res.result);
 		return res.result;
 	}
 
@@ -450,11 +472,9 @@ export class Surreal {
 		data?: U,
 	) {
 		await this.ready;
-		const res = await this.rpc<ActionResult<T>>("create", [
-			thing,
-			data,
-		]);
+		const res = await this.rpc<ActionResult<T>>("create", [thing, data]);
 		if (res.error) throw new ResponseError(res.error.message);
+		if (config.flatMode === true) return flatten(res.result);
 		return res.result;
 	}
 
@@ -476,11 +496,9 @@ export class Surreal {
 		data?: U | U[],
 	) {
 		await this.ready;
-		const res = await this.rpc<ActionResult<T>>("insert", [
-			thing,
-			data,
-		]);
+		const res = await this.rpc<ActionResult<T>>("insert", [thing, data]);
 		if (res.error) throw new ResponseError(res.error.message);
+		if (config.flatMode === true) return flatten(res.result);
 		return res.result;
 	}
 
@@ -504,11 +522,9 @@ export class Surreal {
 		data?: U,
 	) {
 		await this.ready;
-		const res = await this.rpc<ActionResult<T>>("update", [
-			thing,
-			data,
-		]);
+		const res = await this.rpc<ActionResult<T>>("update", [thing, data]);
 		if (res.error) throw new ResponseError(res.error.message);
+		if (config.flatMode === true) return flatten(res.result);
 		return res.result;
 	}
 
@@ -532,11 +548,9 @@ export class Surreal {
 		data?: U,
 	) {
 		await this.ready;
-		const res = await this.rpc<ActionResult<T>>("merge", [
-			thing,
-			data,
-		]);
+		const res = await this.rpc<ActionResult<T>>("merge", [thing, data]);
 		if (res.error) throw new ResponseError(res.error.message);
+		if (config.flatMode === true) return flatten(res.result);
 		return res.result;
 	}
 
@@ -572,6 +586,7 @@ export class Surreal {
 		// deno-lint-ignore no-explicit-any
 		const res = await this.rpc<any>("patch", [thing, data, diff]);
 		if (res.error) throw new ResponseError(res.error.message);
+		if (config.flatMode === true) return flatten(res.result);
 		return res.result;
 	}
 
@@ -585,6 +600,7 @@ export class Surreal {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("delete", [thing]);
 		if (res.error) throw new ResponseError(res.error.message);
+		if (config.flatMode === true) return flatten(res.result);
 		return res.result;
 	}
 
