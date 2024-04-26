@@ -69,7 +69,12 @@ export class Surreal {
 	 */
 	async connect(url: string | URL, opts: ConnectionOptions = {}) {
 		url = new URL(url);
-		url.pathname = "/rpc";
+
+		if (!url.pathname.endsWith("/rpc")) {
+			if (!url.pathname.endsWith("/")) url.pathname += "/";
+			url.pathname += "rpc";
+		}
+
 		const engineName = url.protocol.slice(0, -1);
 		const engine = this.engines[engineName];
 		if (!engine) throw new UnsupportedEngine(engineName);
