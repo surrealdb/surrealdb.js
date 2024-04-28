@@ -330,7 +330,12 @@ export class HttpEngine implements Engine {
 			body: encodeCbor({ id, ...request }),
 		});
 
-		const response: RpcResponse = decodeCbor(await raw.arrayBuffer());
+		const buffer = await raw.arrayBuffer()
+		try {
+			var response: RpcResponse = decodeCbor(buffer);
+		} catch (error) {
+			throw new Error(Buffer.from(buffer).toString());
+		}
 
 		if ("result" in response) {
 			switch (request.method) {
