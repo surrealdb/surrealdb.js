@@ -305,7 +305,7 @@ Deno.test("Record id bigint", async () => {
 	const [output] = await surreal.query<[{ id: RecordId }, { b: RecordId }]>(
 		/* surql */ `CREATE ONLY $id`,
 		{
-			id: new RecordId("person", 90071992547409915n)
+			id: new RecordId("person", 90071992547409915n),
 		},
 	);
 
