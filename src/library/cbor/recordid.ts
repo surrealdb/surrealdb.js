@@ -3,6 +3,7 @@ import { z } from "npm:zod";
 export const RecordIdValue = z.union([
 	z.string(),
 	z.number(),
+	z.bigint(),
 	z.record(z.unknown()),
 	z.array(z.unknown()),
 ]);

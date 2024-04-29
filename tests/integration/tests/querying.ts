@@ -298,3 +298,18 @@ Deno.test("query", async () => {
 
 	await surreal.close();
 });
+
+Deno.test("Record id bigint", async () => {
+	const surreal = await createSurreal();
+
+	const [output] = await surreal.query<[{ id: RecordId }, { b: RecordId }]>(
+		/* surql */ `CREATE ONLY $id`,
+		{
+			id: new RecordId("person", 90071992547409915n),
+		},
+	);
+
+	assertEquals(output.id.id, 90071992547409915n);
+
+	await surreal.close();
+});
