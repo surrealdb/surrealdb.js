@@ -10,6 +10,8 @@ new Deno.Command("surreal", {
 }).spawn();
 
 await new Promise((r) => setTimeout(r, 1000));
+
 import "./tests/auth.ts";
 import "./tests/querying.ts";
 import "./tests/live.ts";
+import "./tests/connection.ts";
