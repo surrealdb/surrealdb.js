@@ -25,7 +25,9 @@ export class RecordId<Tb extends string = string> {
 
 	toString() {
 		const tb = escape_ident(this.tb);
-		const id = typeof this.id == 'string' ? escape_ident(this.id) : JSON.stringify(this.id);
+		const id = typeof this.id == "string"
+			? escape_ident(this.id)
+			: JSON.stringify(this.id);
 		return `${tb}:${id}`;
 	}
 }
@@ -57,9 +59,9 @@ function escape_ident(str: string) {
 			!(code > 96 && code < 123) && // lower alpha (a-z)
 			!(code == 95) // underscore (_)
 		) {
-			return `⟨${str.replaceAll('⟩', '\⟩')}⟩`;
+			return `⟨${str.replaceAll("⟩", "\⟩")}⟩`;
 		}
 	}
 
 	return str;
-};
+}

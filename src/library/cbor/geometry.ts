@@ -2,9 +2,9 @@ import { Decimal } from "npm:decimal.js@^10.4.3";
 
 export abstract class Geometry {
 	abstract toJSON(): {
-		type: string,
-		coordinates: unknown[],
-	}
+		type: string;
+		coordinates: unknown[];
+	};
 
 	abstract coordinates: unknown[];
 }
@@ -50,7 +50,7 @@ export class GeometryLine extends Geometry {
 	}
 
 	get coordinates() {
-		return this.line.map(g => g.coordinates);
+		return this.line.map((g) => g.coordinates);
 	}
 }
 
@@ -81,7 +81,7 @@ export class GeometryPolygon extends Geometry {
 	}
 
 	get coordinates() {
-		return this.polygon.map(g => g.coordinates);
+		return this.polygon.map((g) => g.coordinates);
 	}
 }
 
@@ -107,7 +107,7 @@ export class GeometryMultiPoint extends Geometry {
 	}
 
 	get coordinates() {
-		return this.points.map(g => g.coordinates);
+		return this.points.map((g) => g.coordinates);
 	}
 }
 
@@ -131,7 +131,7 @@ export class GeometryMultiLine extends Geometry {
 	}
 
 	get coordinates() {
-		return this.lines.map(g => g.coordinates);
+		return this.lines.map((g) => g.coordinates);
 	}
 }
 
@@ -161,7 +161,7 @@ export class GeometryMultiPolygon extends Geometry {
 	}
 
 	get coordinates() {
-		return this.polygons.map(g => g.coordinates);
+		return this.polygons.map((g) => g.coordinates);
 	}
 }
 
@@ -184,6 +184,6 @@ export class GeometryCollection extends Geometry {
 	}
 
 	get coordinates() {
-		return this.collection.map(g => g.toJSON());
+		return this.collection.map((g) => g.toJSON());
 	}
 }
