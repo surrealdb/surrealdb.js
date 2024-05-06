@@ -16,9 +16,11 @@
 		"singleQuote": false
 	},
 	"tasks": {
-		"build": "deno run -A ./compile.ts && cd npm && npm run build:web"
+		"build": "deno run -A ./compile.ts && cd npm && npm run build:web",
+    "test": "deno test --allow-net --allow-run --allow-read --trace-leaks",
+    "test:update": "deno test --allow-net --allow-run --allow-read --allow-write --trace-leaks -- --update"
 	},
 	"test": {
-		"include": ["tests/integration/ws.ts", "tests/integration/http.ts"]
+		"include": ["tests/integration/ws.ts", "tests/integration/http.ts", "tests/unit/*.ts"]
 	}
 }

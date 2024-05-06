@@ -9,6 +9,7 @@ import {
 	GeometryPoint,
 	GeometryPolygon,
 	RecordId,
+	StringRecordId,
 	UUID,
 	uuidv4,
 	uuidv7,
@@ -302,14 +303,31 @@ Deno.test("query", async () => {
 Deno.test("Record id bigint", async () => {
 	const surreal = await createSurreal();
 
-	const [output] = await surreal.query<[{ id: RecordId }, { b: RecordId }]>(
+	const [output] = await surreal.query<[{ id: RecordId }]>(
 		/* surql */ `CREATE ONLY $id`,
 		{
 			id: new RecordId("person", 90071992547409915n),
 		},
 	);
 
+	assertEquals(output.id.tb, 'person');
 	assertEquals(output.id.id, 90071992547409915n);
+
+	await surreal.close();
+});
+
+Deno.test("String Record Id", async () => {
+	const surreal = await createSurreal();
+
+	const [output] = await surreal.query<[{ id: RecordId }]>(
+		/* surql */ `CREATE ONLY $id`,
+		{
+			id: new StringRecordId("person:123"),
+		},
+	);
+
+	assertEquals(output.id.tb, 'person');
+	assertEquals(output.id.id, 123);
 
 	await surreal.close();
 });
