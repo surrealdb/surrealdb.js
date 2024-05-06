@@ -5,7 +5,7 @@ Deno.test("check version", async () => {
 	const surreal = await createSurreal();
 	const res = await surreal.version();
 
-	assertEquals(res.startsWith('surrealdb-'), true, "Version to be returned");
+	assertEquals(res.startsWith("surrealdb-"), true, "Version to be returned");
 
 	await surreal.close();
 });
