@@ -78,16 +78,16 @@ const db = new Surreal();
 // Connect to the database
 await db.connect("http://127.0.0.1:8000/rpc");
 
-// Signin as a namespace, database, or root user
-await db.signin({
-	username: "root",
-	password: "root",
-});
-
 // Select a specific namespace / database
 await db.use({ 
 	namespace: "test", 
 	database: "test" 
+});
+
+// Signin as a namespace, database, or root user
+await db.signin({
+	username: "root",
+	password: "root",
 });
 
 // Create a new person with a random id

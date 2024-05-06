@@ -1,0 +1,77 @@
+export const snapshot = {};
+
+snapshot[`toJSON matches snapshot 1`] = `
+'{
+  "rid": "⟨some:thing⟩:under_score",
+  "str_rid": "⟨some:thing⟩:under_score",
+  "dec": "3.333333",
+  "dur": "26h",
+  "geo": {
+    "type": "GeometryCollection",
+    "coordinates": [
+      {
+        "type": "Point",
+        "coordinates": [
+          "1",
+          "2"
+        ]
+      },
+      {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                "1",
+                "2"
+              ],
+              [
+                "3",
+                "4"
+              ]
+            ],
+            [
+              [
+                "5",
+                "6"
+              ],
+              [
+                "7",
+                "8"
+              ]
+            ]
+          ]
+        ]
+      },
+      {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              "1",
+              "2"
+            ],
+            [
+              "3",
+              "4"
+            ]
+          ],
+          [
+            [
+              "5",
+              "6"
+            ],
+            [
+              "7",
+              "8"
+            ]
+          ]
+        ]
+      }
+    ]
+  },
+  "tb": "some super _ cool table",
+  "uuid": "92b84bde-39c8-4b4b-92f7-626096d6c4d9",
+  "date": "2024-05-06T17:44:57.085Z"
+}'
+`;

@@ -3,7 +3,7 @@ import {
 	encode as encode_cbor,
 	TaggedValue,
 } from "npm:cbor-redux@1.0.0";
-import { RecordId } from "./recordid.ts";
+import { RecordId, StringRecordId } from "./recordid.ts";
 import { UUID, uuidv4, uuidv7 } from "./uuid.ts";
 import {
 	cborCustomDurationToDuration,
@@ -70,6 +70,9 @@ export function encodeCbor<T extends unknown>(data: T) {
 		}
 		if (v instanceof RecordId) {
 			return new TaggedValue([v.tb, v.id], TAG_RECORDID);
+		}
+		if (v instanceof StringRecordId) {
+			return new TaggedValue(v.rid, TAG_RECORDID);
 		}
 		if (v instanceof Table) return new TaggedValue(v.tb, TAG_TABLE);
 		if (v instanceof GeometryPoint) {
@@ -149,6 +152,7 @@ export {
 	GeometryPoint,
 	GeometryPolygon,
 	RecordId,
+	StringRecordId,
 	Table,
 	UUID,
 	uuidv4,

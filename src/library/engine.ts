@@ -138,9 +138,6 @@ export class WebsocketEngine implements Engine {
 		await this.socket?.close();
 		this.ready = undefined;
 		this.socket = undefined;
-		if (this.status !== ConnectionStatus.Disconnected) {
-			this.setStatus(ConnectionStatus.Disconnected);
-		}
 	}
 
 	async rpc<
