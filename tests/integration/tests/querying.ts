@@ -300,7 +300,7 @@ Deno.test("query", async () => {
 	await surreal.close();
 });
 
-Deno.test("Record id bigint", async () => {
+Deno.test("record id bigint", async () => {
 	const surreal = await createSurreal();
 
 	const [output] = await surreal.query<[{ id: RecordId }]>(

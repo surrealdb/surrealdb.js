@@ -598,6 +598,16 @@ export class Surreal {
 	}
 
 	/**
+	 * Obtain the version of the SurrealDB instance
+	 */
+	async version(): Promise<string> {
+		await this.ready;
+		const res = await this.rpc<string>("version");
+		if (res.error) throw new ResponseError(res.error.message);
+		return res.result;
+	}
+
+	/**
 	 * Send a raw message to the SurrealDB instance
 	 * @param method - Type of message to send.
 	 * @param params - Parameters for the message.
