@@ -8,8 +8,10 @@ export class Table<Tb extends string = string> {
 	}
 
 	toJSON() {
-		return {
-			tb: this.tb,
-		};
+		return this.tb;
+	}
+
+	toString() {
+		return this.tb;
 	}
 }

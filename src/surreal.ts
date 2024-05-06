@@ -11,7 +11,10 @@ import { PreparedQuery } from "./library/PreparedQuery.ts";
 import { Pinger } from "./library/Pinger.ts";
 import { EngineEvents } from "./library/engine.ts";
 import { Engine, HttpEngine, WebsocketEngine } from "./library/engine.ts";
-import { RecordId } from "./library/cbor/recordid.ts";
+import {
+	RecordId as _RecordId,
+	StringRecordId,
+} from "./library/cbor/recordid.ts";
 import { Emitter } from "./library/emitter.ts";
 import { processAuthVars } from "./library/processAuthVars.ts";
 import type { UUID } from "./library/cbor/uuid.ts";
@@ -33,6 +36,7 @@ import { ConnectionStatus } from "./library/engine.ts";
 
 type Engines = Record<string, new (emitter: Emitter<EngineEvents>) => Engine>;
 type R = Prettify<Record<string, unknown>>;
+type RecordId<Tb extends string = string> = _RecordId<Tb> | StringRecordId;
 
 export class Surreal {
 	public connection: Engine | undefined;
