@@ -62,6 +62,19 @@ export class ConnectionUnavailable extends SurrealDbError {
 	message = "There is no connection available at this moment.";
 }
 
+export class HttpConnectionError extends SurrealDbError {
+	name = "HttpConnectionError";
+
+	constructor(
+		public readonly message: string,
+		public readonly status: number,
+		public readonly statusText: string,
+		public readonly buffer: ArrayBuffer,
+	) {
+		super();
+	}
+}
+
 export class ResponseError extends SurrealDbError {
 	name = "ResponseError";
 

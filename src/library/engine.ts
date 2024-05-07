@@ -13,6 +13,7 @@ import {
 import {
 	ConnectionUnavailable,
 	EngineDisconnected,
+	HttpConnectionError,
 	ResponseError,
 	UnexpectedConnectionError,
 	UnexpectedServerResponse,
@@ -327,35 +328,41 @@ export class HttpEngine implements Engine {
 			body: encodeCbor({ id, ...request }),
 		});
 
-		const buffer = await raw.arrayBuffer()
-		try {
-			var response: RpcResponse = decodeCbor(buffer);
-		} catch (error) {
-			throw new Error(Buffer.from(buffer).toString());
-		}
+		const buffer = await raw.arrayBuffer();
 
-		if ("result" in response) {
-			switch (request.method) {
-				case "signin":
-				case "signup": {
-					this.connection.token = response.result as string;
-					break;
-				}
+		if (raw.status == 200) {
+			const response: RpcResponse = decodeCbor(buffer);
+			if ("result" in response) {
+				switch (request.method) {
+					case "signin":
+					case "signup": {
+						this.connection.token = response.result as string;
+						break;
+					}
 
-				case "authenticate": {
-					this.connection.token = request.params?.[0] as string;
-					break;
-				}
+					case "authenticate": {
+						this.connection.token = request.params?.[0] as string;
+						break;
+					}
 
-				case "invalidate": {
-					delete this.connection.token;
-					break;
+					case "invalidate": {
+						delete this.connection.token;
+						break;
+					}
 				}
 			}
-		}
 
-		this.emitter.emit(`rpc-${id}`, [response]);
-		return response as RpcResponse<Result>;
+			this.emitter.emit(`rpc-${id}`, [response]);
+			return response as RpcResponse<Result>;
+		} else {
+			const dec = new TextDecoder("utf-8");
+			throw new HttpConnectionError(
+				dec.decode(buffer),
+				raw.status,
+				raw.statusText,
+				buffer,
+			);
+		}
 	}
 
 	get connected() {
