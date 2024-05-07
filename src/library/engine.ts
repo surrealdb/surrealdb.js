@@ -14,6 +14,7 @@ import {
 	ConnectionUnavailable,
 	EngineDisconnected,
 	HttpConnectionError,
+	MissingNamespaceDatabase,
 	ResponseError,
 	UnexpectedConnectionError,
 	UnexpectedServerResponse,
@@ -310,7 +311,7 @@ export class HttpEngine implements Engine {
 		}
 
 		if (!this.connection.namespace || !this.connection.database) {
-			throw new ConnectionUnavailable();
+			throw new MissingNamespaceDatabase();
 		}
 
 		const id = getIncrementalID();

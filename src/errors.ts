@@ -62,6 +62,11 @@ export class ConnectionUnavailable extends SurrealDbError {
 	message = "There is no connection available at this moment.";
 }
 
+export class MissingNamespaceDatabase extends SurrealDbError {
+	name = "MissingNamespaceDatabase";
+	message = "There are no namespace and/or database configured.";
+}
+
 export class HttpConnectionError extends SurrealDbError {
 	name = "HttpConnectionError";
 
