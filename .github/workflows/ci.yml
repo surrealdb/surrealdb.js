@@ -33,5 +33,23 @@ jobs:
       - name: Setup SurrealDB
         run: curl -sSf https://install.surrealdb.com | sh
 
-      - name: Run Deno
+      - name: Run Test
         run: deno task test
+
+  build:
+    name: Build library
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Run Build
+        run: deno task build
