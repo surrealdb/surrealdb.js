@@ -1,0 +1,83 @@
+export const snapshot = {};
+
+snapshot[`jsonify matches snapshot 1`] = `
+{
+  date: "2024-05-06T17:44:57.085Z",
+  dec: "3.333333",
+  dur: "26h",
+  false: false,
+  float: 123.456,
+  geo: {
+    coordinates: [
+      {
+        coordinates: [
+          "1",
+          "2",
+        ],
+        type: "Point",
+      },
+      {
+        coordinates: [
+          [
+            [
+              [
+                "1",
+                "2",
+              ],
+              [
+                "3",
+                "4",
+              ],
+            ],
+            [
+              [
+                "5",
+                "6",
+              ],
+              [
+                "7",
+                "8",
+              ],
+            ],
+          ],
+        ],
+        type: "MultiPolygon",
+      },
+      {
+        coordinates: [
+          [
+            [
+              "1",
+              "2",
+            ],
+            [
+              "3",
+              "4",
+            ],
+          ],
+          [
+            [
+              "5",
+              "6",
+            ],
+            [
+              "7",
+              "8",
+            ],
+          ],
+        ],
+        type: "Polygon",
+      },
+    ],
+    type: "GeometryCollection",
+  },
+  null: null,
+  num: 123,
+  rid: "⟨some:thing⟩:under_score",
+  str_rid: "⟨some:thing⟩:under_score",
+  string: "I am a string",
+  tb: "some super _ cool table",
+  true: true,
+  uuid: "92b84bde-39c8-4b4b-92f7-626096d6c4d9",
+}
+`;

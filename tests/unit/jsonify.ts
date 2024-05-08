@@ -7,14 +7,15 @@ import {
 	GeometryMultiPolygon,
 	GeometryPoint,
 	GeometryPolygon,
+	jsonify,
 	RecordId,
 	StringRecordId,
 	Table,
 	UUID,
 } from "../../mod.ts";
 
-Deno.test("toJSON matches snapshot", async function (t) {
-	const json = JSON.stringify(
+Deno.test("jsonify matches snapshot", async function (t) {
+	const json = jsonify(
 		{
 			rid: new RecordId("some:thing", "under_score"),
 			str_rid: new StringRecordId("⟨some:thing⟩:under_score"),
@@ -49,9 +50,14 @@ Deno.test("toJSON matches snapshot", async function (t) {
 			tb: new Table("some super _ cool table"),
 			uuid: UUID.parse("92b84bde-39c8-4b4b-92f7-626096d6c4d9"),
 			date: new Date("2024-05-06T17:44:57.085Z"),
+			undef: undefined,
+			null: null,
+			num: 123,
+			float: 123.456,
+			true: true,
+			false: false,
+			string: "I am a string",
 		},
-		null,
-		2,
 	);
 
 	await assertSnapshot(t, json);
