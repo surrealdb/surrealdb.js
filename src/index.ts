@@ -14,3 +14,4 @@ export { surql, surrealql } from "./library/tagged-template.ts";
 export { PreparedQuery } from "./library/PreparedQuery.ts";
 export * from "./errors.ts";
 export * from "./types.ts";
+export * from "./library/jsonify.ts";
