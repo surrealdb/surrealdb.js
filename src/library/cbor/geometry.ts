@@ -23,7 +23,7 @@ export class GeometryPoint extends Geometry {
 
 	toJSON() {
 		return {
-			type: "Point",
+			type: "Point" as const,
 			coordinates: this.coordinates,
 		};
 	}
@@ -44,7 +44,7 @@ export class GeometryLine extends Geometry {
 
 	toJSON() {
 		return {
-			type: "LineString",
+			type: "LineString" as const,
 			coordinates: this.coordinates,
 		};
 	}
@@ -75,7 +75,7 @@ export class GeometryPolygon extends Geometry {
 
 	toJSON() {
 		return {
-			type: "Polygon",
+			type: "Polygon" as const,
 			coordinates: this.coordinates,
 		};
 	}
@@ -101,7 +101,7 @@ export class GeometryMultiPoint extends Geometry {
 
 	toJSON() {
 		return {
-			type: "MultiPoint",
+			type: "MultiPoint" as const,
 			coordinates: this.coordinates,
 		};
 	}
@@ -125,7 +125,7 @@ export class GeometryMultiLine extends Geometry {
 
 	toJSON() {
 		return {
-			type: "MultiLineString",
+			type: "MultiLineString" as const,
 			coordinates: this.coordinates,
 		};
 	}
@@ -155,7 +155,7 @@ export class GeometryMultiPolygon extends Geometry {
 
 	toJSON() {
 		return {
-			type: "MultiPolygon",
+			type: "MultiPolygon" as const,
 			coordinates: this.coordinates,
 		};
 	}
@@ -165,10 +165,11 @@ export class GeometryMultiPolygon extends Geometry {
 	}
 }
 
-export class GeometryCollection extends Geometry {
-	readonly collection: [Geometry, ...Geometry[]];
+export class GeometryCollection<T extends [Geometry, ...Geometry[]]>
+	extends Geometry {
+	readonly collection: T;
 
-	constructor(collection: [Geometry, ...Geometry[]] | GeometryCollection) {
+	constructor(collection: T | GeometryCollection<T>) {
 		super();
 		collection = collection instanceof GeometryCollection
 			? collection.collection
@@ -178,12 +179,14 @@ export class GeometryCollection extends Geometry {
 
 	toJSON() {
 		return {
-			type: "GeometryCollection",
+			type: "GeometryCollection" as const,
 			coordinates: this.coordinates,
 		};
 	}
 
 	get coordinates() {
-		return this.collection.map((g) => g.toJSON());
+		return this.collection.map((g) => g.toJSON()) as {
+			[K in keyof T]: ReturnType<T[K]["toJSON"]>;
+		};
 	}
 }
