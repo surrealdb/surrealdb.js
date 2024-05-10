@@ -199,7 +199,11 @@ For Deno, no build is needed. For all other environments run
 
 ### Run tests
 
-`deno test --allow-net --allow-run --trace-leaks`
+`deno task test`
+
+### Run tests and update snapshots
+
+`deno task test:update`
 
 ### PRs
 
