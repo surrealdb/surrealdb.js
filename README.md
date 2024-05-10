@@ -36,7 +36,7 @@ The official SurrealDB SDK for JavaScript.
 
 ## Documentation
 
-The docs of this libary are located at
+The documentation is available at
 [https://surrealdb.com/docs/integration/libraries/javascript](https://surrealdb.com/docs/integration/libraries/javascript)
 
 ## How to install
