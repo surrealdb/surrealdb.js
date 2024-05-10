@@ -54,7 +54,7 @@ For best results, set a version in the url:
 import Surreal from "https://deno.land/x/surrealdb@1.0.0/mod.ts";
 ```
 
-### Install for NodeJS
+### Install for Node.js
 
 Install it with:
 
@@ -163,15 +163,15 @@ let groups = await db.query(
 
 ### Local setup
 
-This is a [Deno](https://deno.land) project, not NodeJS. For example, this means
+This is a [Deno](https://deno.land) project, not Node.js. For example, this means
 import paths include the `.ts` file extension. However, to also support other
 JavaScript environments, a build has been added to create a npm package that
-works for NodeJS, Bun, browsers with bundlers.
+works for Node.js, Bun, browsers with bundlers.
 
 #### Supported environments
 
 - [Deno](https://deno.land)
-- [NodeJS](https://nodejs.org)
+- [Node.js](https://nodejs.org)
 - [Bun](https://bun.sh)
 - Web Browsers
 
