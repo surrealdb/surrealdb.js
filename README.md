@@ -1,55 +1,100 @@
+<br>
+
+<p align="center">
+	<img width=120 src="https://raw.githubusercontent.com/surrealdb/icons/main/surreal.svg" />
+	&nbsp;
+	<img width=120 src="https://raw.githubusercontent.com/surrealdb/icons/main/javascript.svg" />
+</p>
+
+<h3 align="center">The official SurrealDB SDK for JavaScript.</h3>
+
+<br>
+
+<p align="center">
+	<a href="https://github.com/surrealdb/surrealdb.js"><img src="https://img.shields.io/badge/status-beta-ff00bb.svg?style=flat-square"></a>
+	&nbsp;
+	<a href="https://surrealdb.com/docs/integration/libraries/javascript"><img src="https://img.shields.io/badge/docs-view-44cc11.svg?style=flat-square"></a>
+	&nbsp;
+	<a href="https://github.com/surrealdb/surrealdb.js"><img src="https://img.shields.io/npm/v/surrealdb.js?style=flat-square"></a>
+	&nbsp;
+	<a href="https://deno.land/x/surrealdb"><img src="https://img.shields.io/npm/v/surrealdb.js?style=flat-square&label=deno"></a>
+</p>
+
+<p align="center">
+	<a href="https://surrealdb.com/discord"><img src="https://img.shields.io/discord/902568124350599239?label=discord&style=flat-square&color=5a66f6"></a>
+	&nbsp;
+    <a href="https://twitter.com/surrealdb"><img src="https://img.shields.io/badge/twitter-follow_us-1d9bf0.svg?style=flat-square"></a>
+    &nbsp;
+    <a href="https://www.linkedin.com/company/surrealdb/"><img src="https://img.shields.io/badge/linkedin-connect_with_us-0a66c2.svg?style=flat-square"></a>
+    &nbsp;
+    <a href="https://www.youtube.com/channel/UCjf2teVEuYVvvVC-gFZNq6w"><img src="https://img.shields.io/badge/youtube-subscribe-fc1c1c.svg?style=flat-square"></a>
+</p>
+
 # surrealdb.js
 
-The official SurrealDB library for JavaScript.
+The official SurrealDB SDK for JavaScript.
 
-[![](https://img.shields.io/badge/status-beta-ff00bb.svg?style=flat-square)](https://github.com/surrealdb/surrealdb.js)
-[![](https://img.shields.io/badge/docs-view-44cc11.svg?style=flat-square)](https://surrealdb.com/docs/integration/libraries/javascript)
-[![](https://img.shields.io/badge/license-Apache_License_2.0-00bfff.svg?style=flat-square)](https://github.com/surrealdb/surrealdb.js)
-[![](https://img.shields.io/npm/v/surrealdb.js?style=flat-square)](https://www.npmjs.com/package/surrealdb.js)
-[![](https://img.shields.io/npm/v/surrealdb.js?style=flat-square&label=deno)](https://deno.land/x/surrealdb)
+## Documentation
 
+The docs of this libary are located at
+[https://surrealdb.com/docs/integration/libraries/javascript](https://surrealdb.com/docs/integration/libraries/javascript)
 
-## Quickstart-Guide
+## How to install
 
-### Install
+### Install for Deno
 
-#### Deno
-
-Import it with
+Import it with:
 
 ```ts
 import Surreal from "https://deno.land/x/surrealdb/mod.ts";
 ```
 
-> Note you should set a version in the url! For example
-> `https://deno.land/x/surrealdb@0.5.0/mod.ts`
+For best results, set a version in the url:
 
-#### NodeJS, or browser with a bundler
+```ts
+import Surreal from "https://deno.land/x/surrealdb@1.0.0/mod.ts";
+```
 
-For NodeJS or a browser with bundler (for example: rollup, vite, or webpack) you can just:
+### Install for NodeJS
+
+Install it with:
+
+```sh
+# using npm
+npm i surrealdb.js
+# or using pnpm
+pnpm i surrealdb.js
+# or using yarn
+yarn add surrealdb.js
+```
+
+### Install for the browser
+
+For usage in a browser environment, when using a bundler (e.g. rollup, vite, or webpack) you can install it with:
 install the npm package:
 
 ```sh
+# using npm
 npm i surrealdb.js
-# or with yarn
-yarn add surrealdb.js
-# or with pnpm
+# or using pnpm
 pnpm i surrealdb.js
+# or using yarn
+yarn add surrealdb.js
 ```
 
-then, just import it with:
+Next, just import it with:
 
 ```ts
 import Surreal from "surrealdb.js";
 ```
 
-or when you use CommonJS
+or when you use CommonJS:
 
 ```ts
 const { Surreal } = require("surrealdb.js");
 ```
 
-#### CDN for Browser
+### Install for the browser with a CDN
 
 For fast prototyping we provide a browser-ready bundle. You can import it with
 
@@ -62,7 +107,7 @@ import Surreal from "https://cdn.jsdelivr.net/npm/surrealdb.js";
 _**NOTE: this bundle is not optimized for production! So don't use it in
 production!**_
 
-### Getting started
+## Getting started
 
 Here you have a simple example!
 
@@ -117,12 +162,7 @@ let groups = await db.query(
 );
 ```
 
-## More informations
-
-The docs of this libary are located at
-[https://surrealdb.com/docs/integration/libraries/javascript](https://surrealdb.com/docs/integration/libraries/javascript)
-
-## Contribution notes
+## Contributing
 
 ### Local setup
 
