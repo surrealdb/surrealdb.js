@@ -1,9 +1,9 @@
 <br>
 
 <p align="center">
-	<img width=120 src="https://raw.githubusercontent.com/surrealdb/icons/main/surreal.svg" />
-	&nbsp;
-	<img width=120 src="https://raw.githubusercontent.com/surrealdb/icons/main/javascript.svg" />
+    <img width=120 src="https://raw.githubusercontent.com/surrealdb/icons/main/surreal.svg" />
+    &nbsp;
+    <img width=120 src="https://raw.githubusercontent.com/surrealdb/icons/main/javascript.svg" />
 </p>
 
 <h3 align="center">The official SurrealDB SDK for JavaScript.</h3>
@@ -11,18 +11,18 @@
 <br>
 
 <p align="center">
-	<a href="https://github.com/surrealdb/surrealdb.js"><img src="https://img.shields.io/badge/status-beta-ff00bb.svg?style=flat-square"></a>
-	&nbsp;
-	<a href="https://surrealdb.com/docs/integration/libraries/javascript"><img src="https://img.shields.io/badge/docs-view-44cc11.svg?style=flat-square"></a>
-	&nbsp;
-	<a href="https://github.com/surrealdb/surrealdb.js"><img src="https://img.shields.io/npm/v/surrealdb.js?style=flat-square"></a>
-	&nbsp;
-	<a href="https://deno.land/x/surrealdb"><img src="https://img.shields.io/npm/v/surrealdb.js?style=flat-square&label=deno"></a>
+    <a href="https://github.com/surrealdb/surrealdb.js"><img src="https://img.shields.io/badge/status-beta-ff00bb.svg?style=flat-square"></a>
+    &nbsp;
+    <a href="https://surrealdb.com/docs/integration/libraries/javascript"><img src="https://img.shields.io/badge/docs-view-44cc11.svg?style=flat-square"></a>
+    &nbsp;
+    <a href="https://github.com/surrealdb/surrealdb.js"><img src="https://img.shields.io/npm/v/surrealdb.js?style=flat-square"></a>
+    &nbsp;
+    <a href="https://deno.land/x/surrealdb"><img src="https://img.shields.io/npm/v/surrealdb.js?style=flat-square&label=deno"></a>
 </p>
 
 <p align="center">
-	<a href="https://surrealdb.com/discord"><img src="https://img.shields.io/discord/902568124350599239?label=discord&style=flat-square&color=5a66f6"></a>
-	&nbsp;
+    <a href="https://surrealdb.com/discord"><img src="https://img.shields.io/discord/902568124350599239?label=discord&style=flat-square&color=5a66f6"></a>
+    &nbsp;
     <a href="https://twitter.com/surrealdb"><img src="https://img.shields.io/badge/twitter-follow_us-1d9bf0.svg?style=flat-square"></a>
     &nbsp;
     <a href="https://www.linkedin.com/company/surrealdb/"><img src="https://img.shields.io/badge/linkedin-connect_with_us-0a66c2.svg?style=flat-square"></a>
@@ -36,8 +36,7 @@ The official SurrealDB SDK for JavaScript.
 
 ## Documentation
 
-The documentation is available at
-[https://surrealdb.com/docs/integration/libraries/javascript](https://surrealdb.com/docs/integration/libraries/javascript)
+View the SDK documentation [here](https://surrealdb.com/docs/integration/libraries/javascript).
 
 ## How to install
 
@@ -70,8 +69,7 @@ yarn add surrealdb.js
 
 ### Install for the browser
 
-For usage in a browser environment, when using a bundler (e.g. rollup, vite, or webpack) you can install it with:
-install the npm package:
+For usage in a browser environment, when using a bundler (e.g. [Rollup](https://rollupjs.org/), [Vite](https://vitejs.dev/), or [webpack](https://webpack.js.org/)) you can install it with:
 
 ```sh
 # using npm
@@ -96,7 +94,7 @@ const { Surreal } = require("surrealdb.js");
 
 ### Install for the browser with a CDN
 
-For fast prototyping we provide a browser-ready bundle. You can import it with
+For fast prototyping we provide a browser-ready bundle. You can import it with:
 
 ```ts
 import Surreal from "https://unpkg.com/surrealdb.js";
@@ -104,16 +102,15 @@ import Surreal from "https://unpkg.com/surrealdb.js";
 import Surreal from "https://cdn.jsdelivr.net/npm/surrealdb.js";
 ```
 
-_**NOTE: this bundle is not optimized for production! So don't use it in
-production!**_
+_**NOTE: this bundle is not optimized for production! So don't use it in production!**_
 
 ## Getting started
 
 Here you have a simple example!
 
-> This example uses top level await wich is available in deno, node >= 14.8,
-> modern browsers
-> (https://caniuse.com/mdn-javascript_operators_await_top_level).
+> This example requires SurrealDB to be [installed](https://surrealdb.com/install) and running on port 8000.
+
+> This example makes use of [top level await](https://v8.dev/features/top-level-await), available in [modern browsers](https://caniuse.com/mdn-javascript_operators_await_top_level), [Deno](https://deno.com/) and [Node.js](https://nodejs.org/) >= 14.8.
 
 ```ts
 import { Surreal, RecordId, Table } from "surrealdb.js";
@@ -125,29 +122,29 @@ await db.connect("http://127.0.0.1:8000/rpc");
 
 // Select a specific namespace / database
 await db.use({ 
-	namespace: "test", 
-	database: "test" 
+    namespace: "test", 
+    database: "test" 
 });
 
 // Signin as a namespace, database, or root user
 await db.signin({
-	username: "root",
-	password: "root",
+    username: "root",
+    password: "root",
 });
 
 // Create a new person with a random id
 let created = await db.create("person", {
-	title: "Founder & CEO",
-	name: {
-		first: "Tobie",
-		last: "Morgan Hitchcock",
-	},
-	marketing: true,
+    title: "Founder & CEO",
+    name: {
+        first: "Tobie",
+        last: "Morgan Hitchcock",
+    },
+    marketing: true,
 });
 
 // Update a person record with a specific id
 let updated = await db.merge(new RecordId('person', 'jaime'), {
-	marketing: true,
+    marketing: true,
 });
 
 // Select all people records
@@ -155,10 +152,10 @@ let people = await db.select("person");
 
 // Perform a custom advanced query
 let groups = await db.query(
-	"SELECT marketing, count() FROM $tb GROUP BY marketing",
-	{
-		tb: new Table("person"),
-	},
+    "SELECT marketing, count() FROM $tb GROUP BY marketing",
+    {
+        tb: new Table("person"),
+    },
 );
 ```
 
