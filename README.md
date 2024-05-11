@@ -15,7 +15,7 @@
     &nbsp;
     <a href="https://surrealdb.com/docs/integration/libraries/javascript"><img src="https://img.shields.io/badge/docs-view-44cc11.svg?style=flat-square"></a>
     &nbsp;
-    <a href="https://www.npmjs.com/package/surrealdb.js"><img src="https://img.shields.io/npm/v/surrealdb.js?style=flat-square&label=version"></a>
+    <a href="https://www.npmjs.com/package/surrealdb.js"><img src="https://img.shields.io/npm/v/surrealdb.js?style=flat-square"></a>
     &nbsp;
     <a href="https://www.npmjs.com/package/surrealdb.js"><img src="https://img.shields.io/npm/dm/surrealdb.js?style=flat-square"></a>
     &nbsp;
