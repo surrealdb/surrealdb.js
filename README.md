@@ -15,7 +15,9 @@
     &nbsp;
     <a href="https://surrealdb.com/docs/integration/libraries/javascript"><img src="https://img.shields.io/badge/docs-view-44cc11.svg?style=flat-square"></a>
     &nbsp;
-    <a href="https://github.com/surrealdb/surrealdb.js"><img src="https://img.shields.io/npm/v/surrealdb.js?style=flat-square"></a>
+    <a href="https://www.npmjs.com/package/surrealdb.js"><img src="https://img.shields.io/npm/v/surrealdb.js?style=flat-square&label=version"></a>
+    &nbsp;
+    <a href="https://www.npmjs.com/package/surrealdb.js"><img src="https://img.shields.io/npm/dm/surrealdb.js?style=flat-square"></a>
     &nbsp;
     <a href="https://deno.land/x/surrealdb"><img src="https://img.shields.io/npm/v/surrealdb.js?style=flat-square&label=deno"></a>
 </p>
@@ -40,7 +42,7 @@ View the SDK documentation [here](https://surrealdb.com/docs/integration/librari
 
 ## How to install
 
-### Install for Deno
+### Install for [Deno](https://deno.land/x/surrealdb)
 
 Import it with:
 
@@ -54,7 +56,7 @@ For best results, set a version in the url:
 import Surreal from "https://deno.land/x/surrealdb@1.0.0/mod.ts";
 ```
 
-### Install for Node.js
+### Install for [Node.js](https://www.npmjs.com/package/surrealdb.js)
 
 Install it with:
 
@@ -65,6 +67,18 @@ npm i surrealdb.js
 pnpm i surrealdb.js
 # or using yarn
 yarn add surrealdb.js
+```
+
+Next, just import it with:
+
+```ts
+const { Surreal } = require("surrealdb.js");
+```
+
+or when you use modules:
+
+```ts
+import Surreal from "surrealdb.js";
 ```
 
 ### Install for the browser
