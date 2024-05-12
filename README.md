@@ -120,7 +120,7 @@ _**NOTE: this bundle is not optimized for production! So don't use it in product
 
 ## Getting started
 
-Here you have a simple example!
+In the example below you can see how to connect to a remote instance of SurrealDB, authenticating with the database, and issuing queries for creating, updating, and selecting data from records.
 
 > This example requires SurrealDB to be [installed](https://surrealdb.com/install) and running on port 8000.
 
