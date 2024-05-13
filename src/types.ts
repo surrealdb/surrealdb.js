@@ -194,6 +194,7 @@ export type Patch =
 
 export type ConnectionOptions =
 	& {
+		versionCheck?: boolean;
 		prepare?: (connection: Surreal) => unknown;
 		auth?: AnyAuth | Token;
 	}

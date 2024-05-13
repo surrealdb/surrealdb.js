@@ -19,6 +19,7 @@ import {
 	UnexpectedConnectionError,
 	UnexpectedServerResponse,
 } from "../errors.ts";
+import { retrieveRemoteVersion } from "./versionCheck.ts";
 
 export type EngineEvents = {
 	connecting: [];
@@ -55,6 +56,8 @@ export abstract class Engine {
 		database?: string;
 		token?: string;
 	};
+
+	abstract version(url: URL): Promise<string>;
 }
 
 export class WebsocketEngine implements Engine {
@@ -80,6 +83,10 @@ export class WebsocketEngine implements Engine {
 	) {
 		this.status = status;
 		this.emitter.emit(status, args);
+	}
+
+	version(url: URL): Promise<string> {
+		return retrieveRemoteVersion(url);
 	}
 
 	async connect(url: URL) {
@@ -245,6 +252,10 @@ export class HttpEngine implements Engine {
 	) {
 		this.status = status;
 		this.emitter.emit(status, args);
+	}
+
+	version(url: URL): Promise<string> {
+		return retrieveRemoteVersion(url);
 	}
 
 	connect(url: URL) {

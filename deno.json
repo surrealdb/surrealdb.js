@@ -22,9 +22,9 @@
 	},
 	"test": {
 		"include": [
+			"tests/unit/*.ts",
 			"tests/integration/ws.ts",
-			"tests/integration/http.ts",
-			"tests/unit/*.ts"
+			"tests/integration/http.ts"
 		]
 	}
 }
