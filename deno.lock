@@ -10,6 +10,7 @@
       "npm:decimal.js@^10.4.3": "npm:decimal.js@10.4.3",
       "npm:isows@^1.0.4": "npm:isows@1.0.4_ws@8.16.0",
       "npm:node-fetch@^3.3.1": "npm:node-fetch@3.3.2",
+      "npm:semver": "npm:semver@7.5.4",
       "npm:typescript@^5.3.3": "npm:typescript@5.4.3",
       "npm:uuidv7@0.6.3": "npm:uuidv7@0.6.3",
       "npm:uuidv7@^0.6.3": "npm:uuidv7@0.6.3",
@@ -75,6 +76,12 @@
           "ws": "ws@8.16.0"
         }
       },
+      "lru-cache@6.0.0": {
+        "integrity": "sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA==",
+        "dependencies": {
+          "yallist": "yallist@4.0.0"
+        }
+      },
       "node-domexception@1.0.0": {
         "integrity": "sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==",
         "dependencies": {}
@@ -85,6 +92,12 @@
           "data-uri-to-buffer": "data-uri-to-buffer@4.0.1",
           "fetch-blob": "fetch-blob@3.2.0",
           "formdata-polyfill": "formdata-polyfill@4.0.10"
+        }
+      },
+      "semver@7.5.4": {
+        "integrity": "sha512-1bCSESV6Pv+i21Hvpxp3Dx+pSD8lIPt8uVjRrxAUt/nbswYc+tK6Y2btiULjd4+fnq15PX+nqQDC7Oft7WkwcA==",
+        "dependencies": {
+          "lru-cache": "lru-cache@6.0.0"
         }
       },
       "typescript@5.4.3": {
@@ -111,6 +124,10 @@
       },
       "ws@8.16.0": {
         "integrity": "sha512-HS0c//TP7Ina87TfiPUz1rQzMhHrl/SG2guqRcTOIUYD2q8uhUdNHZYJUaQ8aTGPzCh+c6oawMKW35nFl1dxyQ==",
+        "dependencies": {}
+      },
+      "yallist@4.0.0": {
+        "integrity": "sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A==",
         "dependencies": {}
       },
       "zod@3.22.4": {

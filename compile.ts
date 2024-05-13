@@ -28,6 +28,7 @@ await build({
 		dependencies: {
 			"isows": "^1.0.4",
 			"ws": "^8.16.0",
+			"semver": "^7.5.4",
 		},
 		optionalDependencies: {
 			"bufferutil": "^4.0.8",
@@ -37,6 +38,7 @@ await build({
 			"@types/node": "^18.7.18",
 			"@types/ws": "8.5.3",
 			"esbuild": "0.15.8",
+			"@types/semver": "^7.5.8",
 		},
 		scripts: {
 			"build:web":

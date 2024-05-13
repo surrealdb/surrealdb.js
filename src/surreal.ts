@@ -33,6 +33,7 @@ import {
 	TransformAuth,
 } from "./types.ts";
 import { ConnectionStatus } from "./library/engine.ts";
+import { versionCheck } from "./library/versionCheck.ts";
 
 type Engines = Record<string, new (emitter: Emitter<EngineEvents>) => Engine>;
 type R = Prettify<Record<string, unknown>>;
@@ -92,6 +93,12 @@ export class Surreal {
 
 		// The promise does not know if `this.connection` is undefined or not, but it does about `connection`
 		const connection = new engine(this.emitter);
+
+		// If not disabled, run a version check
+		if (opts.versionCheck !== false) {
+			const version = await connection.version(url);
+			versionCheck(version);
+		}
 
 		this.connection = connection;
 		this.pinger = new Pinger(30000);

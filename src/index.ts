@@ -15,3 +15,4 @@ export { PreparedQuery } from "./library/PreparedQuery.ts";
 export * from "./errors.ts";
 export * from "./types.ts";
 export * from "./library/jsonify.ts";
+export * from "./library/versionCheck.ts";

@@ -102,3 +102,23 @@ export class NoTokenReturned extends SurrealDbError {
 	name = "NoTokenReturned";
 	message = "Did not receive an authentication token.";
 }
+
+export class UnsupportedVersion extends SurrealDbError {
+	name = "UnsupportedVersion";
+	version: string;
+	supportedRange: string;
+
+	constructor(version: string, supportedRange: string) {
+		super();
+		this.version = version;
+		this.supportedRange = supportedRange;
+		this.message =
+			`The version "${version}" reported by the engine is not supported by this library, expected a version that satisfies "${supportedRange}".`;
+	}
+}
+
+export class VersionRetrievalFailure extends SurrealDbError {
+	name = "VersionRetrievalFailure";
+	message =
+		"Failed to retrieve remote version. If the server is behind a proxy, make sure it's configured correctly.";
+}
