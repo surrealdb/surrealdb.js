@@ -33,8 +33,8 @@ export async function retrieveRemoteVersion(url: URL, timeout: number) {
 		const version = await fetch(
 			url,
 			{
-				signal: AbortSignal.timeout(timeout)
-			}
+				signal: AbortSignal.timeout(timeout),
+			},
 		)
 			.then((res) => res.text())
 			.then((version) => version.slice(versionPrefix.length))
