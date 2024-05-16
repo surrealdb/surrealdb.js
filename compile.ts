@@ -46,8 +46,8 @@ await build({
 		},
 		browser: "./web/index.js",
 		engines: {
-			node: ">=18.0.0"
-		}
+			node: ">=18.0.0",
+		},
 	},
 	// skipSourceOutput: true,
 	mappings: {
