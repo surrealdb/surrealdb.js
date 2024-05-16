@@ -57,7 +57,7 @@ export abstract class Engine {
 		token?: string;
 	};
 
-	abstract version(url: URL): Promise<string>;
+	abstract version(url: URL, timeout: number): Promise<string>;
 }
 
 export class WebsocketEngine implements Engine {
@@ -85,8 +85,8 @@ export class WebsocketEngine implements Engine {
 		this.emitter.emit(status, args);
 	}
 
-	version(url: URL): Promise<string> {
-		return retrieveRemoteVersion(url);
+	version(url: URL, timeout: number): Promise<string> {
+		return retrieveRemoteVersion(url, timeout);
 	}
 
 	async connect(url: URL) {
@@ -254,8 +254,8 @@ export class HttpEngine implements Engine {
 		this.emitter.emit(status, args);
 	}
 
-	version(url: URL): Promise<string> {
-		return retrieveRemoteVersion(url);
+	version(url: URL, timeout: number): Promise<string> {
+		return retrieveRemoteVersion(url, timeout);
 	}
 
 	connect(url: URL) {
