@@ -96,7 +96,7 @@ export class Surreal {
 
 		// If not disabled, run a version check
 		if (opts.versionCheck !== false) {
-			const version = await connection.version(url);
+			const version = await connection.version(url, opts.versionCheckTimeout);
 			versionCheck(version);
 		}
 

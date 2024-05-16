@@ -15,7 +15,7 @@ export function isVersionSupported(version: string) {
 	return semver.satisfies(version, supportedSurrealDbVersionRange);
 }
 
-export async function retrieveRemoteVersion(url: URL) {
+export async function retrieveRemoteVersion(url: URL, timeout = 5) {
 	const mappedProtocols = {
 		"ws:": "http:",
 		"wss:": "https:",
@@ -30,7 +30,12 @@ export async function retrieveRemoteVersion(url: URL) {
 		url.pathname = url.pathname.slice(0, -4) + "/version";
 
 		const versionPrefix = "surrealdb-";
-		const version = await fetch(url)
+		const version = await fetch(
+			url,
+			{
+				signal: AbortSignal.timeout(timeout)
+			}
+		)
 			.then((res) => res.text())
 			.then((version) => version.slice(versionPrefix.length))
 			.catch(() => {
