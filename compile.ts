@@ -45,6 +45,9 @@ await build({
 				"esbuild ./esm/index.js --format=esm --minify --bundle --sourcemap --outfile=./web/index.js",
 		},
 		browser: "./web/index.js",
+		engines: {
+			node: ">=18.0.0",
+		},
 	},
 	// skipSourceOutput: true,
 	mappings: {
@@ -59,3 +62,4 @@ await build({
 // post build steps
 Deno.copyFileSync("LICENSE", "npm/LICENSE");
 Deno.copyFileSync("README.md", "npm/README.md");
+Deno.copyFileSync(".npmrc", "npm/.npmrc");
