@@ -15,7 +15,7 @@ export function isVersionSupported(version: string) {
 	return semver.satisfies(version, supportedSurrealDbVersionRange);
 }
 
-export async function retrieveRemoteVersion(url: URL, timeout = 5) {
+export async function retrieveRemoteVersion(url: URL, timeout: number) {
 	const mappedProtocols = {
 		"ws:": "http:",
 		"wss:": "https:",
