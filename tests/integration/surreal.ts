@@ -1,5 +1,5 @@
 import Surreal from "../../mod.ts";
-import { SURREAL_USER } from "./env.ts";
+import { SURREAL_PORT_UNREACHABLE, SURREAL_USER } from "./env.ts";
 import { SURREAL_PASS } from "./env.ts";
 import { SURREAL_DB } from "./env.ts";
 import { SURREAL_NS } from "./env.ts";
@@ -14,9 +14,11 @@ declare global {
 export async function createSurreal({
 	protocol,
 	auth,
+	reachable,
 }: {
 	protocol?: Protocol;
 	auth?: PremadeAuth;
+	reachable?: boolean;
 } = {}) {
 	protocol = protocol
 		? protocol
@@ -24,7 +26,8 @@ export async function createSurreal({
 		? globalThis.protocol as Protocol
 		: "ws";
 	const surreal = new Surreal();
-	await surreal.connect(`${protocol}://127.0.0.1:${SURREAL_PORT}/rpc`, {
+	const port = reachable == false ? SURREAL_PORT_UNREACHABLE : SURREAL_PORT;
+	await surreal.connect(`${protocol}://127.0.0.1:${port}/rpc`, {
 		namespace: SURREAL_NS,
 		database: SURREAL_DB,
 		auth: auth ? createAuth(auth) : auth,
