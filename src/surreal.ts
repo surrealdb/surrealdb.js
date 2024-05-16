@@ -615,6 +615,64 @@ export class Surreal {
 	}
 
 	/**
+	 * Run a SurrealQL function
+	 * @param name - The full name of the function
+	 * @param args - The arguments supplied to the function. You can also supply a version here as a string, in which case the third argument becomes the parameter list.
+	 */
+	async run<T extends unknown>(name: string, args?: unknown[]): Promise<T>;
+	/**
+	 * Run a SurrealQL function
+	 * @param name - The full name of the function
+	 * @param version - The version of the function. If omitted, the second argument is the parameter list.
+	 * @param args - The arguments supplied to the function.
+	 */
+	async run<T extends unknown>(
+		name: string,
+		version: string,
+		args?: unknown[],
+	): Promise<T>;
+	async run(name: string, arg2?: string | unknown[], arg3?: unknown[]) {
+		await this.ready;
+		const [version, args] = Array.isArray(arg2)
+			? [undefined, arg2]
+			: [arg2, arg3];
+		const res = await this.rpc("run", [name, version, args]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return res.result;
+	}
+
+	/**
+	 * Obtain the version of the SurrealDB instance
+	 * @param from - The in property on the edge record
+	 * @param thing - The id of the edge record
+	 * @param to - The out property on the edge record
+	 * @param data - Optionally, provide a body for the edge record
+	 */
+	async relate<T extends R, U extends R = T>(
+		from: string | RecordId | RecordId[],
+		thing: string,
+		to: string | RecordId | RecordId[],
+		data?: U,
+	): Promise<T[]>;
+	async relate<T extends R, U extends R = T>(
+		from: string | RecordId | RecordId[],
+		thing: RecordId,
+		to: string | RecordId | RecordId[],
+		data?: U,
+	): Promise<T>;
+	async relate<T extends R, U extends R = T>(
+		from: string | RecordId | RecordId[],
+		thing: string | RecordId,
+		to: string | RecordId | RecordId[],
+		data?: U,
+	) {
+		await this.ready;
+		const res = await this.rpc("relate", [from, thing, to, data]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return res.result;
+	}
+
+	/**
 	 * Send a raw message to the SurrealDB instance
 	 * @param method - Type of message to send.
 	 * @param params - Parameters for the message.

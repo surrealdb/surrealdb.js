@@ -246,6 +246,56 @@ Deno.test("delete", async () => {
 	await surreal.close();
 });
 
+Deno.test("relate", async () => {
+	const surreal = await createSurreal();
+
+	const single = await surreal.relate(
+		new RecordId("edge", "in"),
+		new RecordId("graph", 1),
+		new RecordId("edge", "out"),
+		{
+			num: 123,
+		},
+	);
+
+	assertEquals(single, {
+		id: new RecordId("graph", 1),
+		in: new RecordId("edge", "in"),
+		out: new RecordId("edge", "out"),
+		num: 123,
+	}, "single");
+
+	const multiple = await surreal.relate(
+		new RecordId("edge", "in"),
+		"graph",
+		new RecordId("edge", "out"),
+		{
+			id: new RecordId("graph", 2),
+			num: 456,
+		},
+	);
+
+	assertEquals(multiple, [
+		{
+			id: new RecordId("graph", 2),
+			in: new RecordId("edge", "in"),
+			out: new RecordId("edge", "out"),
+			num: 456,
+		},
+	], "multiple");
+
+	await surreal.close();
+});
+
+Deno.test("run", async () => {
+	const surreal = await createSurreal();
+
+	const res = await surreal.run<number[]>("array::add", [[1, 2], 3]);
+	assertEquals(res, [1, 2, 3]);
+
+	await surreal.close();
+});
+
 Deno.test("query", async () => {
 	const surreal = await createSurreal();
 
