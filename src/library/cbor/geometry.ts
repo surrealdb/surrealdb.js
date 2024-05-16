@@ -38,7 +38,9 @@ export class GeometryLine extends Geometry {
 
 	// SurrealDB only has the context of a "Line", which is two points.
 	// SurrealDB's "Line" is actually a "LineString" under the hood, which accepts two or more points
-	constructor(line: [GeometryPoint, GeometryPoint, ...GeometryPoint[]] | GeometryLine) {
+	constructor(
+		line: [GeometryPoint, GeometryPoint, ...GeometryPoint[]] | GeometryLine,
+	) {
 		super();
 		line = line instanceof GeometryLine ? line.line : line;
 		this.line = [new GeometryPoint(line[0]), new GeometryPoint(line[1])];
