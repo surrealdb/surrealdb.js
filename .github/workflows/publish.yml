@@ -10,12 +10,20 @@ jobs:
       - uses: denoland/setup-deno@v1
         with:
           deno-version: v1.x
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: '18.x'
           registry-url: 'https://registry.npmjs.org'
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: deno task build
       - run: cd ./npm && npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+  publish-to-jsr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write 
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx jsr publish
