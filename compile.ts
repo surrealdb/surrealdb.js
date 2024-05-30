@@ -4,6 +4,8 @@ import project from "./deno.json" with { type: "json" };
 await emptyDir("./npm");
 
 await build({
+	// Remove when https://github.com/denoland/dnt/issues/399 is fixed
+	importMap: "./deno.json",
 	entryPoints: ["./src/index.ts"],
 	outDir: "./npm",
 	shims: {
