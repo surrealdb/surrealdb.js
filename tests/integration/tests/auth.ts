@@ -1,8 +1,6 @@
-import { assertRejects } from "https://deno.land/std@0.223.0/assert/assert_rejects.ts";
+import { assertRejects, assertEquals } from "@std/assert";
 import { createAuth } from "../surreal.ts";
 import { createSurreal } from "../surreal.ts";
-
-import { assertEquals } from "https://deno.land/std@0.223.0/assert/mod.ts";
 import { RecordId, ResponseError } from "../../../mod.ts";
 
 Deno.test("root signin", async () => {

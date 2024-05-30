@@ -1,1 +1,1 @@
-export { WebSocket as default } from "npm:isows@^1.0.4";
+export { WebSocket as default } from "isows";

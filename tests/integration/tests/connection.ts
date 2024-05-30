@@ -1,8 +1,6 @@
-import { assertInstanceOf } from "https://deno.land/std@0.223.0/assert/assert_instance_of.ts";
+import { assertInstanceOf, assertEquals, assertLess } from "@std/assert";
 import { createSurreal } from "../surreal.ts";
-import { assertEquals } from "https://deno.land/std@0.223.0/assert/mod.ts";
 import { VersionRetrievalFailure } from "../../../mod.ts";
-import { assertLess } from "https://deno.land/std@0.223.0/assert/assert_less.ts";
 
 Deno.test("check version", async () => {
 	const surreal = await createSurreal();

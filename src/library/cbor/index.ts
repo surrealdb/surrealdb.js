@@ -2,7 +2,7 @@ import {
 	decode as decode_cbor,
 	encode as encode_cbor,
 	TaggedValue,
-} from "npm:cbor-redux@1.0.0";
+} from "cbor-redux";
 import { RecordId, StringRecordId } from "./recordid.ts";
 import { UUID, uuidv4, uuidv7 } from "./uuid.ts";
 import {

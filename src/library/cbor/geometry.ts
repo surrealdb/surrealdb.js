@@ -1,4 +1,4 @@
-import { Decimal } from "npm:decimal.js@^10.4.3";
+import { Decimal } from "decimal.js";
 
 export abstract class Geometry {
 	abstract toJSON(): {

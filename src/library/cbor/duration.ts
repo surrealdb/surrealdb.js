@@ -1,4 +1,4 @@
-import { Duration as IcholyDuration } from "npm:@icholy/duration@^5.1.0";
+import { Duration as IcholyDuration } from "@icholy/duration";
 
 export class Duration extends IcholyDuration {
 	toJSON() {

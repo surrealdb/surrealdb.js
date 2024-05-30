@@ -6,7 +6,7 @@ import {
 	assertGreater,
 	assertNotEquals,
 	assertRejects,
-} from "https://deno.land/std@0.223.0/assert/mod.ts";
+} from "@std/assert";
 import { type Action, RecordId, UUID } from "../../../mod.ts";
 
 async function withTimeout(p: Promise<void>, ms: number): Promise<void> {

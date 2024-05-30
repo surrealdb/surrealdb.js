@@ -1,4 +1,4 @@
-import semver from "npm:semver";
+import semver from "semver";
 import { UnsupportedVersion, VersionRetrievalFailure } from "../errors.ts";
 
 export const supportedSurrealDbVersionRange = ">= 1.4.2 < 2.0.0";

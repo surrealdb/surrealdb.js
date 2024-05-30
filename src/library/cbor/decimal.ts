@@ -1,1 +1,1 @@
-export { Decimal } from "npm:decimal.js@^10.4.3";
+export { Decimal } from "decimal.js";

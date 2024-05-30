@@ -1,4 +1,4 @@
-import { z } from "npm:zod";
+import { z } from "zod";
 import { RecordId } from "./library/cbor/recordid.ts";
 import { Surreal } from "./surreal.ts";
 import { UUID } from "./library/cbor/uuid.ts";

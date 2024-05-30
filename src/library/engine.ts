@@ -1,4 +1,4 @@
-import { z } from "npm:zod";
+import { z } from "zod";
 import { Emitter } from "./emitter.ts";
 import { getIncrementalID } from "./getIncrementalID.ts";
 import WebSocket from "./WebSocket/deno.ts";

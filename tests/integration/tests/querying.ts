@@ -1,6 +1,6 @@
 import { createSurreal } from "../surreal.ts";
 
-import { assertEquals } from "https://deno.land/std@0.223.0/assert/mod.ts";
+import { assertEquals } from "@std/assert";
 import {
 	Duration,
 	GeometryCollection,
