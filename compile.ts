@@ -1,4 +1,4 @@
-import { build, emptyDir } from "https://deno.land/x/dnt@0.34.0/mod.ts";
+import { build, emptyDir } from "@deno/dnt";
 import project from "./deno.json" with { type: "json" };
 
 await emptyDir("./npm");
@@ -54,7 +54,7 @@ await build({
 		"./src/library/WebSocket/deno.ts": "./src/library/WebSocket/node.ts",
 	},
 	compilerOptions: {
-		lib: ["dom", "es2021.string"],
+		lib: ["DOM", "ES2021.String"],
 		sourceMap: true,
 	},
 });
