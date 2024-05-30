@@ -15,6 +15,7 @@ import {
 	UnexpectedServerResponse,
 } from "../errors.ts";
 import { retrieveRemoteVersion } from "./versionCheck.ts";
+import type { SemVer } from "@std/semver";
 
 export type EngineEvents = {
 	connecting: [];
@@ -52,7 +53,7 @@ export abstract class Engine {
 		token?: string;
 	};
 
-	abstract version(url: URL, timeout: number): Promise<string>;
+	abstract version(url: URL, timeout: number): Promise<SemVer>;
 }
 
 export class WebsocketEngine implements Engine {
@@ -80,7 +81,7 @@ export class WebsocketEngine implements Engine {
 		this.emitter.emit(status, args);
 	}
 
-	version(url: URL, timeout: number): Promise<string> {
+	version(url: URL, timeout: number): Promise<SemVer> {
 		return retrieveRemoteVersion(url, timeout);
 	}
 
@@ -249,7 +250,7 @@ export class HttpEngine implements Engine {
 		this.emitter.emit(status, args);
 	}
 
-	version(url: URL, timeout: number): Promise<string> {
+	version(url: URL, timeout: number): Promise<SemVer> {
 		return retrieveRemoteVersion(url, timeout);
 	}
 

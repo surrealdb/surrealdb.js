@@ -1,9 +1,11 @@
-import semver from "semver";
+import type { SemVer } from "@std/semver";
+import { parse, parseRange } from "@std/semver";
+import { satisfies } from "@std/semver";
 import { UnsupportedVersion, VersionRetrievalFailure } from "../errors.ts";
 
-export const supportedSurrealDbVersionRange = ">= 1.4.2 < 2.0.0";
+export const supportedSurrealDbVersionRange = parseRange(">= 1.4.2 < 2.0.0");
 
-export function versionCheck(version: string): true {
+export function versionCheck(version: SemVer): true {
 	if (!isVersionSupported(version)) {
 		throw new UnsupportedVersion(version, supportedSurrealDbVersionRange);
 	}
@@ -11,14 +13,14 @@ export function versionCheck(version: string): true {
 	return true;
 }
 
-export function isVersionSupported(version: string) {
-	return semver.satisfies(version, supportedSurrealDbVersionRange);
+export function isVersionSupported(version: SemVer): boolean {
+	return satisfies(version, supportedSurrealDbVersionRange);
 }
 
 export async function retrieveRemoteVersion(
 	url: URL,
 	timeout: number,
-): Promise<string> {
+): Promise<SemVer> {
 	const mappedProtocols = {
 		"ws:": "http:",
 		"wss:": "https:",
@@ -50,7 +52,7 @@ export async function retrieveRemoteVersion(
 				clearTimeout(id);
 			});
 
-		return version;
+		return parse(version);
 	}
 
 	throw new VersionRetrievalFailure();

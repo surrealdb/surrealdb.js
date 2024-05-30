@@ -1,3 +1,6 @@
+import type { Range, SemVer } from "@std/semver";
+import { format } from "@std/semver";
+
 export class SurrealDbError extends Error {}
 
 export class NoActiveSocket extends SurrealDbError {
@@ -105,15 +108,16 @@ export class NoTokenReturned extends SurrealDbError {
 
 export class UnsupportedVersion extends SurrealDbError {
 	name = "UnsupportedVersion";
-	version: string;
-	supportedRange: string;
+	version: SemVer;
+	supportedRange: Range;
 
-	constructor(version: string, supportedRange: string) {
+	constructor(version: SemVer, supportedRange: Range) {
 		super();
 		this.version = version;
 		this.supportedRange = supportedRange;
-		this.message =
-			`The version "${version}" reported by the engine is not supported by this library, expected a version that satisfies "${supportedRange}".`;
+		this.message = `The version "${
+			format(version)
+		}" reported by the engine is not supported by this library, expected a version that satisfies "${supportedRange}".`;
 	}
 }
 
