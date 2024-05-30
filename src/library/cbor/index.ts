@@ -47,7 +47,7 @@ const TAG_GEOMETRY_MULTILINE = 92;
 const TAG_GEOMETRY_MULTIPOLYGON = 93;
 const TAG_GEOMETRY_COLLECTION = 94;
 
-export function encodeCbor<T extends unknown>(data: T) {
+export function encodeCbor<T extends unknown>(data: T): ArrayBuffer {
 	return encode_cbor<T>(data, (_, v) => {
 		if (v instanceof Date) {
 			return new TaggedValue(
@@ -100,7 +100,7 @@ export function encodeCbor<T extends unknown>(data: T) {
 	});
 }
 
-export function decodeCbor(data: ArrayBuffer) {
+export function decodeCbor(data: ArrayBuffer): any {
 	return decode_cbor(data, (_, v) => {
 		if (!(v instanceof TaggedValue)) return v;
 

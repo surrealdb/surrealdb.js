@@ -1,4 +1,4 @@
-import { assertInstanceOf, assertEquals, assertLess } from "@std/assert";
+import { assertEquals, assertInstanceOf, assertLess } from "@std/assert";
 import { createSurreal } from "../surreal.ts";
 import { VersionRetrievalFailure } from "../../../mod.ts";
 

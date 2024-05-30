@@ -1,9 +1,9 @@
-import { Decimal } from "./cbor/decimal.ts";
-import { Geometry } from "./cbor/geometry.ts";
-import { Duration } from "./cbor/index.ts";
-import { RecordId, StringRecordId } from "./cbor/recordid.ts";
-import { Table } from "./cbor/table.ts";
-import { UUID } from "./cbor/uuid.ts";
+import type { Decimal } from "./cbor/decimal.ts";
+import type { Geometry } from "./cbor/geometry.ts";
+import type { Duration } from "./cbor/index.ts";
+import type { RecordId, StringRecordId } from "./cbor/recordid.ts";
+import type { Table } from "./cbor/table.ts";
+import type { UUID } from "./cbor/uuid.ts";
 
 export type Jsonify<T extends unknown> = T extends
 	Date | UUID | Decimal | Duration | StringRecordId ? string

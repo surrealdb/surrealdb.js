@@ -1,4 +1,4 @@
-import { assertRejects, assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { createAuth } from "../surreal.ts";
 import { createSurreal } from "../surreal.ts";
 import { RecordId, ResponseError } from "../../../mod.ts";

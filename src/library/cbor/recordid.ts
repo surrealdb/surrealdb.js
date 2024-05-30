@@ -19,11 +19,11 @@ export class RecordId<Tb extends string = string> {
 		this.id = RecordIdValue.parse(id);
 	}
 
-	toJSON() {
+	toJSON(): string {
 		return this.toString();
 	}
 
-	toString() {
+	toString(): string {
 		const tb = escape_ident(this.tb);
 		const id = typeof this.id == "string"
 			? escape_ident(this.id)
@@ -39,11 +39,11 @@ export class StringRecordId {
 		this.rid = z.string().parse(rid);
 	}
 
-	toJSON() {
+	toJSON(): string {
 		return this.rid;
 	}
 
-	toString() {
+	toString(): string {
 		return this.rid;
 	}
 }

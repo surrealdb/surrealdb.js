@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { RecordId } from "./library/cbor/recordid.ts";
-import { Surreal } from "./surreal.ts";
+import type { RecordId } from "./library/cbor/recordid.ts";
+import type { Surreal } from "./surreal.ts";
 import { UUID } from "./library/cbor/uuid.ts";
 
 export const UseOptions = z.object({

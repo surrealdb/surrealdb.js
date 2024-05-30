@@ -54,7 +54,10 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 		}
 	}
 
-	subscribeOnce<Event extends keyof Events>(event: Event, historic = false) {
+	subscribeOnce<Event extends keyof Events>(
+		event: Event,
+		historic = false,
+	): Promise<Events[Event]> {
 		return new Promise<Events[Event]>((resolve) => {
 			let resolved = false;
 			const listener = (...args: Events[Event]) => {
@@ -86,7 +89,7 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 	isSubscribed<Event extends keyof Events>(
 		event: Event,
 		listener: Listener<Events[Event]>,
-	) {
+	): boolean {
 		return !!this.listeners[event]?.includes(listener);
 	}
 
@@ -133,7 +136,7 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 		}
 	}
 
-	scanListeners(filter?: (k: keyof Events) => boolean) {
+	scanListeners(filter?: (k: keyof Events) => boolean): (keyof Events)[] {
 		let listeners = Object.keys(this.listeners) as (keyof Events)[];
 		if (filter) listeners = listeners.filter(filter);
 		return listeners;

@@ -1,15 +1,10 @@
 import { z } from "zod";
-import { Emitter } from "./emitter.ts";
+import type { Emitter } from "./emitter.ts";
 import { getIncrementalID } from "./getIncrementalID.ts";
 import WebSocket from "./WebSocket/deno.ts";
 import { decodeCbor, encodeCbor } from "./cbor/index.ts";
-import {
-	Action,
-	LiveResult,
-	Patch,
-	RpcRequest,
-	RpcResponse,
-} from "../types.ts";
+import type { Action, Patch, RpcRequest, RpcResponse } from "../types.ts";
+import { LiveResult } from "../types.ts";
 import {
 	ConnectionUnavailable,
 	EngineDisconnected,

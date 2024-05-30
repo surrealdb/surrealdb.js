@@ -21,14 +21,17 @@ export class GeometryPoint extends Geometry {
 		];
 	}
 
-	toJSON() {
+	toJSON(): {
+		type: "Point";
+		coordinates: [Decimal, Decimal];
+	} {
 		return {
 			type: "Point" as const,
 			coordinates: this.coordinates,
 		};
 	}
 
-	get coordinates() {
+	get coordinates(): [Decimal, Decimal] {
 		return this.point;
 	}
 }
@@ -46,14 +49,17 @@ export class GeometryLine extends Geometry {
 		this.line = [new GeometryPoint(line[0]), new GeometryPoint(line[1])];
 	}
 
-	toJSON() {
+	toJSON(): {
+		type: "LineString";
+		coordinates: [Decimal, Decimal][];
+	} {
 		return {
 			type: "LineString" as const,
 			coordinates: this.coordinates,
 		};
 	}
 
-	get coordinates() {
+	get coordinates(): [Decimal, Decimal][] {
 		return this.line.map((g) => g.coordinates);
 	}
 }
@@ -77,14 +83,17 @@ export class GeometryPolygon extends Geometry {
 		];
 	}
 
-	toJSON() {
+	toJSON(): {
+		type: "Polygon";
+		coordinates: [Decimal, Decimal][][];
+	} {
 		return {
 			type: "Polygon" as const,
 			coordinates: this.coordinates,
 		};
 	}
 
-	get coordinates() {
+	get coordinates(): [Decimal, Decimal][][] {
 		return this.polygon.map((g) => g.coordinates);
 	}
 }
@@ -103,14 +112,17 @@ export class GeometryMultiPoint extends Geometry {
 		];
 	}
 
-	toJSON() {
+	toJSON(): {
+		type: "MultiPoint";
+		coordinates: [Decimal, Decimal][];
+	} {
 		return {
 			type: "MultiPoint" as const,
 			coordinates: this.coordinates,
 		};
 	}
 
-	get coordinates() {
+	get coordinates(): [Decimal, Decimal][] {
 		return this.points.map((g) => g.coordinates);
 	}
 }
@@ -127,14 +139,17 @@ export class GeometryMultiLine extends Geometry {
 		];
 	}
 
-	toJSON() {
+	toJSON(): {
+		type: "MultiLineString";
+		coordinates: [Decimal, Decimal][][];
+	} {
 		return {
 			type: "MultiLineString" as const,
 			coordinates: this.coordinates,
 		};
 	}
 
-	get coordinates() {
+	get coordinates(): [Decimal, Decimal][][] {
 		return this.lines.map((g) => g.coordinates);
 	}
 }
@@ -157,14 +172,17 @@ export class GeometryMultiPolygon extends Geometry {
 		) as [GeometryPolygon, ...GeometryPolygon[]];
 	}
 
-	toJSON() {
+	toJSON(): {
+		type: "MultiPolygon";
+		coordinates: [Decimal, Decimal][][][];
+	} {
 		return {
 			type: "MultiPolygon" as const,
 			coordinates: this.coordinates,
 		};
 	}
 
-	get coordinates() {
+	get coordinates(): [Decimal, Decimal][][][] {
 		return this.polygons.map((g) => g.coordinates);
 	}
 }
@@ -181,14 +199,17 @@ export class GeometryCollection<T extends [Geometry, ...Geometry[]]>
 		this.collection = collection;
 	}
 
-	toJSON() {
+	toJSON(): {
+		type: "GeometryCollection";
+		coordinates: { [K in keyof T]: ReturnType<T[K]["toJSON"]> };
+	} {
 		return {
 			type: "GeometryCollection" as const,
 			coordinates: this.coordinates,
 		};
 	}
 
-	get coordinates() {
+	get coordinates(): { [K in keyof T]: ReturnType<T[K]["toJSON"]> } {
 		return this.collection.map((g) => g.toJSON()) as {
 			[K in keyof T]: ReturnType<T[K]["toJSON"]>;
 		};

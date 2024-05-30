@@ -7,11 +7,11 @@ export class Table<Tb extends string = string> {
 		this.tb = z.string().parse(tb) as Tb;
 	}
 
-	toJSON() {
+	toJSON(): Tb {
 		return this.tb;
 	}
 
-	toString() {
+	toString(): Tb {
 		return this.tb;
 	}
 }

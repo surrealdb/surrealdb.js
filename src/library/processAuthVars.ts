@@ -1,5 +1,5 @@
 import { NoDatabaseSpecified, NoNamespaceSpecified } from "../errors.ts";
-import { AnyAuth } from "../types.ts";
+import type { AnyAuth } from "../types.ts";
 import { isNil } from "./isNil.ts";
 
 export function processAuthVars<T extends AnyAuth>(vars: T, fallback?: {

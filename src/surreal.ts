@@ -7,11 +7,12 @@ import {
 	ResponseError,
 	UnsupportedEngine,
 } from "./errors.ts";
-import { PreparedQuery } from "./library/PreparedQuery.ts";
+import type { PreparedQuery } from "./library/PreparedQuery.ts";
 import { Pinger } from "./library/Pinger.ts";
-import { EngineEvents } from "./library/engine.ts";
-import { Engine, HttpEngine, WebsocketEngine } from "./library/engine.ts";
-import {
+import type { EngineEvents } from "./library/engine.ts";
+import { HttpEngine, WebsocketEngine } from "./library/engine.ts";
+import type { Engine } from "./library/engine.ts";
+import type {
 	RecordId as _RecordId,
 	StringRecordId,
 } from "./library/cbor/recordid.ts";
@@ -19,18 +20,21 @@ import { Emitter } from "./library/emitter.ts";
 import { processAuthVars } from "./library/processAuthVars.ts";
 import type { UUID } from "./library/cbor/uuid.ts";
 import {
-	Action,
-	type ActionResult,
 	AnyAuth,
-	type ConnectionOptions,
-	LiveHandler,
-	type MapQueryResult,
-	type Patch,
-	Prettify,
 	processConnectionOptions,
 	ScopeAuth,
 	Token,
 	TransformAuth,
+} from "./types.ts";
+import type {
+	Action,
+	ActionResult,
+	ConnectionOptions,
+	LiveHandler,
+	MapQueryResult,
+	Patch,
+	Prettify,
+	RpcResponse,
 } from "./types.ts";
 import { ConnectionStatus } from "./library/engine.ts";
 import { versionCheck } from "./library/versionCheck.ts";
@@ -72,7 +76,10 @@ export class Surreal {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	async connect(url: string | URL, opts: ConnectionOptions = {}) {
+	async connect(
+		url: string | URL,
+		opts: ConnectionOptions = {},
+	): Promise<void> {
 		url = new URL(url);
 
 		if (!url.pathname.endsWith("/rpc")) {
@@ -168,7 +175,7 @@ export class Surreal {
 	/**
 	 * Check if connection is ready
 	 */
-	get status() {
+	get status(): ConnectionStatus | undefined {
 		return this.connection?.status;
 	}
 
@@ -229,7 +236,7 @@ export class Surreal {
 	 * @param vars - Variables used in a signup query.
 	 * @return The authentication token.
 	 */
-	async signup(vars: ScopeAuth) {
+	async signup(vars: ScopeAuth): Promise<string> {
 		if (!this.connection) throw new NoActiveSocket();
 
 		vars = ScopeAuth.parse(vars);
@@ -251,7 +258,7 @@ export class Surreal {
 	 * @param vars - Variables used in a signin query.
 	 * @return The authentication token.
 	 */
-	async signin(vars: AnyAuth) {
+	async signin(vars: AnyAuth): Promise<string> {
 		if (!this.connection) throw new NoActiveSocket();
 
 		vars = AnyAuth.parse(vars);
@@ -272,7 +279,7 @@ export class Surreal {
 	 * Authenticates the current connection with a JWT token.
 	 * @param token - The JWT authentication token.
 	 */
-	async authenticate(token: Token) {
+	async authenticate(token: Token): Promise<boolean> {
 		const res = await this.rpc<string>("authenticate", [
 			Token.parse(token),
 		]);
@@ -283,7 +290,7 @@ export class Surreal {
 	/**
 	 * Invalidates the authentication for the current connection.
 	 */
-	async invalidate() {
+	async invalidate(): Promise<boolean> {
 		const res = await this.rpc("invalidate");
 		if (res.error) throw new ResponseError(res.error.message);
 		return true;
@@ -294,7 +301,7 @@ export class Surreal {
 	 * @param key - Specifies the name of the variable.
 	 * @param val - Assigns the value to the variable name.
 	 */
-	async let(variable: string, value: unknown) {
+	async let(variable: string, value: unknown): Promise<boolean> {
 		const res = await this.rpc("let", [variable, value]);
 		if (res.error) throw new ResponseError(res.error.message);
 		return true;
@@ -320,7 +327,11 @@ export class Surreal {
 			string,
 			unknown
 		>,
-	>(table: string, callback?: LiveHandler<Result>, diff?: boolean) {
+	>(
+		table: string,
+		callback?: LiveHandler<Result>,
+		diff?: boolean,
+	): Promise<UUID> {
 		await this.ready;
 		const res = await this.rpc<UUID>("live", [table, diff]);
 
@@ -406,7 +417,7 @@ export class Surreal {
 	async query<T extends unknown[]>(
 		query: string | PreparedQuery,
 		bindings?: Record<string, unknown>,
-	) {
+	): Promise<T> {
 		const raw = await this.query_raw<T>(query, bindings);
 		return raw.map(({ status, result }) => {
 			if (status == "ERR") throw new ResponseError(result);
@@ -422,7 +433,7 @@ export class Surreal {
 	async query_raw<T extends unknown[]>(
 		query: string | PreparedQuery,
 		bindings?: Record<string, unknown>,
-	) {
+	): Promise<MapQueryResult<T>> {
 		if (typeof query !== "string") {
 			bindings = bindings ?? {};
 			bindings = { ...bindings, ...query.bindings };
@@ -680,7 +691,10 @@ export class Surreal {
 	 * @param method - Type of message to send.
 	 * @param params - Parameters for the message.
 	 */
-	protected rpc<Result extends unknown>(method: string, params?: unknown[]) {
+	protected rpc<Result extends unknown>(
+		method: string,
+		params?: unknown[],
+	): Promise<RpcResponse<Result>> {
 		if (!this.connection) throw new NoActiveSocket();
 		return this.connection.rpc<typeof method, typeof params, Result>({
 			method,
