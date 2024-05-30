@@ -1,4 +1,7 @@
 {
+	"name": "@surrealdb/surrealdb",
+  "version": "1.0.0-beta.8",
+  "description": "SurrealDB SDK for JavaScript",
 	"lint": {
 		"include": ["src/", "tests/", "./mod.ts", "./compile.ts", "./deno.json"]
 	},
