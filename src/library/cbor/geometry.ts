@@ -2,12 +2,13 @@ import { Decimal } from "npm:decimal.js@^10.4.3";
 
 export abstract class Geometry {
 	abstract toJSON(): {
-		type: string;
+		type: "Point" | "LineString" | "Polygon" | "MultiPoint" | "MultiLineString" | "MultiPolygon";
 		coordinates: unknown[];
+	} | {
+		type: "GeometryCollection";
+		geometries: Geometry[];
 	};
-
-	abstract coordinates: unknown[];
-}
+ }
 
 export class GeometryPoint extends Geometry {
 	readonly point: [Decimal, Decimal];
@@ -184,13 +185,11 @@ export class GeometryCollection<T extends [Geometry, ...Geometry[]]>
 	toJSON() {
 		return {
 			type: "GeometryCollection" as const,
-			coordinates: this.coordinates,
+			geometries: this.geometries,
 		};
 	}
 
-	get coordinates() {
-		return this.collection.map((g) => g.toJSON()) as {
-			[K in keyof T]: ReturnType<T[K]["toJSON"]>;
-		};
+	get geometries() {
+		return this.collection as Geometry[];
 	}
 }
