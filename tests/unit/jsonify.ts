@@ -18,6 +18,9 @@ Deno.test("jsonify matches snapshot", async function (t) {
 	const json = jsonify(
 		{
 			rid: new RecordId("some:thing", "under_score"),
+			rid_rand: new RecordId("some:thing", "rand()"),
+			rid_ulid: new RecordId("some:thing", "ulid()"),
+			rid_uuid: new RecordId("some:thing", "uuid()"),
 			str_rid: new StringRecordId("⟨some:thing⟩:under_score"),
 			dec: new Decimal("3.333333"),
 			dur: new Duration("1d2h"),
