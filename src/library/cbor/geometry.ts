@@ -66,11 +66,11 @@ export class GeometryLine extends Geometry {
 }
 
 export class GeometryPolygon extends Geometry {
-	readonly polygon: [GeometryLine, GeometryLine, ...GeometryLine[]];
+	readonly polygon: [GeometryLine, ...GeometryLine[]];
 
 	constructor(
 		polygon:
-			| [GeometryLine, GeometryLine, ...GeometryLine[]]
+			| [GeometryLine, ...GeometryLine[]]
 			| GeometryPolygon,
 	) {
 		super();
@@ -78,7 +78,6 @@ export class GeometryPolygon extends Geometry {
 			? polygon.polygon
 			: polygon;
 		this.polygon = polygon.map((line) => new GeometryLine(line)) as [
-			GeometryLine,
 			GeometryLine,
 			...GeometryLine[],
 		];
