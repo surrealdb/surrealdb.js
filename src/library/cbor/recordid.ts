@@ -27,8 +27,8 @@ export class RecordId<Tb extends string = string> {
 		const tb = escape_ident(this.tb);
 		const id = typeof this.id == "string"
 			? ["rand()", "ulid()", "uuid()"].includes(this.id)
-        ? this.id
-        : escape_ident(this.id)
+				? this.id
+				: escape_ident(this.id)
 			: JSON.stringify(this.id);
 		return `${tb}:${id}`;
 	}
