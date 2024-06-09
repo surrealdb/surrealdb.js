@@ -8,7 +8,7 @@ snapshot[`jsonify matches snapshot 1`] = `
   false: false,
   float: 123.456,
   geo: {
-    coordinates: [
+    geometries: [
       {
         coordinates: [
           "1",

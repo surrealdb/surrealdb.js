@@ -2,11 +2,18 @@ import { Decimal } from "decimal.js";
 
 export abstract class Geometry {
 	abstract toJSON(): {
-		type: string;
+		type:
+			| "Point"
+			| "LineString"
+			| "Polygon"
+			| "MultiPoint"
+			| "MultiLineString"
+			| "MultiPolygon";
 		coordinates: unknown[];
+	} | {
+		type: "GeometryCollection";
+		geometries: Geometry[];
 	};
-
-	abstract coordinates: unknown[];
 }
 
 export class GeometryPoint extends Geometry {
@@ -65,11 +72,11 @@ export class GeometryLine extends Geometry {
 }
 
 export class GeometryPolygon extends Geometry {
-	readonly polygon: [GeometryLine, GeometryLine, ...GeometryLine[]];
+	readonly polygon: [GeometryLine, ...GeometryLine[]];
 
 	constructor(
 		polygon:
-			| [GeometryLine, GeometryLine, ...GeometryLine[]]
+			| [GeometryLine, ...GeometryLine[]]
 			| GeometryPolygon,
 	) {
 		super();
@@ -77,7 +84,6 @@ export class GeometryPolygon extends Geometry {
 			? polygon.polygon
 			: polygon;
 		this.polygon = polygon.map((line) => new GeometryLine(line)) as [
-			GeometryLine,
 			GeometryLine,
 			...GeometryLine[],
 		];
@@ -205,13 +211,11 @@ export class GeometryCollection<T extends [Geometry, ...Geometry[]]>
 	} {
 		return {
 			type: "GeometryCollection" as const,
-			coordinates: this.coordinates,
+			geometries: this.geometries,
 		};
 	}
 
-	get coordinates(): { [K in keyof T]: ReturnType<T[K]["toJSON"]> } {
-		return this.collection.map((g) => g.toJSON()) as {
-			[K in keyof T]: ReturnType<T[K]["toJSON"]>;
-		};
+  get geometries(): Geometry[] {
+		return this.collection as Geometry[];
 	}
 }

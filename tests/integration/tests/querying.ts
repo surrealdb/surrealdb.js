@@ -10,6 +10,7 @@ import {
 	GeometryPolygon,
 	RecordId,
 	StringRecordId,
+	Table,
 	UUID,
 	uuidv4,
 	uuidv7,
@@ -378,6 +379,21 @@ Deno.test("string record id", async () => {
 
 	assertEquals(output.id.tb, "person");
 	assertEquals(output.id.id, 123);
+
+	await surreal.close();
+});
+
+Deno.test("table", async () => {
+	const surreal = await createSurreal();
+
+	const [output] = await surreal.query<[Table]>(
+		/* surql */ `RETURN type::table($table)`,
+		{
+			table: "person",
+		}
+	);
+
+	assertEquals(output.tb, "person");
 
 	await surreal.close();
 });

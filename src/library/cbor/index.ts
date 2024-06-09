@@ -121,6 +121,8 @@ export function decodeCbor(data: ArrayBuffer): any {
 				return new Duration(v.value);
 			case TAG_CUSTOM_DURATION:
 				return cborCustomDurationToDuration(v.value);
+			case TAG_TABLE:
+				return new Table(v.value);
 			case TAG_RECORDID:
 				return new RecordId(v.value[0], v.value[1]);
 			case TAG_GEOMETRY_POINT:
