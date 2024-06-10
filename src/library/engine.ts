@@ -85,6 +85,16 @@ export class WebsocketEngine implements Engine {
 		this.emitter.emit(status, args);
 	}
 
+	private async requireStatus<T extends ConnectionStatus>(
+		status: T,
+	): Promise<true> {
+		if (this.status != status) {
+			await this.emitter.subscribeOnce(status);
+		}
+
+		return true;
+	}
+
 	version(url: URL, timeout: number): Promise<string> {
 		return retrieveRemoteVersion(url, timeout);
 	}
@@ -144,9 +154,14 @@ export class WebsocketEngine implements Engine {
 	async disconnect(): Promise<void> {
 		this.connection = {};
 		await this.ready?.catch(() => {});
-		await this.socket?.close();
+		this.socket?.close();
 		this.ready = undefined;
 		this.socket = undefined;
+
+		await Promise.any([
+			this.requireStatus(ConnectionStatus.Disconnected),
+			this.requireStatus(ConnectionStatus.Error),
+		]);
 	}
 
 	async rpc<

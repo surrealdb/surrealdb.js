@@ -57,8 +57,8 @@ export class Surreal {
 		engines?: Engines;
 	} = {}) {
 		this.emitter = new Emitter();
-		this.emitter.subscribe("disconnected", () => this.clean());
-		this.emitter.subscribe("error", () => this.close());
+		this.emitter.subscribe(ConnectionStatus.Disconnected, () => this.clean());
+		this.emitter.subscribe(ConnectionStatus.Error, () => this.close());
 
 		if (engines) {
 			this.engines = {
@@ -137,16 +137,7 @@ export class Surreal {
 	 */
 	async close() {
 		this.clean();
-		const queue: Promise<unknown>[] = [];
-		if (this.connection) {
-			if (this.connection.status != ConnectionStatus.Disconnected) {
-				queue.push(this.emitter.subscribeOnce("disconnected"));
-			}
-
-			queue.push(this.connection?.disconnect());
-		}
-
-		await Promise.all(queue);
+		await this.connection?.disconnect();
 	}
 
 	private clean() {
