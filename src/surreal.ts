@@ -57,7 +57,10 @@ export class Surreal {
 		engines?: Engines;
 	} = {}) {
 		this.emitter = new Emitter();
-		this.emitter.subscribe(ConnectionStatus.Disconnected, () => this.clean());
+		this.emitter.subscribe(
+			ConnectionStatus.Disconnected,
+			() => this.clean(),
+		);
 		this.emitter.subscribe(ConnectionStatus.Error, () => this.close());
 
 		if (engines) {
