@@ -390,7 +390,7 @@ Deno.test("table", async () => {
 		/* surql */ `RETURN type::table($table)`,
 		{
 			table: "person",
-		}
+		},
 	);
 
 	assertEquals(output.tb, "person");
