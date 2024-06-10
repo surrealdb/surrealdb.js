@@ -54,7 +54,7 @@ await build({
 		"./src/library/WebSocket/deno.ts": "./src/library/WebSocket/node.ts",
 	},
 	compilerOptions: {
-		lib: ["dom", "es2021.string"],
+		lib: ["dom", "es2021"],
 		sourceMap: true,
 	},
 });
