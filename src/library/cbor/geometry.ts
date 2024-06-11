@@ -12,7 +12,7 @@ export abstract class Geometry {
 		coordinates: unknown[];
 	} | {
 		type: "GeometryCollection";
-		geometries: Geometry[];
+		geometries: unknown[];
 	};
 }
 
@@ -195,6 +195,8 @@ export class GeometryCollection<T extends [Geometry, ...Geometry[]]>
 	}
 
 	get geometries() {
-		return this.collection as Geometry[];
+		return this.collection.map((g) => g.toJSON()) as {
+			[K in keyof T]: ReturnType<T[K]["toJSON"]>;
+		};
 	}
 }
