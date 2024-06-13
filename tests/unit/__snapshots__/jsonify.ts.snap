@@ -71,6 +71,8 @@ snapshot[`jsonify matches snapshot 1`] = `
     ],
     type: "GeometryCollection",
   },
+  id_is_a_number: "⟨some:thing⟩:123",
+  id_looks_like_number: "⟨some:thing⟩:⟨123⟩",
   null: null,
   num: 123,
   rid: "⟨some:thing⟩:under_score",

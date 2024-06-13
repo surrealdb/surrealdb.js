@@ -50,7 +50,7 @@ export class StringRecordId {
 
 function escape_ident(str: string) {
 	// String which looks like a number should always be escaped, to prevent it from being parsed as a number
-	if (!isNaN(str) && !isNaN(parseFloat(str))) {
+	if (!isNaN(parseFloat(str))) {
 		return `⟨${str}⟩`;
 	}
 
