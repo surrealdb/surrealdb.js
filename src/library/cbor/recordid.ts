@@ -49,6 +49,11 @@ export class StringRecordId {
 }
 
 function escape_ident(str: string) {
+	// String which looks like a number should always be escaped, to prevent it from being parsed as a number
+	if (!isNaN(str) && !isNaN(parseFloat(str))) {
+		return `⟨${str}⟩`;
+	}
+
 	let code, i, len;
 
 	for (i = 0, len = str.length; i < len; i++) {
