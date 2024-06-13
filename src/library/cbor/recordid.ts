@@ -50,7 +50,7 @@ export class StringRecordId {
 
 function escape_ident(str: string) {
 	// String which looks like a number should always be escaped, to prevent it from being parsed as a number
-	if (!isNaN(parseFloat(str))) {
+	if (isOnlyNumbers(str)) {
 		return `⟨${str}⟩`;
 	}
 
@@ -69,4 +69,9 @@ function escape_ident(str: string) {
 	}
 
 	return str;
+}
+
+function isOnlyNumbers(str: string) {
+	const parsed = parseInt(str);
+	return !isNaN(parsed) && parsed.toString() === str;
 }
