@@ -16,6 +16,8 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - uses: actions/checkout@v3
       - run: deno task build
-      - run: cd ./npm && npm publish
+      # Publish with latest only versions that match the semver pattern, otherwise publish with beta tag
+      # This is to avoid publishing beta versions with the latest tag (if no dist tag is provided, npm will use latest)
+      - run: cd ./npm && npm publish --dist-tag $(npm pkg get version | tr -d '"' | grep -qoE "^\d+\.\d+\.\d+$" && echo 'latest' || echo 'beta')
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
