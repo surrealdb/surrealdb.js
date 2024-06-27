@@ -364,6 +364,8 @@ Deno.test("record id bigint", async () => {
 	assertEquals(output.id.tb, "person");
 	assertEquals(output.id.id, 90071992547409915n);
 
+	output.id.toString();
+
 	await surreal.close();
 });
 
