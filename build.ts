@@ -1,53 +1,42 @@
-import { rollup } from "rollup";
-import typescript from "@rollup/plugin-typescript";
-import fs from "fs";
+import * as esbuild from "esbuild";
+import tscPlugin from "esbuild-plugin-tsc";
 
-const bundle = await rollup({
-	input: "./src/index.ts",
-	plugins: [typescript()],
-});
+await Promise.all([
+	esbuild.build({
+		entryPoints: ["src/index.ts"],
+		bundle: true,
+		outfile: "dist/esm.js",
+		plugins: [tscPlugin({ force: true })],
+		external: ["uuidv7", "isows"],
+		format: "esm",
+		minify: true,
+	}),
+	esbuild.build({
+		entryPoints: ["src/index.ts"],
+		bundle: true,
+		outfile: "dist/cjs.js",
+		plugins: [tscPlugin({ force: true })],
+		external: ["uuidv7", "isows"],
+		format: "cjs",
+		minify: true,
+	}),
+	esbuild.build({
+		entryPoints: ["src/index.ts"],
+		bundle: true,
+		outfile: "dist/esm.bundled.js",
+		plugins: [tscPlugin({ force: true })],
+		format: "esm",
+		minify: true,
+	}),
+]);
 
-console.log(bundle);
-
-const { output } = await bundle.generate({
-	dir: "./dist",
-});
-
-for (const f of output) {
-	// console.log(f.fileName);
-	if (f.type === "asset") {
-		fs.writeFileSync(`./dist/${f.fileName}`, f.source);
-	} else {
-		fs.writeFileSync(`./dist/${f.fileName}`, f.code);
-	}
-}
-
-// import dts from "bun-plugin-dts";
-
-// const results = [
-// 	// Node, deps externalized
-// 	await Bun.build({
-// 		entrypoints: ["./src/index.ts"],
-// 		outdir: "./dist",
-// 		target: "node",
-// 		external: ["uuidv7", "isows"],
-// 		plugins: [dts()],
-// 		minify: true,
-// 	}),
-
-// 	// Web, deps bundled
-// 	await Bun.build({
-// 		entrypoints: ["./src/index.ts"],
-// 		outdir: "./dist",
-// 		target: "browser",
-// 		naming: "[name].web.[ext]",
-// 		minify: true,
-// 	}),
-// ];
-
-// for (const result of results) {
-// 	if (!result.success) {
-// 		const logs = result.logs.join("\n");
-// 		throw new Error(`Build failed, logs: ${logs}`);
-// 	}
-// }
+Bun.spawn([
+	"bunx",
+	"dts-bundle-generator",
+	"-o",
+	"dist/types.d.ts",
+	"src/index.ts",
+	"--no-check",
+	"--export-referenced-types",
+	"false",
+]);

@@ -1,7 +1,3 @@
-import type {
-	decodeCbor as _decodeCbor,
-	encodeCbor as _encodeCbor,
-} from "../data";
 import type { EngineDisconnected } from "../errors";
 import type { LiveAction, Patch, RpcRequest, RpcResponse } from "../types";
 import type { Emitter } from "../util/emitter";
@@ -28,8 +24,9 @@ export enum ConnectionStatus {
 
 export class EngineContext {
 	readonly emitter: Emitter<EngineEvents>;
-	readonly encodeCbor: typeof _encodeCbor;
-	readonly decodeCbor: typeof _decodeCbor;
+	readonly encodeCbor: (value: unknown) => ArrayBuffer;
+	// biome-ignore lint/suspicious/noExplicitAny: Don't know what it will return
+	readonly decodeCbor: (value: ArrayBufferLike) => any;
 
 	constructor({
 		emitter,
@@ -37,8 +34,9 @@ export class EngineContext {
 		decodeCbor,
 	}: {
 		emitter: Emitter<EngineEvents>;
-		encodeCbor: typeof _encodeCbor;
-		decodeCbor: typeof _decodeCbor;
+		encodeCbor: (value: unknown) => ArrayBuffer;
+		// biome-ignore lint/suspicious/noExplicitAny: Don't know what it will return
+		decodeCbor: (value: ArrayBufferLike) => any;
 	}) {
 		this.emitter = emitter;
 		this.encodeCbor = encodeCbor;

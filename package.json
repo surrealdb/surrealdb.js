@@ -5,11 +5,14 @@
 	"devDependencies": {
 		"@biomejs/biome": "1.8.3",
 		"@types/bun": "latest",
-		"bun-plugin-dts": "^0.2.3",
+		"dts-bundle-generator": "^9.5.1",
+		"esbuild": "^0.21.5",
+		"esbuild-plugin-tsc": "^0.4.0",
 		"get-port": "^7.1.0"
 	},
 	"peerDependencies": {
-		"typescript": "^5.0.0"
+		"typescript": "^5.0.0",
+		"tslib": "^2.6.3"
 	},
 	"dependencies": {
 		"isows": "^1.0.4",
@@ -29,8 +32,16 @@
 	"engines": {
 		"node": ">=18.0.0"
 	},
-	"browser": "dist/index.web.js",
-	"types": "dist/index.d.ts",
-	"main": "dist/index.js",
-	"files": ["src", "dist", "README.md"]
+	"browser": "./dist/esm.bundled.js",
+	"types": "./dist/types.d.ts",
+	"main": "./dist/esm.js",
+	"exports": {
+		".": {
+			"require": "./dist/cjs.js",
+			"import": "./dist/esm.js",
+			"types": "./dist/types.d.ts",
+			"browser": "./dist/esm.bundled.js"
+		}
+	},
+	"files": ["dist", "README.md", "LICENCE", "SECURITY.md"]
 }
