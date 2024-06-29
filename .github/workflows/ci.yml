@@ -28,7 +28,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                surrealdb: ["1.4.2", "1.5.3", "2.0.0-alpha.3"]
+                surrealdb: ["v1.4.2", "v1.5.3", "v2.0.0-alpha.3"]
         steps:
             - name: Install SurrealDB ${{ matrix.surrealdb }}
               run: curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --version ${{ matrix.surrealdb }}
