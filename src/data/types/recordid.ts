@@ -18,11 +18,11 @@ export class RecordId<Tb extends string = string> {
 		this.id = id;
 	}
 
-	toJSON() {
+	toJSON(): string {
 		return this.toString();
 	}
 
-	toString() {
+	toString(): string {
 		const tb = escape_ident(this.tb);
 		const id =
 			typeof this.id === "string"
@@ -44,11 +44,11 @@ export class StringRecordId {
 		this.rid = rid;
 	}
 
-	toJSON() {
+	toJSON(): string {
 		return this.rid;
 	}
 
-	toString() {
+	toString(): string {
 		return this.rid;
 	}
 }

@@ -3,7 +3,7 @@ import { UnsupportedVersion, VersionRetrievalFailure } from "../errors.ts";
 type Version = `${number}.${number}.${number}`;
 export const supportedSurrealDbVersionMin: Version = "1.4.2";
 export const supportedSurrealDbVersionUntil: Version = "3.0.0";
-export const supportedSurrealDbVersionRange = `>= ${supportedSurrealDbVersionMin} < ${supportedSurrealDbVersionUntil}`;
+export const supportedSurrealDbVersionRange: string = `>= ${supportedSurrealDbVersionMin} < ${supportedSurrealDbVersionUntil}`;
 
 export function versionCheck(version: string): true {
 	if (!isVersionSupported(version)) {
@@ -13,7 +13,7 @@ export function versionCheck(version: string): true {
 	return true;
 }
 
-export function isVersionSupported(version: string) {
+export function isVersionSupported(version: string): boolean {
 	return (
 		supportedSurrealDbVersionMin.localeCompare(version, undefined, {
 			numeric: true,
@@ -24,7 +24,10 @@ export function isVersionSupported(version: string) {
 	);
 }
 
-export async function retrieveRemoteVersion(url: URL, timeout: number) {
+export async function retrieveRemoteVersion(
+	url: URL,
+	timeout: number,
+): Promise<Version> {
 	const mappedProtocols = {
 		"ws:": "http:",
 		"wss:": "https:",
@@ -55,7 +58,7 @@ export async function retrieveRemoteVersion(url: URL, timeout: number) {
 				clearTimeout(id);
 			});
 
-		return version;
+		return version as Version;
 	}
 
 	throw new VersionRetrievalFailure();

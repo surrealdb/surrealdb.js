@@ -5,11 +5,11 @@ export class Decimal {
 		this.decimal = decimal.toString();
 	}
 
-	toString() {
+	toString(): string {
 		return this.decimal;
 	}
 
-	toJSON() {
+	toJSON(): string {
 		return this.decimal;
 	}
 }

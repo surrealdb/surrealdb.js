@@ -42,7 +42,7 @@ export class Duration {
 		}
 	}
 
-	static fromCompact([s, ns]: [number, number] | [number] | []) {
+	static fromCompact([s, ns]: [number, number] | [number] | []): Duration {
 		s = s ?? 0;
 		ns = ns ?? 0;
 		const ms = s * 1000 + ns / 1000000;
@@ -55,7 +55,7 @@ export class Duration {
 		return ns > 0 ? [s, ns] : s > 0 ? [s] : [];
 	}
 
-	toString() {
+	toString(): string {
 		let left = this._milliseconds;
 		let result = "";
 		function scrap(size: number) {
@@ -72,11 +72,11 @@ export class Duration {
 		return result;
 	}
 
-	toJSON() {
+	toJSON(): string {
 		return this.toString();
 	}
 
-	static parseString(input: string) {
+	static parseString(input: string): number {
 		let ms = 0;
 		let left = input;
 		while (left !== "") {
@@ -98,67 +98,67 @@ export class Duration {
 		return ms;
 	}
 
-	static nanoseconds(nanoseconds: number) {
+	static nanoseconds(nanoseconds: number): Duration {
 		return new Duration(Math.floor(nanoseconds * nanosecond));
 	}
 
-	static microseconds(microseconds: number) {
+	static microseconds(microseconds: number): Duration {
 		return new Duration(Math.floor(microseconds * microsecond));
 	}
 
-	static milliseconds(milliseconds: number) {
+	static milliseconds(milliseconds: number): Duration {
 		return new Duration(milliseconds);
 	}
 
-	static seconds(seconds: number) {
+	static seconds(seconds: number): Duration {
 		return new Duration(seconds * second);
 	}
 
-	static minutes(minutes: number) {
+	static minutes(minutes: number): Duration {
 		return new Duration(minutes * minute);
 	}
 
-	static hours(hours: number) {
+	static hours(hours: number): Duration {
 		return new Duration(hours * hour);
 	}
 
-	static days(days: number) {
+	static days(days: number): Duration {
 		return new Duration(days * day);
 	}
 
-	static weeks(weeks: number) {
+	static weeks(weeks: number): Duration {
 		return new Duration(weeks * week);
 	}
 
-	get microseconds() {
+	get microseconds(): number {
 		return Math.floor(this._milliseconds / microsecond);
 	}
 
-	get nanoseconds() {
+	get nanoseconds(): number {
 		return Math.floor(this._milliseconds / nanosecond);
 	}
 
-	get milliseconds() {
+	get milliseconds(): number {
 		return Math.floor(this._milliseconds);
 	}
 
-	get seconds() {
+	get seconds(): number {
 		return Math.floor(this._milliseconds / second);
 	}
 
-	get minutes() {
+	get minutes(): number {
 		return Math.floor(this._milliseconds / minute);
 	}
 
-	get hours() {
+	get hours(): number {
 		return Math.floor(this._milliseconds / hour);
 	}
 
-	get days() {
+	get days(): number {
 		return Math.floor(this._milliseconds / day);
 	}
 
-	get weeks() {
+	get weeks(): number {
 		return Math.floor(this._milliseconds / week);
 	}
 }

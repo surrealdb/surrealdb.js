@@ -3,7 +3,7 @@ import { CborInvalidMajorError, CborRangeError } from "./error";
 import type { Reader } from "./reader";
 import { Writer } from "./writer";
 
-export function infiniteBytes(r: Reader, forMajor: Major) {
+export function infiniteBytes(r: Reader, forMajor: Major): ArrayBuffer {
 	const w = new Writer();
 	while (true) {
 		const [major, len] = r.readMajor();

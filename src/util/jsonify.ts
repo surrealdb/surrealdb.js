@@ -46,7 +46,7 @@ export function jsonify<T>(input: T): Jsonify<T> {
 			input instanceof Geometry ||
 			input instanceof Table
 		) {
-			return input.toJSON();
+			return input.toJSON() as Jsonify<T>;
 		}
 
 		// We check by prototype, because we do not want to process derivatives of objects and arrays

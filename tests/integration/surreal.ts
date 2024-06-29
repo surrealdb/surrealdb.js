@@ -1,5 +1,5 @@
 import { afterAll } from "bun:test";
-import Surreal from "../../src";
+import Surreal, { type AnyAuth } from "../../src";
 import { SURREAL_BIND, SURREAL_PORT_UNREACHABLE, SURREAL_USER } from "./env.ts";
 import { SURREAL_PASS } from "./env.ts";
 import { SURREAL_DB } from "./env.ts";
@@ -7,14 +7,15 @@ import { SURREAL_NS } from "./env.ts";
 import { SURREAL_PORT } from "./env.ts";
 
 export type Protocol = "http" | "ws";
-export const PROTOCOL = process.env.SURREAL_PROTOCOL === "http" ? "http" : "ws";
+export const PROTOCOL: Protocol =
+	process.env.SURREAL_PROTOCOL === "http" ? "http" : "ws";
 
 declare global {
 	var surrealProc: number;
 }
 
 type PremadeAuth = "root" | "invalid";
-export function createAuth(auth: PremadeAuth) {
+export function createAuth(auth: PremadeAuth): AnyAuth {
 	switch (auth) {
 		case "root": {
 			return {
@@ -33,7 +34,15 @@ export function createAuth(auth: PremadeAuth) {
 	}
 }
 
-export async function setupServer() {
+type CreateSurrealOptions = {
+	protocol?: Protocol;
+	auth?: PremadeAuth;
+	reachable?: boolean;
+};
+
+export async function setupServer(): Promise<{
+	createSurreal: (options?: CreateSurrealOptions) => Promise<Surreal>;
+}> {
 	const proc = Bun.spawn(["surreal", "start"], {
 		env: {
 			SURREAL_BIND,
@@ -52,11 +61,7 @@ export async function setupServer() {
 		protocol,
 		auth,
 		reachable,
-	}: {
-		protocol?: Protocol;
-		auth?: PremadeAuth;
-		reachable?: boolean;
-	} = {}) {
+	}: CreateSurrealOptions = {}) {
 		protocol = protocol ? protocol : PROTOCOL;
 		const surreal = new Surreal();
 		const port = reachable === false ? SURREAL_PORT_UNREACHABLE : SURREAL_PORT;

@@ -7,7 +7,7 @@ export function processAuthVars<T extends AnyAuth>(
 		namespace?: string;
 		database?: string;
 	},
-) {
+): AnyAuth {
 	if ("scope" in vars || "access" in vars) {
 		if (!vars.namespace) {
 			if (!fallback?.namespace) throw new NoNamespaceSpecified();

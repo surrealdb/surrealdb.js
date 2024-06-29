@@ -14,7 +14,7 @@ export class Reader {
 		this._byte.set(new Uint8Array(buffer));
 	}
 
-	get left() {
+	get left(): Uint8Array {
 		return this._byte.slice(this._pos);
 	}
 
@@ -23,7 +23,7 @@ export class Reader {
 		return res;
 	}
 
-	readUint8() {
+	readUint8(): number {
 		try {
 			return this.read(1, this._view.getUint8(this._pos));
 		} catch (e) {
@@ -32,7 +32,7 @@ export class Reader {
 		}
 	}
 
-	readUint16() {
+	readUint16(): number {
 		try {
 			return this.read(2, this._view.getUint16(this._pos));
 		} catch (e) {
@@ -41,7 +41,7 @@ export class Reader {
 		}
 	}
 
-	readUint32() {
+	readUint32(): number {
 		try {
 			return this.read(4, this._view.getUint32(this._pos));
 		} catch (e) {
@@ -50,7 +50,7 @@ export class Reader {
 		}
 	}
 
-	readUint64() {
+	readUint64(): bigint {
 		try {
 			return this.read(8, this._view.getBigUint64(this._pos));
 		} catch (e) {
@@ -60,7 +60,7 @@ export class Reader {
 	}
 
 	// https://stackoverflow.com/a/8796597
-	readFloat16() {
+	readFloat16(): number {
 		const bytes = this.readUint16();
 		const exponent = (bytes & 0x7c00) >> 10;
 		const fraction = bytes & 0x03ff;
@@ -78,7 +78,7 @@ export class Reader {
 		);
 	}
 
-	readFloat32() {
+	readFloat32(): number {
 		try {
 			return this.read(4, this._view.getFloat32(this._pos));
 		} catch (e) {
@@ -87,7 +87,7 @@ export class Reader {
 		}
 	}
 
-	readFloat64() {
+	readFloat64(): number {
 		try {
 			return this.read(8, this._view.getFloat64(this._pos));
 		} catch (e) {
@@ -96,7 +96,7 @@ export class Reader {
 		}
 	}
 
-	readBytes(amount: number) {
+	readBytes(amount: number): Uint8Array {
 		const available = this.left.length;
 		if (amount > available)
 			throw new CborRangeError(

@@ -12,7 +12,7 @@ export type Prettify<T> = {
 //////////   AUTHENTICATION TYPES   //////////
 //////////////////////////////////////////////
 
-export function convertAuth(params: AnyAuth) {
+export function convertAuth(params: AnyAuth): Record<string, unknown> {
 	const cloned: Record<string, unknown> = { ...params };
 	const convertString = (a: string, b: string, optional?: boolean) => {
 		if (a in params) {

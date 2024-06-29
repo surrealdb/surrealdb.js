@@ -43,7 +43,7 @@ const TAG_GEOMETRY_MULTIPOLYGON = 93;
 const TAG_GEOMETRY_COLLECTION = 94;
 
 export const replacer = {
-	encode(v: unknown) {
+	encode(v: unknown): unknown {
 		if (v instanceof Date) {
 			return new Tagged(TAG_CUSTOM_DATETIME, dateToCborCustomDate(v));
 		}
@@ -87,7 +87,7 @@ export const replacer = {
 		}
 		return v;
 	},
-	decode(v: unknown) {
+	decode(v: unknown): unknown {
 		if (!(v instanceof Tagged)) return v;
 
 		switch (v.tag) {
@@ -130,13 +130,14 @@ export const replacer = {
 
 Object.freeze(replacer);
 
-export function encodeCbor<T>(data: T) {
+export function encodeCbor<T>(data: T): ArrayBuffer {
 	return encode(data, {
 		replacer: replacer.encode,
 	});
 }
 
-export function decodeCbor(data: ArrayBufferLike) {
+// biome-ignore lint/suspicious/noExplicitAny: Don't know what it will return
+export function decodeCbor(data: ArrayBufferLike): any {
 	return decode(data, {
 		replacer: replacer.decode,
 	});

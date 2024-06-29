@@ -41,7 +41,7 @@ export class GeometryPoint extends Geometry {
 		);
 	}
 
-	clone() {
+	clone(): GeometryPoint {
 		return new GeometryPoint([...this.point]);
 	}
 }
@@ -71,7 +71,7 @@ export class GeometryLine extends Geometry {
 		) as GeoJsonLineString["coordinates"];
 	}
 
-	close() {
+	close(): void {
 		if (!this.line[0].is(this.line.at(-1) as GeometryPoint)) {
 			this.line.push(this.line[0]);
 		}
@@ -87,7 +87,7 @@ export class GeometryLine extends Geometry {
 		return true;
 	}
 
-	clone() {
+	clone(): GeometryLine {
 		return new GeometryLine(
 			this.line.map((p) => p.clone()) as [
 				GeometryPoint,
@@ -136,7 +136,7 @@ export class GeometryPolygon extends Geometry {
 		return true;
 	}
 
-	clone() {
+	clone(): GeometryPolygon {
 		return new GeometryPolygon(
 			this.polygon.map((p) => p.clone()) as [GeometryLine, ...GeometryLine[]],
 		);
@@ -176,7 +176,7 @@ export class GeometryMultiPoint extends Geometry {
 		return true;
 	}
 
-	clone() {
+	clone(): GeometryMultiPoint {
 		return new GeometryMultiPoint(
 			this.points.map((p) => p.clone()) as [GeometryPoint, ...GeometryPoint[]],
 		);
@@ -214,7 +214,7 @@ export class GeometryMultiLine extends Geometry {
 		return true;
 	}
 
-	clone() {
+	clone(): GeometryMultiLine {
 		return new GeometryMultiLine(
 			this.lines.map((p) => p.clone()) as [GeometryLine, ...GeometryLine[]],
 		);
@@ -255,7 +255,7 @@ export class GeometryMultiPolygon extends Geometry {
 		return true;
 	}
 
-	clone() {
+	clone(): GeometryMultiPolygon {
 		return new GeometryMultiPolygon(
 			this.polygons.map((p) => p.clone()) as [
 				GeometryPolygon,
@@ -299,7 +299,7 @@ export class GeometryCollection extends Geometry {
 		return true;
 	}
 
-	clone() {
+	clone(): GeometryCollection {
 		return new GeometryCollection(
 			this.collection.map((p) => p.clone()) as [Geometry, ...Geometry[]],
 		);

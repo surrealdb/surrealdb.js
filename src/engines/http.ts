@@ -33,7 +33,7 @@ export class HttpEngine extends AbstractEngine {
 		return retrieveRemoteVersion(url, timeout);
 	}
 
-	connect(url: URL) {
+	connect(url: URL): Promise<void> {
 		this.setStatus(ConnectionStatus.Connecting);
 		this.connection.url = url;
 		this.setStatus(ConnectionStatus.Connected);
@@ -149,7 +149,7 @@ export class HttpEngine extends AbstractEngine {
 		);
 	}
 
-	get connected() {
+	get connected(): boolean {
 		return !!this.connection.url;
 	}
 }

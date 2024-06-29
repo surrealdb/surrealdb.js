@@ -6,11 +6,11 @@ export class Table<Tb extends string = string> {
 		this.tb = tb;
 	}
 
-	toJSON() {
+	toJSON(): string {
 		return this.tb;
 	}
 
-	toString() {
+	toString(): string {
 		return this.tb;
 	}
 }

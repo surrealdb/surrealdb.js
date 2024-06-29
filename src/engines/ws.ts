@@ -47,7 +47,7 @@ export class WebsocketEngine extends AbstractEngine {
 		return retrieveRemoteVersion(url, timeout);
 	}
 
-	async connect(url: URL) {
+	async connect(url: URL): Promise<void> {
 		this.connection.url = url;
 		this.setStatus(ConnectionStatus.Connecting);
 		const socket = new WebSocket(url.toString(), "cbor");
@@ -164,7 +164,7 @@ export class WebsocketEngine extends AbstractEngine {
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: Cannot assume type
-	handleRpcResponse({ id, ...res }: any) {
+	handleRpcResponse({ id, ...res }: any): void {
 		if (id) {
 			this.emitter.emit(`rpc-${id}`, [res]);
 		} else if (res.error) {
@@ -182,7 +182,7 @@ export class WebsocketEngine extends AbstractEngine {
 		}
 	}
 
-	get connected() {
+	get connected(): boolean {
 		return !!this.socket;
 	}
 }
@@ -195,11 +195,11 @@ export class Pinger {
 		this.interval = interval;
 	}
 
-	start(callback: () => void) {
+	start(callback: () => void): void {
 		this.pinger = setInterval(callback, this.interval);
 	}
 
-	stop() {
+	stop(): void {
 		clearInterval(this.pinger);
 	}
 }

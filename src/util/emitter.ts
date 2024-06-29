@@ -30,7 +30,7 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 		event: Event,
 		listener: Listener<Events[Event]>,
 		historic = false,
-	) {
+	): void {
 		if (!this.listeners[event]) {
 			this.listeners[event] = [];
 		}
@@ -48,7 +48,10 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 		}
 	}
 
-	subscribeOnce<Event extends keyof Events>(event: Event, historic = false) {
+	subscribeOnce<Event extends keyof Events>(
+		event: Event,
+		historic = false,
+	): Promise<Events[Event]> {
 		return new Promise<Events[Event]>((resolve) => {
 			let resolved = false;
 			const listener = (...args: Events[Event]) => {
@@ -66,7 +69,7 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 	unSubscribe<Event extends keyof Events>(
 		event: Event,
 		listener: Listener<Events[Event]>,
-	) {
+	): void {
 		if (this.listeners[event]) {
 			const index = this.listeners[event]?.findIndex((v) => v === listener);
 			if (index) {
@@ -78,7 +81,7 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 	isSubscribed<Event extends keyof Events>(
 		event: Event,
 		listener: Listener<Events[Event]>,
-	) {
+	): boolean {
 		return !!this.listeners[event]?.includes(listener);
 	}
 
@@ -86,7 +89,7 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 		event: Event,
 		args: Events[Event],
 		collectable = false,
-	) {
+	): Promise<void> {
 		const interceptor = this.interceptors[event];
 		const computedArgs = interceptor ? await interceptor(...args) : args;
 
@@ -109,7 +112,7 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 	}: {
 		collectable?: boolean | keyof Events | (keyof Events)[];
 		listeners?: boolean | keyof Events | (keyof Events)[];
-	}) {
+	}): void {
 		if (Array.isArray(collectable)) {
 			for (const k of collectable) {
 				delete this.collectable[k];
@@ -131,7 +134,7 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 		}
 	}
 
-	scanListeners(filter?: (k: keyof Events) => boolean) {
+	scanListeners(filter?: (k: keyof Events) => boolean): (keyof Events)[] {
 		let listeners = Object.keys(this.listeners) as (keyof Events)[];
 		if (filter) listeners = listeners.filter(filter);
 		return listeners;

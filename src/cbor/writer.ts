@@ -11,7 +11,7 @@ export class Writer {
 		this._byte = new Uint8Array(this._buf);
 	}
 
-	get buffer() {
+	get buffer(): ArrayBuffer {
 		return this._buf;
 	}
 
@@ -25,37 +25,37 @@ export class Writer {
 		return pos;
 	}
 
-	writeUint8(value: number) {
+	writeUint8(value: number): void {
 		const pos = this.claim(1);
 		this._view.setUint8(pos, value);
 	}
 
-	writeUint16(value: number) {
+	writeUint16(value: number): void {
 		const pos = this.claim(2);
 		this._view.setUint16(pos, value);
 	}
 
-	writeUint32(value: number) {
+	writeUint32(value: number): void {
 		const pos = this.claim(4);
 		this._view.setUint32(pos, value);
 	}
 
-	writeUint64(value: bigint) {
+	writeUint64(value: bigint): void {
 		const pos = this.claim(8);
 		this._view.setBigUint64(pos, value);
 	}
 
-	writeUint8Array(data: Uint8Array) {
+	writeUint8Array(data: Uint8Array): void {
 		const pos = this.claim(data.byteLength);
 		this._byte.set(data, pos);
 	}
 
-	writeFloat32(value: number) {
+	writeFloat32(value: number): void {
 		const pos = this.claim(4);
 		this._view.setFloat32(pos, value);
 	}
 
-	writeFloat64(value: number) {
+	writeFloat64(value: number): void {
 		const pos = this.claim(8);
 		this._view.setFloat64(pos, value);
 	}

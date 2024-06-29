@@ -49,7 +49,7 @@ export class EngineContext {
 export abstract class AbstractEngine {
 	readonly context: EngineContext;
 	ready: Promise<void> | undefined;
-	status = ConnectionStatus.Disconnected;
+	status: ConnectionStatus = ConnectionStatus.Disconnected;
 	connection: {
 		url?: URL;
 		namespace?: string;
@@ -61,15 +61,15 @@ export abstract class AbstractEngine {
 		this.context = context;
 	}
 
-	get emitter() {
+	get emitter(): EngineContext["emitter"] {
 		return this.context.emitter;
 	}
 
-	get encodeCbor() {
+	get encodeCbor(): EngineContext["encodeCbor"] {
 		return this.context.encodeCbor;
 	}
 
-	get decodeCbor() {
+	get decodeCbor(): EngineContext["decodeCbor"] {
 		return this.context.decodeCbor;
 	}
 
