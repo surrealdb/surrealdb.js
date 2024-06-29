@@ -1,210 +1,205 @@
 import { WebSocket } from "isows";
 import {
-    ConnectionUnavailable,
-    EngineDisconnected,
-    ResponseError,
-    UnexpectedConnectionError,
-    UnexpectedServerResponse,
+	ConnectionUnavailable,
+	EngineDisconnected,
+	ResponseError,
+	UnexpectedConnectionError,
+	UnexpectedServerResponse,
 } from "../errors";
 import { type RpcRequest, type RpcResponse, isLiveResult } from "../types";
 import { getIncrementalID } from "../util/getIncrementalID";
 import { retrieveRemoteVersion } from "../util/versionCheck";
 import {
-    ConnectionStatus,
-    AbstractEngine,
-    type EngineContext,
-    type EngineEvents,
+	AbstractEngine,
+	ConnectionStatus,
+	type EngineContext,
+	type EngineEvents,
 } from "./abstract";
 
 export class WebsocketEngine extends AbstractEngine {
-    private pinger?: Pinger;
-    private socket?: WebSocket;
+	private pinger?: Pinger;
+	private socket?: WebSocket;
 
-    constructor(context: EngineContext) {
-        super(context);
-        this.emitter.subscribe("disconnected", () => this.pinger?.stop());
-    }
+	constructor(context: EngineContext) {
+		super(context);
+		this.emitter.subscribe("disconnected", () => this.pinger?.stop());
+	}
 
-    private setStatus<T extends ConnectionStatus>(
-        status: T,
-        ...args: EngineEvents[T]
-    ) {
-        this.status = status;
-        this.emitter.emit(status, args);
-    }
+	private setStatus<T extends ConnectionStatus>(
+		status: T,
+		...args: EngineEvents[T]
+	) {
+		this.status = status;
+		this.emitter.emit(status, args);
+	}
 
-    private async requireStatus<T extends ConnectionStatus>(
-        status: T,
-    ): Promise<true> {
-        if (this.status !== status) {
-            await this.emitter.subscribeOnce(status);
-        }
+	private async requireStatus<T extends ConnectionStatus>(
+		status: T,
+	): Promise<true> {
+		if (this.status !== status) {
+			await this.emitter.subscribeOnce(status);
+		}
 
-        return true;
-    }
+		return true;
+	}
 
-    version(url: URL, timeout: number): Promise<string> {
-        return retrieveRemoteVersion(url, timeout);
-    }
+	version(url: URL, timeout: number): Promise<string> {
+		return retrieveRemoteVersion(url, timeout);
+	}
 
-    async connect(url: URL) {
-        this.connection.url = url;
-        this.setStatus(ConnectionStatus.Connecting);
-        const socket = new WebSocket(url.toString(), "cbor");
-        const ready = new Promise<void>((resolve, reject) => {
-            socket.addEventListener("open", () => {
-                this.setStatus(ConnectionStatus.Connected);
-                resolve();
-            });
+	async connect(url: URL) {
+		this.connection.url = url;
+		this.setStatus(ConnectionStatus.Connecting);
+		const socket = new WebSocket(url.toString(), "cbor");
+		const ready = new Promise<void>((resolve, reject) => {
+			socket.addEventListener("open", () => {
+				this.setStatus(ConnectionStatus.Connected);
+				resolve();
+			});
 
-            socket.addEventListener("error", (e) => {
-                const error = new UnexpectedConnectionError(
-                    "error" in e ? e.error : "An unexpected error occurred",
-                );
-                this.setStatus(ConnectionStatus.Error, error);
-                reject(error);
-            });
+			socket.addEventListener("error", (e) => {
+				const error = new UnexpectedConnectionError(
+					"error" in e ? e.error : "An unexpected error occurred",
+				);
+				this.setStatus(ConnectionStatus.Error, error);
+				reject(error);
+			});
 
-            socket.addEventListener("close", () => {
-                this.setStatus(ConnectionStatus.Disconnected);
-            });
+			socket.addEventListener("close", () => {
+				this.setStatus(ConnectionStatus.Disconnected);
+			});
 
-            socket.addEventListener("message", async ({ data }) => {
-                const decoded = this.decodeCbor(
-                    data instanceof Blob
-                        ? await data.arrayBuffer()
-                        : data.buffer.slice(
-                              data.byteOffset,
-                              data.byteOffset + data.byteLength,
-                          ),
-                );
+			socket.addEventListener("message", async ({ data }) => {
+				const decoded = this.decodeCbor(
+					data instanceof Blob
+						? await data.arrayBuffer()
+						: data.buffer.slice(
+								data.byteOffset,
+								data.byteOffset + data.byteLength,
+							),
+				);
 
-                if (
-                    typeof decoded === "object" &&
-                    !Array.isArray(decoded) &&
-                    decoded != null
-                ) {
-                    this.handleRpcResponse(decoded);
-                } else {
-                    this.setStatus(
-                        ConnectionStatus.Error,
-                        new UnexpectedServerResponse(decoded),
-                    );
-                }
-            });
-        });
+				if (
+					typeof decoded === "object" &&
+					!Array.isArray(decoded) &&
+					decoded != null
+				) {
+					this.handleRpcResponse(decoded);
+				} else {
+					this.setStatus(
+						ConnectionStatus.Error,
+						new UnexpectedServerResponse(decoded),
+					);
+				}
+			});
+		});
 
-        this.ready = ready;
-        return await ready.then(() => {
-            this.socket = socket;
-            this.pinger = new Pinger(30000);
-            this.pinger?.start(() => this.rpc({ method: "ping" }));
-        });
-    }
+		this.ready = ready;
+		return await ready.then(() => {
+			this.socket = socket;
+			this.pinger = new Pinger(30000);
+			this.pinger?.start(() => this.rpc({ method: "ping" }));
+		});
+	}
 
-    async disconnect(): Promise<void> {
-        this.connection = {};
-        await this.ready?.catch(() => {});
-        this.socket?.close();
-        this.ready = undefined;
-        this.socket = undefined;
+	async disconnect(): Promise<void> {
+		this.connection = {};
+		await this.ready?.catch(() => {});
+		this.socket?.close();
+		this.ready = undefined;
+		this.socket = undefined;
 
-        await Promise.any([
-            this.requireStatus(ConnectionStatus.Disconnected),
-            this.requireStatus(ConnectionStatus.Error),
-        ]);
-    }
+		await Promise.any([
+			this.requireStatus(ConnectionStatus.Disconnected),
+			this.requireStatus(ConnectionStatus.Error),
+		]);
+	}
 
-    async rpc<
-        Method extends string,
-        Params extends unknown[] | undefined,
-        Result,
-    >(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
-        await this.ready;
-        if (!this.socket) throw new ConnectionUnavailable();
+	async rpc<
+		Method extends string,
+		Params extends unknown[] | undefined,
+		Result,
+	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
+		await this.ready;
+		if (!this.socket) throw new ConnectionUnavailable();
 
-        // It's not realistic for the message to ever arrive before the listener is registered on the emitter
-        // And we don't want to collect the response messages in the emitter
-        // So to be sure we simply subscribe before we send the message :)
+		// It's not realistic for the message to ever arrive before the listener is registered on the emitter
+		// And we don't want to collect the response messages in the emitter
+		// So to be sure we simply subscribe before we send the message :)
 
-        const id = getIncrementalID();
-        const response = this.emitter.subscribeOnce(`rpc-${id}`);
-        this.socket.send(this.encodeCbor({ id, ...request }));
-        return response.then(([res]) => {
-            if (res instanceof EngineDisconnected) throw res;
+		const id = getIncrementalID();
+		const response = this.emitter.subscribeOnce(`rpc-${id}`);
+		this.socket.send(this.encodeCbor({ id, ...request }));
+		return response.then(([res]) => {
+			if (res instanceof EngineDisconnected) throw res;
 
-            if ("result" in res) {
-                switch (request.method) {
-                    case "use": {
-                        this.connection.namespace = request
-                            .params?.[0] as string;
-                        this.connection.database = request
-                            .params?.[1] as string;
-                        break;
-                    }
+			if ("result" in res) {
+				switch (request.method) {
+					case "use": {
+						this.connection.namespace = request.params?.[0] as string;
+						this.connection.database = request.params?.[1] as string;
+						break;
+					}
 
-                    case "signin":
-                    case "signup": {
-                        this.connection.token = res.result as string;
-                        break;
-                    }
+					case "signin":
+					case "signup": {
+						this.connection.token = res.result as string;
+						break;
+					}
 
-                    case "authenticate": {
-                        this.connection.token = request.params?.[0] as string;
-                        break;
-                    }
+					case "authenticate": {
+						this.connection.token = request.params?.[0] as string;
+						break;
+					}
 
-                    case "invalidate": {
-                        this.connection.token = undefined;
-                        break;
-                    }
-                }
-            }
+					case "invalidate": {
+						this.connection.token = undefined;
+						break;
+					}
+				}
+			}
 
-            return res as RpcResponse<Result>;
-        });
-    }
+			return res as RpcResponse<Result>;
+		});
+	}
 
-    // biome-ignore lint/suspicious/noExplicitAny: Cannot assume type
-    handleRpcResponse({ id, ...res }: any) {
-        if (id) {
-            this.emitter.emit(`rpc-${id}`, [res]);
-        } else if (res.error) {
-            this.setStatus(
-                ConnectionStatus.Error,
-                new ResponseError(res.error),
-            );
-        } else {
-            if (isLiveResult(res.result)) {
-                const { id, action, result } = res.result;
-                this.emitter.emit(`live-${id}`, [action, result], true);
-            } else {
-                this.setStatus(
-                    ConnectionStatus.Error,
-                    new UnexpectedServerResponse({ id, ...res }),
-                );
-            }
-        }
-    }
+	// biome-ignore lint/suspicious/noExplicitAny: Cannot assume type
+	handleRpcResponse({ id, ...res }: any) {
+		if (id) {
+			this.emitter.emit(`rpc-${id}`, [res]);
+		} else if (res.error) {
+			this.setStatus(ConnectionStatus.Error, new ResponseError(res.error));
+		} else {
+			if (isLiveResult(res.result)) {
+				const { id, action, result } = res.result;
+				this.emitter.emit(`live-${id}`, [action, result], true);
+			} else {
+				this.setStatus(
+					ConnectionStatus.Error,
+					new UnexpectedServerResponse({ id, ...res }),
+				);
+			}
+		}
+	}
 
-    get connected() {
-        return !!this.socket;
-    }
+	get connected() {
+		return !!this.socket;
+	}
 }
 
 export class Pinger {
-    private pinger?: ReturnType<typeof setTimeout>;
-    private interval: number;
+	private pinger?: ReturnType<typeof setTimeout>;
+	private interval: number;
 
-    constructor(interval = 30000) {
-        this.interval = interval;
-    }
+	constructor(interval = 30000) {
+		this.interval = interval;
+	}
 
-    start(callback: () => void) {
-        this.pinger = setInterval(callback, this.interval);
-    }
+	start(callback: () => void) {
+		this.pinger = setInterval(callback, this.interval);
+	}
 
-    stop() {
-        clearInterval(this.pinger);
-    }
+	stop() {
+		clearInterval(this.pinger);
+	}
 }

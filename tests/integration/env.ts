@@ -5,7 +5,7 @@ if (typeof port !== "number") throw new Error("Could not claim port");
 
 const port_unreachable = await getPort();
 if (typeof port_unreachable !== "number") {
-    throw new Error("Could not claim port");
+	throw new Error("Could not claim port");
 }
 
 export const SURREAL_PORT = port.toString();

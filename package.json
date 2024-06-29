@@ -1,36 +1,36 @@
 {
-    "name": "surrealdb.js",
-    "version": "1.0.0-beta.10",
-    "type": "module",
-    "devDependencies": {
-        "@biomejs/biome": "1.8.3",
-        "@types/bun": "latest",
-        "bun-plugin-dts": "^0.2.3",
-        "get-port": "^7.1.0"
-    },
-    "peerDependencies": {
-        "typescript": "^5.0.0"
-    },
-    "dependencies": {
-        "isows": "^1.0.4",
-        "uuidv7": "^1.0.1"
-    },
-    "scripts": {
-        "ts": "tsc --watch",
-        "quality:check": "biome check .",
-        "quality:apply": "biome check . --write",
-        "quality:apply:unsafe": "biome check . --write --unsafe",
-        "build": "bun run build.ts"
-    },
-    "optionalDependencies": {
-        "bufferutil": "^4.0.8",
-        "utf-8-validate": "^6.0.3"
-    },
-    "engines": {
-        "node": ">=18.0.0"
-    },
-    "browser": "dist/index.web.js",
-    "types": "dist/index.d.ts",
-    "main": "dist/index.js",
-    "files": ["src", "dist", "README.md"]
+	"name": "surrealdb.js",
+	"version": "1.0.0-beta.10",
+	"type": "module",
+	"devDependencies": {
+		"@biomejs/biome": "1.8.3",
+		"@types/bun": "latest",
+		"bun-plugin-dts": "^0.2.3",
+		"get-port": "^7.1.0"
+	},
+	"peerDependencies": {
+		"typescript": "^5.0.0"
+	},
+	"dependencies": {
+		"isows": "^1.0.4",
+		"uuidv7": "^1.0.1"
+	},
+	"scripts": {
+		"ts": "tsc --watch",
+		"quality:check": "biome check .",
+		"quality:apply": "biome check . --write",
+		"quality:apply:unsafe": "biome check . --write --unsafe",
+		"build": "bun run build.ts"
+	},
+	"optionalDependencies": {
+		"bufferutil": "^4.0.8",
+		"utf-8-validate": "^6.0.3"
+	},
+	"engines": {
+		"node": ">=18.0.0"
+	},
+	"browser": "dist/index.web.js",
+	"types": "dist/index.d.ts",
+	"main": "dist/index.js",
+	"files": ["src", "dist", "README.md"]
 }
