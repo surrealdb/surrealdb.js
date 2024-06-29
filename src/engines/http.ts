@@ -14,12 +14,18 @@ import {
 
 export class HttpEngine extends AbstractEngine {
 	connection: {
-		url?: URL;
-		namespace?: string;
-		database?: string;
-		token?: string;
+		url: URL | undefined;
+		namespace: string | undefined;
+		database: string | undefined;
+		token: string | undefined;
 		variables: Record<string, unknown>;
-	} = { variables: {} };
+	} = {
+		url: undefined,
+		namespace: undefined,
+		database: undefined,
+		token: undefined,
+		variables: {},
+	};
 
 	private setStatus<T extends ConnectionStatus>(
 		status: T,
@@ -42,7 +48,14 @@ export class HttpEngine extends AbstractEngine {
 	}
 
 	disconnect(): Promise<void> {
-		this.connection = { variables: {} };
+		this.connection = {
+			url: undefined,
+			namespace: undefined,
+			database: undefined,
+			token: undefined,
+			variables: {},
+		};
+
 		this.ready = undefined;
 		this.setStatus(ConnectionStatus.Disconnected);
 		return new Promise<void>((r) => r());

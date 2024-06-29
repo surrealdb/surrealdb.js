@@ -49,11 +49,16 @@ export abstract class AbstractEngine {
 	ready: Promise<void> | undefined;
 	status: ConnectionStatus = ConnectionStatus.Disconnected;
 	connection: {
-		url?: URL;
-		namespace?: string;
-		database?: string;
-		token?: string;
-	} = {};
+		url: URL | undefined;
+		namespace: string | undefined;
+		database: string | undefined;
+		token: string | undefined;
+	} = {
+		url: undefined,
+		namespace: undefined,
+		database: undefined,
+		token: undefined,
+	};
 
 	constructor(context: EngineContext) {
 		this.context = context;

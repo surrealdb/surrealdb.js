@@ -70,26 +70,27 @@ export class WebsocketEngine extends AbstractEngine {
 			});
 
 			socket.addEventListener("message", async ({ data }) => {
-				const decoded = this.decodeCbor(
-					data instanceof Blob
-						? await data.arrayBuffer()
-						: data.buffer.slice(
-								data.byteOffset,
-								data.byteOffset + data.byteLength,
-							),
-				);
-
-				if (
-					typeof decoded === "object" &&
-					!Array.isArray(decoded) &&
-					decoded != null
-				) {
-					this.handleRpcResponse(decoded);
-				} else {
-					this.setStatus(
-						ConnectionStatus.Error,
-						new UnexpectedServerResponse(decoded),
+				try {
+					const decoded = this.decodeCbor(
+						data instanceof Blob
+							? await data.arrayBuffer()
+							: data.buffer.slice(
+									data.byteOffset,
+									data.byteOffset + data.byteLength,
+								),
 					);
+
+					if (
+						typeof decoded === "object" &&
+						!Array.isArray(decoded) &&
+						decoded != null
+					) {
+						this.handleRpcResponse(decoded);
+					} else {
+						throw new UnexpectedServerResponse(decoded);
+					}
+				} catch (detail) {
+					socket.dispatchEvent(new CustomEvent("error", { detail }));
 				}
 			});
 		});
@@ -97,13 +98,20 @@ export class WebsocketEngine extends AbstractEngine {
 		this.ready = ready;
 		return await ready.then(() => {
 			this.socket = socket;
+			this.pinger?.stop();
 			this.pinger = new Pinger(30000);
 			this.pinger?.start(() => this.rpc({ method: "ping" }));
 		});
 	}
 
 	async disconnect(): Promise<void> {
-		this.connection = {};
+		this.connection = {
+			url: undefined,
+			namespace: undefined,
+			database: undefined,
+			token: undefined,
+		};
+
 		await this.ready?.catch(() => {});
 		this.socket?.close();
 		this.ready = undefined;
