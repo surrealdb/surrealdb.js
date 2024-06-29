@@ -112,8 +112,7 @@ export class UnsupportedVersion extends SurrealDbError {
 		super();
 		this.version = version;
 		this.supportedRange = supportedRange;
-		this.message =
-			`The version "${version}" reported by the engine is not supported by this library, expected a version that satisfies "${supportedRange}".`;
+		this.message = `The version "${version}" reported by the engine is not supported by this library, expected a version that satisfies "${supportedRange}".`;
 	}
 }
 

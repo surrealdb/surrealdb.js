@@ -1,11 +1,11 @@
-import { getAvailablePortSync } from "https://deno.land/x/port@1.0.0/mod.ts";
+import getPort from "get-port";
 
-const port = getAvailablePortSync();
-if (typeof port != "number") throw new Error("Could not claim port");
+const port = await getPort();
+if (typeof port !== "number") throw new Error("Could not claim port");
 
-const port_unreachable = getAvailablePortSync();
-if (typeof port_unreachable != "number") {
-	throw new Error("Could not claim port");
+const port_unreachable = await getPort();
+if (typeof port_unreachable !== "number") {
+    throw new Error("Could not claim port");
 }
 
 export const SURREAL_PORT = port.toString();
