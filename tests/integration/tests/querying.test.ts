@@ -261,7 +261,7 @@ describe("delete", async () => {
 describe("relate", async () => {
 	const surreal = await createSurreal();
 	const version = await surreal.version();
-	if (version === "1.4.2") return;
+	if (version === "surrealdb-1.4.2") return;
 
 	test("single", async () => {
 		const single = await surreal.relate(
@@ -306,7 +306,7 @@ describe("relate", async () => {
 test("run", async () => {
 	const surreal = await createSurreal();
 	const version = await surreal.version();
-	if (version === "1.4.2") return;
+	if (version === "surrealdb-1.4.2") return;
 
 	const res = await surreal.run<number[]>("array::add", [[1, 2], 3]);
 	expect(res).toMatchObject([1, 2, 3]);
