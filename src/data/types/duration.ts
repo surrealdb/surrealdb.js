@@ -10,7 +10,7 @@ const week = 7 * day;
 const units = new Map([
 	["ns", nanosecond],
 	["µs", microsecond],
-	["μs", microsecond],
+	["μs", microsecond], // They look similar, but this unit is a different charachter than the one above it.
 	["us", microsecond], // needs to come last to be the displayed unit
 	["ms", millisecond],
 	["s", second],
