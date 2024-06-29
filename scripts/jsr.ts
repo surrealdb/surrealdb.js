@@ -1,5 +1,5 @@
-import { version } from "../package.json";
 import path from "node:path";
+import { version } from "../package.json";
 
 const config = {
 	name: "@surrealdb/surrealdb",
