@@ -23,7 +23,8 @@
 		"quality:check": "biome check .",
 		"quality:apply": "biome check . --write",
 		"quality:apply:unsafe": "biome check . --write --unsafe",
-		"build": "bun run build.ts"
+		"build": "bun run scripts/build.ts",
+		"jsr": "bun run scripts/jsr.ts"
 	},
 	"optionalDependencies": {
 		"bufferutil": "^4.0.8",
