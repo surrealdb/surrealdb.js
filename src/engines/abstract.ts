@@ -1,5 +1,11 @@
 import type { EngineDisconnected } from "../errors";
-import type { LiveAction, Patch, RpcRequest, RpcResponse } from "../types";
+import type {
+	LiveAction,
+	LiveHandlerArguments,
+	Patch,
+	RpcRequest,
+	RpcResponse,
+} from "../types";
 import type { Emitter } from "../util/emitter";
 
 export type Engine = new (context: EngineContext) => AbstractEngine;
@@ -12,7 +18,7 @@ export type EngineEvents = {
 	error: [Error];
 
 	[K: `rpc-${string | number}`]: [RpcResponse | EngineDisconnected];
-	[K: `live-${string}`]: [LiveAction, Record<string, unknown> | Patch];
+	[K: `live-${string}`]: LiveHandlerArguments;
 };
 
 export enum ConnectionStatus {

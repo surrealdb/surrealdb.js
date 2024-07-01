@@ -191,9 +191,15 @@ export type LiveResult = {
 	result: Record<string, unknown>;
 };
 
+export type LiveHandlerArguments<
+	Result extends Record<string, unknown> | Patch = Record<string, unknown>,
+> =
+	| [action: LiveAction, result: Result]
+	| [action: "CLOSE", result: "killed" | "disconnected"];
+
 export type LiveHandler<
 	Result extends Record<string, unknown> | Patch = Record<string, unknown>,
-> = (action: LiveAction, result: Result) => unknown;
+> = (...[action, result]: LiveHandlerArguments<Result>) => unknown;
 
 export function isLiveResult(v: unknown): v is LiveResult {
 	if (typeof v !== "object") return false;

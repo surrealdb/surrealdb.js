@@ -169,14 +169,18 @@ export class Surreal {
 	private clean() {
 		// Scan all pending rpc requests
 		const pending = this.emitter.scanListeners((k) => k.startsWith("rpc-"));
-
 		// Ensure all rpc requests get a connection closed response
 		pending.map((k) => this.emitter.emit(k, [new EngineDisconnected()]));
+
+		// Scan all active live listeners
+		const live = this.emitter.scanListeners((k) => k.startsWith("live-"));
+		// Ensure all live listeners get a CLOSE message with disconnected as reason
+		live.map((k) => this.emitter.emit(k, ["CLOSE", "disconnected"]));
 
 		// Cleanup subscriptions and yet to be collected emisions
 		this.emitter.reset({
 			collectable: true,
-			listeners: pending,
+			listeners: [...pending, ...live],
 		});
 	}
 
@@ -386,12 +390,14 @@ export class Surreal {
 		if (Array.isArray(queryUuid)) {
 			await Promise.all(queryUuid.map((u) => this.rpc("kill", [u])));
 			const toBeKilled = queryUuid.map((u) => `live-${u}` as const);
+			toBeKilled.map((k) => this.emitter.emit(k, ["CLOSE", "killed"]));
 			this.connection.emitter.reset({
 				collectable: toBeKilled,
 				listeners: toBeKilled,
 			});
 		} else {
 			await this.rpc("kill", [queryUuid]);
+			this.emitter.emit(`live-${queryUuid}`, ["CLOSE", "killed"]);
 			this.connection.emitter.reset({
 				collectable: `live-${queryUuid}`,
 				listeners: `live-${queryUuid}`,
