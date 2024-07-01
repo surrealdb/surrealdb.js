@@ -34,7 +34,7 @@ describe("create", async () => {
 			},
 		);
 
-		expect(single).toMatchObject({
+		expect(single).toStrictEqual({
 			id: new RecordId("person", 1),
 			firstname: "John",
 			lastname: "Doe",
@@ -48,7 +48,7 @@ describe("create", async () => {
 			lastname: "Doe",
 		});
 
-		expect(multiple).toMatchObject([
+		expect(multiple).toStrictEqual([
 			{
 				id: new RecordId("person", 2),
 				firstname: "Mary",
@@ -64,7 +64,7 @@ describe("select", async () => {
 	test("single", async () => {
 		const single = await surreal.select<Person>(new RecordId("person", 1));
 
-		expect(single).toMatchObject({
+		expect(single).toStrictEqual({
 			id: new RecordId("person", 1),
 			firstname: "John",
 			lastname: "Doe",
@@ -74,7 +74,7 @@ describe("select", async () => {
 	test("multiple", async () => {
 		const multiple = await surreal.select<Person>("person");
 
-		expect(multiple).toMatchObject([
+		expect(multiple).toStrictEqual([
 			{
 				id: new RecordId("person", 1),
 				firstname: "John",
@@ -97,7 +97,7 @@ describe("merge", async () => {
 			age: 20,
 		});
 
-		expect(single).toMatchObject({
+		expect(single).toStrictEqual({
 			id: new RecordId("person", 1),
 			firstname: "John",
 			lastname: "Doe",
@@ -108,7 +108,7 @@ describe("merge", async () => {
 	test("multiple", async () => {
 		const multiple = await surreal.merge<Person>("person", { age: 25 });
 
-		expect(multiple).toMatchObject([
+		expect(multiple).toStrictEqual([
 			{
 				id: new RecordId("person", 1),
 				firstname: "John",
@@ -137,7 +137,7 @@ describe("update", async () => {
 			},
 		);
 
-		expect(single).toMatchObject({
+		expect(single).toStrictEqual({
 			id: new RecordId("person", 1),
 			firstname: "John",
 			lastname: "Doe",
@@ -153,7 +153,7 @@ describe("update", async () => {
 			},
 		);
 
-		expect(multiple).toMatchObject([
+		expect(multiple).toStrictEqual([
 			{
 				id: new RecordId("person", 1),
 				firstname: "Mary",
@@ -176,7 +176,7 @@ describe("patch", async () => {
 			{ op: "replace", path: "/firstname", value: "John" },
 		]);
 
-		expect(single).toMatchObject({
+		expect(single).toStrictEqual({
 			id: new RecordId("person", 1),
 			firstname: "John",
 			lastname: "Doe",
@@ -188,7 +188,7 @@ describe("patch", async () => {
 			{ op: "replace", path: "/age", value: 30 },
 		]);
 
-		expect(multiple).toMatchObject([
+		expect(multiple).toStrictEqual([
 			{
 				id: new RecordId("person", 1),
 				firstname: "John",
@@ -211,7 +211,7 @@ describe("patch", async () => {
 			true,
 		);
 
-		expect(singleDiff).toMatchObject([
+		expect(singleDiff).toStrictEqual([
 			{ op: "replace", path: "/age", value: 25 },
 		]);
 	});
@@ -223,7 +223,7 @@ describe("patch", async () => {
 			true,
 		);
 
-		expect(multipleDiff).toMatchObject([
+		expect(multipleDiff).toStrictEqual([
 			[{ op: "replace", path: "/age", value: 20 }],
 			[{ op: "replace", path: "/age", value: 20 }],
 		]);
@@ -236,7 +236,7 @@ describe("delete", async () => {
 	test("single", async () => {
 		const single = await surreal.delete<Person>(new RecordId("person", 1));
 
-		expect(single).toMatchObject({
+		expect(single).toStrictEqual({
 			id: new RecordId("person", 1),
 			firstname: "John",
 			lastname: "Doe",
@@ -247,7 +247,7 @@ describe("delete", async () => {
 	test("multiple", async () => {
 		const multiple = await surreal.delete<Person>("person");
 
-		expect(multiple).toMatchObject([
+		expect(multiple).toStrictEqual([
 			{
 				id: new RecordId("person", 2),
 				firstname: "Mary",
@@ -273,7 +273,7 @@ describe("relate", async () => {
 			},
 		);
 
-		expect(single).toMatchObject({
+		expect(single).toStrictEqual({
 			id: new RecordId("graph", 1),
 			in: new RecordId("edge", "in"),
 			out: new RecordId("edge", "out"),
@@ -292,7 +292,7 @@ describe("relate", async () => {
 			},
 		);
 
-		expect(multiple).toMatchObject([
+		expect(multiple).toStrictEqual([
 			{
 				id: new RecordId("graph", 2),
 				in: new RecordId("edge", "in"),
@@ -360,7 +360,7 @@ test("query", async () => {
 		input,
 	});
 
-	expect(output).toMatchObject(input);
+	expect(output).toStrictEqual(input);
 });
 
 test("record id bigint", async () => {
@@ -373,7 +373,7 @@ test("record id bigint", async () => {
 		},
 	);
 
-	expect(output.id).toMatchObject(new RecordId("person", 90071992547409915n));
+	expect(output.id).toStrictEqual(new RecordId("person", 90071992547409915n));
 });
 
 test("string record id", async () => {
@@ -386,7 +386,7 @@ test("string record id", async () => {
 		},
 	);
 
-	expect(output.id).toMatchObject(new RecordId("person", 123));
+	expect(output.id).toStrictEqual(new RecordId("person", 123));
 });
 
 test("table", async () => {
@@ -399,5 +399,5 @@ test("table", async () => {
 		},
 	);
 
-	expect(output).toMatchObject(new Table("person"));
+	expect(output).toStrictEqual(new Table("person"));
 });

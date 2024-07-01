@@ -1,164 +1,207 @@
 import { describe, expect, test } from "bun:test";
-import { type LiveAction, RecordId, ResponseError, Uuid } from "../../../src";
+import {
+	type LiveAction,
+	RecordId,
+	ResponseError,
+	type Surreal,
+	Uuid,
+} from "../../../src";
 import { setupServer } from "../surreal.ts";
 
 const { createSurreal } = await setupServer();
 
-async function withTimeout(p: Promise<void>, ms: number): Promise<void> {
-	const { promise, resolve, reject } = Promise.withResolvers<void>();
-	const timeout = setTimeout(() => reject(new Error("Timeout")), ms);
+const isHttp = (surreal: Surreal) =>
+	surreal.connection?.connection.url?.protocol.startsWith("http");
 
-	await Promise.race([
-		promise,
-		p.then(resolve).finally(() => clearTimeout(timeout)),
-	]);
-}
-
-describe("Live Queries", async () => {
+describe("Live Queries HTTP", async () => {
 	const surreal = await createSurreal();
+	if (!isHttp(surreal)) return;
+
+	test("not supported", () => {
+		expect(surreal.live("person")).rejects.toBeInstanceOf(ResponseError);
+	});
+});
+
+describe("Live Queries WS", async () => {
+	const surreal = await createSurreal();
+	if (isHttp(surreal)) return;
 
 	test("live", async () => {
-		if (surreal.connection?.connection.url?.protocol.startsWith("http")) {
-			expect(surreal.live("person")).rejects.toBeInstanceOf(ResponseError);
-		} else {
-			const events: {
-				action: LiveAction;
-				result: Record<string, unknown>;
-			}[] = [];
-			const { promise, resolve } = Promise.withResolvers<void>();
+		const events = new CollectablePromise<{
+			action: LiveAction;
+			result: Record<string, unknown>;
+		}>(3);
 
-			const queryUuid = await surreal.live("person", (action, result) => {
-				events.push({ action, result });
-				if (action === "DELETE") resolve();
-			});
+		const queryUuid = await surreal.live("person", (action, result) => {
+			events.push({ action, result });
+		});
 
-			expect(queryUuid).toBeInstanceOf(Uuid);
+		expect(queryUuid).toBeInstanceOf(Uuid);
 
-			await surreal.create(new RecordId("person", 1), {
-				firstname: "John",
-				lastname: "Doe",
-			});
-			await surreal.update(new RecordId("person", 1), {
-				firstname: "Jane",
-				lastname: "Doe",
-			});
-			await surreal.delete(new RecordId("person", 1));
+		// Create some live notifications
+		await surreal.create(new RecordId("person", 1), {
+			firstname: "John",
+			lastname: "Doe",
+		});
+		await surreal.update(new RecordId("person", 1), {
+			firstname: "Jane",
+			lastname: "Doe",
+		});
+		await surreal.delete(new RecordId("person", 1));
 
-			await withTimeout(promise, 5e3); // Wait for the DELETE event
-
-			expect(events).toMatchObject([
-				{
-					action: "CREATE",
-					result: {
-						id: new RecordId("person", 1),
-						firstname: "John",
-						lastname: "Doe",
-					},
+		expect(events.then((a) => a)).resolves.toMatchObject([
+			{
+				action: "CREATE",
+				result: {
+					id: new RecordId("person", 1),
+					firstname: "John",
+					lastname: "Doe",
 				},
-				{
-					action: "UPDATE",
-					result: {
-						id: new RecordId("person", 1),
-						firstname: "Jane",
-						lastname: "Doe",
-					},
+			},
+			{
+				action: "UPDATE",
+				result: {
+					id: new RecordId("person", 1),
+					firstname: "Jane",
+					lastname: "Doe",
 				},
-				{
-					action: "DELETE",
-					result: {
-						id: new RecordId("person", 1),
-						firstname: "Jane",
-						lastname: "Doe",
-					},
+			},
+			{
+				action: "DELETE",
+				result: {
+					id: new RecordId("person", 1),
+					firstname: "Jane",
+					lastname: "Doe",
 				},
-			]);
-		}
+			},
+		]);
 	});
 
-	test("unsubscribe live", async () => {
-		if (surreal.connection?.connection.url?.protocol !== "ws:") {
-			// Not supported
-		} else {
-			const { promise, resolve } = Promise.withResolvers<void>();
-
-			let primaryLiveHandlerCallCount = 0;
-			let secondaryLiveHandlerCallCount = 0;
-
-			const primaryLiveHandler = () => {
-				primaryLiveHandlerCallCount += 1;
-			};
-			const secondaryLiveHandler = () => {
-				secondaryLiveHandlerCallCount += 1;
-			};
-
-			const queryUuid = await surreal.live("person", (action: LiveAction) => {
-				if (action === "DELETE") resolve();
-			});
-			await surreal.subscribeLive(queryUuid, primaryLiveHandler);
-			await surreal.subscribeLive(queryUuid, secondaryLiveHandler);
-
-			await surreal.create(new RecordId("person", 1), {
-				firstname: "John",
-			});
-
-			await surreal.unSubscribeLive(queryUuid, secondaryLiveHandler);
-
-			await surreal.update(new RecordId("person", 1), {
-				firstname: "Jane",
-			});
-			await surreal.delete(new RecordId("person", 1));
-
-			await withTimeout(promise, 5e3); // Wait for the DELETE event
-
-			expect(primaryLiveHandlerCallCount).toBeGreaterThan(
-				secondaryLiveHandlerCallCount,
-			);
+	test("unsubscribe", async () => {
+		// Prepare
+		let primaryCount = 0;
+		let secondaryCount = 0;
+		function secondaryHandler() {
+			secondaryCount += 1;
+			// Unsubscribe secondary listener
+			surreal.unSubscribeLive(primaryUuid, secondaryHandler);
 		}
+
+		const events = new CollectablePromise<{
+			action: LiveAction;
+			result: Record<string, unknown>;
+		}>(3);
+
+		// Start live query and register secondary handler
+		const primaryUuid = await surreal.live("person", (action, result) => {
+			events.push({ action, result });
+			primaryCount += 1;
+		});
+
+		await surreal.subscribeLive(primaryUuid, secondaryHandler);
+
+		// Create events
+		await surreal.create(new RecordId("person", 1), {
+			firstname: "John",
+		});
+
+		await surreal.update(new RecordId("person", 1), {
+			firstname: "Jane",
+		});
+		await surreal.delete(new RecordId("person", 1));
+
+		// Wait for all events to be collected
+		await events;
+
+		await surreal.kill(primaryUuid);
+
+		// Check counts
+		expect(primaryCount).toBeGreaterThan(secondaryCount);
 	});
 
 	test("kill", async () => {
-		if (surreal.connection?.connection.url?.protocol !== "ws:") {
-			// Not supported
-		} else {
-			const { promise, resolve } = Promise.withResolvers<void>();
+		// Prepare
+		let primaryCount = 0;
+		let secondaryCount = 0;
 
-			let primaryLiveHandlerCallCount = 0;
-			let secondaryLiveHandlerCallCount = 0;
+		const events = new CollectablePromise<{
+			action: LiveAction;
+			result: Record<string, unknown>;
+		}>(3);
 
-			const primaryLiveHandler = (action: LiveAction) => {
-				primaryLiveHandlerCallCount += 1;
-				if (action === "DELETE") resolve();
-			};
-			const secondaryLiveHandler = () => {
-				secondaryLiveHandlerCallCount += 1;
-			};
+		// Start live query and register secondary handler
+		const primaryUuid = await surreal.live("person", (action, result) => {
+			events.push({ action, result });
+			primaryCount += 1;
+		});
 
-			const primaryQueryUuid = await surreal.live("person", primaryLiveHandler);
-			const secondaryQueryUuid = await surreal.live(
-				"person",
-				secondaryLiveHandler,
-			);
+		const secondaryUuid = await surreal.live("person", () => {
+			secondaryCount += 1;
+			// Kill secondary live query
+			surreal.kill(secondaryUuid);
+		});
 
-			expect(primaryQueryUuid.toString()).not.toEqual(
-				secondaryQueryUuid.toString(),
-			);
+		// Create events
+		await surreal.create(new RecordId("person", 1), {
+			firstname: "John",
+		});
 
-			await surreal.create(new RecordId("person", 1), {
-				firstname: "John",
-			});
+		await surreal.update(new RecordId("person", 1), {
+			firstname: "Jane",
+		});
+		await surreal.delete(new RecordId("person", 1));
 
-			await surreal.kill(secondaryQueryUuid);
+		// Wait for all events to be collected
+		await events;
 
-			await surreal.update(new RecordId("person", 1), {
-				firstname: "Jane",
-			});
-			await surreal.delete(new RecordId("person", 1));
+		await surreal.kill(primaryUuid);
 
-			await withTimeout(promise, 5e3); // Wait for the DELETE event
-
-			expect(primaryLiveHandlerCallCount).toBeGreaterThan(
-				secondaryLiveHandlerCallCount,
-			);
-		}
+		// Check counts
+		expect(primaryCount).toBeGreaterThan(secondaryCount);
 	});
 });
+
+class CollectablePromise<T, Result extends T[] = T[], Err = never> {
+	[Symbol.toStringTag] = "CollectablePromise";
+	private collection: Result = [] as unknown as Result;
+	private promise: Promise<Result>;
+	private resolve: (value: Result) => void;
+	private amount: number;
+
+	constructor(amount: number) {
+		const { promise, resolve } = Promise.withResolvers<Result>();
+		this.amount = amount;
+		this.promise = promise;
+		this.resolve = resolve;
+	}
+
+	push(value: T): void {
+		this.collection.push(value);
+		if (this.collection.length >= this.amount) this.resolve(this.collection);
+	}
+
+	// biome-ignore lint/suspicious/noThenProperty: We are intentionally replicating a promise here
+	then(
+		onfulfilled?:
+			| ((value: Result) => Result | PromiseLike<Result>)
+			| undefined
+			| null,
+		onrejected?:
+			| ((reason: unknown) => Err | PromiseLike<Err>)
+			| undefined
+			| null,
+	): Promise<Result | Err> {
+		return this.promise.then(onfulfilled, onrejected);
+	}
+
+	/**
+	 * Attaches a callback for only the rejection of the Promise.
+	 * @param onrejected The callback to execute when the Promise is rejected.
+	 * @returns A Promise for the completion of the callback.
+	 */
+	catch(
+		onrejected?: ((reason: Err) => Err | PromiseLike<Err>) | undefined | null,
+	): Promise<Result | Err> {
+		return this.promise.catch(onrejected);
+	}
+}

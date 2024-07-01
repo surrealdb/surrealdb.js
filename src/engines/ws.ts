@@ -43,7 +43,7 @@ export class WebsocketEngine extends AbstractEngine {
 		return true;
 	}
 
-	version(url: URL, timeout: number): Promise<string> {
+	version(url: URL, timeout?: number): Promise<string> {
 		return retrieveRemoteVersion(url, timeout);
 	}
 
@@ -82,8 +82,8 @@ export class WebsocketEngine extends AbstractEngine {
 
 					if (
 						typeof decoded === "object" &&
-						!Array.isArray(decoded) &&
-						decoded != null
+						decoded != null &&
+						Object.getPrototypeOf(decoded) === Object.prototype
 					) {
 						this.handleRpcResponse(decoded);
 					} else {
@@ -100,7 +100,7 @@ export class WebsocketEngine extends AbstractEngine {
 			this.socket = socket;
 			this.pinger?.stop();
 			this.pinger = new Pinger(30000);
-			this.pinger?.start(() => this.rpc({ method: "ping" }));
+			this.pinger.start(() => this.rpc({ method: "ping" }));
 		});
 	}
 
@@ -138,37 +138,37 @@ export class WebsocketEngine extends AbstractEngine {
 		const id = getIncrementalID();
 		const response = this.emitter.subscribeOnce(`rpc-${id}`);
 		this.socket.send(this.encodeCbor({ id, ...request }));
-		return response.then(([res]) => {
-			if (res instanceof EngineDisconnected) throw res;
 
-			if ("result" in res) {
-				switch (request.method) {
-					case "use": {
-						this.connection.namespace = request.params?.[0] as string;
-						this.connection.database = request.params?.[1] as string;
-						break;
-					}
+		const [res] = await response;
+		if (res instanceof EngineDisconnected) throw res;
 
-					case "signin":
-					case "signup": {
-						this.connection.token = res.result as string;
-						break;
-					}
+		if ("result" in res) {
+			switch (request.method) {
+				case "use": {
+					this.connection.namespace = request.params?.[0] as string;
+					this.connection.database = request.params?.[1] as string;
+					break;
+				}
 
-					case "authenticate": {
-						this.connection.token = request.params?.[0] as string;
-						break;
-					}
+				case "signin":
+				case "signup": {
+					this.connection.token = res.result as string;
+					break;
+				}
 
-					case "invalidate": {
-						this.connection.token = undefined;
-						break;
-					}
+				case "authenticate": {
+					this.connection.token = request.params?.[0] as string;
+					break;
+				}
+
+				case "invalidate": {
+					this.connection.token = undefined;
+					break;
 				}
 			}
+		}
 
-			return res as RpcResponse<Result>;
-		});
+		return res as RpcResponse<Result>;
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: Cannot assume type

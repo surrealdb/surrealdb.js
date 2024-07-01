@@ -84,5 +84,5 @@ export abstract class AbstractEngine {
 		Result,
 	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>>;
 
-	abstract version(url: URL, timeout: number): Promise<string>;
+	abstract version(url: URL, timeout?: number): Promise<string>;
 }

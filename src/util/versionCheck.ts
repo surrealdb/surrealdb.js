@@ -1,6 +1,7 @@
 import { UnsupportedVersion, VersionRetrievalFailure } from "../errors.ts";
 
 type Version = `${number}.${number}.${number}`;
+export const defaultVersionCheckTimeout = 5000;
 export const supportedSurrealDbVersionMin: Version = "1.4.2";
 export const supportedSurrealDbVersionUntil: Version = "3.0.0";
 export const supportedSurrealDbVersionRange: string = `>= ${supportedSurrealDbVersionMin} < ${supportedSurrealDbVersionUntil}`;
@@ -26,7 +27,7 @@ export function isVersionSupported(version: string): boolean {
 
 export async function retrieveRemoteVersion(
 	url: URL,
-	timeout: number,
+	timeout?: number,
 ): Promise<Version> {
 	const mappedProtocols = {
 		"ws:": "http:",
@@ -44,15 +45,18 @@ export async function retrieveRemoteVersion(
 		url.protocol = protocol;
 
 		const controller = new AbortController();
-		const id = setTimeout(() => controller.abort(), timeout);
+		const id = setTimeout(
+			() => controller.abort(),
+			timeout ?? defaultVersionCheckTimeout,
+		);
 		const versionPrefix = "surrealdb-";
 		const version = await fetch(url, {
 			signal: controller.signal,
 		})
 			.then((res) => res.text())
 			.then((version) => version.slice(versionPrefix.length))
-			.catch(() => {
-				throw new VersionRetrievalFailure();
+			.catch((e) => {
+				throw new VersionRetrievalFailure(e);
 			})
 			.finally(() => {
 				clearTimeout(id);

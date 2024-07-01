@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { VersionRetrievalFailure } from "../../../src";
+import {
+	VersionRetrievalFailure,
+	defaultVersionCheckTimeout,
+} from "../../../src";
 import { setupServer } from "../surreal.ts";
 
 const { createSurreal } = await setupServer();
@@ -19,6 +22,6 @@ describe("version check", async () => {
 		const diff = end.getTime() - start.getTime();
 
 		expect(res).rejects.toBeInstanceOf(VersionRetrievalFailure);
-		expect(diff).toBeLessThanOrEqual(5100); // 100ms margin
+		expect(diff).toBeLessThanOrEqual(defaultVersionCheckTimeout + 100); // 100ms margin
 	});
 });

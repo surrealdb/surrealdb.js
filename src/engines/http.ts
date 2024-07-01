@@ -35,7 +35,7 @@ export class HttpEngine extends AbstractEngine {
 		this.emitter.emit(status, args);
 	}
 
-	version(url: URL, timeout: number): Promise<string> {
+	version(url: URL, timeout?: number): Promise<string> {
 		return retrieveRemoteVersion(url, timeout);
 	}
 

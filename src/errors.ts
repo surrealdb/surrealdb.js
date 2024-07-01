@@ -120,4 +120,8 @@ export class VersionRetrievalFailure extends SurrealDbError {
 	name = "VersionRetrievalFailure";
 	message =
 		"Failed to retrieve remote version. If the server is behind a proxy, make sure it's configured correctly.";
+
+	constructor(readonly error?: Error) {
+		super();
+	}
 }

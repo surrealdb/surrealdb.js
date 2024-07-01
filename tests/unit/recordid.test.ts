@@ -22,6 +22,12 @@ describe("record ids", () => {
 		);
 
 		// Objects and arrays
-		// expect(new RecordId("table"))
+		expect(new RecordId("table", { city: "London" }).toString()).toBe(
+			'table:{"city":"London"}',
+		);
+
+		expect(new RecordId("table", ["London"]).toString()).toBe(
+			'table:["London"]',
+		);
 	});
 });
