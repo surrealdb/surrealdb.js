@@ -29,8 +29,9 @@ jobs:
         strategy:
             matrix:
                 surrealdb: ["v1.4.2", "v1.5.3", "v2.0.0-alpha.3"]
+                engine: ["ws", "http"]
         steps:
-            - name: Install SurrealDB ${{ matrix.surrealdb }}
+            - name: Install SurrealDB ${{ matrix.surrealdb }} over ${{ matrix.engine }} engine
               run: curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --version ${{ matrix.surrealdb }}
 
             - name: Install Bun
@@ -44,6 +45,8 @@ jobs:
 
             - name: Run tests
               run: bun test
+              env:
+                SURREAL_PROTOCOL: ${{ matrix.engine }}
 
     build:
         name: Build
