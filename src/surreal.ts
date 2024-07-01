@@ -1,5 +1,6 @@
 import {
 	type StringRecordId,
+	Table,
 	type Uuid,
 	type RecordId as _RecordId,
 	decodeCbor,
@@ -445,9 +446,9 @@ export class Surreal {
 	 * Selects all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
 	 */
-	async select<T extends R>(thing: string): Promise<ActionResult<T>[]>;
+	async select<T extends R>(thing: Table | string): Promise<ActionResult<T>[]>;
 	async select<T extends R>(thing: RecordId): Promise<ActionResult<T>>;
-	async select<T extends R>(thing: RecordId | string) {
+	async select<T extends R>(thing: RecordId | Table | string) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("select", [thing]);
 		if (res.error) throw new ResponseError(res.error.message);
@@ -460,7 +461,7 @@ export class Surreal {
 	 * @param data - The document / record data to insert.
 	 */
 	async create<T extends R, U extends R = T>(
-		thing: string,
+		thing: Table | string,
 		data?: U,
 	): Promise<ActionResult<T>[]>;
 	async create<T extends R, U extends R = T>(
@@ -468,7 +469,7 @@ export class Surreal {
 		data?: U,
 	): Promise<ActionResult<T>>;
 	async create<T extends R, U extends R = T>(
-		thing: RecordId | string,
+		thing: RecordId | Table | string,
 		data?: U,
 	) {
 		await this.ready;
@@ -483,7 +484,7 @@ export class Surreal {
 	 * @param data - The document(s) / record(s) to insert.
 	 */
 	async insert<T extends R, U extends R = T>(
-		thing: string,
+		thing: Table | string,
 		data?: U | U[],
 	): Promise<ActionResult<T>[]>;
 	async insert<T extends R, U extends R = T>(
@@ -491,7 +492,7 @@ export class Surreal {
 		data?: U,
 	): Promise<ActionResult<T>>;
 	async insert<T extends R, U extends R = T>(
-		thing: RecordId | string,
+		thing: RecordId | Table | string,
 		data?: U | U[],
 	) {
 		await this.ready;
@@ -508,7 +509,7 @@ export class Surreal {
 	 * @param data - The document / record data to insert.
 	 */
 	async update<T extends R, U extends R = T>(
-		thing: string,
+		thing: Table | string,
 		data?: U,
 	): Promise<ActionResult<T>[]>;
 	async update<T extends R, U extends R = T>(
@@ -516,7 +517,7 @@ export class Surreal {
 		data?: U,
 	): Promise<ActionResult<T>>;
 	async update<T extends R, U extends R = T>(
-		thing: RecordId | string,
+		thing: RecordId | Table | string,
 		data?: U,
 	) {
 		await this.ready;
@@ -533,7 +534,7 @@ export class Surreal {
 	 * @param data - The document / record data to insert.
 	 */
 	async merge<T extends R, U extends R = Partial<T>>(
-		thing: string,
+		thing: Table | string,
 		data?: U,
 	): Promise<ActionResult<T>[]>;
 	async merge<T extends R, U extends R = Partial<T>>(
@@ -541,7 +542,7 @@ export class Surreal {
 		data?: U,
 	): Promise<ActionResult<T>>;
 	async merge<T extends R, U extends R = Partial<T>>(
-		thing: RecordId | string,
+		thing: RecordId | Table | string,
 		data?: U,
 	) {
 		await this.ready;
@@ -563,7 +564,7 @@ export class Surreal {
 		diff?: false,
 	): Promise<ActionResult<T>>;
 	async patch<T extends R>(
-		thing: string,
+		thing: Table | Table | string,
 		data?: Patch[],
 		diff?: false,
 	): Promise<ActionResult<T>[]>;
@@ -573,11 +574,15 @@ export class Surreal {
 		diff: true,
 	): Promise<Patch[]>;
 	async patch<T extends R>(
-		thing: string,
+		thing: Table | Table | string,
 		data: undefined | Patch[],
 		diff: true,
 	): Promise<Patch[][]>;
-	async patch(thing: RecordId | string, data?: Patch[], diff?: boolean) {
+	async patch(
+		thing: RecordId | Table | Table | string,
+		data?: Patch[],
+		diff?: boolean,
+	) {
 		await this.ready;
 
 		// biome-ignore lint/suspicious/noExplicitAny: Cannot assume type here due to function overload
@@ -591,9 +596,9 @@ export class Surreal {
 	 * Deletes all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
 	 */
-	async delete<T extends R>(thing: string): Promise<ActionResult<T>[]>;
+	async delete<T extends R>(thing: Table | string): Promise<ActionResult<T>[]>;
 	async delete<T extends R>(thing: RecordId): Promise<ActionResult<T>>;
-	async delete<T extends R>(thing: RecordId | string) {
+	async delete<T extends R>(thing: RecordId | Table | string) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("delete", [thing]);
 		if (res.error) throw new ResponseError(res.error.message);
