@@ -57,7 +57,7 @@ function escape_number(num: number | bigint) {
 	return num <= MAX_i64 ? num.toString() : `⟨${num}⟩`;
 }
 
-function escape_ident(str: string) {
+export function escape_ident(str: string): string {
 	// String which looks like a number should always be escaped, to prevent it from being parsed as a number
 	if (isOnlyNumbers(str)) {
 		return `⟨${str}⟩`;
