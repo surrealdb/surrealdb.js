@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	type LiveAction,
+	type LiveHandlerArguments,
 	RecordId,
 	ResponseError,
 	type Surreal,
@@ -28,11 +29,12 @@ describe("Live Queries WS", async () => {
 
 	test("live", async () => {
 		const events = new CollectablePromise<{
-			action: LiveAction;
-			result: Record<string, unknown>;
+			action: LiveHandlerArguments[0];
+			result: LiveHandlerArguments[1];
 		}>(3);
 
 		const queryUuid = await surreal.live("person", (action, result) => {
+			if (action === "CLOSE") return;
 			events.push({ action, result });
 		});
 
@@ -81,19 +83,21 @@ describe("Live Queries WS", async () => {
 		// Prepare
 		let primaryCount = 0;
 		let secondaryCount = 0;
-		function secondaryHandler() {
+		function secondaryHandler(...[action]: LiveHandlerArguments) {
+			if (action === "CLOSE") return;
 			secondaryCount += 1;
 			// Unsubscribe secondary listener
 			surreal.unSubscribeLive(primaryUuid, secondaryHandler);
 		}
 
 		const events = new CollectablePromise<{
-			action: LiveAction;
-			result: Record<string, unknown>;
+			action: LiveHandlerArguments[0];
+			result: LiveHandlerArguments[1];
 		}>(3);
 
 		// Start live query and register secondary handler
 		const primaryUuid = await surreal.live("person", (action, result) => {
+			if (action === "CLOSE") return;
 			events.push({ action, result });
 			primaryCount += 1;
 		});
@@ -125,17 +129,19 @@ describe("Live Queries WS", async () => {
 		let secondaryCount = 0;
 
 		const events = new CollectablePromise<{
-			action: LiveAction;
-			result: Record<string, unknown>;
+			action: LiveHandlerArguments[0];
+			result: LiveHandlerArguments[1];
 		}>(3);
 
 		// Start live query and register secondary handler
 		const primaryUuid = await surreal.live("person", (action, result) => {
+			if (action === "CLOSE") return;
 			events.push({ action, result });
 			primaryCount += 1;
 		});
 
-		const secondaryUuid = await surreal.live("person", () => {
+		const secondaryUuid = await surreal.live("person", (action, _) => {
+			if (action === "CLOSE") return;
 			secondaryCount += 1;
 			// Kill secondary live query
 			surreal.kill(secondaryUuid);
