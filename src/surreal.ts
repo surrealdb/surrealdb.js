@@ -1,6 +1,6 @@
 import {
 	type StringRecordId,
-	Table,
+	type Table,
 	type Uuid,
 	type RecordId as _RecordId,
 	decodeCbor,
