@@ -4,8 +4,8 @@ export function surrealql(
 	query_raw: string[] | TemplateStringsArray,
 	...values: unknown[]
 ): PreparedQuery {
-	const mapped_bindings = values.map((v, i) => [`__bind_${i}`, v] as const);
-	const bindings = mapped_bindings.reduce<Record<`__bind_${number}`, unknown>>(
+	const mapped_bindings = values.map((v, i) => [`bind___${i}`, v] as const);
+	const bindings = mapped_bindings.reduce<Record<`bind___${number}`, unknown>>(
 		(prev, [k, v]) => {
 			prev[k] = v;
 			return prev;
