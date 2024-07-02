@@ -59,23 +59,22 @@ export class Reader {
 		}
 	}
 
-	// https://stackoverflow.com/a/8796597
+	// https://stackoverflow.com/a/5684578
 	readFloat16(): number {
 		const bytes = this.readUint16();
-		const exponent = (bytes & 0x7c00) >> 10;
-		const fraction = bytes & 0x03ff;
-		const sign = bytes >> 15 ? -1 : 1;
+		const s = (bytes & 0x8000) >> 15;
+		const e = (bytes & 0x7c00) >> 10;
+		const f = bytes & 0x03ff;
 
-		return (
-			sign *
-			(exponent
-				? exponent === 0x1f
-					? fraction
-						? Number.NaN
-						: Number.POSITIVE_INFINITY
-					: (2 ** exponent - 15) * (1 + fraction / 0x400)
-				: 6.103515625e-5 * (fraction / 0x400))
-		);
+		if (e === 0) {
+			return (s ? -1 : 1) * 2 ** -14 * (f / 2 ** 10);
+		}
+
+		if (e === 0x1f) {
+			return f ? Number.NaN : (s ? -1 : 1) * Number.POSITIVE_INFINITY;
+		}
+
+		return (s ? -1 : 1) * 2 ** (e - 15) * (1 + f / 2 ** 10);
 	}
 
 	readFloat32(): number {
