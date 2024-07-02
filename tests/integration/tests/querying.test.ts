@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	Duration,
+	Gap,
 	GeometryCollection,
 	GeometryLine,
 	GeometryMultiPolygon,
@@ -10,6 +11,7 @@ import {
 	StringRecordId,
 	Table,
 	Uuid,
+	surql,
 } from "../../../src";
 import { setupServer } from "../surreal.ts";
 
@@ -310,6 +312,30 @@ test("run", async () => {
 
 	const res = await surreal.run<number[]>("array::add", [[1, 2], 3]);
 	expect(res).toMatchObject([1, 2, 3]);
+});
+
+describe("template literal", async () => {
+	const surreal = await createSurreal();
+
+	test("with gap", async () => {
+		const name = new Gap();
+		const query = surql`CREATE ONLY person:test SET name = ${name}`;
+		const res = await surreal.query(query, [name.fill("test")]);
+		expect(res).toStrictEqual([
+			{
+				id: new RecordId("person", "test"),
+				name: "test",
+			},
+		]);
+	});
+
+	test("with defined connection variables", async () => {
+		await surreal.let("test1", 123);
+		const gap = new Gap<number>();
+		const query = surql`RETURN [$test1, ${456}, ${gap}]`;
+		const res = await surreal.query(query, [gap.fill(789)]);
+		expect(res).toStrictEqual([[123, 456, 789]]);
+	});
 });
 
 test("query", async () => {

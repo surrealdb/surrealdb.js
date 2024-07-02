@@ -81,7 +81,7 @@ export class HttpEngine extends AbstractEngine {
 		}
 
 		if (request.method === "let") {
-			const [key, value] = request.params as [string, string];
+			const [key, value] = request.params as [string, unknown];
 			this.connection.variables[key] = value;
 			return {
 				result: true as Result,
@@ -138,7 +138,8 @@ export class HttpEngine extends AbstractEngine {
 					}
 
 					case "authenticate": {
-						this.connection.token = request.params?.[0] as string;
+						const [token] = request.params as [string];
+						this.connection.token = token;
 						break;
 					}
 

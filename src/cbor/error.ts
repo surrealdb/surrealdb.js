@@ -28,3 +28,19 @@ export class CborBreak extends CborError {
 		super("Came across a break which was not intercepted by the decoder");
 	}
 }
+
+export class CborPartialDisabled extends CborError {
+	name = "CborPartialDisabled";
+	constructor() {
+		super(
+			"Tried to insert a Gap into a CBOR value, while partial mode is not enabled",
+		);
+	}
+}
+
+export class CborFillMissing extends CborError {
+	name = "CborFillMissing";
+	constructor() {
+		super("Fill for a gap is missing, and gap has no default");
+	}
+}

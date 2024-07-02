@@ -1,4 +1,6 @@
+import type { Encoded, Fill } from "./cbor";
 import { type RecordId, Uuid } from "./data";
+import type { PreparedQuery } from "./util/PreparedQuery";
 
 export type ActionResult<T extends Record<string, unknown>> = Prettify<
 	T["id"] extends RecordId ? T : { id: RecordId } & T
@@ -7,6 +9,10 @@ export type ActionResult<T extends Record<string, unknown>> = Prettify<
 export type Prettify<T> = {
 	[K in keyof T]: T[K];
 } & {}; // deno-lint-ignore ban-types
+
+export type QueryParameters =
+	| [query: string, bindings?: Record<string, unknown>]
+	| [prepared: PreparedQuery, gaps?: Fill[]];
 
 //////////////////////////////////////////////
 //////////   AUTHENTICATION TYPES   //////////

@@ -6,3 +6,6 @@ export * from "./reader";
 export * from "./writer";
 export * from "./tagged";
 export * from "./error";
+export * from "./gap";
+export * from "./partial";
+export * from "./encoded";

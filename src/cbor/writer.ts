@@ -1,6 +1,9 @@
-import type { Major } from "./constants";
+import type { Major, Replacer } from "./constants";
+import type { Gap } from "./gap";
+import { PartiallyEncoded } from "./partial";
 
 export class Writer {
+	private _chunks: [ArrayBuffer, Gap][] = [];
 	private _buf: ArrayBuffer;
 	private _view: DataView;
 	private _byte: Uint8Array;
@@ -9,6 +12,17 @@ export class Writer {
 		this._buf = new ArrayBuffer(0);
 		this._view = new DataView(this._buf);
 		this._byte = new Uint8Array(this._buf);
+	}
+
+	chunk(gap: Gap): void {
+		this._chunks.push([this._buf, gap]);
+		this._buf = new ArrayBuffer(0);
+		this._view = new DataView(this._buf);
+		this._byte = new Uint8Array(this._buf);
+	}
+
+	get chunks(): [ArrayBuffer, Gap][] {
+		return this._chunks;
 	}
 
 	get buffer(): ArrayBuffer {
@@ -46,8 +60,23 @@ export class Writer {
 	}
 
 	writeUint8Array(data: Uint8Array): void {
+		if (data.byteLength === 0) return;
 		const pos = this.claim(data.byteLength);
 		this._byte.set(data, pos);
+	}
+
+	writeArrayBuffer(data: ArrayBuffer): void {
+		if (data.byteLength === 0) return;
+		this.writeUint8Array(new Uint8Array(data));
+	}
+
+	writePartiallyEncoded(data: PartiallyEncoded): void {
+		for (const [buf, gap] of data.chunks) {
+			this.writeArrayBuffer(buf);
+			this.chunk(gap);
+		}
+
+		this.writeArrayBuffer(data.end);
 	}
 
 	writeFloat32(value: number): void {
@@ -77,5 +106,20 @@ export class Writer {
 			this.writeUint8(base + 27);
 			this.writeUint64(BigInt(length));
 		}
+	}
+
+	output<Partial extends boolean = false>(
+		partial: Partial,
+		replacer?: Replacer,
+	): Partial extends true ? PartiallyEncoded : ArrayBuffer {
+		if (partial) {
+			return new PartiallyEncoded(
+				this._chunks,
+				this._buf,
+				replacer,
+			) as Partial extends true ? PartiallyEncoded : ArrayBuffer;
+		}
+
+		return this._buf as Partial extends true ? PartiallyEncoded : ArrayBuffer;
 	}
 }

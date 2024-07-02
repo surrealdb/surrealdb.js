@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { POW_2_64, decode, encode } from "../../src";
-import { CborInvalidMajorError, CborRangeError } from "../../src";
+import {
+	CborFillMissing,
+	CborInvalidMajorError,
+	CborPartialDisabled,
+	CborRangeError,
+	Gap,
+	POW_2_64,
+	decode,
+	encode,
+} from "../../src";
 
 test("encode basic", () => {
 	expect(encode(123)).toMatchSnapshot("positive integer");
@@ -160,5 +168,64 @@ describe("infinity", () => {
 		);
 
 		expect(decoded).toMatchObject({ a: "bc" });
+	});
+});
+
+describe("partial", () => {
+	test("Fails if not enabled", () => {
+		const res = new Promise(() => {
+			const gap = new Gap();
+			encode({ gap });
+		});
+
+		expect(res).rejects.toBeInstanceOf(CborPartialDisabled);
+	});
+
+	test("Fails to build if fill for gap is missing", () => {
+		const res = new Promise(() => {
+			const gap = new Gap();
+			const partial = encode({ gap }, { partial: true });
+			partial.build([]);
+		});
+
+		expect(res).rejects.toBeInstanceOf(CborFillMissing);
+	});
+
+	describe("Succeeds if configured correctly", () => {
+		const name = new Gap<string>();
+		const age = new Gap<number>();
+		const enabled = new Gap(true);
+		const partial = encode(
+			[
+				"CREATE person SET name = $name, age = $age, enabled = $enabled",
+				{
+					name,
+					age,
+					enabled,
+				},
+			],
+			{ partial: true },
+		);
+
+		test("with gaps filled", () => {
+			const res = decode(partial.build([name.fill("John"), age.fill(30)]));
+			expect(res?.[1]).toStrictEqual({
+				name: "John",
+				age: 30,
+				enabled: true,
+			});
+		});
+
+		test("with defaults overwritten", () => {
+			const res = decode(
+				partial.build([name.fill("John"), age.fill(30), enabled.fill(false)]),
+			);
+
+			expect(res?.[1]).toStrictEqual({
+				name: "John",
+				age: 30,
+				enabled: false,
+			});
+		});
 	});
 });

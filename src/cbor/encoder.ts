@@ -1,20 +1,26 @@
 import { POW_2_53, POW_2_64, type Replacer } from "./constants";
-import { CborNumberError } from "./error";
+import { Encoded } from "./encoded";
+import { CborNumberError, CborPartialDisabled } from "./error";
+import { type Fill, Gap } from "./gap";
+import { PartiallyEncoded } from "./partial";
 import { Tagged } from "./tagged";
 import { Writer } from "./writer";
 
-interface EncoderOptions {
+interface EncoderOptions<Partial extends boolean> {
 	replacer?: Replacer;
 	writer?: Writer;
+	partial?: Partial;
+	fills?: Fill[];
 }
 
-export function encode(
+export function encode<Partial extends boolean = false>(
 	input: unknown,
-	options: EncoderOptions = {},
-): ArrayBuffer {
+	options: EncoderOptions<Partial> = {},
+): Partial extends true ? PartiallyEncoded : ArrayBuffer {
 	const w = options.writer ?? new Writer();
 	const value = options.replacer ? options.replacer(input) : input;
 	const encodeOptions = { ...options, writer: w };
+	const fillsMap = new Map(options.fills ?? []);
 
 	if (value === undefined) {
 		w.writeUint8(0xf7);
@@ -24,6 +30,22 @@ export function encode(
 		w.writeUint8(0xf5);
 	} else if (value === false) {
 		w.writeUint8(0xf4);
+	} else if (value instanceof Gap) {
+		if (fillsMap.has(value)) {
+			encode(fillsMap.get(value), encodeOptions);
+		} else {
+			if (!options.partial) throw new CborPartialDisabled();
+			w.chunk(value);
+		}
+	} else if (value instanceof PartiallyEncoded) {
+		const res = value.build<Partial>(options.fills ?? [], options.partial);
+		if (options.partial) {
+			w.writePartiallyEncoded(res as PartiallyEncoded);
+		} else {
+			w.writeArrayBuffer(res as ArrayBuffer);
+		}
+	} else if (value instanceof Encoded) {
+		w.writeArrayBuffer(value.encoded);
 	} else {
 		switch (typeof value) {
 			case "number": {
@@ -104,5 +126,5 @@ export function encode(
 		}
 	}
 
-	return w.buffer;
+	return w.output<Partial>(!!options.partial as Partial, options.replacer);
 }

@@ -145,8 +145,9 @@ export class WebsocketEngine extends AbstractEngine {
 		if ("result" in res) {
 			switch (request.method) {
 				case "use": {
-					this.connection.namespace = request.params?.[0] as string;
-					this.connection.database = request.params?.[1] as string;
+					const [ns, db] = request.params as [string, string];
+					this.connection.namespace = ns;
+					this.connection.database = db;
 					break;
 				}
 
@@ -157,7 +158,8 @@ export class WebsocketEngine extends AbstractEngine {
 				}
 
 				case "authenticate": {
-					this.connection.token = request.params?.[0] as string;
+					const [token] = request.params as [string];
+					this.connection.token = token;
 					break;
 				}
 

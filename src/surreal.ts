@@ -26,12 +26,14 @@ import {
 	type MapQueryResult,
 	type Patch,
 	type Prettify,
+	type QueryParameters,
 	type RpcResponse,
 	type ScopeAuth,
 	type Token,
 	convertAuth,
 } from "./types.ts";
 
+import { Encoded, type Fill, partiallyEncodeObject } from "./cbor";
 import { HttpEngine } from "./engines/http.ts";
 import { WebsocketEngine } from "./engines/ws.ts";
 import {
@@ -43,7 +45,6 @@ import {
 	ResponseError,
 	UnsupportedEngine,
 } from "./errors.ts";
-import type { Jsonify } from "./util/jsonify.ts";
 
 type R = Prettify<Record<string, unknown>>;
 type RecordId<Tb extends string = string> = _RecordId<Tb> | StringRecordId;
@@ -412,10 +413,9 @@ export class Surreal {
 	 * @param bindings - Assigns variables which can be used in the query.
 	 */
 	async query<T extends unknown[]>(
-		query: string | PreparedQuery,
-		bindings?: Record<string, unknown>,
+		...args: QueryParameters
 	): Promise<Prettify<T>> {
-		const raw = await this.query_raw<T>(query, bindings);
+		const raw = await this.query_raw<T>(...args);
 		return raw.map(({ status, result }) => {
 			if (status === "ERR") throw new ResponseError(result);
 			return result;
@@ -428,13 +428,12 @@ export class Surreal {
 	 * @param bindings - Assigns variables which can be used in the query.
 	 */
 	async query_raw<T extends unknown[]>(
-		query: string | PreparedQuery,
-		bindings?: Record<string, unknown>,
+		...[q, b]: QueryParameters
 	): Promise<Prettify<MapQueryResult<T>>> {
 		const params =
-			query instanceof PreparedQuery
-				? [query.query, { ...(bindings ?? {}), ...query.bindings }]
-				: [query, bindings];
+			q instanceof PreparedQuery
+				? [q.query, partiallyEncodeObject(q.bindings, b as Fill[])]
+				: [q, b];
 
 		await this.ready;
 		const res = await this.rpc<MapQueryResult<T>>("query", params);

@@ -1,3 +1,4 @@
+import type { Encoded } from "../cbor";
 import type { EngineDisconnected } from "../errors";
 import type {
 	LiveAction,
