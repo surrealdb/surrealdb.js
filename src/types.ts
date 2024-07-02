@@ -1,122 +1,92 @@
-import { z } from "npm:zod";
-import { RecordId } from "./library/cbor/recordid.ts";
-import { Surreal } from "./surreal.ts";
-import { UUID } from "./library/cbor/uuid.ts";
+import type { Encoded, Fill } from "./cbor";
+import { type RecordId, Uuid } from "./data";
+import type { PreparedQuery } from "./util/PreparedQuery";
 
-export const UseOptions = z.object({
-	namespace: z.coerce.string(),
-	database: z.coerce.string(),
-});
+export type ActionResult<T extends Record<string, unknown>> = Prettify<
+	T["id"] extends RecordId ? T : { id: RecordId } & T
+>;
 
-export type UseOptions = z.infer<typeof UseOptions>;
+export type Prettify<T> = {
+	[K in keyof T]: T[K];
+} & {}; // deno-lint-ignore ban-types
 
-export type ActionResult<
-	T extends Record<string, unknown>,
-> = Prettify<T["id"] extends RecordId ? T : { id: RecordId } & T>;
-
-export type Prettify<T> =
-	& {
-		[K in keyof T]: T[K];
-	}
-	// deno-lint-ignore ban-types
-	& {};
+export type QueryParameters =
+	| [query: string, bindings?: Record<string, unknown>]
+	| [prepared: PreparedQuery, gaps?: Fill[]];
 
 //////////////////////////////////////////////
 //////////   AUTHENTICATION TYPES   //////////
 //////////////////////////////////////////////
 
-export const SuperUserAuth = z.object({
-	namespace: z.never().optional(),
-	database: z.never().optional(),
-	scope: z.never().optional(),
-	username: z.coerce.string(),
-	password: z.coerce.string(),
-});
-
-export type SuperUserAuth = z.infer<typeof SuperUserAuth>;
-
-export const NamespaceAuth = z.object({
-	namespace: z.coerce.string(),
-	database: z.never().optional(),
-	scope: z.never().optional(),
-	username: z.coerce.string(),
-	password: z.coerce.string(),
-});
-
-export type NamespaceAuth = z.infer<typeof NamespaceAuth>;
-
-export const DatabaseAuth = z.object({
-	namespace: z.coerce.string(),
-	database: z.coerce.string(),
-	scope: z.never().optional(),
-	username: z.coerce.string(),
-	password: z.coerce.string(),
-});
-
-export type DatabaseAuth = z.infer<typeof DatabaseAuth>;
-
-export const ScopeAuth = z.object({
-	namespace: z.coerce.string().optional(),
-	database: z.coerce.string().optional(),
-	scope: z.coerce.string(),
-}).catchall(z.unknown());
-
-export type ScopeAuth = z.infer<typeof ScopeAuth>;
-
-export const AnyAuth = z.union([
-	SuperUserAuth,
-	NamespaceAuth,
-	DatabaseAuth,
-	ScopeAuth,
-]);
-export type AnyAuth = z.infer<typeof AnyAuth>;
-
-export const Token = z.string({ invalid_type_error: "Not a valid token" });
-export type Token = z.infer<typeof Token>;
-
-export const TransformAuth = z.union([
-	z.object({
-		namespace: z.string().optional(),
-		database: z.string().optional(),
-		scope: z.never().optional(),
-		username: z.string(),
-		password: z.string(),
-	}).transform(({
-		namespace,
-		database,
-		username,
-		password,
-	}) => {
-		const vars: Record<string, unknown> = {
-			user: username,
-			pass: password,
-		};
-
-		if (namespace) {
-			vars.ns = namespace;
-			if (database) {
-				vars.db = database;
-			}
+export function convertAuth(params: AnyAuth): Record<string, unknown> {
+	const cloned: Record<string, unknown> = { ...params };
+	const convertString = (a: string, b: string, optional?: boolean) => {
+		if (a in params) {
+			cloned[b] = `${cloned[a]}`;
+			delete cloned[a];
+		} else if (optional !== true) {
+			throw new Error(`Key ${a} is missing from the authentication parameters`);
 		}
+	};
 
-		return vars;
-	}),
-	z.object({
-		namespace: z.string(),
-		database: z.string(),
-		scope: z.string(),
-	}).catchall(z.unknown()).transform(({
-		namespace,
-		database,
-		scope,
-		...rest
-	}) => ({
-		ns: namespace,
-		db: database,
-		sc: scope,
-		...rest,
-	})),
-]);
+	if ("access" in params) {
+		convertString("access", "ac");
+		convertString("namespace", "ns");
+		convertString("database", "db");
+	} else if ("scope" in params) {
+		convertString("scope", "sc");
+		convertString("namespace", "ns");
+		convertString("database", "db");
+	} else {
+		convertString("database", "db", !("namespace" in params));
+		convertString("namespace", "ns", !("database" in params));
+		convertString("username", "user");
+		convertString("password", "pass");
+	}
+
+	return cloned;
+}
+
+export type RootAuth = {
+	username: string;
+	password: string;
+};
+
+export type NamespaceAuth = {
+	namespace: string;
+	username: string;
+	password: string;
+};
+
+export type DatabaseAuth = {
+	namespace: string;
+	database: string;
+	username: string;
+	password: string;
+};
+
+export type ScopeAuth = {
+	namespace?: string;
+	database?: string;
+	scope: string;
+	[K: string]: unknown;
+};
+
+export type AccessAuth = {
+	namespace?: string;
+	database?: string;
+	access: string;
+	[K: string]: unknown;
+};
+
+export type AnyAuth =
+	| RootAuth
+	| NamespaceAuth
+	| DatabaseAuth
+	| ScopeAuth
+	| AccessAuth;
+
+export type Token = string;
 
 /////////////////////////////////////
 //////////   QUERY TYPES   //////////
@@ -190,41 +160,6 @@ export type Patch =
 	| MovePatch
 	| TestPatch;
 
-// Connection options
-
-export type ConnectionOptions =
-	& {
-		versionCheck?: boolean;
-		versionCheckTimeout?: number;
-		prepare?: (connection: Surreal) => unknown;
-		auth?: AnyAuth | Token;
-	}
-	& (
-		| UseOptions
-		| {
-			namespace?: never;
-			database?: never;
-		}
-	);
-
-export function processConnectionOptions({
-	prepare,
-	auth,
-	namespace,
-	database,
-}: ConnectionOptions) {
-	z.function().optional().parse(prepare);
-	z.union([Token, AnyAuth]).optional().parse(auth);
-	const useOpts = namespace || database
-		? UseOptions.parse({
-			namespace,
-			database,
-		})
-		: { namespace: undefined, database: undefined };
-
-	return { prepare, auth, ...useOpts } satisfies ConnectionOptions;
-}
-
 // RPC
 
 export type RpcRequest<
@@ -235,11 +170,11 @@ export type RpcRequest<
 	params?: Params;
 };
 
-export type RpcResponse<Result extends unknown = unknown> =
+export type RpcResponse<Result = unknown> =
 	| RpcResponseOk<Result>
 	| RpcResponseErr;
 
-export type RpcResponseOk<Result extends unknown = unknown> = {
+export type RpcResponseOk<Result = unknown> = {
 	result: Result;
 	error?: never;
 };
@@ -254,26 +189,33 @@ export type RpcResponseErr = {
 
 // Live
 
-export const Action = z.union([
-	z.literal("CREATE"),
-	z.literal("UPDATE"),
-	z.literal("DELETE"),
-]);
+export const liveActions = ["CREATE", "UPDATE", "DELETE"] as const;
+export type LiveAction = (typeof liveActions)[number];
+export type LiveResult = {
+	id: Uuid;
+	action: LiveAction;
+	result: Record<string, unknown>;
+};
 
-export type Action = z.infer<typeof Action>;
-
-export const LiveResult = z.object({
-	id: z.instanceof(UUID as never) as z.ZodType<
-		typeof UUID,
-		z.ZodTypeDef,
-		typeof UUID
-	>,
-	action: Action,
-	result: z.record(z.unknown()),
-});
-
-export type LiveResult = z.infer<typeof LiveResult>;
+export type LiveHandlerArguments<
+	Result extends Record<string, unknown> | Patch = Record<string, unknown>,
+> =
+	| [action: LiveAction, result: Result]
+	| [action: "CLOSE", result: "killed" | "disconnected"];
 
 export type LiveHandler<
 	Result extends Record<string, unknown> | Patch = Record<string, unknown>,
-> = (action: Action, result: Result) => unknown;
+> = (...[action, result]: LiveHandlerArguments<Result>) => unknown;
+
+export function isLiveResult(v: unknown): v is LiveResult {
+	if (typeof v !== "object") return false;
+	if (v === null) return false;
+	if (!("id" in v && "action" in v && "result" in v)) return false;
+
+	if (!(v.id instanceof Uuid)) return false;
+	if (!liveActions.includes(v.action as LiveAction)) return false;
+	if (typeof v.result !== "object") return false;
+	if (v.result === null) return false;
+
+	return true;
+}

@@ -28,6 +28,7 @@ Temporary Items
 /.test_data
 npm
 node_modules
+dist
 
 
 # -----------------------------------
@@ -35,3 +36,4 @@ node_modules
 # -----------------------------------
 
 *.db
+jsr.json
