@@ -33,7 +33,7 @@ import {
 	convertAuth,
 } from "./types.ts";
 
-import { Encoded, type Fill, partiallyEncodeObject } from "./cbor";
+import { type Fill, partiallyEncodeObject } from "./cbor";
 import { HttpEngine } from "./engines/http.ts";
 import { WebsocketEngine } from "./engines/ws.ts";
 import {

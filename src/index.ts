@@ -9,6 +9,7 @@ export * from "./errors.ts";
 export * from "./types.ts";
 export * from "./util/jsonify.ts";
 export * from "./util/versionCheck.ts";
+export * from "./util/getIncrementalID.ts";
 export {
 	ConnectionStatus,
 	AbstractEngine,
