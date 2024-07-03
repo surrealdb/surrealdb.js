@@ -170,6 +170,51 @@ describe("update", async () => {
 	});
 });
 
+describe("upsert", async () => {
+	const surreal = await createSurreal();
+	const version = await surreal.version();
+	if (version.startsWith("surrealdb-1")) return;
+
+	test("single", async () => {
+		const single = await surreal.upsert<Person, Omit<Person, "id">>(
+			new RecordId("person", 1),
+			{
+				firstname: "John",
+				lastname: "Doe",
+			},
+		);
+
+		expect(single).toStrictEqual({
+			id: new RecordId("person", 1),
+			firstname: "John",
+			lastname: "Doe",
+		});
+	});
+
+	test("multiple", async () => {
+		const multiple = await surreal.upsert<Person, Omit<Person, "id">>(
+			"person",
+			{
+				firstname: "Mary",
+				lastname: "Doe",
+			},
+		);
+
+		expect(multiple).toStrictEqual([
+			{
+				id: new RecordId("person", 1),
+				firstname: "Mary",
+				lastname: "Doe",
+			},
+			{
+				id: new RecordId("person", 2),
+				firstname: "Mary",
+				lastname: "Doe",
+			},
+		]);
+	});
+});
+
 describe("patch", async () => {
 	const surreal = await createSurreal();
 
