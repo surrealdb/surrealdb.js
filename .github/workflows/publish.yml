@@ -28,12 +28,15 @@ jobs:
               run: bun run build
 
             - name: Publish to NPM
-              run: npm publish --dist-tag $(npm pkg get version | tr -d '"' | grep -qoE "^\d+\.\d+\.\d+$" && echo 'latest' || echo 'beta')
+              run: npm publish --tag $(npm pkg get version | tr -d '"' | grep -qoE "^\d+\.\d+\.\d+$" && echo 'latest' || echo 'beta')
               env:
                 NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     jsr:
         name: JSR
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write
         steps:
             - name: Install Bun
               uses: oven-sh/setup-bun@v2
