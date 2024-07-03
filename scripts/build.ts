@@ -9,7 +9,8 @@ await Promise.all([
 		plugins: [tscPlugin({ force: true })],
 		external: ["uuidv7", "isows"],
 		format: "esm",
-		minify: true,
+		minifyWhitespace: true,
+		minifySyntax: true,
 	}),
 	esbuild.build({
 		entryPoints: ["src/index.ts"],
@@ -18,7 +19,8 @@ await Promise.all([
 		plugins: [tscPlugin({ force: true })],
 		external: ["uuidv7", "isows"],
 		format: "cjs",
-		minify: true,
+		minifyWhitespace: true,
+		minifySyntax: true,
 	}),
 	esbuild.build({
 		entryPoints: ["src/index.ts"],
@@ -26,7 +28,8 @@ await Promise.all([
 		outfile: "dist/esm.bundled.js",
 		plugins: [tscPlugin({ force: true })],
 		format: "esm",
-		minify: true,
+		minifyWhitespace: true,
+		minifySyntax: true,
 	}),
 ]);
 
