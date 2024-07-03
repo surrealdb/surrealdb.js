@@ -381,6 +381,13 @@ describe("template literal", async () => {
 		const res = await surreal.query(query, [gap.fill(789)]);
 		expect(res).toStrictEqual([[123, 456, 789]]);
 	});
+
+	test("has replacer context", async () => {
+		const id = new RecordId("test", 123);
+		const query = surql`RETURN ${id}`;
+		const res = await surreal.query(query);
+		expect(res).toStrictEqual([id]);
+	});
 });
 
 test("query", async () => {

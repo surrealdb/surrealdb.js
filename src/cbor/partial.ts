@@ -1,5 +1,5 @@
 import type { Replacer } from "./constants";
-import { encode } from "./encoder";
+import { type EncoderOptions, encode } from "./encoder";
 import { CborFillMissing } from "./error";
 import type { Fill, Gap } from "./gap";
 import { Writer } from "./writer";
@@ -41,12 +41,12 @@ export class PartiallyEncoded {
 
 export function partiallyEncodeObject(
 	object: Record<string, unknown>,
-	fills?: Fill[],
+	options?: EncoderOptions<true>,
 ): Record<string, PartiallyEncoded> {
 	return Object.fromEntries(
 		Object.entries(object).map(([k, v]) => [
 			k,
-			encode(v, { fills, partial: true }),
+			encode(v, { ...options, partial: true }),
 		]),
 	);
 }

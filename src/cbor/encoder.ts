@@ -6,7 +6,7 @@ import { PartiallyEncoded } from "./partial";
 import { Tagged } from "./tagged";
 import { Writer } from "./writer";
 
-interface EncoderOptions<Partial extends boolean> {
+export interface EncoderOptions<Partial extends boolean> {
 	replacer?: Replacer;
 	writer?: Writer;
 	partial?: Partial;
