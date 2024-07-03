@@ -4,7 +4,7 @@ import { Reader } from "./reader";
 import { Tagged } from "./tagged";
 import { infiniteBytes } from "./util";
 
-interface DecodeOptions {
+export interface DecodeOptions {
 	map?: "object" | "map";
 	replacer?: Replacer;
 }

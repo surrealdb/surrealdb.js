@@ -34,6 +34,7 @@ import {
 } from "./types.ts";
 
 import { type Fill, partiallyEncodeObject } from "./cbor";
+import { replacer } from "./data/cbor.ts";
 import { HttpEngine } from "./engines/http.ts";
 import { WebsocketEngine } from "./engines/ws.ts";
 import {
@@ -432,7 +433,13 @@ export class Surreal {
 	): Promise<Prettify<MapQueryResult<T>>> {
 		const params =
 			q instanceof PreparedQuery
-				? [q.query, partiallyEncodeObject(q.bindings, b as Fill[])]
+				? [
+						q.query,
+						partiallyEncodeObject(q.bindings, {
+							fills: b as Fill[],
+							replacer: replacer.encode,
+						}),
+					]
 				: [q, b];
 
 		await this.ready;
