@@ -42,19 +42,15 @@ View the SDK documentation [here](https://surrealdb.com/docs/integration/librari
 
 ## How to install
 
-### Install for [Deno](https://deno.land/x/surrealdb)
+### Install for [JSR/Deno](https://jsr.io/@surrealdb/surrealdb)
 
 Import it with:
 
 ```ts
-import Surreal from "https://deno.land/x/surrealdb/mod.ts";
+import Surreal from "@surrealdb/surrealdb";
 ```
 
 For best results, set a version in the url:
-
-```ts
-import Surreal from "https://deno.land/x/surrealdb@1.0.0/mod.ts";
-```
 
 ### Install for [Node.js](https://www.npmjs.com/package/surrealdb.js)
 
@@ -135,9 +131,9 @@ const db = new Surreal();
 await db.connect("http://127.0.0.1:8000/rpc");
 
 // Select a specific namespace / database
-await db.use({ 
-    namespace: "test", 
-    database: "test" 
+await db.use({
+    namespace: "test",
+    database: "test"
 });
 
 // Signin as a namespace, database, or root user
@@ -177,10 +173,7 @@ let groups = await db.query(
 
 ### Local setup
 
-This is a [Deno](https://deno.land) project, not Node.js. For example, this means
-import paths include the `.ts` file extension. However, to also support other
-JavaScript environments, a build has been added to create a npm package that
-works for Node.js, Bun, browsers with bundlers.
+This is a [Bun](https://bun.sh) project, not Node.js. It works across all major runtimes, however.
 
 #### Supported environments
 
@@ -191,30 +184,30 @@ works for Node.js, Bun, browsers with bundlers.
 
 ### Requirements
 
-- Deno
+- Bun
 - SurrealDB (for testing)
 
 ### Build for all supported environments
 
 For Deno, no build is needed. For all other environments run
 
-`deno task build`.
+`bun run build`.
 
-### Formatting
+### Code Quality Fixes
 
-`deno fmt`
+`bun quality:apply`
 
-### Linting
+### Code Quality unsafe fixes
 
-`deno lint`
+`bun quality:apply:unsafe`
 
-### Run tests
+### Run tests for WS
 
-`deno task test`
+`bun test`
 
-### Run tests and update snapshots
+### Run tests for HTTP
 
-`deno task test:update`
+`SURREAL_PROTOCOL=http bun test`
 
 ### PRs
 
@@ -224,14 +217,13 @@ errors, and ensure all tests still pass
 ### Local setup
 
 For local development the
-[Deno extension](https://marketplace.visualstudio.com/items?itemName=denoland.vscode-deno)
-for VSCode is helpful (hint: local Deno installation required).
+[Bun extension](https://marketplace.visualstudio.com/items?itemName=oven.bun-vscode) and [Biome extension](https://marketplace.visualstudio.com/items?itemName=biomejs.biome)
+for VSCode are helpful.
 
 ### Directory structure
 
-- `./mod.ts` is the deno entypoint. This is just a reexport of `./src/index.ts`
-- `./deno.json` include settings for linting, formatting and testing.
-- `./compile.ts` include the build script for the npm package.
+- `./biome.json` include settings for code quality.
+- `./scripts` include the build scripts for NPM and JSR.
 - `./src` includes all source code. `./src/index.ts` is the main entrypoint.
-- `./npm` is build by `./compile.ts` and includes the generated npm package.
+- `./dist` is build by `./scripts/build.ts` and includes the compiled and minified bundles for ESM, CJS and bundled ESM targets.
 - `./tests` includes all test files.
