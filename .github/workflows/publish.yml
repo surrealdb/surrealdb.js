@@ -28,7 +28,7 @@ jobs:
               run: bun run build
 
             - name: Publish to NPM
-              run: npm publish
+              run: npm publish --dist-tag $(npm pkg get version | tr -d '"' | grep -qoE "^\d+\.\d+\.\d+$" && echo 'latest' || echo 'beta')
               env:
                 NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     jsr:
