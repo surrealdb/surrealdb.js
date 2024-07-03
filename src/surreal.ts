@@ -526,6 +526,31 @@ export class Surreal {
 	}
 
 	/**
+	 * Upserts all records in a table, or a specific record, in the database.
+	 *
+	 * ***NOTE: This function replaces the current document / record data with the specified data.***
+	 * @param thing - The table name or the specific record ID to upsert.
+	 * @param data - The document / record data to insert.
+	 */
+	async upsert<T extends R, U extends R = T>(
+		thing: Table | string,
+		data?: U,
+	): Promise<ActionResult<T>[]>;
+	async upsert<T extends R, U extends R = T>(
+		thing: RecordId,
+		data?: U,
+	): Promise<ActionResult<T>>;
+	async upsert<T extends R, U extends R = T>(
+		thing: RecordId | Table | string,
+		data?: U,
+	) {
+		await this.ready;
+		const res = await this.rpc<ActionResult<T>>("upsert", [thing, data]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return res.result;
+	}
+
+	/**
 	 * Modifies all records in a table, or a specific record, in the database.
 	 *
 	 * ***NOTE: This function merges the current document / record data with the specified data.***
