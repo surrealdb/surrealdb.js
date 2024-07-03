@@ -1,7 +1,9 @@
 export { Emitter, type Listener, type UnknownEvents } from "./util/emitter.ts";
 export { surql, surrealql } from "./util/tagged-template.ts";
 export { PreparedQuery } from "./util/PreparedQuery.ts";
-export * from "./cbor";
+export * as cbor from "./cbor";
+export * from "./cbor/gap";
+export * from "./cbor/error";
 export * from "./data";
 export * from "./errors.ts";
 export * from "./types.ts";

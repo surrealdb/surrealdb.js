@@ -5,30 +5,28 @@ import {
 	CborPartialDisabled,
 	CborRangeError,
 	Gap,
-	POW_2_64,
-	decode,
-	encode,
+	cbor,
 } from "../../src";
 
 test("encode basic", () => {
-	expect(encode(123)).toMatchSnapshot("positive integer");
-	expect(encode(-123)).toMatchSnapshot("negative integer");
-	expect(encode(123.456)).toMatchSnapshot("positive float");
-	expect(encode(-123.456)).toMatchSnapshot("negative float");
-	expect(encode(POW_2_64 - 1n)).toMatchSnapshot("positive bigint");
-	expect(encode(-POW_2_64)).toMatchSnapshot("negative bigint");
-	expect(encode("Hello \nWorld!")).toMatchSnapshot("string");
-	expect(encode(undefined)).toMatchSnapshot("undefined");
-	expect(encode(null)).toMatchSnapshot("null");
-	expect(encode(true)).toMatchSnapshot("true");
-	expect(encode(false)).toMatchSnapshot("false");
-	expect(encode(new Map([["key", "value"]]))).toMatchSnapshot("map");
-	expect(encode({ key: "value" })).toMatchSnapshot("object");
-	expect(encode([123, "abc"])).toMatchSnapshot("array");
+	expect(cbor.encode(123)).toMatchSnapshot("positive integer");
+	expect(cbor.encode(-123)).toMatchSnapshot("negative integer");
+	expect(cbor.encode(123.456)).toMatchSnapshot("positive float");
+	expect(cbor.encode(-123.456)).toMatchSnapshot("negative float");
+	expect(cbor.encode(cbor.POW_2_64 - 1n)).toMatchSnapshot("positive bigint");
+	expect(cbor.encode(-cbor.POW_2_64)).toMatchSnapshot("negative bigint");
+	expect(cbor.encode("Hello \nWorld!")).toMatchSnapshot("string");
+	expect(cbor.encode(undefined)).toMatchSnapshot("undefined");
+	expect(cbor.encode(null)).toMatchSnapshot("null");
+	expect(cbor.encode(true)).toMatchSnapshot("true");
+	expect(cbor.encode(false)).toMatchSnapshot("false");
+	expect(cbor.encode(new Map([["key", "value"]]))).toMatchSnapshot("map");
+	expect(cbor.encode({ key: "value" })).toMatchSnapshot("object");
+	expect(cbor.encode([123, "abc"])).toMatchSnapshot("array");
 
 	const bytes = new Uint8Array([1, 2, 3]);
-	expect(encode(bytes)).toMatchSnapshot("uint8array");
-	expect(encode(bytes.buffer)).toMatchSnapshot("arraybuffer");
+	expect(cbor.encode(bytes)).toMatchSnapshot("uint8array");
+	expect(cbor.encode(bytes.buffer)).toMatchSnapshot("arraybuffer");
 });
 
 test("encode/decode", () => {
@@ -38,8 +36,8 @@ test("encode/decode", () => {
 		negint: -123,
 		posflo: 123.456,
 		negflo: -123.456,
-		posbig: POW_2_64 - 1n,
-		negbig: -POW_2_64,
+		posbig: cbor.POW_2_64 - 1n,
+		negbig: -cbor.POW_2_64,
 		string: "Hello World!",
 		undefined: undefined,
 		null: null,
@@ -51,16 +49,16 @@ test("encode/decode", () => {
 		arraybuffer: bytes.buffer,
 	};
 
-	const encoded = encode(input);
+	const encoded = cbor.encode(input);
 	expect(encoded).toMatchSnapshot("encoded input");
 
-	const decoded = decode(encoded);
+	const decoded = cbor.decode(encoded);
 	expect(decoded).toMatchSnapshot("decoded input");
 });
 
 describe("infinity", () => {
 	test("valid bytes", () => {
-		const decoded = decode(
+		const decoded = cbor.decode(
 			new Uint8Array([
 				95, // infinite bytes start
 				65, // byte string, len 1
@@ -77,7 +75,7 @@ describe("infinity", () => {
 
 	test("invalid bytes, nested infinite bytes", () => {
 		const res = new Promise(() =>
-			decode(
+			cbor.decode(
 				new Uint8Array([
 					95, // infinite bytes start
 					95, // infinite bytes start (not allowed)
@@ -94,7 +92,7 @@ describe("infinity", () => {
 
 	test("invalid bytes, no break", () => {
 		const res = new Promise(() =>
-			decode(
+			cbor.decode(
 				new Uint8Array([
 					95, // infinite bytes start
 					65, // byte string, len 1
@@ -109,7 +107,7 @@ describe("infinity", () => {
 
 	test("invalid bytes, invalid major", () => {
 		const res = new Promise(() =>
-			decode(
+			cbor.decode(
 				new Uint8Array([
 					95, // infinite bytes start
 					96, // text string, len 1 (invalid major)
@@ -123,7 +121,7 @@ describe("infinity", () => {
 	});
 
 	test("valid text", () => {
-		const decoded = decode(
+		const decoded = cbor.decode(
 			new Uint8Array([
 				127, // infinite text start
 				97, // byte string, len 1
@@ -139,7 +137,7 @@ describe("infinity", () => {
 	});
 
 	test("valid array", () => {
-		const decoded = decode(
+		const decoded = cbor.decode(
 			new Uint8Array([
 				159, // infinite array start
 				97, // byte string, len 1
@@ -155,7 +153,7 @@ describe("infinity", () => {
 	});
 
 	test("valid map", () => {
-		const decoded = decode(
+		const decoded = cbor.decode(
 			new Uint8Array([
 				191, // infinite map start
 				97, // byte string, len 1
@@ -175,7 +173,7 @@ describe("partial", () => {
 	test("Fails if not enabled", () => {
 		const res = new Promise(() => {
 			const gap = new Gap();
-			encode({ gap });
+			cbor.encode({ gap });
 		});
 
 		expect(res).rejects.toBeInstanceOf(CborPartialDisabled);
@@ -184,7 +182,7 @@ describe("partial", () => {
 	test("Fails to build if fill for gap is missing", () => {
 		const res = new Promise(() => {
 			const gap = new Gap();
-			const partial = encode({ gap }, { partial: true });
+			const partial = cbor.encode({ gap }, { partial: true });
 			partial.build([]);
 		});
 
@@ -195,7 +193,7 @@ describe("partial", () => {
 		const name = new Gap<string>();
 		const age = new Gap<number>();
 		const enabled = new Gap(true);
-		const partial = encode(
+		const partial = cbor.encode(
 			[
 				"CREATE person SET name = $name, age = $age, enabled = $enabled",
 				{
@@ -208,7 +206,7 @@ describe("partial", () => {
 		);
 
 		test("with gaps filled", () => {
-			const res = decode(partial.build([name.fill("John"), age.fill(30)]));
+			const res = cbor.decode(partial.build([name.fill("John"), age.fill(30)]));
 			expect(res?.[1]).toStrictEqual({
 				name: "John",
 				age: 30,
@@ -217,7 +215,7 @@ describe("partial", () => {
 		});
 
 		test("with defaults overwritten", () => {
-			const res = decode(
+			const res = cbor.decode(
 				partial.build([name.fill("John"), age.fill(30), enabled.fill(false)]),
 			);
 
