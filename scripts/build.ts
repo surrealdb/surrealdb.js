@@ -5,7 +5,7 @@ await Promise.all([
 	esbuild.build({
 		entryPoints: ["src/index.ts"],
 		bundle: true,
-		outfile: "dist/esm.js",
+		outfile: "dist/index.mjs",
 		plugins: [tscPlugin({ force: true })],
 		external: ["uuidv7", "isows"],
 		format: "esm",
@@ -15,7 +15,7 @@ await Promise.all([
 	esbuild.build({
 		entryPoints: ["src/index.ts"],
 		bundle: true,
-		outfile: "dist/cjs.js",
+		outfile: "dist/index.cjs",
 		plugins: [tscPlugin({ force: true })],
 		external: ["uuidv7", "isows"],
 		format: "cjs",
@@ -25,7 +25,7 @@ await Promise.all([
 	esbuild.build({
 		entryPoints: ["src/index.ts"],
 		bundle: true,
-		outfile: "dist/esm.bundled.js",
+		outfile: "dist/index.bundled.mjs",
 		plugins: [tscPlugin({ force: true })],
 		format: "esm",
 		minifyWhitespace: true,
@@ -37,7 +37,7 @@ Bun.spawn([
 	"bunx",
 	"dts-bundle-generator",
 	"-o",
-	"dist/types.d.ts",
+	"dist/index.d.ts",
 	"src/index.ts",
 	"--no-check",
 	"--export-referenced-types",
