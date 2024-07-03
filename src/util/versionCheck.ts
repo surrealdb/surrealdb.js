@@ -6,20 +6,28 @@ export const supportedSurrealDbVersionMin: Version = "1.4.2";
 export const supportedSurrealDbVersionUntil: Version = "3.0.0";
 export const supportedSurrealDbVersionRange: string = `>= ${supportedSurrealDbVersionMin} < ${supportedSurrealDbVersionUntil}`;
 
-export function versionCheck(version: string): true {
-	if (!isVersionSupported(version)) {
-		throw new UnsupportedVersion(version, supportedSurrealDbVersionRange);
+export function versionCheck(
+	version: string,
+	min: Version = supportedSurrealDbVersionMin,
+	until: Version = supportedSurrealDbVersionUntil,
+): true {
+	if (!isVersionSupported(version, min, until)) {
+		throw new UnsupportedVersion(version, `>= ${min} < ${until}`);
 	}
 
 	return true;
 }
 
-export function isVersionSupported(version: string): boolean {
+export function isVersionSupported(
+	version: string,
+	min: Version = supportedSurrealDbVersionMin,
+	until: Version = supportedSurrealDbVersionUntil,
+): boolean {
 	return (
-		supportedSurrealDbVersionMin.localeCompare(version, undefined, {
+		min.localeCompare(version, undefined, {
 			numeric: true,
 		}) <= 0 &&
-		supportedSurrealDbVersionUntil.localeCompare(version, undefined, {
+		until.localeCompare(version, undefined, {
 			numeric: true,
 		}) === 1
 	);
