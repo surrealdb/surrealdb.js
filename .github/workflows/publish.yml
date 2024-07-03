@@ -1,23 +1,51 @@
-name: Publish Package to npmjs
+name: Publish
+
 on:
   push:
     tags:
       - '*'
+
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: denoland/setup-deno@v1
-        with:
-          deno-version: v1.x
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '18.x'
-          registry-url: 'https://registry.npmjs.org'
-      - uses: actions/checkout@v3
-      - run: deno task build
-      # Publish with latest only versions that match the semver pattern, otherwise publish with beta tag
-      # This is to avoid publishing beta versions with the latest tag (if no dist tag is provided, npm will use latest)
-      - run: cd ./npm && npm publish --dist-tag $(npm pkg get version | tr -d '"' | grep -qoE "^\d+\.\d+\.\d+$" && echo 'latest' || echo 'beta')
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    npm:
+        name: NPM
+        runs-on: ubuntu-latest
+        steps:
+            - name: Install Bun
+              uses: oven-sh/setup-bun@v2
+
+            - uses: actions/setup-node@v4
+              with:
+                node-version: '18.x'
+                registry-url: 'https://registry.npmjs.org'
+
+            - name: Code Checkout
+              uses: actions/checkout@v4
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Build library
+              run: bun run build
+
+            - name: Publish to NPM
+              run: npm publish --dist-tag $(npm pkg get version | tr -d '"' | grep -qoE "^\d+\.\d+\.\d+$" && echo 'latest' || echo 'beta')
+              env:
+                NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    jsr:
+        name: JSR
+        runs-on: ubuntu-latest
+        steps:
+            - name: Install Bun
+              uses: oven-sh/setup-bun@v2
+
+            - name: Code Checkout
+              uses: actions/checkout@v4
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Generate JSR config
+              run: bun run jsr
+
+            - name: Publish to JSR
+              run: bunx jsr publish

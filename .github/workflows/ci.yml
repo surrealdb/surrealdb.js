@@ -1,59 +1,65 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+    push:
+        branches:
+            - main
+    pull_request:
 
 jobs:
-  lint:
-    name: Linting
-    runs-on: ubuntu-latest
+    quality:
+        name: Code Quality
+        runs-on: ubuntu-latest
+        steps:
+            - name: Install Bun
+              uses: oven-sh/setup-bun@v2
 
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup Deno
-        uses: denoland/setup-deno@v1
-        with:
-          deno-version: v1.x
+            - name: Code Checkout
+              uses: actions/checkout@v4
 
-      - name: Check formatting
-        run: deno fmt --check
-      - name: Run linting
-        run: deno lint
+            - name: Install dependencies
+              run: bun install
 
-  test:
-    name: Testing
-    runs-on: ubuntu-latest
+            - name: Checking Code Quality
+              run: bun run quality:check
 
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup deno
-        uses: denoland/setup-deno@v1
-        with:
-          deno-version: v1.x
+    test:
+        name: Test
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                surrealdb: ["v1.4.2", "v1.5.3", "v2.0.0-alpha.4"]
+                engine: ["ws", "http"]
+        steps:
+            - name: Install SurrealDB ${{ matrix.surrealdb }} over ${{ matrix.engine }} engine
+              run: curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --version ${{ matrix.surrealdb }}
 
-      - name: Setup SurrealDB
-        run: curl -sSf https://install.surrealdb.com | sh
+            - name: Install Bun
+              uses: oven-sh/setup-bun@v2
 
-      - name: Run Test
-        run: deno task test
+            - name: Code Checkout
+              uses: actions/checkout@v4
 
-  build:
-    name: Build library
-    runs-on: ubuntu-latest
+            - name: Install dependencies
+              run: bun install
 
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup deno
-        uses: denoland/setup-deno@v1
-        with:
-          deno-version: v1.x
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
+            - name: Run tests
+              run: bun test
+              env:
+                SURREAL_PROTOCOL: ${{ matrix.engine }}
 
-      - name: Run Build
-        run: deno task build
+    build:
+        name: Build
+        runs-on: ubuntu-latest
+        steps:
+            - name: Install Bun
+              uses: oven-sh/setup-bun@v2
+
+            - name: Code Checkout
+              uses: actions/checkout@v4
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Build library
+              run: bun run build
