@@ -1,6 +1,6 @@
 {
 	"name": "surrealdb.js",
-	"version": "1.0.0-beta.11",
+	"version": "1.0.0-beta.12",
 	"type": "module",
 	"license": "Apache-2.0",
 	"repository": {
@@ -39,15 +39,15 @@
 	"engines": {
 		"node": ">=18.0.0"
 	},
-	"browser": "./dist/esm.bundled.js",
-	"types": "./dist/types.d.ts",
-	"main": "./dist/esm.js",
+	"browser": "./dist/index.bundled.mjs",
+	"types": "./dist/index.d.ts",
+	"main": "./dist/index.mjs",
 	"exports": {
 		".": {
-			"require": "./dist/cjs.js",
-			"import": "./dist/esm.js",
-			"types": "./dist/types.d.ts",
-			"browser": "./dist/esm.bundled.js"
+			"require": "./dist/index.cjs",
+			"import": "./dist/index.mjs",
+			"types": "./dist/index.d.ts",
+			"browser": "./dist/index.bundled.mjs"
 		}
 	},
 	"files": ["dist", "README.md", "LICENCE", "SECURITY.md"]
