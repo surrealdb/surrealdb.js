@@ -91,7 +91,7 @@ export function encode<Partial extends boolean = false>(
 
 				if (value instanceof Gap) {
 					if (fillsMap.has(value)) {
-						inner(fillsMap.get(value), w);
+						inner(fillsMap.get(value));
 					} else {
 						if (!options.partial) throw new CborPartialDisabled();
 						w.chunk(value);
