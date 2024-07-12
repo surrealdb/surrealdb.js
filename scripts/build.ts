@@ -33,13 +33,22 @@ await Promise.all([
 	}),
 ]);
 
-Bun.spawn([
-	"bunx",
-	"dts-bundle-generator",
-	"-o",
-	"dist/index.d.ts",
-	"src/index.ts",
-	"--no-check",
-	"--export-referenced-types",
-	"false",
-]);
+Bun.spawn(
+	[
+		"bunx",
+		"dts-bundle-generator",
+		"-o",
+		"dist/index.d.ts",
+		"src/index.ts",
+		"--no-check",
+		"--export-referenced-types",
+		"false",
+	],
+	{
+		stdout: "inherit",
+		stderr: "inherit",
+		async onExit(_, exitCode) {
+			if (exitCode !== 0) process.exit(exitCode);
+		},
+	},
+);
