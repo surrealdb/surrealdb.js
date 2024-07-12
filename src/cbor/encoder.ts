@@ -6,6 +6,8 @@ import { PartiallyEncoded } from "./partial";
 import { Tagged } from "./tagged";
 import { Writer } from "./writer";
 
+let textEncoder: TextEncoder;
+
 export interface EncoderOptions<Partial extends boolean> {
 	replacer?: Replacer;
 	writer?: Writer;
@@ -18,35 +20,16 @@ export function encode<Partial extends boolean = false>(
 	options: EncoderOptions<Partial> = {},
 ): Partial extends true ? PartiallyEncoded : ArrayBuffer {
 	const w = options.writer ?? new Writer();
-	const value = options.replacer ? options.replacer(input) : input;
-	const encodeOptions = { ...options, writer: w };
 	const fillsMap = new Map(options.fills ?? []);
 
-	if (value === undefined) {
-		w.writeUint8(0xf7);
-	} else if (value === null) {
-		w.writeUint8(0xf6);
-	} else if (value === true) {
-		w.writeUint8(0xf5);
-	} else if (value === false) {
-		w.writeUint8(0xf4);
-	} else if (value instanceof Gap) {
-		if (fillsMap.has(value)) {
-			encode(fillsMap.get(value), encodeOptions);
-		} else {
-			if (!options.partial) throw new CborPartialDisabled();
-			w.chunk(value);
-		}
-	} else if (value instanceof PartiallyEncoded) {
-		const res = value.build<Partial>(options.fills ?? [], options.partial);
-		if (options.partial) {
-			w.writePartiallyEncoded(res as PartiallyEncoded);
-		} else {
-			w.writeArrayBuffer(res as ArrayBuffer);
-		}
-	} else if (value instanceof Encoded) {
-		w.writeArrayBuffer(value.encoded);
-	} else {
+	function inner(input: unknown) {
+		const value = options.replacer ? options.replacer(input) : input;
+
+		if (value === undefined) return w.writeUint8(0xf7);
+		if (value === null) return w.writeUint8(0xf6);
+		if (value === true) return w.writeUint8(0xf5);
+		if (value === false) return w.writeUint8(0xf4);
+
 		switch (typeof value) {
 			case "number": {
 				if (Number.isInteger(value)) {
@@ -63,7 +46,7 @@ export function encode<Partial extends boolean = false>(
 					w.writeFloat64(value);
 				}
 
-				break;
+				return;
 			}
 
 			case "bigint": {
@@ -75,27 +58,63 @@ export function encode<Partial extends boolean = false>(
 					throw new CborNumberError("BigInt too big to be encoded");
 				}
 
-				break;
+				return;
 			}
 
 			case "string": {
-				const textEncoder = new TextEncoder();
+				textEncoder ??= new TextEncoder();
 				const encoded = textEncoder.encode(value);
 				w.writeMajor(3, encoded.byteLength);
 				w.writeUint8Array(encoded);
-				break;
+				return;
 			}
 
 			default: {
 				if (Array.isArray(value)) {
 					w.writeMajor(4, value.length);
 					for (const v of value) {
-						encode(v, encodeOptions);
+						inner(v);
 					}
-				} else if (value instanceof Tagged) {
+					return;
+				}
+
+				if (value instanceof Tagged) {
 					w.writeMajor(6, value.tag);
-					encode(value.value, encodeOptions);
-				} else if (
+					inner(value.value);
+					return;
+				}
+
+				if (value instanceof Encoded) {
+					w.writeArrayBuffer(value.encoded);
+					return;
+				}
+
+				if (value instanceof Gap) {
+					if (fillsMap.has(value)) {
+						inner(fillsMap.get(value), w);
+					} else {
+						if (!options.partial) throw new CborPartialDisabled();
+						w.chunk(value);
+					}
+
+					return;
+				}
+
+				if (value instanceof PartiallyEncoded) {
+					const res = value.build<Partial>(
+						options.fills ?? [],
+						options.partial,
+					);
+					if (options.partial) {
+						w.writePartiallyEncoded(res as PartiallyEncoded);
+					} else {
+						w.writeArrayBuffer(res as ArrayBuffer);
+					}
+
+					return;
+				}
+
+				if (
 					value instanceof Uint8Array ||
 					value instanceof Uint16Array ||
 					value instanceof Uint32Array ||
@@ -109,22 +128,22 @@ export function encode<Partial extends boolean = false>(
 					const v = new Uint8Array(value);
 					w.writeMajor(2, v.byteLength);
 					w.writeUint8Array(v);
-				} else {
-					const entries =
-						value instanceof Map
-							? Array.from(value.entries())
-							: Object.entries(value);
-
-					w.writeMajor(5, entries.length);
-					for (const v of entries.flat()) {
-						encode(v, encodeOptions);
-					}
+					return;
 				}
 
-				break;
+				const entries =
+					value instanceof Map
+						? Array.from(value.entries())
+						: Object.entries(value);
+
+				w.writeMajor(5, entries.length);
+				for (const v of entries.flat()) {
+					inner(v);
+				}
 			}
 		}
 	}
 
+	inner(input);
 	return w.output<Partial>(!!options.partial as Partial, options.replacer);
 }

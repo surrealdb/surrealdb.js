@@ -14,10 +14,6 @@ export class Reader {
 		this._byte.set(new Uint8Array(buffer));
 	}
 
-	get left(): Uint8Array {
-		return this._byte.slice(this._pos);
-	}
-
 	private read<T>(amount: number, res: T): T {
 		this._pos += amount;
 		return res;
@@ -96,8 +92,8 @@ export class Reader {
 	}
 
 	readBytes(amount: number): Uint8Array {
-		const available = this.left.length;
-		if (amount > available)
+		const available = this._byte.length - this._pos;
+		if (available < amount)
 			throw new CborRangeError(
 				`The argument must be between 0 and ${available}`,
 			);

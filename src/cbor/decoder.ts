@@ -4,6 +4,8 @@ import { Reader } from "./reader";
 import { Tagged } from "./tagged";
 import { infiniteBytes } from "./util";
 
+let textDecoder: TextDecoder;
+
 export interface DecodeOptions {
 	map?: "object" | "map";
 	replacer?: Replacer;
@@ -14,8 +16,9 @@ export function decode(
 	options: DecodeOptions = {},
 	// biome-ignore lint/suspicious/noExplicitAny: Don't know what it will return
 ): any {
-	const inner = () => {
-		const r = input instanceof Reader ? input : new Reader(input);
+	const r = input instanceof Reader ? input : new Reader(input);
+
+	function inner() {
 		const [major, len] = r.readMajor();
 		switch (major) {
 			case 0:
@@ -34,16 +37,16 @@ export function decode(
 						? infiniteBytes(r, 3)
 						: r.readBytes(Number(r.readMajorLength(len)));
 
-				const textDecoder = new TextDecoder();
+				textDecoder ??= new TextDecoder();
 				return textDecoder.decode(encoded);
 			}
 
 			case 4: {
 				if (len === 31) {
-					const arr: unknown[] = [];
+					const arr = [];
 					while (true) {
 						try {
-							arr.push(decode(r, options));
+							arr.push(decode());
 						} catch (e) {
 							if (e instanceof CborBreak) break;
 							throw e;
@@ -53,42 +56,44 @@ export function decode(
 					return arr;
 				}
 
-				return new Array(r.readMajorLength(len))
-					.fill(0)
-					.map(() => decode(r, options));
+				const l = r.readMajorLength(len);
+				const arr = Array(l);
+				for (let i = 0; i < l; i++) arr[i] = decode();
+				return arr;
 			}
 
 			case 5: {
-				const map = new Map();
-
+				const entries: [string, unknown][] = [];
 				if (len === 31) {
 					while (true) {
-						let key: unknown;
+						let key: string;
 						try {
-							key = decode(r, options);
+							key = decode();
 						} catch (e) {
 							if (e instanceof CborBreak) break;
 							throw e;
 						}
 
-						const value = decode(r, options);
-						map.set(key, value);
+						const value = decode();
+						entries.push([key, value]);
 					}
 				} else {
 					const l = r.readMajorLength(len);
 					for (let i = 0; i < l; i++) {
-						const key = decode(r, options);
-						const value = decode(r, options);
-						map.set(key, value);
+						const key = decode();
+						const value = decode();
+						entries[i] = [key, value];
 					}
 				}
 
-				return options.map !== "map" ? Object.fromEntries(map.entries()) : map;
+				return options.map === "map"
+					? new Map(entries)
+					: Object.fromEntries(entries);
 			}
 
 			case 6: {
 				const tag = r.readMajorLength(len);
-				const value = decode(r, options);
+				const value = decode();
 				return new Tagged(tag, value);
 			}
 
@@ -117,7 +122,12 @@ export function decode(
 		throw new CborInvalidMajorError(
 			`Unable to decode value with major tag ${major}`,
 		);
-	};
+	}
 
-	return options.replacer ? options.replacer(inner()) : inner();
+	// biome-ignore lint/suspicious/noExplicitAny: Don't know what it will return
+	function decode(): any {
+		return options.replacer ? options.replacer(inner()) : inner();
+	}
+
+	return decode();
 }

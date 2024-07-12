@@ -4,21 +4,23 @@ import { PartiallyEncoded } from "./partial";
 
 export class Writer {
 	private _chunks: [ArrayBuffer, Gap][] = [];
+	private _pos = 0;
 	private _buf: ArrayBuffer;
 	private _view: DataView;
 	private _byte: Uint8Array;
 
-	constructor() {
-		this._buf = new ArrayBuffer(0);
+	constructor(readonly byteLength = 256) {
+		this._buf = new ArrayBuffer(this.byteLength);
 		this._view = new DataView(this._buf);
 		this._byte = new Uint8Array(this._buf);
 	}
 
 	chunk(gap: Gap): void {
-		this._chunks.push([this._buf, gap]);
-		this._buf = new ArrayBuffer(0);
+		this._chunks.push([this._buf.slice(0, this._pos), gap]);
+		this._buf = new ArrayBuffer(this.byteLength);
 		this._view = new DataView(this._buf);
 		this._byte = new Uint8Array(this._buf);
+		this._pos = 0;
 	}
 
 	get chunks(): [ArrayBuffer, Gap][] {
@@ -26,16 +28,23 @@ export class Writer {
 	}
 
 	get buffer(): ArrayBuffer {
-		return this._buf;
+		return this._buf.slice(0, this._pos);
 	}
 
 	private claim(length: number) {
-		const pos = this._buf.byteLength;
-		const oldb = this._byte;
-		this._buf = new ArrayBuffer(pos + length);
-		this._view = new DataView(this._buf);
-		this._byte = new Uint8Array(this._buf);
-		this._byte.set(oldb);
+		const pos = this._pos;
+		this._pos += length;
+		if (this._pos <= this._buf.byteLength) return pos;
+
+		let newLen = this._buf.byteLength << 1;
+		while (newLen < this._pos) newLen <<= 1;
+		if (newLen > this._buf.byteLength) {
+			const oldb = this._byte;
+			this._buf = new ArrayBuffer(newLen);
+			this._view = new DataView(this._buf);
+			this._byte = new Uint8Array(this._buf);
+			this._byte.set(oldb);
+		}
 		return pos;
 	}
 
@@ -115,11 +124,11 @@ export class Writer {
 		if (partial) {
 			return new PartiallyEncoded(
 				this._chunks,
-				this._buf,
+				this.buffer,
 				replacer,
 			) as Partial extends true ? PartiallyEncoded : ArrayBuffer;
 		}
 
-		return this._buf as Partial extends true ? PartiallyEncoded : ArrayBuffer;
+		return this.buffer as Partial extends true ? PartiallyEncoded : ArrayBuffer;
 	}
 }
