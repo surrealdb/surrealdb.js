@@ -209,12 +209,12 @@ export class Surreal {
 		namespace,
 		database,
 	}: {
-		namespace?: string | false;
-		database?: string | false;
+		namespace?: string | null;
+		database?: string | null;
 	}): Promise<true> {
 		if (!this.connection) throw new NoActiveSocket();
 
-		if (namespace === false && database !== false)
+		if (namespace === null && database !== null)
 			throw new SurrealDbError(
 				"Cannot unset namespace without unsetting database",
 			);
