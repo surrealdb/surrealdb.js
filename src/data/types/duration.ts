@@ -1,3 +1,5 @@
+import { SurrealDbError } from "../../errors";
+
 const millisecond = 1;
 const microsecond = millisecond / 1000;
 const nanosecond = microsecond / 1000;
@@ -85,14 +87,14 @@ export class Duration {
 				const amount = Number.parseInt(match[1]);
 				const factor = units.get(match[2]);
 				if (factor === undefined)
-					throw new Error(`Invalid duration unit: ${match[2]}`);
+					throw new SurrealDbError(`Invalid duration unit: ${match[2]}`);
 
 				ms += amount * factor;
 				left = left.slice(match[0].length);
 				continue;
 			}
 
-			throw new Error("Could not match a next duration part");
+			throw new SurrealDbError("Could not match a next duration part");
 		}
 
 		return ms;

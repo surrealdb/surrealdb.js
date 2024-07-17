@@ -1,5 +1,6 @@
 import type { Encoded, Fill } from "./cbor";
 import { type RecordId, Uuid } from "./data";
+import { SurrealDbError } from "./errors";
 import type { PreparedQuery } from "./util/PreparedQuery";
 
 export type ActionResult<T extends Record<string, unknown>> = Prettify<
@@ -25,7 +26,9 @@ export function convertAuth(params: AnyAuth): Record<string, unknown> {
 			cloned[b] = `${cloned[a]}`;
 			delete cloned[a];
 		} else if (optional !== true) {
-			throw new Error(`Key ${a} is missing from the authentication parameters`);
+			throw new SurrealDbError(
+				`Key ${a} is missing from the authentication parameters`,
+			);
 		}
 	};
 
@@ -38,7 +41,7 @@ export function convertAuth(params: AnyAuth): Record<string, unknown> {
 		convertString("namespace", "ns");
 		convertString("database", "db");
 	} else {
-		convertString("database", "db", !("namespace" in params));
+		convertString("database", "db", true);
 		convertString("namespace", "ns", !("database" in params));
 		convertString("username", "user");
 		convertString("password", "pass");
