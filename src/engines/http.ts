@@ -73,10 +73,12 @@ export class HttpEngine extends AbstractEngine {
 
 		if (request.method === "use") {
 			const [ns, db] = request.params as [
-				string | undefined,
-				string | undefined,
+				string | false | undefined,
+				string | false | undefined,
 			];
 
+			if (ns === false) this.connection.namespace = undefined;
+			if (db === false) this.connection.database = undefined;
 			if (ns) this.connection.namespace = ns;
 			if (db) this.connection.database = db;
 			return {
