@@ -44,6 +44,7 @@ import {
 	NoNamespaceSpecified,
 	NoTokenReturned,
 	ResponseError,
+	SurrealDbError,
 	UnsupportedEngine,
 } from "./errors.ts";
 
@@ -208,10 +209,15 @@ export class Surreal {
 		namespace,
 		database,
 	}: {
-		namespace?: string;
-		database?: string;
+		namespace?: string | false;
+		database?: string | false;
 	}): Promise<true> {
 		if (!this.connection) throw new NoActiveSocket();
+
+		if (namespace === false && database !== false)
+			throw new SurrealDbError(
+				"Cannot unset namespace without unsetting database",
+			);
 		const { error } = await this.rpc("use", [namespace, database]);
 		if (error) throw new ResponseError(error.message);
 		return true;
