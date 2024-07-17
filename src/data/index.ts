@@ -1,4 +1,9 @@
-export { RecordId, StringRecordId } from "./types/recordid.ts";
+export {
+	RecordId,
+	StringRecordId,
+	type RecordIdValue,
+	escape_ident,
+} from "./types/recordid.ts";
 export { Uuid } from "./types/uuid.ts";
 export { Duration } from "./types/duration.ts";
 export { Decimal } from "./types/decimal.ts";
