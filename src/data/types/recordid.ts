@@ -1,3 +1,5 @@
+import { SurrealDbError } from "../../errors";
+
 const MAX_i64 = 9223372036854775807n;
 export type RecordIdValue =
 	| string
@@ -11,8 +13,9 @@ export class RecordId<Tb extends string = string> {
 	public readonly id: RecordIdValue;
 
 	constructor(tb: Tb, id: RecordIdValue) {
-		if (typeof tb !== "string") throw new Error("TB part is not valid");
-		if (!isValidIsPart(id)) throw new Error("ID part is not valid");
+		if (typeof tb !== "string")
+			throw new SurrealDbError("TB part is not valid");
+		if (!isValidIsPart(id)) throw new SurrealDbError("ID part is not valid");
 
 		this.tb = tb;
 		this.id = id;
@@ -39,7 +42,7 @@ export class StringRecordId {
 
 	constructor(rid: string) {
 		if (typeof rid !== "string")
-			throw new Error("String Record ID must be a string");
+			throw new SurrealDbError("String Record ID must be a string");
 
 		this.rid = rid;
 	}
