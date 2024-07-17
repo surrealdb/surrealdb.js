@@ -145,9 +145,13 @@ export class WebsocketEngine extends AbstractEngine {
 		if ("result" in res) {
 			switch (request.method) {
 				case "use": {
-					const [ns, db] = request.params as [string, string];
-					this.connection.namespace = ns;
-					this.connection.database = db;
+					const [ns, db] = request.params as [
+						string | undefined,
+						string | undefined,
+					];
+
+					if (ns) this.connection.namespace = ns;
+					if (db) this.connection.database = db;
 					break;
 				}
 

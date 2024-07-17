@@ -107,10 +107,6 @@ export class Surreal {
 
 		// Process options
 		const { prepare, auth, namespace, database } = opts;
-		if (opts.namespace || opts.database) {
-			if (!opts.namespace) throw new NoNamespaceSpecified();
-			if (!opts.database) throw new NoDatabaseSpecified();
-		}
 
 		// Close any existing connections
 		await this.close();
@@ -216,19 +212,7 @@ export class Surreal {
 		database?: string;
 	}): Promise<true> {
 		if (!this.connection) throw new NoActiveSocket();
-
-		if (!namespace && !this.connection.connection.namespace) {
-			throw new NoNamespaceSpecified();
-		}
-		if (!database && !this.connection.connection.database) {
-			throw new NoDatabaseSpecified();
-		}
-
-		const { error } = await this.rpc("use", [
-			namespace ?? this.connection.connection.namespace,
-			database ?? this.connection.connection.database,
-		]);
-
+		const { error } = await this.rpc("use", [namespace, database]);
 		if (error) throw new ResponseError(error.message);
 		return true;
 	}
