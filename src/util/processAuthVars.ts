@@ -8,7 +8,10 @@ export function processAuthVars<T extends AnyAuth>(
 		database?: string;
 	},
 ): AnyAuth {
-	if ("scope" in vars || "access" in vars) {
+	if (
+		"scope" in vars ||
+		("access" in vars && "variables" in vars && vars.variables)
+	) {
 		if (!vars.namespace) {
 			if (!fallback?.namespace) throw new NoNamespaceSpecified();
 			vars.namespace = fallback.namespace;
