@@ -19,7 +19,7 @@ import { processAuthVars } from "./util/processAuthVars.ts";
 import { versionCheck } from "./util/versionCheck.ts";
 
 import {
-	type AccessAuth,
+	type AccessRecordAuth,
 	type ActionResult,
 	type AnyAuth,
 	type LiveHandler,
@@ -243,7 +243,7 @@ export class Surreal {
 	 * @param vars - Variables used in a signup query.
 	 * @return The authentication token.
 	 */
-	async signup(vars: ScopeAuth | AccessAuth): Promise<Token> {
+	async signup(vars: ScopeAuth | AccessRecordAuth): Promise<Token> {
 		if (!this.connection) throw new NoActiveSocket();
 
 		const parsed = processAuthVars(vars, this.connection.connection);
