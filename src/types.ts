@@ -20,11 +20,11 @@ export type QueryParameters =
 //////////////////////////////////////////////
 
 export function convertAuth(params: AnyAuth): Record<string, unknown> {
-	const cloned: Record<string, unknown> = { ...params };
+	let result: Record<string, unknown> = {};
 	const convertString = (a: string, b: string, optional?: boolean) => {
 		if (a in params) {
-			cloned[b] = `${cloned[a]}`;
-			delete cloned[a];
+			result[b] = `${params[a as keyof AnyAuth]}`;
+			delete result[a];
 		} else if (optional !== true) {
 			throw new SurrealDbError(
 				`Key ${a} is missing from the authentication parameters`,
@@ -32,22 +32,25 @@ export function convertAuth(params: AnyAuth): Record<string, unknown> {
 		}
 	};
 
-	if ("access" in params) {
-		convertString("access", "ac");
-		convertString("namespace", "ns");
-		convertString("database", "db");
-	} else if ("scope" in params) {
+	if ("scope" in params) {
+		result = { ...params };
 		convertString("scope", "sc");
 		convertString("namespace", "ns");
 		convertString("database", "db");
+	} else if ("variables" in params) {
+		result = { ...params.variables };
+		convertString("access", "ac");
+		convertString("namespace", "ns");
+		convertString("database", "db");
 	} else {
+		convertString("access", "ac", true);
 		convertString("database", "db", true);
 		convertString("namespace", "ns", !("database" in params));
 		convertString("username", "user");
 		convertString("password", "pass");
 	}
-
-	return cloned;
+	console.log(result);
+	return result;
 }
 
 export type RootAuth = {
@@ -68,6 +71,13 @@ export type DatabaseAuth = {
 	password: string;
 };
 
+export type AccessSystemAuth = Prettify<
+	(RootAuth | NamespaceAuth | DatabaseAuth) & {
+		access: string;
+		variables?: never;
+	}
+>;
+
 export type ScopeAuth = {
 	namespace?: string;
 	database?: string;
@@ -75,11 +85,16 @@ export type ScopeAuth = {
 	[K: string]: unknown;
 };
 
-export type AccessAuth = {
+export type AccessRecordAuth = {
 	namespace?: string;
 	database?: string;
 	access: string;
-	[K: string]: unknown;
+	variables: {
+		ns?: never;
+		db?: never;
+		ac?: never;
+		[K: string]: unknown;
+	};
 };
 
 export type AnyAuth =
@@ -87,7 +102,8 @@ export type AnyAuth =
 	| NamespaceAuth
 	| DatabaseAuth
 	| ScopeAuth
-	| AccessAuth;
+	| AccessSystemAuth
+	| AccessRecordAuth;
 
 export type Token = string;
 

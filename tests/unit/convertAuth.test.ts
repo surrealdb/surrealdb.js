@@ -57,6 +57,21 @@ test("valid", () => {
 		ns: "test",
 		db: "test",
 		ac: "user",
+		user: "root",
+		pass: "root",
+	});
+
+	expect(
+		convertAuth({
+			namespace: "test",
+			database: "test",
+			access: "user",
+			variables: { username: "root", password: "root" },
+		}),
+	).toStrictEqual({
+		ns: "test",
+		db: "test",
+		ac: "user",
 		username: "root",
 		password: "root",
 	});

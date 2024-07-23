@@ -73,7 +73,7 @@ describe("record auth", async () => {
 	test("record signup", async () => {
 		const signup = await surreal.signup({
 			access: "user",
-			id: 123,
+			variables: { id: 123 },
 		});
 
 		expect(typeof signup).toBe("string");
@@ -82,7 +82,7 @@ describe("record auth", async () => {
 	test("record signin", async () => {
 		const signin = await surreal.signin({
 			access: "user",
-			id: 123,
+			variables: { id: 123 },
 		});
 
 		expect(typeof signin).toBe("string");
