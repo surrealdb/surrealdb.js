@@ -49,7 +49,7 @@ export function convertAuth(params: AnyAuth): Record<string, unknown> {
 		convertString("username", "user");
 		convertString("password", "pass");
 	}
-	console.log(result);
+
 	return result;
 }
 
