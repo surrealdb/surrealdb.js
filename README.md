@@ -15,11 +15,11 @@
     &nbsp;
     <a href="https://surrealdb.com/docs/integration/libraries/javascript"><img src="https://img.shields.io/badge/docs-view-44cc11.svg?style=flat-square"></a>
     &nbsp;
-    <a href="https://www.npmjs.com/package/surrealdb.js"><img src="https://img.shields.io/npm/v/surrealdb.js?style=flat-square"></a>
+    <a href="https://www.npmjs.com/package/surrealdb"><img src="https://img.shields.io/npm/v/surrealdb?style=flat-square"></a>
     &nbsp;
-    <a href="https://www.npmjs.com/package/surrealdb.js"><img src="https://img.shields.io/npm/dm/surrealdb.js?style=flat-square"></a>
+    <a href="https://www.npmjs.com/package/surrealdb"><img src="https://img.shields.io/npm/dm/surrealdb?style=flat-square"></a>
     &nbsp;
-    <a href="https://deno.land/x/surrealdb"><img src="https://img.shields.io/npm/v/surrealdb.js?style=flat-square&label=deno"></a>
+    <a href="https://deno.land/x/surrealdb"><img src="https://img.shields.io/npm/v/surrealdb?style=flat-square&label=deno"></a>
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@
     <a href="https://www.youtube.com/channel/UCjf2teVEuYVvvVC-gFZNq6w"><img src="https://img.shields.io/badge/youtube-subscribe-fc1c1c.svg?style=flat-square"></a>
 </p>
 
-# surrealdb.js
+# surrealdb
 
 The official SurrealDB SDK for JavaScript.
 
@@ -50,31 +50,29 @@ Import it with:
 import Surreal from "@surrealdb/surrealdb";
 ```
 
-For best results, set a version in the url:
-
-### Install for [Node.js](https://www.npmjs.com/package/surrealdb.js)
+### Install for [Node.js](https://www.npmjs.com/package/surrealdb)
 
 Install it with:
 
 ```sh
 # using npm
-npm i surrealdb.js
+npm i surrealdb
 # or using pnpm
-pnpm i surrealdb.js
+pnpm i surrealdb
 # or using yarn
-yarn add surrealdb.js
+yarn add surrealdb
 ```
 
 Next, just import it with:
 
 ```ts
-const { Surreal } = require("surrealdb.js");
+const { Surreal } = require("surrealdb");
 ```
 
 or when you use modules:
 
 ```ts
-import Surreal from "surrealdb.js";
+import Surreal from "surrealdb";
 ```
 
 ### Install for the browser
@@ -83,23 +81,23 @@ For usage in a browser environment, when using a bundler (e.g. [Rollup](https://
 
 ```sh
 # using npm
-npm i surrealdb.js
+npm i surrealdb
 # or using pnpm
-pnpm i surrealdb.js
+pnpm i surrealdb
 # or using yarn
-yarn add surrealdb.js
+yarn add surrealdb
 ```
 
 Next, just import it with:
 
 ```ts
-import Surreal from "surrealdb.js";
+import Surreal from "surrealdb";
 ```
 
 or when you use CommonJS:
 
 ```ts
-const { Surreal } = require("surrealdb.js");
+const { Surreal } = require("surrealdb");
 ```
 
 ### Install for the browser with a CDN
@@ -107,9 +105,9 @@ const { Surreal } = require("surrealdb.js");
 For fast prototyping we provide a browser-ready bundle. You can import it with:
 
 ```ts
-import Surreal from "https://unpkg.com/surrealdb.js";
+import Surreal from "https://unpkg.com/surrealdb";
 // or
-import Surreal from "https://cdn.jsdelivr.net/npm/surrealdb.js";
+import Surreal from "https://cdn.jsdelivr.net/npm/surrealdb";
 ```
 
 _**NOTE: this bundle is not optimized for production! So don't use it in production!**_
@@ -123,7 +121,7 @@ In the example below you can see how to connect to a remote instance of SurrealD
 > This example makes use of [top level await](https://v8.dev/features/top-level-await), available in [modern browsers](https://caniuse.com/mdn-javascript_operators_await_top_level), [Deno](https://deno.com/) and [Node.js](https://nodejs.org/) >= 14.8.
 
 ```ts
-import { Surreal, RecordId, Table } from "surrealdb.js";
+import { Surreal, RecordId, Table } from "surrealdb";
 
 const db = new Surreal();
 

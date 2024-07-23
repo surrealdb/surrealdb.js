@@ -8,7 +8,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to suggest an idea for SurrealDB.js!
+        Thanks for taking the time to suggest an idea for the SurrealDB JavaScript SDK!
   - type: textarea
     id: problem
     attributes:
@@ -44,8 +44,8 @@ body:
   - type: input
     id: library-version
     attributes:
-      label: SurrealDB.js version
-      description: Enter your project's directory, then copy and paste the output of `npm view surrealdb.js version`
+      label: JavaScript SDK version
+      description: Enter your project's directory, then copy and paste the output of `npm view surrealdb version`
       placeholder: '0.0.0'
     validations:
       required: true
