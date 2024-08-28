@@ -15,9 +15,9 @@
     &nbsp;
     <a href="https://surrealdb.com/docs/integration/libraries/javascript"><img src="https://img.shields.io/badge/docs-view-44cc11.svg?style=flat-square"></a>
     &nbsp;
-    <a href="https://www.npmjs.com/package/surrealdb"><img src="https://img.shields.io/npm/v/surrealdb?style=flat-square"></a>
+    <a href="https://www.npmjs.com/package/surrealdb.js"><img src="https://img.shields.io/npm/v/surrealdb?style=flat-square"></a>
     &nbsp;
-    <a href="https://www.npmjs.com/package/surrealdb"><img src="https://img.shields.io/npm/dm/surrealdb?style=flat-square"></a>
+    <a href="https://www.npmjs.com/package/surrealdb.js"><img src="https://img.shields.io/npm/dm/surrealdb?style=flat-square"></a>
     &nbsp;
     <a href="https://deno.land/x/surrealdb"><img src="https://img.shields.io/npm/v/surrealdb?style=flat-square&label=deno"></a>
 </p>
@@ -50,29 +50,29 @@ Import it with:
 import Surreal from "@surrealdb/surrealdb";
 ```
 
-### Install for [Node.js](https://www.npmjs.com/package/surrealdb)
+### Install for [Node.js](https://www.npmjs.com/package/surrealdb.js)
 
 Install it with:
 
 ```sh
 # using npm
-npm i surrealdb
+npm i surrealdb.js
 # or using pnpm
-pnpm i surrealdb
+pnpm i surrealdb.js
 # or using yarn
-yarn add surrealdb
+yarn add surrealdb.js
 ```
 
 Next, just import it with:
 
 ```ts
-const { Surreal } = require("surrealdb");
+const { Surreal } = require("surrealdb.js");
 ```
 
 or when you use modules:
 
 ```ts
-import Surreal from "surrealdb";
+import Surreal from "surrealdb.js";
 ```
 
 ### Install for the browser
@@ -81,23 +81,23 @@ For usage in a browser environment, when using a bundler (e.g. [Rollup](https://
 
 ```sh
 # using npm
-npm i surrealdb
+npm i surrealdb.js
 # or using pnpm
-pnpm i surrealdb
+pnpm i surrealdb.js
 # or using yarn
-yarn add surrealdb
+yarn add surrealdb.js
 ```
 
 Next, just import it with:
 
 ```ts
-import Surreal from "surrealdb";
+import Surreal from "surrealdb.js";
 ```
 
 or when you use CommonJS:
 
 ```ts
-const { Surreal } = require("surrealdb");
+const { Surreal } = require("surrealdb.js");
 ```
 
 ### Install for the browser with a CDN
@@ -105,9 +105,9 @@ const { Surreal } = require("surrealdb");
 For fast prototyping we provide a browser-ready bundle. You can import it with:
 
 ```ts
-import Surreal from "https://unpkg.com/surrealdb";
+import Surreal from "https://unpkg.com/surrealdb.js";
 // or
-import Surreal from "https://cdn.jsdelivr.net/npm/surrealdb";
+import Surreal from "https://cdn.jsdelivr.net/npm/surrealdb.js";
 ```
 
 _**NOTE: this bundle is not optimized for production! So don't use it in production!**_
@@ -121,7 +121,7 @@ In the example below you can see how to connect to a remote instance of SurrealD
 > This example makes use of [top level await](https://v8.dev/features/top-level-await), available in [modern browsers](https://caniuse.com/mdn-javascript_operators_await_top_level), [Deno](https://deno.com/) and [Node.js](https://nodejs.org/) >= 14.8.
 
 ```ts
-import { Surreal, RecordId, Table } from "surrealdb";
+import { Surreal, RecordId, Table } from "surrealdb.js";
 
 const db = new Surreal();
 
