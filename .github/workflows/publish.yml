@@ -28,7 +28,9 @@ jobs:
               run: bun run build
 
             - name: Publish to NPM
-              run: npm publish --tag $(npm pkg get version | tr -d '"' | grep -qoE "^\d+\.\d+\.\d+$" && echo 'latest' || echo 'beta')
+              # TODO temporary, enable beta tags again asap
+              # run: npm publish --tag $(npm pkg get version | tr -d '"' | grep -qoE "^\d+\.\d+\.\d+$" && echo 'latest' || echo 'beta')
+              run: npm publish
               env:
                 NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     jsr:
