@@ -38,6 +38,7 @@ type CreateSurrealOptions = {
 	protocol?: Protocol;
 	auth?: PremadeAuth;
 	reachable?: boolean;
+	unselected?: boolean;
 };
 
 export async function setupServer(): Promise<{
@@ -61,13 +62,14 @@ export async function setupServer(): Promise<{
 		protocol,
 		auth,
 		reachable,
+		unselected,
 	}: CreateSurrealOptions = {}) {
 		protocol = protocol ? protocol : PROTOCOL;
 		const surreal = new Surreal();
 		const port = reachable === false ? SURREAL_PORT_UNREACHABLE : SURREAL_PORT;
 		await surreal.connect(`${protocol}://127.0.0.1:${port}/rpc`, {
-			namespace: SURREAL_NS,
-			database: SURREAL_DB,
+			namespace: unselected ? undefined : SURREAL_NS,
+			database: unselected ? undefined : SURREAL_DB,
 			auth: createAuth(auth ?? "root"),
 		});
 
