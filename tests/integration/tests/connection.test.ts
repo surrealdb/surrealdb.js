@@ -30,7 +30,7 @@ describe("rpc", async () => {
 	test("allowed rpcs without namespace or database", async () => {
 		const surreal = await createSurreal({
 			unselected: true,
-			protocol: "http"
+			protocol: "http",
 		});
 
 		await surreal.version();
@@ -40,7 +40,7 @@ describe("rpc", async () => {
 	test("disallowed rpcs without namespace or database", async () => {
 		const surreal = await createSurreal({
 			unselected: true,
-			protocol: "http"
+			protocol: "http",
 		});
 
 		expect(async () => {

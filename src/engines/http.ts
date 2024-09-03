@@ -31,12 +31,12 @@ export class HttpEngine extends AbstractEngine {
 		token: string | undefined;
 		variables: Record<string, unknown>;
 	} = {
-			url: undefined,
-			namespace: undefined,
-			database: undefined,
-			token: undefined,
-			variables: {},
-		};
+		url: undefined,
+		namespace: undefined,
+		database: undefined,
+		token: undefined,
+		variables: {},
+	};
 
 	private setStatus<T extends ConnectionStatus>(
 		status: T,
@@ -83,7 +83,10 @@ export class HttpEngine extends AbstractEngine {
 			throw new ConnectionUnavailable();
 		}
 
-		if ((!this.connection.namespace || !this.connection.database) && !ALWAYS_ALLOW.has(request.method)) {
+		if (
+			(!this.connection.namespace || !this.connection.database) &&
+			!ALWAYS_ALLOW.has(request.method)
+		) {
 			throw new MissingNamespaceDatabase();
 		}
 
@@ -131,7 +134,7 @@ export class HttpEngine extends AbstractEngine {
 		const id = getIncrementalID();
 		const headers: Record<string, string> = {
 			"Content-Type": "application/cbor",
-			"Accept": "application/cbor",
+			Accept: "application/cbor",
 		};
 
 		if (this.connection.namespace) {

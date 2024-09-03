@@ -1,4 +1,4 @@
-export class SurrealDbError extends Error { }
+export class SurrealDbError extends Error {}
 
 export class NoActiveSocket extends SurrealDbError {
 	name = "NoActiveSocket";
