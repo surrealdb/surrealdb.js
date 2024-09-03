@@ -146,7 +146,7 @@ export class HttpEngine extends AbstractEngine {
 		}
 
 		if (this.connection.token) {
-			headers["Authorization"] = `Bearer ${this.connection.token}`;
+			headers.Authorization = `Bearer ${this.connection.token}`;
 		}
 
 		const raw = await fetch(`${this.connection.url}`, {
