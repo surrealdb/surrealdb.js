@@ -1,4 +1,4 @@
-export class SurrealDbError extends Error {}
+export class SurrealDbError extends Error { }
 
 export class NoActiveSocket extends SurrealDbError {
 	name = "NoActiveSocket";
@@ -64,7 +64,7 @@ export class ConnectionUnavailable extends SurrealDbError {
 
 export class MissingNamespaceDatabase extends SurrealDbError {
 	name = "MissingNamespaceDatabase";
-	message = "There are no namespace and/or database configured.";
+	message = "There is no namespace and/or database selected.";
 }
 
 export class HttpConnectionError extends SurrealDbError {
