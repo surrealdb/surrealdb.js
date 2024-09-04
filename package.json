@@ -32,10 +32,6 @@
 		"build": "bun run scripts/build.ts",
 		"jsr": "bun run scripts/jsr.ts"
 	},
-	"optionalDependencies": {
-		"bufferutil": "^4.0.8",
-		"utf-8-validate": "^6.0.3"
-	},
 	"engines": {
 		"node": ">=18.0.0"
 	},
