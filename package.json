@@ -1,6 +1,6 @@
 {
 	"name": "surrealdb",
-	"version": "1.0.0-beta.20",
+	"version": "1.0.0-beta.21",
 	"type": "module",
 	"license": "Apache-2.0",
 	"repository": {
@@ -50,5 +50,10 @@
 			"browser": "./dist/index.bundled.mjs"
 		}
 	},
-	"files": ["dist", "README.md", "LICENCE", "SECURITY.md"]
+	"files": [
+		"dist",
+		"README.md",
+		"LICENCE",
+		"SECURITY.md"
+	]
 }
