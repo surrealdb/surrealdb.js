@@ -12,6 +12,18 @@ import {
 	type EngineEvents,
 } from "./abstract";
 
+const ALWAYS_ALLOW = new Set([
+	"signin",
+	"signup",
+	"authenticate",
+	"invalidate",
+	"version",
+	"use",
+	"let",
+	"unset",
+	"query",
+]);
+
 export class HttpEngine extends AbstractEngine {
 	connection: {
 		url: URL | undefined;
@@ -67,8 +79,16 @@ export class HttpEngine extends AbstractEngine {
 		Result,
 	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
 		await this.ready;
+
 		if (!this.connection.url) {
 			throw new ConnectionUnavailable();
+		}
+
+		if (
+			(!this.connection.namespace || !this.connection.database) &&
+			!ALWAYS_ALLOW.has(request.method)
+		) {
+			throw new MissingNamespaceDatabase();
 		}
 
 		if (request.method === "use") {
@@ -112,22 +132,27 @@ export class HttpEngine extends AbstractEngine {
 			] as Params;
 		}
 
-		if (!this.connection.namespace || !this.connection.database) {
-			throw new MissingNamespaceDatabase();
+		const id = getIncrementalID();
+		const headers: Record<string, string> = {
+			"Content-Type": "application/cbor",
+			Accept: "application/cbor",
+		};
+
+		if (this.connection.namespace) {
+			headers["Surreal-NS"] = this.connection.namespace;
 		}
 
-		const id = getIncrementalID();
+		if (this.connection.database) {
+			headers["Surreal-DB"] = this.connection.database;
+		}
+
+		if (this.connection.token) {
+			headers.Authorization = `Bearer ${this.connection.token}`;
+		}
+
 		const raw = await fetch(`${this.connection.url}`, {
 			method: "POST",
-			headers: {
-				"Content-Type": "application/cbor",
-				Accept: "application/cbor",
-				"Surreal-NS": this.connection.namespace,
-				"Surreal-DB": this.connection.database,
-				...(this.connection.token
-					? { Authorization: `Bearer ${this.connection.token}` }
-					: {}),
-			},
+			headers,
 			body: this.encodeCbor({ id, ...request }),
 		});
 

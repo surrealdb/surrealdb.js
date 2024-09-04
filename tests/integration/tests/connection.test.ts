@@ -25,3 +25,26 @@ describe("version check", async () => {
 		expect(diff).toBeLessThanOrEqual(defaultVersionCheckTimeout + 100); // 100ms margin
 	});
 });
+
+describe("rpc", async () => {
+	test("allowed rpcs without namespace or database", async () => {
+		const surreal = await createSurreal({
+			unselected: true,
+			protocol: "http",
+		});
+
+		await surreal.version();
+		await surreal.invalidate();
+	});
+
+	test("disallowed rpcs without namespace or database", async () => {
+		const surreal = await createSurreal({
+			unselected: true,
+			protocol: "http",
+		});
+
+		expect(async () => {
+			await surreal.query("SELECT * FROM test");
+		}).toThrow();
+	});
+});
