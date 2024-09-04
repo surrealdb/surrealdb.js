@@ -21,6 +21,7 @@ const ALWAYS_ALLOW = new Set([
 	"use",
 	"let",
 	"unset",
+	"query",
 ]);
 
 export class HttpEngine extends AbstractEngine {
