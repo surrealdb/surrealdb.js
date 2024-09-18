@@ -480,18 +480,11 @@ export class Surreal {
 	 * @param data - The document(s) / record(s) to insert.
 	 */
 	async insert<T extends R, U extends R = T>(
-		data?: U,
-	): Promise<ActionResult<T>>;
-	async insert<T extends R, U extends R = T>(
-		data?: U[],
+		data?: U | U[],
 	): Promise<ActionResult<T>[]>;
 	async insert<T extends R, U extends R = T>(
 		table: Table | string,
-		data?: U,
-	): Promise<ActionResult<T>>;
-	async insert<T extends R, U extends R = T>(
-		table: Table | string,
-		data?: U[],
+		data?: U | U[],
 	): Promise<ActionResult<T>[]>;
 	async insert<T extends R, U extends R = T>(
 		arg1: Table | string | U | U[],
@@ -513,18 +506,11 @@ export class Surreal {
 	 * @param data - The document(s) / record(s) to insert.
 	 */
 	async insert_relation<T extends R, U extends R = T>(
-		data?: U,
-	): Promise<ActionResult<T>>;
-	async insert_relation<T extends R, U extends R = T>(
-		data?: U[],
+		data?: U | U[],
 	): Promise<ActionResult<T>[]>;
 	async insert_relation<T extends R, U extends R = T>(
 		table: Table | string,
-		data?: U,
-	): Promise<ActionResult<T>>;
-	async insert_relation<T extends R, U extends R = T>(
-		table: Table | string,
-		data?: U[],
+		data?: U | U[],
 	): Promise<ActionResult<T>[]>;
 	async insert_relation<T extends R, U extends R = T>(
 		arg1: Table | string | U | U[],
