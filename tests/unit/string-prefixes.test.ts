@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { s, d, r, u, StringRecordId, Uuid } from "../../src";
+import { StringRecordId, Uuid, d, r, s, u } from "../../src";
 
 describe("string prefixes", () => {
 	test("s", () => {
