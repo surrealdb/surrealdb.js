@@ -442,8 +442,8 @@ export class Surreal {
 	 * Selects all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
 	 */
-	async select<T extends R>(thing: Table | string): Promise<ActionResult<T>[]>;
 	async select<T extends R>(thing: RecordId): Promise<ActionResult<T>>;
+	async select<T extends R>(thing: Table | string): Promise<ActionResult<T>[]>;
 	async select<T extends R>(thing: RecordId | Table | string) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("select", [thing]);
@@ -457,13 +457,13 @@ export class Surreal {
 	 * @param data - The document / record data to insert.
 	 */
 	async create<T extends R, U extends R = T>(
-		thing: Table | string,
-		data?: U,
-	): Promise<ActionResult<T>[]>;
-	async create<T extends R, U extends R = T>(
 		thing: RecordId,
 		data?: U,
 	): Promise<ActionResult<T>>;
+	async create<T extends R, U extends R = T>(
+		thing: Table | string,
+		data?: U,
+	): Promise<ActionResult<T>[]>;
 	async create<T extends R, U extends R = T>(
 		thing: RecordId | Table | string,
 		data?: U,
@@ -480,13 +480,13 @@ export class Surreal {
 	 * @param data - The document(s) / record(s) to insert.
 	 */
 	async insert<T extends R, U extends R = T>(
-		thing: Table | string,
-		data?: U | U[],
-	): Promise<ActionResult<T>[]>;
-	async insert<T extends R, U extends R = T>(
 		thing: RecordId,
 		data?: U,
 	): Promise<ActionResult<T>>;
+	async insert<T extends R, U extends R = T>(
+		thing: Table | string,
+		data?: U | U[],
+	): Promise<ActionResult<T>[]>;
 	async insert<T extends R, U extends R = T>(
 		thing: RecordId | Table | string,
 		data?: U | U[],
@@ -505,13 +505,13 @@ export class Surreal {
 	 * @param data - The document / record data to insert.
 	 */
 	async update<T extends R, U extends R = T>(
-		thing: Table | string,
-		data?: U,
-	): Promise<ActionResult<T>[]>;
-	async update<T extends R, U extends R = T>(
 		thing: RecordId,
 		data?: U,
 	): Promise<ActionResult<T>>;
+	async update<T extends R, U extends R = T>(
+		thing: Table | string,
+		data?: U,
+	): Promise<ActionResult<T>[]>;
 	async update<T extends R, U extends R = T>(
 		thing: RecordId | Table | string,
 		data?: U,
@@ -530,13 +530,13 @@ export class Surreal {
 	 * @param data - The document / record data to insert.
 	 */
 	async upsert<T extends R, U extends R = T>(
-		thing: Table | string,
-		data?: U,
-	): Promise<ActionResult<T>[]>;
-	async upsert<T extends R, U extends R = T>(
 		thing: RecordId,
 		data?: U,
 	): Promise<ActionResult<T>>;
+	async upsert<T extends R, U extends R = T>(
+		thing: Table | string,
+		data?: U,
+	): Promise<ActionResult<T>[]>;
 	async upsert<T extends R, U extends R = T>(
 		thing: RecordId | Table | string,
 		data?: U,
@@ -555,13 +555,13 @@ export class Surreal {
 	 * @param data - The document / record data to insert.
 	 */
 	async merge<T extends R, U extends R = Partial<T>>(
-		thing: Table | string,
-		data?: U,
-	): Promise<ActionResult<T>[]>;
-	async merge<T extends R, U extends R = Partial<T>>(
 		thing: RecordId,
 		data?: U,
 	): Promise<ActionResult<T>>;
+	async merge<T extends R, U extends R = Partial<T>>(
+		thing: Table | string,
+		data?: U,
+	): Promise<ActionResult<T>[]>;
 	async merge<T extends R, U extends R = Partial<T>>(
 		thing: RecordId | Table | string,
 		data?: U,
@@ -617,8 +617,8 @@ export class Surreal {
 	 * Deletes all records in a table, or a specific record, from the database.
 	 * @param thing - The table name or a record ID to select.
 	 */
-	async delete<T extends R>(thing: Table | string): Promise<ActionResult<T>[]>;
 	async delete<T extends R>(thing: RecordId): Promise<ActionResult<T>>;
+	async delete<T extends R>(thing: Table | string): Promise<ActionResult<T>[]>;
 	async delete<T extends R>(thing: RecordId | Table | string) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("delete", [thing]);
@@ -669,16 +669,16 @@ export class Surreal {
 	 */
 	async relate<T extends R, U extends R = T>(
 		from: string | RecordId | RecordId[],
-		thing: string,
-		to: string | RecordId | RecordId[],
-		data?: U,
-	): Promise<T[]>;
-	async relate<T extends R, U extends R = T>(
-		from: string | RecordId | RecordId[],
 		thing: RecordId,
 		to: string | RecordId | RecordId[],
 		data?: U,
 	): Promise<T>;
+	async relate<T extends R, U extends R = T>(
+		from: string | RecordId | RecordId[],
+		thing: string,
+		to: string | RecordId | RecordId[],
+		data?: U,
+	): Promise<T[]>;
 	async relate<T extends R, U extends R = T>(
 		from: string | RecordId | RecordId[],
 		thing: string | RecordId,
