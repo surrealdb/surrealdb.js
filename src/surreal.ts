@@ -1,8 +1,8 @@
 import {
 	type StringRecordId,
+	Table,
 	type Uuid,
 	type RecordId as _RecordId,
-	Table,
 	decodeCbor,
 	encodeCbor,
 } from "./data";
