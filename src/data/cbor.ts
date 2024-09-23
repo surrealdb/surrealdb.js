@@ -5,6 +5,7 @@ import {
 } from "./types/datetime.ts";
 import { Decimal } from "./types/decimal.ts";
 import { Duration } from "./types/duration.ts";
+import { Future } from "./types/future.ts";
 import {
 	GeometryCollection,
 	GeometryLine,
@@ -14,6 +15,12 @@ import {
 	GeometryPoint,
 	GeometryPolygon,
 } from "./types/geometry.ts";
+import {
+	cborToRange,
+	Range,
+	rangeToCbor,
+	RecordIdRange,
+} from "./types/range.ts";
 import { RecordId, StringRecordId } from "./types/recordid.ts";
 import { Table } from "./types/table.ts";
 import { Uuid } from "./types/uuid.ts";
@@ -32,6 +39,12 @@ const TAG_STRING_DECIMAL = 10;
 const TAG_CUSTOM_DATETIME = 12;
 const TAG_STRING_DURATION = 13;
 const TAG_CUSTOM_DURATION = 14;
+const TAG_FUTURE = 15;
+
+// Ranges
+export const TAG_RANGE = 49;
+export const TAG_BOUND_INCLUDED = 50;
+export const TAG_BOUND_EXCLUDED = 51;
 
 // Custom Geometries
 const TAG_GEOMETRY_POINT = 88;
@@ -63,7 +76,16 @@ export const replacer = {
 		if (v instanceof StringRecordId) {
 			return new Tagged(TAG_RECORDID, v.rid);
 		}
+		if (v instanceof RecordIdRange) {
+			return new Tagged(TAG_RECORDID, [
+				v.tb,
+				new Tagged(TAG_RANGE, rangeToCbor([v.beg, v.end])),
+			]);
+		}
 		if (v instanceof Table) return new Tagged(TAG_TABLE, v.tb);
+		if (v instanceof Future) return new Tagged(TAG_FUTURE, v.inner);
+		if (v instanceof Range)
+			return new Tagged(TAG_RANGE, rangeToCbor([v.beg, v.end]));
 		if (v instanceof GeometryPoint) {
 			return new Tagged(TAG_GEOMETRY_POINT, v.point);
 		}
@@ -108,8 +130,16 @@ export const replacer = {
 				return Duration.fromCompact(v.value);
 			case TAG_TABLE:
 				return new Table(v.value);
-			case TAG_RECORDID:
+			case TAG_FUTURE:
+				return new Future(v.value);
+			case TAG_RANGE:
+				return new Range(...cborToRange(v.value));
+			case TAG_RECORDID: {
+				if (v.value[1] instanceof Range) {
+					return new RecordIdRange(v.value[0], v.value[1].beg, v.value[1].end);
+				}
 				return new RecordId(v.value[0], v.value[1]);
+			}
 			case TAG_GEOMETRY_POINT:
 				return new GeometryPoint(v.value);
 			case TAG_GEOMETRY_LINE:

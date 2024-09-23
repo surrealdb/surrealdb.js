@@ -1,8 +1,11 @@
 import {
 	Decimal,
 	Duration,
+	Future,
 	Geometry,
+	Range,
 	RecordId,
+	RecordIdRange,
 	StringRecordId,
 	Table,
 	Uuid,
@@ -13,6 +16,8 @@ export type Jsonify<T> = T extends
 	| Uuid
 	| Decimal
 	| Duration
+	| Future
+	| Range<unknown, unknown>
 	| StringRecordId
 	? string
 	: T extends undefined
@@ -27,9 +32,11 @@ export type Jsonify<T> = T extends
 						? ReturnType<T["toJSON"]>
 						: T extends RecordId<infer Tb>
 							? `${Tb}:${string}`
-							: T extends Table<infer Tb>
-								? `${Tb}`
-								: T;
+							: T extends RecordIdRange<infer Tb>
+								? `${Tb}:${string}..${string}`
+								: T extends Table<infer Tb>
+									? `${Tb}`
+									: T;
 
 export function jsonify<T>(input: T): Jsonify<T> {
 	if (typeof input === "object") {
@@ -41,7 +48,10 @@ export function jsonify<T>(input: T): Jsonify<T> {
 			input instanceof Uuid ||
 			input instanceof Decimal ||
 			input instanceof Duration ||
+			input instanceof Future ||
+			input instanceof Range ||
 			input instanceof StringRecordId ||
+			input instanceof RecordIdRange ||
 			input instanceof RecordId ||
 			input instanceof Geometry ||
 			input instanceof Table

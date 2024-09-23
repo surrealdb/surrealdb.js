@@ -11,6 +11,7 @@ export * from "./util/jsonify.ts";
 export * from "./util/versionCheck.ts";
 export * from "./util/getIncrementalID.ts";
 export * from "./util/string-prefixes.ts";
+export * from "./util/to-surrealql-string.ts";
 export {
 	ConnectionStatus,
 	AbstractEngine,

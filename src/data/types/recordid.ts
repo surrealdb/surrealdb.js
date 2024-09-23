@@ -1,3 +1,4 @@
+import type { Range } from "..";
 import { SurrealDbError } from "../../errors";
 
 const MAX_i64 = 9223372036854775807n;
@@ -15,7 +16,7 @@ export class RecordId<Tb extends string = string> {
 	constructor(tb: Tb, id: RecordIdValue) {
 		if (typeof tb !== "string")
 			throw new SurrealDbError("TB part is not valid");
-		if (!isValidIsPart(id)) throw new SurrealDbError("ID part is not valid");
+		if (!isValidIdPart(id)) throw new SurrealDbError("ID part is not valid");
 
 		this.tb = tb;
 		this.id = id;
@@ -27,12 +28,7 @@ export class RecordId<Tb extends string = string> {
 
 	toString(): string {
 		const tb = escape_ident(this.tb);
-		const id =
-			typeof this.id === "string"
-				? escape_ident(this.id)
-				: typeof this.id === "bigint" || typeof this.id === "number"
-					? escape_number(this.id)
-					: JSON.stringify(this.id);
+		const id = escape_id_part(this.id);
 		return `${tb}:${id}`;
 	}
 }
@@ -56,7 +52,7 @@ export class StringRecordId {
 	}
 }
 
-function escape_number(num: number | bigint) {
+export function escape_number(num: number | bigint): string {
 	return num <= MAX_i64 ? num.toString() : `⟨${num}⟩`;
 }
 
@@ -85,12 +81,12 @@ export function escape_ident(str: string): string {
 	return str;
 }
 
-function isOnlyNumbers(str: string) {
+export function isOnlyNumbers(str: string): boolean {
 	const parsed = Number.parseInt(str);
 	return !Number.isNaN(parsed) && parsed.toString() === str;
 }
 
-function isValidIsPart(v: unknown): v is RecordIdValue {
+export function isValidIdPart(v: unknown): v is RecordIdValue {
 	switch (typeof v) {
 		case "string":
 		case "number":
@@ -101,4 +97,12 @@ function isValidIsPart(v: unknown): v is RecordIdValue {
 		default:
 			return false;
 	}
+}
+
+export function escape_id_part(id: RecordIdValue): string {
+	return typeof id === "string"
+		? escape_ident(id)
+		: typeof id === "bigint" || typeof id === "number"
+			? escape_number(id)
+			: JSON.stringify(id);
 }

@@ -1,8 +1,8 @@
 import {
-	type StringRecordId,
+	StringRecordId,
 	Table,
 	type Uuid,
-	type RecordId as _RecordId,
+	RecordId as _RecordId,
 	decodeCbor,
 	encodeCbor,
 } from "./data";
@@ -47,6 +47,7 @@ import {
 	SurrealDbError,
 	UnsupportedEngine,
 } from "./errors.ts";
+import type { RecordIdRange } from "./data/types/range.ts";
 
 type R = Prettify<Record<string, unknown>>;
 type RecordId<Tb extends string = string> = _RecordId<Tb> | StringRecordId;
@@ -327,7 +328,7 @@ export class Surreal {
 	async live<
 		Result extends Record<string, unknown> | Patch = Record<string, unknown>,
 	>(
-		table: string,
+		table: RecordIdRange | Table | string,
 		callback?: LiveHandler<Result>,
 		diff?: boolean,
 	): Promise<Uuid> {
@@ -443,12 +444,14 @@ export class Surreal {
 	 * @param thing - The table name or a record ID to select.
 	 */
 	async select<T extends R>(thing: RecordId): Promise<ActionResult<T>>;
-	async select<T extends R>(thing: Table | string): Promise<ActionResult<T>[]>;
-	async select<T extends R>(thing: RecordId | Table | string) {
+	async select<T extends R>(
+		thing: RecordIdRange | Table | string,
+	): Promise<ActionResult<T>[]>;
+	async select<T extends R>(thing: RecordId | RecordIdRange | Table | string) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("select", [thing]);
 		if (res.error) throw new ResponseError(res.error.message);
-		return res.result;
+		return output(thing, res.result);
 	}
 
 	/**
@@ -471,7 +474,7 @@ export class Surreal {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("create", [thing, data]);
 		if (res.error) throw new ResponseError(res.error.message);
-		return res.result;
+		return output(thing, res.result);
 	}
 
 	/**
@@ -541,17 +544,17 @@ export class Surreal {
 		data?: U,
 	): Promise<ActionResult<T>>;
 	async update<T extends R, U extends R = T>(
-		thing: Table | string,
+		thing: RecordIdRange | Table | string,
 		data?: U,
 	): Promise<ActionResult<T>[]>;
 	async update<T extends R, U extends R = T>(
-		thing: RecordId | Table | string,
+		thing: RecordId | RecordIdRange | Table | string,
 		data?: U,
 	) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("update", [thing, data]);
 		if (res.error) throw new ResponseError(res.error.message);
-		return res.result;
+		return output(thing, res.result);
 	}
 
 	/**
@@ -566,17 +569,17 @@ export class Surreal {
 		data?: U,
 	): Promise<ActionResult<T>>;
 	async upsert<T extends R, U extends R = T>(
-		thing: Table | string,
+		thing: RecordIdRange | Table | string,
 		data?: U,
 	): Promise<ActionResult<T>[]>;
 	async upsert<T extends R, U extends R = T>(
-		thing: RecordId | Table | string,
+		thing: RecordId | RecordIdRange | Table | string,
 		data?: U,
 	) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("upsert", [thing, data]);
 		if (res.error) throw new ResponseError(res.error.message);
-		return res.result;
+		return output(thing, res.result);
 	}
 
 	/**
@@ -591,17 +594,17 @@ export class Surreal {
 		data?: U,
 	): Promise<ActionResult<T>>;
 	async merge<T extends R, U extends R = Partial<T>>(
-		thing: Table | string,
+		thing: RecordIdRange | Table | string,
 		data?: U,
 	): Promise<ActionResult<T>[]>;
 	async merge<T extends R, U extends R = Partial<T>>(
-		thing: RecordId | Table | string,
+		thing: RecordId | RecordIdRange | Table | string,
 		data?: U,
 	) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("merge", [thing, data]);
 		if (res.error) throw new ResponseError(res.error.message);
-		return res.result;
+		return output(thing, res.result);
 	}
 
 	/**
@@ -617,7 +620,7 @@ export class Surreal {
 		diff?: false,
 	): Promise<ActionResult<T>>;
 	async patch<T extends R>(
-		thing: Table | Table | string,
+		thing: RecordIdRange | Table | string,
 		data?: Patch[],
 		diff?: false,
 	): Promise<ActionResult<T>[]>;
@@ -627,12 +630,12 @@ export class Surreal {
 		diff: true,
 	): Promise<Patch[]>;
 	async patch<T extends R>(
-		thing: Table | Table | string,
+		thing: RecordIdRange | Table | string,
 		data: undefined | Patch[],
 		diff: true,
 	): Promise<Patch[][]>;
 	async patch(
-		thing: RecordId | Table | Table | string,
+		thing: RecordId | RecordIdRange | Table | string,
 		data?: Patch[],
 		diff?: boolean,
 	) {
@@ -642,7 +645,7 @@ export class Surreal {
 		const res = await this.rpc<any>("patch", [thing, data, diff]);
 
 		if (res.error) throw new ResponseError(res.error.message);
-		return res.result;
+		return diff ? res.result : output(thing, res.result);
 	}
 
 	/**
@@ -650,12 +653,14 @@ export class Surreal {
 	 * @param thing - The table name or a record ID to select.
 	 */
 	async delete<T extends R>(thing: RecordId): Promise<ActionResult<T>>;
-	async delete<T extends R>(thing: Table | string): Promise<ActionResult<T>[]>;
-	async delete<T extends R>(thing: RecordId | Table | string) {
+	async delete<T extends R>(
+		thing: RecordIdRange | Table | string,
+	): Promise<ActionResult<T>[]>;
+	async delete<T extends R>(thing: RecordId | RecordIdRange | Table | string) {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T>>("delete", [thing]);
 		if (res.error) throw new ResponseError(res.error.message);
-		return res.result;
+		return output(thing, res.result);
 	}
 
 	/**
@@ -720,7 +725,7 @@ export class Surreal {
 		await this.ready;
 		const res = await this.rpc("relate", [from, thing, to, data]);
 		if (res.error) throw new ResponseError(res.error.message);
-		return res.result;
+		return output(thing, res.result);
 	}
 
 	/**
@@ -738,4 +743,11 @@ export class Surreal {
 			params,
 		});
 	}
+}
+
+type Output<T, S> = S extends RecordId ? T : T[];
+function output<T, S>(subject: S, input: T | T[]): Output<T, S> {
+	const one = subject instanceof _RecordId || subject instanceof StringRecordId;
+	if (one) return (Array.isArray(input) ? input[0] : input) as Output<T, S>;
+	return (Array.isArray(input) ? input : [input]) as Output<T, S>;
 }

@@ -11,9 +11,17 @@ import {
 	StringRecordId,
 	Table,
 	Uuid,
+	decodeCbor,
+	encodeCbor,
 	surql,
 } from "../../../src";
 import { setupServer } from "../surreal.ts";
+import {
+	BoundExcluded,
+	BoundIncluded,
+	Range,
+	RecordIdRange,
+} from "../../../src/data/types/range.ts";
 
 const { createSurreal } = await setupServer();
 
@@ -44,7 +52,7 @@ describe("create", async () => {
 	});
 
 	test("multiple", async () => {
-		const multiple = await surreal.create<Person>("person", {
+		const multiple = await surreal.create<Person>(new Table("person"), {
 			id: new RecordId("person", 2),
 			firstname: "Mary",
 			lastname: "Doe",
@@ -77,6 +85,25 @@ describe("select", async () => {
 		const multiple = await surreal.select<Person>("person");
 
 		expect(multiple).toStrictEqual([
+			{
+				id: new RecordId("person", 1),
+				firstname: "John",
+				lastname: "Doe",
+			},
+			{
+				id: new RecordId("person", 2),
+				firstname: "Mary",
+				lastname: "Doe",
+			},
+		]);
+	});
+
+	test("range", async () => {
+		const range = await surreal.select<Person>(
+			new RecordIdRange("person", new BoundIncluded(1), new BoundIncluded(2)),
+		);
+
+		expect(range).toStrictEqual([
 			{
 				id: new RecordId("person", 1),
 				firstname: "John",
@@ -388,6 +415,27 @@ describe("template literal", async () => {
 		const res = await surreal.query(query);
 		expect(res).toStrictEqual([id]);
 	});
+
+	test("concatted", async () => {
+		// Create the initial prepared query
+		const name = new Gap();
+		const query = surql`CREATE ONLY person:concat SET name = ${name}`;
+
+		// Append to it
+		const age = new Gap();
+		query.concat`, age = ${age}`;
+
+		// Check result
+		const res = await surreal.query(query, [name.fill("concat"), age.fill(20)]);
+
+		expect(res).toStrictEqual([
+			{
+				id: new RecordId("person", "concat"),
+				name: "concat",
+				age: 20,
+			},
+		]);
+	});
 });
 
 test("query", async () => {
@@ -432,6 +480,13 @@ test("query", async () => {
 				]),
 			]),
 		]),
+		range: new Range(new BoundIncluded(1), new BoundExcluded(5)),
+		range_unbounded: new Range(new BoundIncluded(1), undefined),
+		rid_range: new RecordIdRange(
+			"test",
+			new BoundIncluded(1),
+			new BoundExcluded(5),
+		),
 	};
 
 	const [output] = await surreal.query<[typeof input]>(/* surql */ "$input", {
