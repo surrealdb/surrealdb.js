@@ -1,10 +1,11 @@
-import type { Range } from "..";
+import { Uuid } from "..";
 import { SurrealDbError } from "../../errors";
 
 const MAX_i64 = 9223372036854775807n;
 export type RecordIdValue =
 	| string
 	| number
+	| Uuid
 	| bigint
 	| unknown[]
 	| Record<string, unknown>;
@@ -87,6 +88,8 @@ export function isOnlyNumbers(str: string): boolean {
 }
 
 export function isValidIdPart(v: unknown): v is RecordIdValue {
+	if (v instanceof Uuid) return true;
+
 	switch (typeof v) {
 		case "string":
 		case "number":
@@ -100,9 +103,11 @@ export function isValidIdPart(v: unknown): v is RecordIdValue {
 }
 
 export function escape_id_part(id: RecordIdValue): string {
-	return typeof id === "string"
-		? escape_ident(id)
-		: typeof id === "bigint" || typeof id === "number"
-			? escape_number(id)
-			: JSON.stringify(id);
+	return id instanceof Uuid
+		? `d"${id}"`
+		: typeof id === "string"
+			? escape_ident(id)
+			: typeof id === "bigint" || typeof id === "number"
+				? escape_number(id)
+				: JSON.stringify(id);
 }
