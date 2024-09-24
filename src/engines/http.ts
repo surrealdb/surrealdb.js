@@ -3,14 +3,16 @@ import {
 	HttpConnectionError,
 	MissingNamespaceDatabase,
 } from "../errors";
-import type { RpcRequest, RpcResponse } from "../types";
-import { getIncrementalID } from "../util/getIncrementalID";
-import { retrieveRemoteVersion } from "../util/versionCheck";
+
 import {
 	AbstractEngine,
 	ConnectionStatus,
 	type EngineEvents,
 } from "./abstract";
+
+import type { RpcRequest, RpcResponse } from "../types";
+import { getIncrementalID } from "../util/getIncrementalID";
+import { retrieveRemoteVersion } from "../util/versionCheck";
 
 const ALWAYS_ALLOW = new Set([
 	"signin",
@@ -32,12 +34,12 @@ export class HttpEngine extends AbstractEngine {
 		token: string | undefined;
 		variables: Record<string, unknown>;
 	} = {
-		url: undefined,
-		namespace: undefined,
-		database: undefined,
-		token: undefined,
-		variables: {},
-	};
+			url: undefined,
+			namespace: undefined,
+			database: undefined,
+			token: undefined,
+			variables: {},
+		};
 
 	private setStatus<T extends ConnectionStatus>(
 		status: T,

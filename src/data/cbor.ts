@@ -1,11 +1,8 @@
-import { Tagged, decode, encode } from "../cbor";
 import {
 	cborCustomDateToDate,
 	dateToCborCustomDate,
 } from "./types/datetime.ts";
-import { Decimal } from "./types/decimal.ts";
-import { Duration } from "./types/duration.ts";
-import { Future } from "./types/future.ts";
+
 import {
 	GeometryCollection,
 	GeometryLine,
@@ -15,12 +12,18 @@ import {
 	GeometryPoint,
 	GeometryPolygon,
 } from "./types/geometry.ts";
+
 import {
 	Range,
 	RecordIdRange,
 	cborToRange,
 	rangeToCbor,
 } from "./types/range.ts";
+
+import { Tagged, decode, encode } from "../cbor";
+import { Decimal } from "./types/decimal.ts";
+import { Duration } from "./types/duration.ts";
+import { Future } from "./types/future.ts";
 import { RecordId, StringRecordId } from "./types/recordid.ts";
 import { Table } from "./types/table.ts";
 import { Uuid } from "./types/uuid.ts";

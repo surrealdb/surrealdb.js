@@ -6,6 +6,7 @@ import {
 	encode,
 	partiallyEncodeObject,
 } from "../cbor";
+
 import { replacer } from "../data/cbor";
 
 let textEncoder: TextEncoder;

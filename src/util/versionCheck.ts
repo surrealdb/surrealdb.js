@@ -1,6 +1,7 @@
 import { UnsupportedVersion, VersionRetrievalFailure } from "../errors.ts";
 
 type Version = `${number}.${number}.${number}`;
+
 export const defaultVersionCheckTimeout = 5000;
 export const supportedSurrealDbVersionMin: Version = "1.4.2";
 export const supportedSurrealDbVersionUntil: Version = "3.0.0";

@@ -1,4 +1,3 @@
-import { WebSocket } from "isows";
 import {
 	ConnectionUnavailable,
 	EngineDisconnected,
@@ -6,15 +5,18 @@ import {
 	UnexpectedConnectionError,
 	UnexpectedServerResponse,
 } from "../errors";
-import { type RpcRequest, type RpcResponse, isLiveResult } from "../types";
-import { getIncrementalID } from "../util/getIncrementalID";
-import { retrieveRemoteVersion } from "../util/versionCheck";
+
 import {
 	AbstractEngine,
 	ConnectionStatus,
 	type EngineContext,
 	type EngineEvents,
 } from "./abstract";
+
+import { WebSocket } from "isows";
+import { type RpcRequest, type RpcResponse, isLiveResult } from "../types";
+import { getIncrementalID } from "../util/getIncrementalID";
+import { retrieveRemoteVersion } from "../util/versionCheck";
 
 export class WebsocketEngine extends AbstractEngine {
 	private pinger?: Pinger;
@@ -75,9 +77,9 @@ export class WebsocketEngine extends AbstractEngine {
 						data instanceof Blob
 							? await data.arrayBuffer()
 							: data.buffer.slice(
-									data.byteOffset,
-									data.byteOffset + data.byteLength,
-								),
+								data.byteOffset,
+								data.byteOffset + data.byteLength,
+							),
 					);
 
 					if (
@@ -112,7 +114,7 @@ export class WebsocketEngine extends AbstractEngine {
 			token: undefined,
 		};
 
-		await this.ready?.catch(() => {});
+		await this.ready?.catch(() => { });
 		this.socket?.close();
 		this.ready = undefined;
 		this.socket = undefined;

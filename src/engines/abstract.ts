@@ -1,12 +1,10 @@
-import type { Encoded } from "../cbor";
-import type { EngineDisconnected } from "../errors";
 import type {
-	LiveAction,
 	LiveHandlerArguments,
-	Patch,
 	RpcRequest,
 	RpcResponse,
 } from "../types";
+
+import type { EngineDisconnected } from "../errors";
 import type { Emitter } from "../util/emitter";
 
 export type Engine = new (context: EngineContext) => AbstractEngine;
@@ -61,11 +59,11 @@ export abstract class AbstractEngine {
 		database: string | undefined;
 		token: string | undefined;
 	} = {
-		url: undefined,
-		namespace: undefined,
-		database: undefined,
-		token: undefined,
-	};
+			url: undefined,
+			namespace: undefined,
+			database: undefined,
+			token: undefined,
+		};
 
 	constructor(context: EngineContext) {
 		this.context = context;
