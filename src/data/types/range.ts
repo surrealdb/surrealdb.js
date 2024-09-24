@@ -3,10 +3,10 @@ import { SurrealDbError } from "../../errors";
 import { toSurrealqlString } from "../../util/to-surrealql-string";
 import { TAG_BOUND_EXCLUDED, TAG_BOUND_INCLUDED, TAG_RANGE } from "../cbor";
 import {
+	type RecordIdValue,
 	escape_id_part,
 	escape_ident,
 	isValidIdPart,
-	type RecordIdValue,
 } from "./recordid";
 
 export class Range<Beg, End> {

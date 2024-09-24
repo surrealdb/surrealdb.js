@@ -35,6 +35,7 @@ import {
 
 import { type Fill, partiallyEncodeObject } from "./cbor";
 import { replacer } from "./data/cbor.ts";
+import type { RecordIdRange } from "./data/types/range.ts";
 import { HttpEngine } from "./engines/http.ts";
 import { WebsocketEngine } from "./engines/ws.ts";
 import {
@@ -47,7 +48,6 @@ import {
 	SurrealDbError,
 	UnsupportedEngine,
 } from "./errors.ts";
-import type { RecordIdRange } from "./data/types/range.ts";
 
 type R = Prettify<Record<string, unknown>>;
 type RecordId<Tb extends string = string> = _RecordId<Tb> | StringRecordId;

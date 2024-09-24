@@ -15,13 +15,13 @@ import {
 	encodeCbor,
 	surql,
 } from "../../../src";
-import { setupServer } from "../surreal.ts";
 import {
 	BoundExcluded,
 	BoundIncluded,
 	Range,
 	RecordIdRange,
 } from "../../../src/data/types/range.ts";
+import { setupServer } from "../surreal.ts";
 
 const { createSurreal } = await setupServer();
 

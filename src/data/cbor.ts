@@ -16,10 +16,10 @@ import {
 	GeometryPolygon,
 } from "./types/geometry.ts";
 import {
-	cborToRange,
 	Range,
-	rangeToCbor,
 	RecordIdRange,
+	cborToRange,
+	rangeToCbor,
 } from "./types/range.ts";
 import { RecordId, StringRecordId } from "./types/recordid.ts";
 import { Table } from "./types/table.ts";
