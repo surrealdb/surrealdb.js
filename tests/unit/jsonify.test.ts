@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import {
+	BoundExcluded,
+	BoundIncluded,
 	Decimal,
 	Duration,
 	GeometryCollection,
@@ -7,7 +9,9 @@ import {
 	GeometryMultiPolygon,
 	GeometryPoint,
 	GeometryPolygon,
+	Range,
 	RecordId,
+	RecordIdRange,
 	StringRecordId,
 	Table,
 	Uuid,
@@ -21,6 +25,16 @@ test("jsonify matches snapshot", () => {
 		id_almost_a_number: new RecordId("some:thing", "1e23"),
 		id_is_a_number: new RecordId("some:thing", 123),
 		str_rid: new StringRecordId("⟨some:thing⟩:under_score"),
+		rng_rid: new RecordIdRange(
+			"bla",
+			new BoundIncluded("a"),
+			new BoundExcluded("z"),
+		),
+		range: new Range(
+			new BoundIncluded(new RecordId("bla", "a")),
+			new BoundExcluded("z"),
+		),
+		range_unbounded: new Range(undefined, new BoundExcluded("z")),
 		dec: new Decimal("3.333333"),
 		dur: new Duration("1d2h"),
 		geo: new GeometryCollection([
