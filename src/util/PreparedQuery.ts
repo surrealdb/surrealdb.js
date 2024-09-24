@@ -41,7 +41,7 @@ export class PreparedQuery {
 		return encode([this.query, this.bindings], { fills });
 	}
 
-	concat(
+	append(
 		query_raw: string[] | TemplateStringsArray,
 		...values: unknown[]
 	): PreparedQuery {

@@ -416,22 +416,22 @@ describe("template literal", async () => {
 		expect(res).toStrictEqual([id]);
 	});
 
-	test("concatted", async () => {
+	test("appended", async () => {
 		// Create the initial prepared query
 		const name = new Gap();
-		const query = surql`CREATE ONLY person:concat SET name = ${name}`;
+		const query = surql`CREATE ONLY person:append SET name = ${name}`;
 
 		// Append to it
 		const age = new Gap();
-		query.concat`, age = ${age}`;
+		query.append`, age = ${age}`;
 
 		// Check result
-		const res = await surreal.query(query, [name.fill("concat"), age.fill(20)]);
+		const res = await surreal.query(query, [name.fill("append"), age.fill(20)]);
 
 		expect(res).toStrictEqual([
 			{
-				id: new RecordId("person", "concat"),
-				name: "concat",
+				id: new RecordId("person", "append"),
+				name: "append",
 				age: 20,
 			},
 		]);
