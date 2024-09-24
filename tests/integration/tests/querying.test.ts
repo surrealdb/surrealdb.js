@@ -52,7 +52,7 @@ describe("create", async () => {
 	});
 
 	test("multiple", async () => {
-		const multiple = await surreal.create<Person>(new Table("person"), {
+		const multiple = await surreal.create<Person>("person", {
 			id: new RecordId("person", 2),
 			firstname: "Mary",
 			lastname: "Doe",
