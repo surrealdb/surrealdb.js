@@ -9,6 +9,14 @@
 			"recommended": true,
 			"suspicious": {
 				"noConsoleLog": "error"
+			},
+			"style": {
+				"useFilenamingConvention": {
+					"level": "error",
+					"options": {
+						"filenameCases": ["kebab-case"]
+					}
+				}
 			}
 		}
 	},

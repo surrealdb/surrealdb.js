@@ -7,14 +7,14 @@ import {
 
 import { Tagged } from "../../cbor";
 import { SurrealDbError } from "../../errors";
-import { toSurrealqlString } from "../../util/toSurrealqlString";
+import { toSurrealqlString } from "../../util/to-surrealql-string";
 import { TAG_BOUND_EXCLUDED, TAG_BOUND_INCLUDED } from "../cbor";
 
 export class Range<Beg, End> {
 	constructor(
 		readonly beg: Bound<Beg>,
 		readonly end: Bound<End>,
-	) { }
+	) {}
 
 	toJSON(): string {
 		return this.toString();
@@ -29,11 +29,11 @@ export class Range<Beg, End> {
 
 export type Bound<T> = BoundIncluded<T> | BoundExcluded<T> | undefined;
 export class BoundIncluded<T> {
-	constructor(readonly value: T) { }
+	constructor(readonly value: T) {}
 }
 
 export class BoundExcluded<T> {
-	constructor(readonly value: T) { }
+	constructor(readonly value: T) {}
 }
 
 export class RecordIdRange<Tb extends string = string> {

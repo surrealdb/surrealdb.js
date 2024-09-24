@@ -7,6 +7,14 @@ export const supportedSurrealDbVersionMin: Version = "1.4.2";
 export const supportedSurrealDbVersionUntil: Version = "3.0.0";
 export const supportedSurrealDbVersionRange: string = `>= ${supportedSurrealDbVersionMin} < ${supportedSurrealDbVersionUntil}`;
 
+/**
+ * Perform a version check against the supported version range
+ * and throws an error if the version is not supported.
+ *
+ * @param version The version to check.
+ * @param min The minimum supported version.
+ * @param until The maximum supported version.
+ */
 export function versionCheck(
 	version: string,
 	min: Version = supportedSurrealDbVersionMin,
@@ -19,6 +27,14 @@ export function versionCheck(
 	return true;
 }
 
+/**
+ * Perform a version check against the supported version range.
+ *
+ * @param version The version to check.
+ * @param min The minimum supported version.
+ * @param until The maximum supported version.
+ * @returns True if the version is supported, false otherwise.
+ */
 export function isVersionSupported(
 	version: string,
 	min: Version = supportedSurrealDbVersionMin,
@@ -34,6 +50,13 @@ export function isVersionSupported(
 	);
 }
 
+/**
+ * Attempt to retrieve the version of the remote connection URL.
+ *
+ * @param url The URL to retrieve the version from.
+ * @param timeout The timeout in milliseconds.
+ * @returns The version information
+ */
 export async function retrieveRemoteVersion(
 	url: URL,
 	timeout?: number,

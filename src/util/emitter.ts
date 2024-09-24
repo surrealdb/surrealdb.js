@@ -1,8 +1,15 @@
+export type UnknownEvents = Record<string, unknown[]>;
+
+/**
+ * A listener which can be used to subscribe to events.
+ */
 export type Listener<Args extends unknown[] = unknown[]> = (
 	...args: Args
 ) => unknown;
-export type UnknownEvents = Record<string, unknown[]>;
 
+/**
+ * An event emitter which can be used to subscribe to and emit events.
+ */
 export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 	private collectable: Partial<{
 		[K in keyof Events]: Events[K][];

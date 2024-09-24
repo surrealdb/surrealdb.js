@@ -1,5 +1,12 @@
-import { PreparedQuery } from "./preparedQuery.ts";
+import { PreparedQuery } from "./prepared-query.ts";
 
+/**
+ * Create a prepared query from a template string
+ *
+ * @param query_raw The template string
+ * @param values Optional values to bind to the query
+ * @returns A prepared query
+ */
 export function surrealql(
 	query_raw: string[] | TemplateStringsArray,
 	...values: unknown[]

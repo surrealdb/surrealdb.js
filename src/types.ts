@@ -1,7 +1,7 @@
 import type { Fill } from "./cbor";
 import { type RecordId, Uuid } from "./data";
 import { SurrealDbError } from "./errors";
-import type { PreparedQuery } from "./util/preparedQuery";
+import type { PreparedQuery } from "./util/prepared-query";
 
 export type ActionResult<T extends Record<string, unknown>> = Prettify<
 	T["id"] extends RecordId ? T : { id: RecordId } & T

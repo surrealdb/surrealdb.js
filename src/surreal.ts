@@ -39,10 +39,10 @@ import {
 	UnsupportedEngine,
 } from "./errors.ts";
 
-import { PreparedQuery } from "./util/preparedQuery.ts";
+import { PreparedQuery } from "./util/prepared-query.ts";
 import { Emitter } from "./util/emitter.ts";
-import { processAuthVars } from "./util/processAuthVars.ts";
-import { versionCheck } from "./util/versionCheck.ts";
+import { processAuthVars } from "./util/process-auth-vars.ts";
+import { versionCheck } from "./util/version-check.ts";
 import { type Fill, partiallyEncodeObject } from "./cbor";
 import { replacer } from "./data/cbor.ts";
 import type { RecordIdRange } from "./data/types/range.ts";
@@ -425,12 +425,12 @@ export class Surreal {
 		const params =
 			q instanceof PreparedQuery
 				? [
-					q.query,
-					partiallyEncodeObject(q.bindings, {
-						fills: b as Fill[],
-						replacer: replacer.encode,
-					}),
-				]
+						q.query,
+						partiallyEncodeObject(q.bindings, {
+							fills: b as Fill[],
+							replacer: replacer.encode,
+						}),
+					]
 				: [q, b];
 
 		await this.ready;

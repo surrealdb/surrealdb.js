@@ -11,8 +11,8 @@ import {
 } from "./abstract";
 
 import type { RpcRequest, RpcResponse } from "../types";
-import { getIncrementalID } from "../util/getIncrementalID";
-import { retrieveRemoteVersion } from "../util/versionCheck";
+import { getIncrementalID } from "../util/get-incremental-id";
+import { retrieveRemoteVersion } from "../util/version-check";
 
 const ALWAYS_ALLOW = new Set([
 	"signin",
@@ -34,12 +34,12 @@ export class HttpEngine extends AbstractEngine {
 		token: string | undefined;
 		variables: Record<string, unknown>;
 	} = {
-			url: undefined,
-			namespace: undefined,
-			database: undefined,
-			token: undefined,
-			variables: {},
-		};
+		url: undefined,
+		namespace: undefined,
+		database: undefined,
+		token: undefined,
+		variables: {},
+	};
 
 	private setStatus<T extends ConnectionStatus>(
 		status: T,

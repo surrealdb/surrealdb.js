@@ -15,8 +15,8 @@ import {
 
 import { WebSocket } from "isows";
 import { type RpcRequest, type RpcResponse, isLiveResult } from "../types";
-import { getIncrementalID } from "../util/getIncrementalID";
-import { retrieveRemoteVersion } from "../util/versionCheck";
+import { getIncrementalID } from "../util/get-incremental-id";
+import { retrieveRemoteVersion } from "../util/version-check";
 
 export class WebsocketEngine extends AbstractEngine {
 	private pinger?: Pinger;
@@ -77,9 +77,9 @@ export class WebsocketEngine extends AbstractEngine {
 						data instanceof Blob
 							? await data.arrayBuffer()
 							: data.buffer.slice(
-								data.byteOffset,
-								data.byteOffset + data.byteLength,
-							),
+									data.byteOffset,
+									data.byteOffset + data.byteLength,
+								),
 					);
 
 					if (
@@ -114,7 +114,7 @@ export class WebsocketEngine extends AbstractEngine {
 			token: undefined,
 		};
 
-		await this.ready?.catch(() => { });
+		await this.ready?.catch(() => {});
 		this.socket?.close();
 		this.ready = undefined;
 		this.socket = undefined;
