@@ -5,6 +5,7 @@ import { SURREAL_PASS } from "./env.ts";
 import { SURREAL_DB } from "./env.ts";
 import { SURREAL_NS } from "./env.ts";
 import { SURREAL_PORT } from "./env.ts";
+import type { Subprocess } from "bun";
 
 export type Protocol = "http" | "ws";
 export const PROTOCOL: Protocol =
@@ -39,30 +40,42 @@ type CreateSurrealOptions = {
 	auth?: PremadeAuth;
 	reachable?: boolean;
 	unselected?: boolean;
+	reconnect?: boolean;
 };
 
-export async function setupServer(): Promise<{
+export async function spawnTestServer(): Promise<{
 	createSurreal: (options?: CreateSurrealOptions) => Promise<Surreal>;
+	startServer: () => Promise<void>;
+	stopServer: () => Promise<void>;
 }> {
-	const proc = Bun.spawn(["surreal", "start"], {
-		env: {
-			SURREAL_BIND,
-			SURREAL_USER,
-			SURREAL_PASS,
-		},
-	});
+	let server: Subprocess | undefined;
 
-	await Bun.sleep(1000);
+	async function startServer() {
+		if (server) return;
 
-	afterAll(async () => {
-		proc.kill();
-	});
+		server = Bun.spawn(["surreal", "start"], {
+			env: {
+				SURREAL_BIND,
+				SURREAL_USER,
+				SURREAL_PASS,
+			},
+		});
+
+		await Bun.sleep(1000);
+	}
+
+	async function stopServer() {
+		if (!server) return;
+		server.kill();
+		server = undefined;
+	}
 
 	async function createSurreal({
 		protocol,
 		auth,
 		reachable,
 		unselected,
+		reconnect,
 	}: CreateSurrealOptions = {}) {
 		protocol = protocol ? protocol : PROTOCOL;
 		const surreal = new Surreal();
@@ -71,11 +84,19 @@ export async function setupServer(): Promise<{
 			namespace: unselected ? undefined : SURREAL_NS,
 			database: unselected ? undefined : SURREAL_DB,
 			auth: createAuth(auth ?? "root"),
+			reconnect: reconnect ?? false,
+			reconnectTimeout: 2500,
 		});
 
 		afterAll(async () => await surreal.close());
 		return surreal;
 	}
 
-	return { createSurreal };
+	afterAll(async () => {
+		server?.kill();
+	});
+
+	await startServer();
+
+	return { createSurreal, startServer, stopServer };
 }

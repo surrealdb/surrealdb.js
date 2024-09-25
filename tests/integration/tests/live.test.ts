@@ -1,15 +1,15 @@
-import { describe, expect, test } from "bun:test";
 import {
-	type LiveAction,
 	type LiveHandlerArguments,
 	RecordId,
 	ResponseError,
 	type Surreal,
 	Uuid,
 } from "../../../src";
-import { setupServer } from "../surreal.ts";
 
-const { createSurreal } = await setupServer();
+import { describe, expect, test } from "bun:test";
+import { spawnTestServer } from "../surreal.ts";
+
+const { createSurreal } = await spawnTestServer();
 
 const isHttp = (surreal: Surreal) =>
 	surreal.connection?.connection.url?.protocol.startsWith("http");
