@@ -15,10 +15,10 @@ export type ConvertMethod<T = unknown> = (result: unknown[]) => T;
 
 /**
  * A prepared query that encapulates a query and its bindings.
- * 
+ *
  * While bound values are safely encoded into the query, you can
  * pass a `Gap` instance to later set or override it when sending the query.
- * 
+ *
  * Prepared queries can be extended with the `append` method, which
  * allows you to add more query segments and bindings.
  */

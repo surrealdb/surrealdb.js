@@ -1,8 +1,4 @@
-import type {
-	LiveHandlerArguments,
-	RpcRequest,
-	RpcResponse,
-} from "../types";
+import type { LiveHandlerArguments, RpcRequest, RpcResponse } from "../types";
 
 import type { EngineDisconnected } from "../errors";
 import type { Emitter } from "../util/emitter";
@@ -59,11 +55,11 @@ export abstract class AbstractEngine {
 		database: string | undefined;
 		token: string | undefined;
 	} = {
-			url: undefined,
-			namespace: undefined,
-			database: undefined,
-			token: undefined,
-		};
+		url: undefined,
+		namespace: undefined,
+		database: undefined,
+		token: undefined,
+	};
 
 	constructor(context: EngineContext) {
 		this.context = context;
