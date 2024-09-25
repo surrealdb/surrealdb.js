@@ -56,6 +56,8 @@ export class Surreal {
 	public connection: AbstractEngine | undefined;
 	ready?: Promise<void>;
 	emitter: Emitter<EngineEvents>;
+	terminated = false;
+	reconnector?: unknown;
 	protected engines: Engines = {
 		ws: WebsocketEngine,
 		wss: WebsocketEngine,
@@ -82,7 +84,9 @@ export class Surreal {
 
 	/**
 	 * Establish a socket connection to the database
-	 * @param connection - Connection details
+	 *
+	 * @param url - The URL of the SurrealDB instance.
+	 * @param opts - Options for the connection.
 	 */
 	async connect(
 		url: string | URL,
@@ -93,6 +97,8 @@ export class Surreal {
 			prepare?: (connection: Surreal) => unknown;
 			versionCheck?: boolean;
 			versionCheckTimeout?: number;
+			reconnect?: boolean;
+			reconnectTimeout?: number;
 		} = {},
 	): Promise<true> {
 		// biome-ignore lint/style/noParameterAssign: Need to ensure it's a URL
@@ -130,6 +136,17 @@ export class Surreal {
 			versionCheck(version);
 		}
 
+		// Schedule reconnect
+		if (opts.reconnect) {
+			const delay = opts.reconnectTimeout ?? 5000;
+			this.emitter.subscribeOnce(ConnectionStatus.Disconnected).then(() => {
+				if (this.terminated) return;
+				this.emitter.emit("reconnecting", []);
+				this.reconnector = setTimeout(() => this.connect(url, opts), delay);
+			});
+		}
+
+		this.terminated = false;
 		this.connection = connection;
 		this.ready = new Promise((resolve, reject) =>
 			connection
@@ -162,6 +179,8 @@ export class Surreal {
 	 * Disconnect the socket to the database
 	 */
 	async close(): Promise<true> {
+		clearTimeout(this.reconnector as number);
+		this.terminated = true;
 		this.clean();
 		await this.connection?.disconnect();
 		return true;

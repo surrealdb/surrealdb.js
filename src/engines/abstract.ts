@@ -10,6 +10,7 @@ export type EngineEvents = {
 	connecting: [];
 	connected: [];
 	disconnected: [];
+	reconnecting: [];
 	error: [Error];
 
 	[K: `rpc-${string | number}`]: [RpcResponse | EngineDisconnected];
