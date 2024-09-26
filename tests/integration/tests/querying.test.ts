@@ -99,6 +99,9 @@ describe("select", async () => {
 	});
 
 	test("range", async () => {
+		const version = await surreal.version();
+		if (version.startsWith("surrealdb-1")) return;
+
 		const range = await surreal.select<Person>(
 			new RecordIdRange("person", new BoundIncluded(1), new BoundIncluded(2)),
 		);
@@ -440,6 +443,7 @@ describe("template literal", async () => {
 
 test("query", async () => {
 	const surreal = await createSurreal();
+	const version = await surreal.version();
 
 	const input = {
 		// Native
@@ -480,13 +484,18 @@ test("query", async () => {
 				]),
 			]),
 		]),
-		range: new Range(new BoundIncluded(1), new BoundExcluded(5)),
-		range_unbounded: new Range(new BoundIncluded(1), undefined),
-		rid_range: new RecordIdRange(
-			"test",
-			new BoundIncluded(1),
-			new BoundExcluded(5),
-		),
+		// Test these only for SurrealDB 2.x
+		...(version.startsWith("surreal-2")
+			? {
+					range: new Range(new BoundIncluded(1), new BoundExcluded(5)),
+					range_unbounded: new Range(new BoundIncluded(1), undefined),
+					rid_range: new RecordIdRange(
+						"test",
+						new BoundIncluded(1),
+						new BoundExcluded(5),
+					),
+				}
+			: {}),
 	};
 
 	const [output] = await surreal.query<[typeof input]>(/* surql */ "$input", {
