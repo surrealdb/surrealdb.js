@@ -28,7 +28,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                surrealdb: ["v1.4.2", "v1.5.3", "v2.0.0-alpha.4"]
+                surrealdb: ["v1.4.2", "v1.5.3", "v2.0.2"]
                 engine: ["ws", "http"]
         steps:
             - name: Install SurrealDB ${{ matrix.surrealdb }} over ${{ matrix.engine }} engine
