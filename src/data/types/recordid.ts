@@ -1,5 +1,5 @@
-import { Uuid } from "./uuid";
 import { SurrealDbError } from "../../errors";
+import { Uuid } from "./uuid";
 
 const MAX_i64 = 9223372036854775807n;
 export type RecordIdValue =
