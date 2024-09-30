@@ -1,4 +1,4 @@
-import { Uuid } from "..";
+import { Uuid } from "./uuid";
 import { SurrealDbError } from "../../errors";
 
 const MAX_i64 = 9223372036854775807n;
