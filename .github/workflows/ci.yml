@@ -5,6 +5,7 @@ on:
         branches:
             - main
     pull_request:
+    workflow_call:
 
 jobs:
     quality:
@@ -47,6 +48,51 @@ jobs:
               run: bun test
               env:
                 SURREAL_PROTOCOL: ${{ matrix.engine }}
+
+    dry-run-jsr-publish:
+        name: JSR Publish Dry Run
+        runs-on: ubuntu-latest
+        steps:
+            - name: Install Bun
+              uses: oven-sh/setup-bun@v2
+
+            - name: Code Checkout
+              uses: actions/checkout@v4
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Generate JSR config
+              run: bun run jsr
+
+            - name: Dry run publish to JSR
+              run: bunx jsr publish --dry-run
+
+    dry-run-npm-publish:
+        name: NPM Publish Dry Run
+        runs-on: ubuntu-latest
+        steps:
+            - name: Install Bun
+              uses: oven-sh/setup-bun@v2
+
+            - uses: actions/setup-node@v4
+              with:
+                node-version: '18.x'
+                registry-url: 'https://registry.npmjs.org'
+
+            - name: Code Checkout
+              uses: actions/checkout@v4
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Build library
+              run: bun run build
+
+            - name: Dry run publish to NPM
+              run: npm publish --dry-run --tag $(npm pkg get version | tr -d '"' | grep -qoE "^\d+\.\d+\.\d+$" && echo 'latest' || echo 'beta')
+              env:
+                NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     build:
         name: Build

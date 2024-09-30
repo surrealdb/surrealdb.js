@@ -1,14 +1,20 @@
 name: Publish
 
 on:
-  push:
-    tags:
-      - '*'
+    release:
+        types: [published]
 
 jobs:
+    ci:
+        name: CI
+        uses: ./.github/workflows/ci.yml
     npm:
         name: NPM
+        needs: [ci]
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write
         steps:
             - name: Install Bun
               uses: oven-sh/setup-bun@v2
@@ -28,13 +34,12 @@ jobs:
               run: bun run build
 
             - name: Publish to NPM
-              # TODO temporary, enable beta tags again asap
-              # run: npm publish --tag $(npm pkg get version | tr -d '"' | grep -qoE "^\d+\.\d+\.\d+$" && echo 'latest' || echo 'beta')
-              run: npm publish
+              run: npm publish --provenance --tag $(npm pkg get version | tr -d '"' | grep -qoE "^\d+\.\d+\.\d+$" && echo 'latest' || echo 'beta')
               env:
                 NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     jsr:
         name: JSR
+        needs: [ci]
         runs-on: ubuntu-latest
         permissions:
             contents: read
