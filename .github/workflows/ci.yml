@@ -90,7 +90,7 @@ jobs:
               run: bun run build
 
             - name: Dry run publish to NPM
-              run: npm publish --dry-run --tag $(npm pkg get version | tr -d '"' | grep -qoE "^\d+\.\d+\.\d+$" && echo 'latest' || echo 'beta')
+              run: npm publish --dry-run
               env:
                 NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
