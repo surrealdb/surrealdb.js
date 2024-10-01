@@ -16,6 +16,7 @@ export {
 	ConnectionStatus,
 	AbstractEngine,
 	type Engine,
+	type Engines,
 	type EngineEvents,
 } from "./engines/abstract.ts";
 export { Surreal, Surreal as default } from "./surreal.ts";
