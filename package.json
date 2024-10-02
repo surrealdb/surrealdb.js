@@ -3,6 +3,13 @@
 	"version": "1.0.5",
 	"type": "module",
 	"license": "Apache-2.0",
+	"description": "The official SurrealDB SDK for JavaScript.",
+	"keywords": [
+		"surrealdb",
+		"surrealdb.js",
+		"javascript",
+		"typescript",
+	],
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/surrealdb/surrealdb.js.git"
