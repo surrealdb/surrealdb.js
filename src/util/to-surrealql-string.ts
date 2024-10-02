@@ -11,16 +11,16 @@ import {
 } from "../data";
 
 export function toSurrealqlString(input: unknown): string {
-	if (typeof input === "object") {
-		if (input === null) return "NULL";
-		if (input === undefined) return "NONE";
+	if (typeof input === "string") return `s${JSON.stringify(input)}`;
+	if (input === null) return "NULL";
+	if (input === undefined) return "NONE";
 
+	if (typeof input === "object") {
 		// We explicitely use string prefixes to ensure compability with both SurrealDB 1.x and 2.x
 		if (input instanceof Date) return `d${JSON.stringify(input.toISOString())}`;
 		if (input instanceof Uuid) return `u${JSON.stringify(input.toString())}`;
 		if (input instanceof RecordId || input instanceof StringRecordId)
 			return `r${JSON.stringify(input.toString())}`;
-		if (typeof input === "string") return `s${JSON.stringify(input)}`;
 
 		if (input instanceof Geometry) return toSurrealqlString(input.toJSON());
 
@@ -38,27 +38,27 @@ export function toSurrealqlString(input: unknown): string {
 		switch (Object.getPrototypeOf(input)) {
 			case Object.prototype: {
 				let output = "{ ";
-				for (const [k, v] of Object.entries(input as object)) {
-					output += `${JSON.stringify(k)}: ${toSurrealqlString(v)},`;
+				const entries = Object.entries(input as object);
+				for (const [i, [k, v]] of entries.entries()) {
+					output += `${JSON.stringify(k)}: ${toSurrealqlString(v)}`;
+					if (i < entries.length - 1) output += ", ";
 				}
 				output += " }";
 				return output;
 			}
 			case Map.prototype: {
 				let output = "{ ";
-				for (const [k, v] of (input as Map<unknown, unknown>).entries()) {
-					output += `${JSON.stringify(k)}: ${toSurrealqlString(v)},`;
+				const entries = Array.from((input as Map<unknown, unknown>).entries());
+				for (const [i, [k, v]] of entries.entries()) {
+					output += `${JSON.stringify(k)}: ${toSurrealqlString(v)}`;
+					if (i < entries.length - 1) output += ", ";
 				}
 				output += " }";
 				return output;
 			}
 			case Array.prototype: {
-				let output = "[ ";
-				for (const v of input as unknown[]) {
-					output += `${toSurrealqlString(v)},`;
-				}
-				output += " ]";
-				return output;
+				const array = (input as unknown[]).map(toSurrealqlString);
+				return `[ ${array.join(", ")} ]`;
 			}
 			case Set.prototype: {
 				const set = new Set([...(input as [])].map(toSurrealqlString));

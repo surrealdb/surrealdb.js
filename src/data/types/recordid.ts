@@ -1,4 +1,5 @@
 import { SurrealDbError } from "../../errors";
+import { toSurrealqlString } from "../../util/to-surrealql-string";
 import { Uuid } from "./uuid";
 
 const MAX_i64 = 9223372036854775807n;
@@ -109,5 +110,5 @@ export function escape_id_part(id: RecordIdValue): string {
 			? escape_ident(id)
 			: typeof id === "bigint" || typeof id === "number"
 				? escape_number(id)
-				: JSON.stringify(id);
+				: toSurrealqlString(id);
 }
