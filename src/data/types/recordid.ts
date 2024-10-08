@@ -76,7 +76,7 @@ export function escape_ident(str: string): string {
 			!(code > 96 && code < 123) && // lower alpha (a-z)
 			!(code === 95) // underscore (_)
 		) {
-			return `⟨${str.replaceAll("⟩", "⟩")}⟩`;
+			return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
 		}
 	}
 
@@ -84,8 +84,9 @@ export function escape_ident(str: string): string {
 }
 
 export function isOnlyNumbers(str: string): boolean {
-	const parsed = Number.parseInt(str);
-	return !Number.isNaN(parsed) && parsed.toString() === str;
+	const stripped = str.replace("_", "");
+	const parsed = Number.parseInt(stripped);
+	return !Number.isNaN(parsed) && parsed.toString() === stripped;
 }
 
 export function isValidIdPart(v: unknown): v is RecordIdValue {
@@ -105,7 +106,7 @@ export function isValidIdPart(v: unknown): v is RecordIdValue {
 
 export function escape_id_part(id: RecordIdValue): string {
 	return id instanceof Uuid
-		? `d"${id}"`
+		? `u"${id}"`
 		: typeof id === "string"
 			? escape_ident(id)
 			: typeof id === "bigint" || typeof id === "number"
