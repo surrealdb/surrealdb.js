@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { RecordId, ResponseError } from "../../../src";
-import { createAuth, setupServer } from "../surreal.ts";
+import { createAuth, spawnTestServer } from "../surreal.ts";
 
-const { createSurreal } = await setupServer();
+const { createSurreal } = await spawnTestServer();
 
 describe("basic auth", async () => {
 	const surreal = await createSurreal();

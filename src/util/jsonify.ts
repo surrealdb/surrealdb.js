@@ -38,6 +38,12 @@ export type Jsonify<T> = T extends
 									? `${Tb}`
 									: T;
 
+/**
+ * Recursively converts SurrealQL values to a JSON serializable representation.
+ *
+ * @param input The structure to convert recursively.
+ * @returns JSON serializable representation of the input.
+ */
 export function jsonify<T>(input: T): Jsonify<T> {
 	if (typeof input === "object") {
 		if (input === null) return null as Jsonify<T>;

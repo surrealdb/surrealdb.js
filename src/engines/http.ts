@@ -3,14 +3,16 @@ import {
 	HttpConnectionError,
 	MissingNamespaceDatabase,
 } from "../errors";
-import type { RpcRequest, RpcResponse } from "../types";
-import { getIncrementalID } from "../util/getIncrementalID";
-import { retrieveRemoteVersion } from "../util/versionCheck";
+
 import {
 	AbstractEngine,
 	ConnectionStatus,
 	type EngineEvents,
 } from "./abstract";
+
+import type { RpcRequest, RpcResponse } from "../types";
+import { getIncrementalID } from "../util/get-incremental-id";
+import { retrieveRemoteVersion } from "../util/version-check";
 
 const ALWAYS_ALLOW = new Set([
 	"signin",

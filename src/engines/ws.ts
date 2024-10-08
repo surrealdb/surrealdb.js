@@ -1,4 +1,3 @@
-import { WebSocket } from "isows";
 import {
 	ConnectionUnavailable,
 	EngineDisconnected,
@@ -6,15 +5,18 @@ import {
 	UnexpectedConnectionError,
 	UnexpectedServerResponse,
 } from "../errors";
-import { type RpcRequest, type RpcResponse, isLiveResult } from "../types";
-import { getIncrementalID } from "../util/getIncrementalID";
-import { retrieveRemoteVersion } from "../util/versionCheck";
+
 import {
 	AbstractEngine,
 	ConnectionStatus,
 	type EngineContext,
 	type EngineEvents,
 } from "./abstract";
+
+import { WebSocket } from "isows";
+import { type RpcRequest, type RpcResponse, isLiveResult } from "../types";
+import { getIncrementalID } from "../util/get-incremental-id";
+import { retrieveRemoteVersion } from "../util/version-check";
 
 export class WebsocketEngine extends AbstractEngine {
 	private pinger?: Pinger;

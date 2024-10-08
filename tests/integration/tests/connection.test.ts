@@ -1,11 +1,12 @@
-import { describe, expect, test } from "bun:test";
 import {
 	VersionRetrievalFailure,
 	defaultVersionCheckTimeout,
 } from "../../../src";
-import { setupServer } from "../surreal.ts";
 
-const { createSurreal } = await setupServer();
+import { describe, expect, test } from "bun:test";
+import { spawnTestServer } from "../surreal.ts";
+
+const { createSurreal } = await spawnTestServer();
 
 describe("version check", async () => {
 	test("check version", async () => {

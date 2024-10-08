@@ -1,4 +1,3 @@
-import { describe, expect, test } from "bun:test";
 import {
 	Duration,
 	Gap,
@@ -11,19 +10,20 @@ import {
 	StringRecordId,
 	Table,
 	Uuid,
-	decodeCbor,
-	encodeCbor,
 	surql,
 } from "../../../src";
+
 import {
 	BoundExcluded,
 	BoundIncluded,
 	Range,
 	RecordIdRange,
 } from "../../../src/data/types/range.ts";
-import { setupServer } from "../surreal.ts";
 
-const { createSurreal } = await setupServer();
+import { describe, expect, test } from "bun:test";
+import { spawnTestServer } from "../surreal.ts";
+
+const { createSurreal } = await spawnTestServer();
 
 type Person = {
 	id: RecordId<"person">;

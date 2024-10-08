@@ -1,12 +1,6 @@
-import type { Encoded } from "../cbor";
+import type { LiveHandlerArguments, RpcRequest, RpcResponse } from "../types";
+
 import type { EngineDisconnected } from "../errors";
-import type {
-	LiveAction,
-	LiveHandlerArguments,
-	Patch,
-	RpcRequest,
-	RpcResponse,
-} from "../types";
 import type { Emitter } from "../util/emitter";
 
 export type Engine = new (context: EngineContext) => AbstractEngine;
@@ -16,6 +10,7 @@ export type EngineEvents = {
 	connecting: [];
 	connected: [];
 	disconnected: [];
+	reconnecting: [];
 	error: [Error];
 
 	[K: `rpc-${string | number}`]: [RpcResponse | EngineDisconnected];

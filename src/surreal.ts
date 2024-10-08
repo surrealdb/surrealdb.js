@@ -6,6 +6,7 @@ import {
 	decodeCbor,
 	encodeCbor,
 } from "./data";
+
 import {
 	type AbstractEngine,
 	ConnectionStatus,
@@ -13,10 +14,6 @@ import {
 	type EngineEvents,
 	type Engines,
 } from "./engines/abstract.ts";
-import { PreparedQuery } from "./util/PreparedQuery.ts";
-import { Emitter } from "./util/emitter.ts";
-import { processAuthVars } from "./util/processAuthVars.ts";
-import { versionCheck } from "./util/versionCheck.ts";
 
 import {
 	type AccessRecordAuth,
@@ -33,21 +30,24 @@ import {
 	convertAuth,
 } from "./types.ts";
 
-import { type Fill, partiallyEncodeObject } from "./cbor";
-import { replacer } from "./data/cbor.ts";
-import type { RecordIdRange } from "./data/types/range.ts";
-import { HttpEngine } from "./engines/http.ts";
-import { WebsocketEngine } from "./engines/ws.ts";
 import {
 	EngineDisconnected,
 	NoActiveSocket,
-	NoDatabaseSpecified,
-	NoNamespaceSpecified,
 	NoTokenReturned,
 	ResponseError,
 	SurrealDbError,
 	UnsupportedEngine,
 } from "./errors.ts";
+
+import { type Fill, partiallyEncodeObject } from "./cbor";
+import { replacer } from "./data/cbor.ts";
+import type { RecordIdRange } from "./data/types/range.ts";
+import { HttpEngine } from "./engines/http.ts";
+import { WebsocketEngine } from "./engines/ws.ts";
+import { Emitter } from "./util/emitter.ts";
+import { PreparedQuery } from "./util/prepared-query.ts";
+import { processAuthVars } from "./util/process-auth-vars.ts";
+import { versionCheck } from "./util/version-check.ts";
 
 type R = Prettify<Record<string, unknown>>;
 type RecordId<Tb extends string = string> = _RecordId<Tb> | StringRecordId;
@@ -56,6 +56,8 @@ export class Surreal {
 	public connection: AbstractEngine | undefined;
 	ready?: Promise<void>;
 	emitter: Emitter<EngineEvents>;
+	terminated = false;
+	reconnector?: unknown;
 	protected engines: Engines = {
 		ws: WebsocketEngine,
 		wss: WebsocketEngine,
@@ -82,7 +84,9 @@ export class Surreal {
 
 	/**
 	 * Establish a socket connection to the database
-	 * @param connection - Connection details
+	 *
+	 * @param url - The URL of the SurrealDB instance.
+	 * @param opts - Options for the connection.
 	 */
 	async connect(
 		url: string | URL,
@@ -93,6 +97,8 @@ export class Surreal {
 			prepare?: (connection: Surreal) => unknown;
 			versionCheck?: boolean;
 			versionCheckTimeout?: number;
+			reconnect?: boolean;
+			reconnectTimeout?: number;
 		} = {},
 	): Promise<true> {
 		// biome-ignore lint/style/noParameterAssign: Need to ensure it's a URL
@@ -130,6 +136,17 @@ export class Surreal {
 			versionCheck(version);
 		}
 
+		// Schedule reconnect
+		if (opts.reconnect) {
+			const delay = opts.reconnectTimeout ?? 5000;
+			this.emitter.subscribeOnce(ConnectionStatus.Disconnected).then(() => {
+				if (this.terminated) return;
+				this.emitter.emit("reconnecting", []);
+				this.reconnector = setTimeout(() => this.connect(url, opts), delay);
+			});
+		}
+
+		this.terminated = false;
 		this.connection = connection;
 		this.ready = new Promise((resolve, reject) =>
 			connection
@@ -162,6 +179,8 @@ export class Surreal {
 	 * Disconnect the socket to the database
 	 */
 	async close(): Promise<true> {
+		clearTimeout(this.reconnector as number);
+		this.terminated = true;
 		this.clean();
 		await this.connection?.disconnect();
 		return true;
