@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { type AnyAuth, convertAuth } from "../../src";
+import { convertAuth } from "../../src";
 
 test("valid", () => {
 	expect(convertAuth({ username: "root", password: "root" })).toStrictEqual({

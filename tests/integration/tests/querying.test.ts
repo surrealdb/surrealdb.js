@@ -11,8 +11,6 @@ import {
 	StringRecordId,
 	Table,
 	Uuid,
-	decodeCbor,
-	encodeCbor,
 	surql,
 } from "../../../src";
 import {

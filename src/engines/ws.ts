@@ -7,8 +7,8 @@ import {
 	UnexpectedServerResponse,
 } from "../errors";
 import { type RpcRequest, type RpcResponse, isLiveResult } from "../types";
-import { getIncrementalID } from "../util/getIncrementalID";
-import { retrieveRemoteVersion } from "../util/versionCheck";
+import { getIncrementalID } from "../util/get-incremental-id";
+import { retrieveRemoteVersion } from "../util/version-check";
 import {
 	AbstractEngine,
 	ConnectionStatus,
