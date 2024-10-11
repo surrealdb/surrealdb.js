@@ -8,4 +8,9 @@ export abstract class Value {
 	 * Convert this value to a serializable string
 	 */
 	abstract toJSON(): unknown;
+
+	/**
+	 * Convert this value to a string representation
+	 */
+	abstract toString(): string;
 }
