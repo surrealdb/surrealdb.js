@@ -1,5 +1,6 @@
 import { Tagged } from "../../cbor";
 import { SurrealDbError } from "../../errors";
+import { equals } from "../../util/equals";
 import { toSurrealqlString } from "../../util/to-surrealql-string";
 import { TAG_BOUND_EXCLUDED, TAG_BOUND_INCLUDED } from "../cbor";
 import { Value } from "../value";
@@ -23,8 +24,8 @@ export class Range<Beg, End> extends Value {
 		if (this.beg?.constructor !== other.beg?.constructor) return false;
 		if (this.end?.constructor !== other.end?.constructor) return false;
 		return (
-			this.beg?.value === other.beg?.value &&
-			this.end?.value === other.end?.value
+			equals(this.beg?.value, other.beg?.value) &&
+			equals(this.end?.value, other.end?.value)
 		);
 	}
 
@@ -48,16 +49,28 @@ export class BoundExcluded<T> {
 	constructor(readonly value: T) {}
 }
 
-export class RecordIdRange<Tb extends string = string> {
+export class RecordIdRange<Tb extends string = string> extends Value {
 	constructor(
 		public readonly tb: Tb,
 		public readonly beg: Bound<RecordIdValue>,
 		public readonly end: Bound<RecordIdValue>,
 	) {
+		super();
 		if (typeof tb !== "string")
 			throw new SurrealDbError("TB part is not valid");
 		if (!isValidIdBound(beg)) throw new SurrealDbError("Beg part is not valid");
 		if (!isValidIdBound(end)) throw new SurrealDbError("End part is not valid");
+	}
+
+	equals(other: unknown): boolean {
+		if (!(other instanceof RecordIdRange)) return false;
+		if (this.beg?.constructor !== other.beg?.constructor) return false;
+		if (this.end?.constructor !== other.end?.constructor) return false;
+		return (
+			this.tb === other.tb &&
+			equals(this.beg?.value, other.beg?.value) &&
+			equals(this.end?.value, other.end?.value)
+		);
 	}
 
 	toJSON(): string {
