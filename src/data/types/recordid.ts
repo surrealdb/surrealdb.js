@@ -1,5 +1,7 @@
 import { SurrealDbError } from "../../errors";
+import { equals } from "../../util/equals";
 import { toSurrealqlString } from "../../util/to-surrealql-string";
+import { Value } from "../value";
 import { Uuid } from "./uuid";
 
 const MAX_i64 = 9223372036854775807n;
@@ -11,17 +13,24 @@ export type RecordIdValue =
 	| unknown[]
 	| Record<string, unknown>;
 
-export class RecordId<Tb extends string = string> {
+export class RecordId<Tb extends string = string> extends Value {
 	public readonly tb: Tb;
 	public readonly id: RecordIdValue;
 
 	constructor(tb: Tb, id: RecordIdValue) {
+		super();
+
 		if (typeof tb !== "string")
 			throw new SurrealDbError("TB part is not valid");
 		if (!isValidIdPart(id)) throw new SurrealDbError("ID part is not valid");
 
 		this.tb = tb;
 		this.id = id;
+	}
+
+	equals(other: unknown): boolean {
+		if (!(other instanceof RecordId)) return false;
+		return this.tb === other.tb && equals(this.id, other.id);
 	}
 
 	toJSON(): string {
@@ -35,14 +44,19 @@ export class RecordId<Tb extends string = string> {
 	}
 }
 
-export class StringRecordId {
+export class StringRecordId extends Value {
 	public readonly rid: string;
 
 	constructor(rid: string) {
+		super();
 		if (typeof rid !== "string")
 			throw new SurrealDbError("String Record ID must be a string");
-
 		this.rid = rid;
+	}
+
+	equals(other: unknown): boolean {
+		if (!(other instanceof StringRecordId)) return false;
+		return this.rid === other.rid;
 	}
 
 	toJSON(): string {

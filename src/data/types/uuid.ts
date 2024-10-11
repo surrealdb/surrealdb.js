@@ -1,9 +1,12 @@
 import { UUID, uuidv4obj, uuidv7obj } from "uuidv7";
+import { Value } from "../value";
 
-export class Uuid {
+export class Uuid extends Value {
 	private readonly inner: UUID;
 
 	constructor(uuid: string | ArrayBuffer | Uint8Array | Uuid | UUID) {
+		super();
+
 		if (uuid instanceof ArrayBuffer) {
 			this.inner = UUID.ofInner(new Uint8Array(uuid));
 		} else if (uuid instanceof Uint8Array) {
@@ -15,6 +18,11 @@ export class Uuid {
 		} else {
 			this.inner = UUID.parse(uuid);
 		}
+	}
+
+	equals(other: unknown): boolean {
+		if (!(other instanceof Uuid)) return false;
+		return this.inner.equals(other.inner);
 	}
 
 	toString(): string {
