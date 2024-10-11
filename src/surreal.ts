@@ -13,10 +13,10 @@ import {
 	type EngineEvents,
 	type Engines,
 } from "./engines/abstract.ts";
-import { PreparedQuery } from "./util/PreparedQuery.ts";
 import { Emitter } from "./util/emitter.ts";
-import { processAuthVars } from "./util/processAuthVars.ts";
-import { versionCheck } from "./util/versionCheck.ts";
+import { PreparedQuery } from "./util/prepared-query.ts";
+import { processAuthVars } from "./util/process-auth-vars.ts";
+import { versionCheck } from "./util/version-check.ts";
 
 import {
 	type AccessRecordAuth,
@@ -41,8 +41,6 @@ import { WebsocketEngine } from "./engines/ws.ts";
 import {
 	EngineDisconnected,
 	NoActiveSocket,
-	NoDatabaseSpecified,
-	NoNamespaceSpecified,
 	NoTokenReturned,
 	ResponseError,
 	SurrealDbError,

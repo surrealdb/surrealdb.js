@@ -9,10 +9,21 @@
 			"recommended": true,
 			"suspicious": {
 				"noConsoleLog": "error"
+			},
+			"correctness": {
+				"noUnusedImports": "error"
+			},
+			"style": {
+				"useFilenamingConvention": {
+					"level": "error",
+					"options": {
+						"filenameCases": ["kebab-case"]
+					}
+				}
 			}
 		}
 	},
 	"files": {
-		"ignore": ["dist/**"]
+		"ignore": ["dist/**", "npm/**"]
 	}
 }

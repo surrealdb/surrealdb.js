@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isVersionSupported } from "../../src/util/versionCheck.ts";
+import { isVersionSupported } from "../../src/util/version-check.ts";
 
 describe("isVersionSupported", () => {
 	test("1.0.0 should be unsupported", () => {

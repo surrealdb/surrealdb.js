@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import {
-	type LiveAction,
 	type LiveHandlerArguments,
 	RecordId,
 	ResponseError,

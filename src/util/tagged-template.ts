@@ -1,4 +1,4 @@
-import { PreparedQuery } from "./PreparedQuery.ts";
+import { PreparedQuery } from "./prepared-query.ts";
 
 export function surrealql(
 	query_raw: string[] | TemplateStringsArray,

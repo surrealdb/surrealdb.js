@@ -4,8 +4,8 @@ import {
 	MissingNamespaceDatabase,
 } from "../errors";
 import type { RpcRequest, RpcResponse } from "../types";
-import { getIncrementalID } from "../util/getIncrementalID";
-import { retrieveRemoteVersion } from "../util/versionCheck";
+import { getIncrementalID } from "../util/get-incremental-id";
+import { retrieveRemoteVersion } from "../util/version-check";
 import {
 	AbstractEngine,
 	ConnectionStatus,
