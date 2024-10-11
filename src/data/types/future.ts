@@ -7,7 +7,6 @@ export class Future extends Value {
 
 	equals(other: unknown): boolean {
 		if (!(other instanceof Future)) return false;
-		// TODO ignore whitespace
 		return this.inner === other.inner;
 	}
 
