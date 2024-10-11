@@ -10,6 +10,10 @@ export abstract class Geometry extends Value {
 		if (!(other instanceof Geometry)) return false;
 		return this.is(other);
 	}
+
+	toString(): string {
+		return JSON.stringify(this.toJSON());
+	}
 }
 
 function f(num: number | Decimal) {
