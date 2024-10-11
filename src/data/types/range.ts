@@ -2,6 +2,7 @@ import { Tagged } from "../../cbor";
 import { SurrealDbError } from "../../errors";
 import { toSurrealqlString } from "../../util/to-surrealql-string";
 import { TAG_BOUND_EXCLUDED, TAG_BOUND_INCLUDED } from "../cbor";
+import { Value } from "../value";
 import {
 	type RecordIdValue,
 	escape_id_part,
@@ -9,11 +10,23 @@ import {
 	isValidIdPart,
 } from "./recordid";
 
-export class Range<Beg, End> {
+export class Range<Beg, End> extends Value {
 	constructor(
 		readonly beg: Bound<Beg>,
 		readonly end: Bound<End>,
-	) {}
+	) {
+		super();
+	}
+
+	equals(other: unknown): boolean {
+		if (!(other instanceof Range)) return false;
+		if (this.beg?.constructor !== other.beg?.constructor) return false;
+		if (this.end?.constructor !== other.end?.constructor) return false;
+		return (
+			this.beg?.value === other.beg?.value &&
+			this.end?.value === other.end?.value
+		);
+	}
 
 	toJSON(): string {
 		return this.toString();

@@ -1,9 +1,15 @@
+import { Value } from "../value.ts";
 import { Decimal } from "./decimal.ts";
 
-export abstract class Geometry {
+export abstract class Geometry extends Value {
 	abstract toJSON(): GeoJson;
 	abstract is(geometry: Geometry): boolean;
 	abstract clone(): Geometry;
+
+	equals(other: unknown): boolean {
+		if (!(other instanceof Geometry)) return false;
+		return this.is(other);
+	}
 }
 
 function f(num: number | Decimal) {

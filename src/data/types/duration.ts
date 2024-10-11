@@ -1,4 +1,5 @@
 import { SurrealDbError } from "../../errors";
+import { Value } from "../value";
 
 const millisecond = 1;
 const microsecond = millisecond / 1000;
@@ -31,10 +32,12 @@ const durationPartRegex = new RegExp(
 	`^(\\d+)(${Array.from(units.keys()).join("|")})`,
 );
 
-export class Duration {
+export class Duration extends Value {
 	readonly _milliseconds: number;
 
 	constructor(input: Duration | number | string) {
+		super();
+
 		if (input instanceof Duration) {
 			this._milliseconds = input._milliseconds;
 		} else if (typeof input === "string") {
@@ -49,6 +52,11 @@ export class Duration {
 		ns = ns ?? 0;
 		const ms = s * 1000 + ns / 1000000;
 		return new Duration(ms);
+	}
+
+	equals(other: unknown): boolean {
+		if (!(other instanceof Duration)) return false;
+		return this._milliseconds === other._milliseconds;
 	}
 
 	toCompact(): [number, number] | [number] | [] {
