@@ -40,6 +40,12 @@ The official SurrealDB SDK for JavaScript.
 
 View the SDK documentation [here](https://surrealdb.com/docs/integration/libraries/javascript).
 
+## Learn SurrealDB
+
+- SurrealDB University: https://surrealdb.com/learn/fundamentals
+- Aeon's Surreal Renaissance (Interative book): https://surrealdb.com/learn/book
+- Documentation: https://surrealdb.com/docs
+
 ## How to install
 
 ### Install for [JSR/Deno](https://jsr.io/@surrealdb/surrealdb)
