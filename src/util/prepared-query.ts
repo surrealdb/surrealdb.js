@@ -1,6 +1,7 @@
 import {
 	Encoded,
 	type Fill,
+	Gap,
 	type PartiallyEncoded,
 	Writer,
 	encode,
@@ -47,9 +48,19 @@ export class PreparedQuery {
 	): PreparedQuery {
 		const base = this.length;
 		this.length += values.length;
-		const mapped_bindings = values.map(
-			(v, i) => [`bind___${base + i}`, v] as const,
-		);
+		const gaps = new Map<Gap, number>();
+		const mapped_bindings = values.map((v, i) => {
+			if (v instanceof Gap) {
+				const index = gaps.get(v);
+				if (index !== undefined) {
+					return [`bind___${index}`, v] as const;
+				}
+
+				gaps.set(v, i);
+			}
+
+			return [`bind___${base + i}`, v] as const;
+		});
 
 		for (const [k, v] of mapped_bindings) {
 			this._bindings[k] = encode(v, {

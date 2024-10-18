@@ -437,6 +437,23 @@ describe("template literal", async () => {
 			},
 		]);
 	});
+
+	test("reused gap", async () => {
+		const foo = new Gap();
+		const bar = new Gap();
+		const query = surql`RETURN [${foo}, ${bar}, ${1}, ${foo}, ${bar}, ${2}]`;
+		expect(Object.keys(query.bindings)).toStrictEqual([
+			"bind___0",
+			"bind___1",
+			"bind___2",
+			"bind___3",
+		]);
+
+		// Check result
+		const res = await surreal.query(query, [foo.fill("a"), bar.fill("b")]);
+
+		expect(res).toStrictEqual(["a", "b", 1, "a", "b", 2]);
+	});
 });
 
 test("query", async () => {
