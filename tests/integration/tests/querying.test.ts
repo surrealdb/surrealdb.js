@@ -449,10 +449,26 @@ describe("template literal", async () => {
 			"bind___3",
 		]);
 
+		// Ensure appended segments also re-use
+		query.append`; RETURN [${foo}, ${bar}, ${1}, ${foo}, ${bar}, ${2}]`;
+		expect(Object.keys(query.bindings)).toStrictEqual([
+			"bind___0",
+			"bind___1",
+			"bind___2",
+			"bind___3",
+			"bind___4",
+			"bind___5",
+			"bind___6",
+			"bind___7",
+		]);
+
 		// Check result
 		const res = await surreal.query(query, [foo.fill("a"), bar.fill("b")]);
 
-		expect(res).toStrictEqual(["a", "b", 1, "a", "b", 2]);
+		expect(res).toStrictEqual([
+			["a", "b", 1, "a", "b", 2],
+			["a", "b", 1, "a", "b", 2],
+		]);
 	});
 });
 

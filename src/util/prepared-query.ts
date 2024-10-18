@@ -48,18 +48,21 @@ export class PreparedQuery {
 	): PreparedQuery {
 		const base = this.length;
 		this.length += values.length;
+
+		let reused = 0;
 		const gaps = new Map<Gap, number>();
 		const mapped_bindings = values.map((v, i) => {
 			if (v instanceof Gap) {
 				const index = gaps.get(v);
 				if (index !== undefined) {
+					reused++;
 					return [`bind___${index}`, v] as const;
 				}
 
-				gaps.set(v, i);
+				gaps.set(v, i - reused);
 			}
 
-			return [`bind___${base + i}`, v] as const;
+			return [`bind___${base + i - reused}`, v] as const;
 		});
 
 		for (const [k, v] of mapped_bindings) {
