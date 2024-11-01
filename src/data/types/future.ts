@@ -15,6 +15,6 @@ export class Future extends Value {
 	}
 
 	toString(): string {
-		return `<future> { ${this.inner} }`;
+		return `<future> ${this.inner}`;
 	}
 }
