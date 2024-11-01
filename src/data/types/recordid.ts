@@ -33,8 +33,11 @@ export class RecordId<Tb extends string = string> extends Value {
 		return this.tb === other.tb && equals(this.id, other.id);
 	}
 
-	toJSON(): string {
-		return this.toString();
+	toJSON(): { tb: string; id: RecordIdValue } {
+		return {
+			tb: escape_ident(this.tb),
+			id: this.id,
+		};
 	}
 
 	toString(): string {
