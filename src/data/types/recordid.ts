@@ -52,8 +52,7 @@ export class StringRecordId extends Value {
 
 		// In some cases the same method may be used with different data sources
 		// this can cause this method to be called with an already instanced StringRecordId.
-		if (rid instanceof StringRecordId)
-			this.rid = rid.rid;
+		if (rid instanceof StringRecordId) this.rid = rid.rid;
 
 		if (typeof rid !== "string")
 			throw new SurrealDbError("String Record ID must be a string");
