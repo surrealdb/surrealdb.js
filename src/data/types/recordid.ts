@@ -55,7 +55,7 @@ export class StringRecordId extends Value {
 		if (rid instanceof StringRecordId) {
 			this.rid = rid.rid;
 		} else if (rid instanceof RecordId) {
-			this.rid = `${rid.tb}⟨${rid.id}⟩`;
+			this.rid = rid.toString();
 		} else if (typeof rid === "string") {
 			this.rid = rid;
 		} else {
