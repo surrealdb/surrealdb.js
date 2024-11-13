@@ -47,16 +47,20 @@ export class RecordId<Tb extends string = string> extends Value {
 export class StringRecordId extends Value {
 	public readonly rid: string;
 
-	constructor(rid: string | StringRecordId) {
+	constructor(rid: string | StringRecordId | RecordId) {
 		super();
 
 		// In some cases the same method may be used with different data sources
-		// this can cause this method to be called with an already instanced StringRecordId.
-		if (rid instanceof StringRecordId) this.rid = rid.rid;
-
-		if (typeof rid !== "string")
+		// this can cause this method to be called with an already instanced class object.
+		if (rid instanceof StringRecordId) {
+			this.rid = rid.rid;
+		} else if (rid instanceof RecordId) {
+			this.rid = `${rid.tb}⟨${rid.id}⟩`;
+		} else if (typeof rid === "string") {
+			this.rid = rid;
+		} else {
 			throw new SurrealDbError("String Record ID must be a string");
-		this.rid = rid;
+		}
 	}
 
 	equals(other: unknown): boolean {
