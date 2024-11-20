@@ -3,7 +3,7 @@ import {
 	HttpConnectionError,
 	MissingNamespaceDatabase,
 } from "../errors";
-import type { RpcRequest, RpcResponse } from "../types";
+import type { ExportOptions, RpcRequest, RpcResponse } from "../types";
 import { getIncrementalID } from "../util/get-incremental-id";
 import { retrieveRemoteVersion } from "../util/version-check";
 import {
@@ -133,9 +133,63 @@ export class HttpEngine extends AbstractEngine {
 		}
 
 		const id = getIncrementalID();
+		const buffer = await this.req_post({ id, ...request });
+		const response: RpcResponse = this.decodeCbor(buffer);
+
+		if ("result" in response) {
+			switch (request.method) {
+				case "signin":
+				case "signup": {
+					this.connection.token = response.result as string;
+					break;
+				}
+
+				case "authenticate": {
+					const [token] = request.params as [string];
+					this.connection.token = token;
+					break;
+				}
+
+				case "invalidate": {
+					this.connection.token = undefined;
+					break;
+				}
+			}
+		}
+
+		this.emitter.emit(`rpc-${id}`, [response]);
+		return response as RpcResponse<Result>;
+	}
+
+	get connected(): boolean {
+		return !!this.connection.url;
+	}
+
+	async export(options?: ExportOptions): Promise<string> {
+		if (!this.connection.url) {
+			throw new ConnectionUnavailable();
+		}
+		const url = new URL(this.connection.url);
+		const basepath = url.pathname.slice(0, -4);
+		url.pathname = `${basepath}/export`;
+
+		const buffer = await this.req_post(options, url, {
+			Accept: "plain/text",
+		});
+
+		const dec = new TextDecoder("utf-8");
+		return dec.decode(buffer);
+	}
+
+	private async req_post(
+		body: unknown,
+		url?: URL,
+		headers_?: Record<string, string>,
+	): Promise<ArrayBuffer> {
 		const headers: Record<string, string> = {
 			"Content-Type": "application/cbor",
 			Accept: "application/cbor",
+			...headers_,
 		};
 
 		if (this.connection.namespace) {
@@ -150,39 +204,16 @@ export class HttpEngine extends AbstractEngine {
 			headers.Authorization = `Bearer ${this.connection.token}`;
 		}
 
-		const raw = await fetch(`${this.connection.url}`, {
+		const raw = await fetch(`${url ?? this.connection.url}`, {
 			method: "POST",
 			headers,
-			body: this.encodeCbor({ id, ...request }),
+			body: this.encodeCbor(body),
 		});
 
 		const buffer = await raw.arrayBuffer();
 
 		if (raw.status === 200) {
-			const response: RpcResponse = this.decodeCbor(buffer);
-			if ("result" in response) {
-				switch (request.method) {
-					case "signin":
-					case "signup": {
-						this.connection.token = response.result as string;
-						break;
-					}
-
-					case "authenticate": {
-						const [token] = request.params as [string];
-						this.connection.token = token;
-						break;
-					}
-
-					case "invalidate": {
-						this.connection.token = undefined;
-						break;
-					}
-				}
-			}
-
-			this.emitter.emit(`rpc-${id}`, [response]);
-			return response as RpcResponse<Result>;
+			return buffer;
 		}
 
 		const dec = new TextDecoder("utf-8");
@@ -192,9 +223,5 @@ export class HttpEngine extends AbstractEngine {
 			raw.statusText,
 			buffer,
 		);
-	}
-
-	get connected(): boolean {
-		return !!this.connection.url;
 	}
 }
