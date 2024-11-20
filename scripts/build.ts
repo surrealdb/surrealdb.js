@@ -11,6 +11,7 @@ await Promise.all([
 		format: "esm",
 		minifyWhitespace: true,
 		minifySyntax: true,
+		sourcemap: true,
 	}),
 	esbuild.build({
 		entryPoints: ["src/index.ts"],
@@ -21,6 +22,7 @@ await Promise.all([
 		format: "cjs",
 		minifyWhitespace: true,
 		minifySyntax: true,
+		sourcemap: true,
 	}),
 	esbuild.build({
 		entryPoints: ["src/index.ts"],
@@ -30,6 +32,7 @@ await Promise.all([
 		format: "esm",
 		minifyWhitespace: true,
 		minifySyntax: true,
+		sourcemap: true,
 	}),
 ]);
 
