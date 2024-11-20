@@ -65,7 +65,11 @@ export class WebsocketEngine extends AbstractEngine {
 
 			socket.addEventListener("error", (e) => {
 				const error = new UnexpectedConnectionError(
-					"error" in e ? e.error : "An unexpected error occurred",
+					"detail" in e
+						? e.detail
+						: "error" in e
+							? e.error
+							: "An unexpected error occurred",
 				);
 				this.setStatus(ConnectionStatus.Error, error);
 				reject(error);
@@ -78,12 +82,14 @@ export class WebsocketEngine extends AbstractEngine {
 			socket.addEventListener("message", async ({ data }) => {
 				try {
 					const decoded = this.decodeCbor(
-						data instanceof Blob
-							? await data.arrayBuffer()
-							: data.buffer.slice(
-									data.byteOffset,
-									data.byteOffset + data.byteLength,
-								),
+						data instanceof ArrayBuffer
+							? data
+							: data instanceof Blob
+								? await data.arrayBuffer()
+								: data.buffer.slice(
+										data.byteOffset,
+										data.byteOffset + data.byteLength,
+									),
 					);
 
 					if (
