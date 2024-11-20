@@ -1,5 +1,10 @@
 import type { EngineDisconnected } from "../errors";
-import type { LiveHandlerArguments, RpcRequest, RpcResponse } from "../types";
+import type {
+	ExportOptions,
+	LiveHandlerArguments,
+	RpcRequest,
+	RpcResponse,
+} from "../types";
 import type { Emitter } from "../util/emitter";
 
 export type Engine = new (context: EngineContext) => AbstractEngine;
@@ -85,4 +90,5 @@ export abstract class AbstractEngine {
 	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>>;
 
 	abstract version(url: URL, timeout?: number): Promise<string>;
+	abstract export(options?: ExportOptions): Promise<string>;
 }

@@ -2,11 +2,17 @@ import { WebSocket } from "isows";
 import {
 	ConnectionUnavailable,
 	EngineDisconnected,
+	FeatureUnavailableForEngine,
 	ResponseError,
 	UnexpectedConnectionError,
 	UnexpectedServerResponse,
 } from "../errors";
-import { type RpcRequest, type RpcResponse, isLiveResult } from "../types";
+import {
+	type ExportOptions,
+	type RpcRequest,
+	type RpcResponse,
+	isLiveResult,
+} from "../types";
 import { getIncrementalID } from "../util/get-incremental-id";
 import { retrieveRemoteVersion } from "../util/version-check";
 import {
@@ -200,6 +206,10 @@ export class WebsocketEngine extends AbstractEngine {
 
 	get connected(): boolean {
 		return !!this.socket;
+	}
+
+	async export(options?: ExportOptions): Promise<string> {
+		throw new FeatureUnavailableForEngine();
 	}
 }
 

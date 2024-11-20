@@ -57,6 +57,12 @@ export class UnsupportedEngine extends SurrealDbError {
 	}
 }
 
+export class FeatureUnavailableForEngine extends SurrealDbError {
+	name = "FeatureUnavailableForEngine";
+	message =
+		"The feature you are trying to use is not available on this engine.";
+}
+
 export class ConnectionUnavailable extends SurrealDbError {
 	name = "ConnectionUnavailable";
 	message = "There is no connection available at this moment.";
