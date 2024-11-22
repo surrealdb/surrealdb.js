@@ -319,10 +319,11 @@ export class Surreal {
 	}
 
 	/**
-	 * Start a live query and listen for the responses
+	 * Start a live select query and invoke the callback with responses
 	 * @param table - The table that you want to receive live results for.
 	 * @param callback - Callback function that receives updates.
 	 * @param diff - If set to true, will return a set of patches instead of complete records
+	 * @returns A unique subscription ID
 	 */
 	async live<
 		Result extends Record<string, unknown> | Patch = Record<string, unknown>,
@@ -341,8 +342,8 @@ export class Surreal {
 	}
 
 	/**
-	 * Listen for live query responses by it's uuid
-	 * @param queryUuid - The LQ uuid that you want to receive live results for.
+	 * Subscribe to an existing live select query and invoke the callback with responses
+	 * @param queryUuid - The unique ID of an existing live query you want to receive updates for.
 	 * @param callback - Callback function that receives updates.
 	 */
 	async subscribeLive<
@@ -358,9 +359,9 @@ export class Surreal {
 	}
 
 	/**
-	 * Listen for live query responses by it's uuid
-	 * @param queryUuid - The LQ uuid that you want to receive live results for.
-	 * @param callback - Callback function that receives updates.
+	 * Unsubscribe a callback from a live select query
+	 * @param queryUuid - The unique ID of an existing live query you want to ubsubscribe from.
+	 * @param callback - The previously subscribed callback function.
 	 */
 	async unSubscribeLive<
 		Result extends Record<string, unknown> | Patch = Record<string, unknown>,
@@ -406,7 +407,7 @@ export class Surreal {
 	async query<T extends unknown[]>(
 		...args: QueryParameters
 	): Promise<Prettify<T>> {
-		const raw = await this.query_raw<T>(...args);
+		const raw = await this.queryRaw<T>(...args);
 		return raw.map(({ status, result }) => {
 			if (status === "ERR") throw new ResponseError(result);
 			return result;
@@ -418,7 +419,7 @@ export class Surreal {
 	 * @param query - Specifies the SurrealQL statements.
 	 * @param bindings - Assigns variables which can be used in the query.
 	 */
-	async query_raw<T extends unknown[]>(
+	async queryRaw<T extends unknown[]>(
 		...[q, b]: QueryParameters
 	): Promise<Prettify<MapQueryResult<T>>> {
 		const params =
@@ -439,7 +440,20 @@ export class Surreal {
 	}
 
 	/**
+	 * Runs a set of SurrealQL statements against the database.
+	 * @param query - Specifies the SurrealQL statements.
+	 * @param bindings - Assigns variables which can be used in the query.
+	 * @deprecated Use `queryRaw` instead
+	 */
+	async query_raw<T extends unknown[]>(
+		...args: QueryParameters
+	): Promise<Prettify<MapQueryResult<T>>> {
+		return this.queryRaw<T>(...args);
+	}
+
+	/**
 	 * Selects all records in a table, or a specific record, from the database.
+	 * If you intend on sorting, filtering, or performing other operations on the data, it is recommended to use the `query` method instead.
 	 * @param thing - The table name or a record ID to select.
 	 */
 	async select<T extends R>(thing: RecordId): Promise<ActionResult<T>>;
@@ -478,7 +492,7 @@ export class Surreal {
 
 	/**
 	 * Inserts one or multiple records in the database.
-	 * @param thing - The table name or the specific record ID to create.
+	 * @param table - The table name to insert into.
 	 * @param data - The document(s) / record(s) to insert.
 	 */
 	async insert<T extends R, U extends R = T>(
@@ -507,14 +521,14 @@ export class Surreal {
 	 * @param thing - The table name or the specific record ID to create.
 	 * @param data - The document(s) / record(s) to insert.
 	 */
-	async insert_relation<T extends R, U extends R = T>(
+	async insertRelation<T extends R, U extends R = T>(
 		data?: U | U[],
 	): Promise<ActionResult<T>[]>;
-	async insert_relation<T extends R, U extends R = T>(
+	async insertRelation<T extends R, U extends R = T>(
 		table: Table | string,
 		data?: U | U[],
 	): Promise<ActionResult<T>[]>;
-	async insert_relation<T extends R, U extends R = T>(
+	async insertRelation<T extends R, U extends R = T>(
 		arg1: Table | string | U | U[],
 		arg2?: U | U[],
 	) {
@@ -529,6 +543,28 @@ export class Surreal {
 		]);
 		if (res.error) throw new ResponseError(res.error.message);
 		return res.result;
+	}
+
+	/**
+	 * Inserts one or multiple records in the database.
+	 * @param thing - The table name or the specific record ID to create.
+	 * @param data - The document(s) / record(s) to insert.
+	 * @deprecated Use `insertRelation` instead
+	 */
+	async insert_relation<T extends R, U extends R = T>(
+		data?: U | U[],
+	): Promise<ActionResult<T>[]>;
+	async insert_relation<T extends R, U extends R = T>(
+		table: Table | string,
+		data?: U | U[],
+	): Promise<ActionResult<T>[]>;
+	async insert_relation<T extends R, U extends R = T>(
+		arg1: Table | string | U | U[],
+		arg2?: U | U[],
+	) {
+		return arg1 instanceof Table || typeof arg1 === "string"
+			? this.insertRelation(arg1, arg2)
+			: this.insertRelation(arg1);
 	}
 
 	/**
@@ -664,6 +700,7 @@ export class Surreal {
 
 	/**
 	 * Obtain the version of the SurrealDB instance
+	 * @example `surrealdb-2.1.0`
 	 */
 	async version(): Promise<string> {
 		await this.ready;
