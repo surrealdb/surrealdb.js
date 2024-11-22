@@ -2,7 +2,6 @@ import { WebSocket } from "isows";
 import {
 	ConnectionUnavailable,
 	EngineDisconnected,
-	FeatureUnavailableForEngine,
 	ResponseError,
 	UnexpectedConnectionError,
 	UnexpectedServerResponse,
@@ -214,8 +213,21 @@ export class WebsocketEngine extends AbstractEngine {
 		return !!this.socket;
 	}
 
-	async export(options?: ExportOptions): Promise<string> {
-		throw new FeatureUnavailableForEngine();
+	async export(options?: Partial<ExportOptions>): Promise<string> {
+		if (!this.connection.url) {
+			throw new ConnectionUnavailable();
+		}
+		const url = new URL(this.connection.url);
+		const basepath = url.pathname.slice(0, -4);
+		url.protocol = url.protocol.replace("ws", "http");
+		url.pathname = `${basepath}/export`;
+
+		const buffer = await this.req_post(options ?? {}, url, {
+			Accept: "plain/text",
+		});
+
+		const dec = new TextDecoder("utf-8");
+		return dec.decode(buffer);
 	}
 }
 

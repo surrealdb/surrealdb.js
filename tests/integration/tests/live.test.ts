@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { compareVersions } from "compare-versions";
 import {
 	type LiveHandlerArguments,
 	RecordId,
@@ -6,6 +7,7 @@ import {
 	type Surreal,
 	Uuid,
 } from "../../../src";
+import { fetchVersion } from "../helpers.ts";
 import { setupServer } from "../surreal.ts";
 
 const { createSurreal } = await setupServer();
@@ -24,7 +26,11 @@ describe("Live Queries HTTP", async () => {
 
 describe("Live Queries WS", async () => {
 	const surreal = await createSurreal();
+	const version = await fetchVersion(surreal);
 	if (isHttp(surreal)) return;
+
+	// temp - subscribe is broken is 2.1.0
+	if (compareVersions(version, "2.1.0") >= 0) return;
 
 	test("live", async () => {
 		const events = new CollectablePromise<{
