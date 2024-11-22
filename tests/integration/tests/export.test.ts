@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { setupServer } from "../surreal.ts";
 import type Surreal from "../../../src";
+import { setupServer } from "../surreal.ts";
 
 const { createSurreal } = await setupServer();
 
