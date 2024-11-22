@@ -20,6 +20,7 @@ import {
 	RecordIdRange,
 } from "../../../src/data/types/range.ts";
 import { setupServer } from "../surreal.ts";
+import { compareVersions } from "compare-versions";
 
 const { createSurreal } = await setupServer();
 
@@ -201,7 +202,10 @@ describe("update", async () => {
 describe("upsert", async () => {
 	const surreal = await createSurreal();
 	const version = await surreal.version();
-	if (version.startsWith("surrealdb-1")) return;
+	const hasUpsert = compareVersions(version, "2.0.0") >= 0;
+	const isLegacy = compareVersions(version, "2.1.0") < 0;
+
+	if (!hasUpsert) return;
 
 	test("single", async () => {
 		const single = await surreal.upsert<Person, Omit<Person, "id">>(
@@ -219,7 +223,7 @@ describe("upsert", async () => {
 		});
 	});
 
-	test("multiple", async () => {
+	test.if(isLegacy)("multiple (legacy)", async () => {
 		const multiple = await surreal.upsert<Person, Omit<Person, "id">>(
 			"person",
 			{
