@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { compareVersions } from "compare-versions";
 import {
 	type LiveHandlerArguments,
 	RecordId,
@@ -6,9 +7,8 @@ import {
 	type Surreal,
 	Uuid,
 } from "../../../src";
-import { setupServer } from "../surreal.ts";
 import { fetchVersion } from "../helpers.ts";
-import { compareVersions } from "compare-versions";
+import { setupServer } from "../surreal.ts";
 
 const { createSurreal } = await setupServer();
 
