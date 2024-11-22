@@ -1,9 +1,20 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import type Surreal from "../../../src";
 import { setupServer } from "../surreal.ts";
 import { compareVersions } from "compare-versions";
+import { surql } from "../../../src";
 
 const { createSurreal } = await setupServer();
+
+beforeAll(async () => {
+	const surreal = await createSurreal();
+
+	await surreal.query(surql`
+		CREATE foo:1 CONTENT { hello: "world" };
+		CREATE bar:1 CONTENT { hello: "world" };
+		DEFINE FUNCTION fn::foo() { RETURN "bar"; };
+	`);
+});
 
 describe("http export", async () => {
 	const surreal = await createSurreal({
@@ -24,10 +35,6 @@ describe("ws export", async () => {
 async function runExportTests(surreal: Surreal) {
 	const version = (await surreal.version()).replace(/^surrealdb-/, "");
 	const hasPostExport = compareVersions(version, "2.1.0") >= 0;
-
-	await surreal.query('UPSERT foo:1 CONTENT { hello: "world" }');
-	await surreal.query('UPSERT bar:1 CONTENT { hello: "world" }');
-	await surreal.query('DEFINE FUNCTION OVERWRITE fn::foo() { RETURN "bar"; }');
 
 	test.if(hasPostExport)("basic", async () => {
 		const res = await surreal.export();
