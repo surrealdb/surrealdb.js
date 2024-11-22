@@ -1,8 +1,7 @@
 import { Value } from "../data/value";
 
 /**
- * Compares two values for deep equality, including arrays, objects,
- * and SurrealQL value types.
+ * Recursively compare supported SurrealQL values for equality.
  *
  * @param x The first value to compare
  * @param y The second value to compare

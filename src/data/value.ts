@@ -1,3 +1,6 @@
+/**
+ * A complex SurrealQL value type
+ */
 export abstract class Value {
 	/**
 	 * Compare equality with another value.

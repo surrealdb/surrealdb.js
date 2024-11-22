@@ -1,5 +1,8 @@
 import { Value } from "../value";
 
+/**
+ * A SurrealQL decimal value.
+ */
 export class Decimal extends Value {
 	readonly decimal: string;
 

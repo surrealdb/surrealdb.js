@@ -1,6 +1,14 @@
 import { Gap } from "../cbor/gap.ts";
 import { PreparedQuery } from "./prepared-query.ts";
 
+/**
+ * A template literal tag function for creating prepared queries from query strings.
+ * Interpolated values are automatically stored as bindings.
+ * @param query_raw - The raw query string
+ * @param values - The interpolated values
+ * @example const query = surrealql`SELECT * FROM ${id}`;
+ * @returns A PreparedQuery instance
+ */
 export function surrealql(
 	query_raw: string[] | TemplateStringsArray,
 	...values: unknown[]

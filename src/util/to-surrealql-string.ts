@@ -10,6 +10,11 @@ import {
 	Uuid,
 } from "../data";
 
+/**
+ * Recursively print any supported SurrealQL value into a string representation.
+ * @param input - The input value
+ * @returns Stringified SurrealQL representation
+ */
 export function toSurrealqlString(input: unknown): string {
 	if (typeof input === "string") return `s${JSON.stringify(input)}`;
 	if (input === null) return "NULL";

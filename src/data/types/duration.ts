@@ -32,6 +32,9 @@ const durationPartRegex = new RegExp(
 	`^(\\d+)(${Array.from(units.keys()).join("|")})`,
 );
 
+/**
+ * A SurrealQL duration value.
+ */
 export class Duration extends Value {
 	readonly _milliseconds: number;
 

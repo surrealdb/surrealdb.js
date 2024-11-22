@@ -1,10 +1,10 @@
 import { SurrealDbError } from "../../errors";
 import { equals } from "../../util/equals";
+import { escapeIdent, escapeNumber } from "../../util/escape";
 import { toSurrealqlString } from "../../util/to-surrealql-string";
 import { Value } from "../value";
 import { Uuid } from "./uuid";
 
-const MAX_i64 = 9223372036854775807n;
 export type RecordIdValue =
 	| string
 	| number
@@ -13,6 +13,9 @@ export type RecordIdValue =
 	| unknown[]
 	| Record<string, unknown>;
 
+/**
+ * A SurrealQL record ID value.
+ */
 export class RecordId<Tb extends string = string> extends Value {
 	public readonly tb: Tb;
 	public readonly id: RecordIdValue;
@@ -38,12 +41,15 @@ export class RecordId<Tb extends string = string> extends Value {
 	}
 
 	toString(): string {
-		const tb = escape_ident(this.tb);
-		const id = escape_id_part(this.id);
+		const tb = escapeIdent(this.tb);
+		const id = escapeIdPart(this.id);
 		return `${tb}:${id}`;
 	}
 }
 
+/**
+ * A SurrealQL string-represented record ID value.
+ */
 export class StringRecordId extends Value {
 	public readonly rid: string;
 
@@ -77,41 +83,6 @@ export class StringRecordId extends Value {
 	}
 }
 
-export function escape_number(num: number | bigint): string {
-	return num <= MAX_i64 ? num.toString() : `⟨${num}⟩`;
-}
-
-export function escape_ident(str: string): string {
-	// String which looks like a number should always be escaped, to prevent it from being parsed as a number
-	if (isOnlyNumbers(str)) {
-		return `⟨${str}⟩`;
-	}
-
-	let code: number;
-	let i: number;
-	let len: number;
-
-	for (i = 0, len = str.length; i < len; i++) {
-		code = str.charCodeAt(i);
-		if (
-			!(code > 47 && code < 58) && // numeric (0-9)
-			!(code > 64 && code < 91) && // upper alpha (A-Z)
-			!(code > 96 && code < 123) && // lower alpha (a-z)
-			!(code === 95) // underscore (_)
-		) {
-			return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
-		}
-	}
-
-	return str;
-}
-
-export function isOnlyNumbers(str: string): boolean {
-	const stripped = str.replace("_", "");
-	const parsed = Number.parseInt(stripped);
-	return !Number.isNaN(parsed) && parsed.toString() === stripped;
-}
-
 export function isValidIdPart(v: unknown): v is RecordIdValue {
 	if (v instanceof Uuid) return true;
 
@@ -127,12 +98,12 @@ export function isValidIdPart(v: unknown): v is RecordIdValue {
 	}
 }
 
-export function escape_id_part(id: RecordIdValue): string {
+export function escapeIdPart(id: RecordIdValue): string {
 	return id instanceof Uuid
 		? `u"${id}"`
 		: typeof id === "string"
-			? escape_ident(id)
+			? escapeIdent(id)
 			: typeof id === "bigint" || typeof id === "number"
-				? escape_number(id)
+				? escapeNumber(id)
 				: toSurrealqlString(id);
 }

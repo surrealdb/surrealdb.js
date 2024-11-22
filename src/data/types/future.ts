@@ -1,5 +1,8 @@
 import { Value } from "../value";
 
+/**
+ * An uncomputed SurrealQL future value.
+ */
 export class Future extends Value {
 	constructor(readonly inner: string) {
 		super();

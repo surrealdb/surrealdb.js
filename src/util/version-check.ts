@@ -33,6 +33,12 @@ export function isVersionSupported(
 	);
 }
 
+/**
+ * Query the version of a remote SurrealDB instance
+ * @param url - The URL of the remote SurrealDB instance
+ * @param timeout - The timeout in milliseconds for the request
+ * @returns
+ */
 export async function retrieveRemoteVersion(
 	url: URL,
 	timeout?: number,
