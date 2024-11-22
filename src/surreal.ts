@@ -22,6 +22,7 @@ import {
 	type AccessRecordAuth,
 	type ActionResult,
 	type AnyAuth,
+	type ExportOptions,
 	type LiveHandler,
 	type MapQueryResult,
 	type Patch,
@@ -740,6 +741,16 @@ export class Surreal {
 			method,
 			params,
 		});
+	}
+
+	/**
+	 * Export the database and return the result as a string
+	 * @param options - Export configuration options
+	 */
+	public async export(options?: Partial<ExportOptions>): Promise<string> {
+		await this.ready;
+		if (!this.connection) throw new NoActiveSocket();
+		return this.connection.export(options);
 	}
 }
 

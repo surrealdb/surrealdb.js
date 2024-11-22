@@ -90,5 +90,5 @@ export abstract class AbstractEngine {
 	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>>;
 
 	abstract version(url: URL, timeout?: number): Promise<string>;
-	abstract export(options?: ExportOptions): Promise<string>;
+	abstract export(options?: Partial<ExportOptions>): Promise<string>;
 }

@@ -214,7 +214,7 @@ export class WebsocketEngine extends AbstractEngine {
 		return !!this.socket;
 	}
 
-	async export(options?: ExportOptions): Promise<string> {
+	async export(options?: Partial<ExportOptions>): Promise<string> {
 		throw new FeatureUnavailableForEngine();
 	}
 }

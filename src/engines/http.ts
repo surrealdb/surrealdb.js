@@ -165,7 +165,7 @@ export class HttpEngine extends AbstractEngine {
 		return !!this.connection.url;
 	}
 
-	async export(options?: ExportOptions): Promise<string> {
+	async export(options?: Partial<ExportOptions>): Promise<string> {
 		if (!this.connection.url) {
 			throw new ConnectionUnavailable();
 		}
@@ -173,7 +173,7 @@ export class HttpEngine extends AbstractEngine {
 		const basepath = url.pathname.slice(0, -4);
 		url.pathname = `${basepath}/export`;
 
-		const buffer = await this.req_post(options, url, {
+		const buffer = await this.req_post(options ?? {}, url, {
 			Accept: "plain/text",
 		});
 
