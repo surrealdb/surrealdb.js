@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { compareVersions } from "compare-versions";
 import {
 	Duration,
 	Gap,
@@ -19,9 +20,8 @@ import {
 	Range,
 	RecordIdRange,
 } from "../../../src/data/types/range.ts";
-import { setupServer } from "../surreal.ts";
-import { compareVersions } from "compare-versions";
 import { fetchVersion } from "../helpers.ts";
+import { setupServer } from "../surreal.ts";
 
 const { createSurreal } = await setupServer();
 
