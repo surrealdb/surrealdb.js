@@ -160,12 +160,22 @@ export const replacer = {
 
 Object.freeze(replacer);
 
+/**
+ * Recursively encode any supported SurrealQL value into a binary CBOR representation.
+ * @param data - The input value
+ * @returns CBOR binary representation
+ */
 export function encodeCbor<T>(data: T): ArrayBuffer {
 	return encode(data, {
 		replacer: replacer.encode,
 	});
 }
 
+/**
+ * Decode a CBOR encoded SurrealQL value into object representation.
+ * @param data - The encoded SurrealQL value
+ * @returns The parsed SurrealQL value
+ */
 // biome-ignore lint/suspicious/noExplicitAny: Don't know what it will return
 export function decodeCbor(data: ArrayBufferLike): any {
 	return decode(data, {

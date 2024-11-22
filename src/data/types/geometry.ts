@@ -1,6 +1,9 @@
 import { Value } from "../value.ts";
 import { Decimal } from "./decimal.ts";
 
+/**
+ * A SurrealQL geometry value.
+ */
 export abstract class Geometry extends Value {
 	abstract toJSON(): GeoJson;
 	abstract is(geometry: Geometry): boolean;
@@ -21,6 +24,9 @@ function f(num: number | Decimal) {
 	return num;
 }
 
+/**
+ * A SurrealQL point geometry value.
+ */
 export class GeometryPoint extends Geometry {
 	readonly point: [number, number];
 
@@ -56,6 +62,9 @@ export class GeometryPoint extends Geometry {
 	}
 }
 
+/**
+ * A SurrealQL line geometry value.
+ */
 export class GeometryLine extends Geometry {
 	readonly line: [GeometryPoint, GeometryPoint, ...GeometryPoint[]];
 
@@ -108,6 +117,9 @@ export class GeometryLine extends Geometry {
 	}
 }
 
+/**
+ * A SurrealQL polygon geometry value.
+ */
 export class GeometryPolygon extends Geometry {
 	readonly polygon: [GeometryLine, ...GeometryLine[]];
 
@@ -153,6 +165,9 @@ export class GeometryPolygon extends Geometry {
 	}
 }
 
+/**
+ * A SurrealQL multi-point geometry value.
+ */
 export class GeometryMultiPoint extends Geometry {
 	readonly points: [GeometryPoint, ...GeometryPoint[]];
 
@@ -193,6 +208,9 @@ export class GeometryMultiPoint extends Geometry {
 	}
 }
 
+/**
+ * A SurrealQL multi-line geometry value.
+ */
 export class GeometryMultiLine extends Geometry {
 	readonly lines: [GeometryLine, ...GeometryLine[]];
 
@@ -231,6 +249,9 @@ export class GeometryMultiLine extends Geometry {
 	}
 }
 
+/**
+ * A SurrealQL multi-polygon geometry value.
+ */
 export class GeometryMultiPolygon extends Geometry {
 	readonly polygons: [GeometryPolygon, ...GeometryPolygon[]];
 
@@ -275,6 +296,9 @@ export class GeometryMultiPolygon extends Geometry {
 	}
 }
 
+/**
+ * A SurrealQL geometry collection value.
+ */
 export class GeometryCollection extends Geometry {
 	readonly collection: [Geometry, ...Geometry[]];
 

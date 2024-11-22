@@ -1,16 +1,15 @@
 import { Tagged } from "../../cbor";
 import { SurrealDbError } from "../../errors";
 import { equals } from "../../util/equals";
+import { escapeIdent } from "../../util/escape";
 import { toSurrealqlString } from "../../util/to-surrealql-string";
 import { TAG_BOUND_EXCLUDED, TAG_BOUND_INCLUDED } from "../cbor";
 import { Value } from "../value";
-import {
-	type RecordIdValue,
-	escape_id_part,
-	escape_ident,
-	isValidIdPart,
-} from "./recordid";
+import { type RecordIdValue, escapeIdPart, isValidIdPart } from "./recordid";
 
+/**
+ * A SurrealQL range value.
+ */
 export class Range<Beg, End> extends Value {
 	constructor(
 		readonly beg: Bound<Beg>,
@@ -34,8 +33,8 @@ export class Range<Beg, End> extends Value {
 	}
 
 	toString(): string {
-		const beg = escape_range_bound(this.beg);
-		const end = escape_range_bound(this.end);
+		const beg = escapeRangeBound(this.beg);
+		const end = escapeRangeBound(this.end);
 		return `${beg}${getRangeJoin(this.beg, this.end)}${end}`;
 	}
 }
@@ -49,6 +48,9 @@ export class BoundExcluded<T> {
 	constructor(readonly value: T) {}
 }
 
+/**
+ * A SurrealQL record ID range value.
+ */
 export class RecordIdRange<Tb extends string = string> extends Value {
 	constructor(
 		public readonly tb: Tb,
@@ -78,9 +80,9 @@ export class RecordIdRange<Tb extends string = string> extends Value {
 	}
 
 	toString(): string {
-		const tb = escape_ident(this.tb);
-		const beg = escape_id_bound(this.beg);
-		const end = escape_id_bound(this.end);
+		const tb = escapeIdent(this.tb);
+		const beg = escapeIdBound(this.beg);
+		const end = escapeIdBound(this.end);
 		return `${tb}:${beg}${getRangeJoin(this.beg, this.end)}${end}`;
 	}
 }
@@ -99,13 +101,13 @@ function isValidIdBound(bound: Bound<unknown>): bound is Bound<RecordIdValue> {
 		: true;
 }
 
-function escape_id_bound(bound: Bound<RecordIdValue>): string {
+function escapeIdBound(bound: Bound<RecordIdValue>): string {
 	return bound instanceof BoundIncluded || bound instanceof BoundExcluded
-		? escape_id_part(bound.value)
+		? escapeIdPart(bound.value)
 		: "";
 }
 
-function escape_range_bound(bound: Bound<unknown>): string {
+function escapeRangeBound(bound: Bound<unknown>): string {
 	if (bound === undefined) return "";
 	const value = bound.value;
 

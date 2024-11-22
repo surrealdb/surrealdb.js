@@ -1,6 +1,9 @@
 import { SurrealDbError } from "../../errors";
 import { Value } from "../value";
 
+/**
+ * A SurrealQL table value.
+ */
 export class Table<Tb extends string = string> extends Value {
 	public readonly tb: Tb;
 

@@ -37,7 +37,11 @@ export type Jsonify<T> = T extends
 								: T extends Table<infer Tb>
 									? `${Tb}`
 									: T;
-
+/**
+ * Recursively convert any supported SurrealQL value into a serializable JSON representation.
+ * @param input - The input value
+ * @returns JSON-safe representation
+ */
 export function jsonify<T>(input: T): Jsonify<T> {
 	if (typeof input === "object") {
 		if (input === null) return null as Jsonify<T>;

@@ -1,6 +1,9 @@
 import { UUID, uuidv4obj, uuidv7obj } from "uuidv7";
 import { Value } from "../value";
 
+/**
+ * A SurrealQL UUID value.
+ */
 export class Uuid extends Value {
 	private readonly inner: UUID;
 

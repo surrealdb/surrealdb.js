@@ -2,7 +2,6 @@ export {
 	RecordId,
 	StringRecordId,
 	type RecordIdValue,
-	escape_ident,
 } from "./types/recordid.ts";
 export {
 	Range,

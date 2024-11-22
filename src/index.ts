@@ -13,6 +13,7 @@ export * from "./util/version-check.ts";
 export * from "./util/get-incremental-id.ts";
 export * from "./util/string-prefixes.ts";
 export * from "./util/to-surrealql-string.ts";
+export * from "./util/escape.ts";
 export {
 	ConnectionStatus,
 	AbstractEngine,

@@ -12,6 +12,10 @@ import { replacer } from "../data/cbor";
 let textEncoder: TextEncoder;
 
 export type ConvertMethod<T = unknown> = (result: unknown[]) => T;
+
+/**
+ * A query and its bindings prepared for execution, which can be passed to the .query() method.
+ */
 export class PreparedQuery {
 	private _query: Uint8Array;
 	private _bindings: Record<string, PartiallyEncoded>;
@@ -26,6 +30,9 @@ export class PreparedQuery {
 		this.length = Object.keys(this._bindings).length;
 	}
 
+	/**
+	 * Retrieves the encoded query string.
+	 */
 	get query(): Encoded {
 		// Up to 9 bytes for the prefix
 		const w = new Writer(this._query.byteLength + 9);
@@ -34,14 +41,32 @@ export class PreparedQuery {
 		return new Encoded(w.output(false));
 	}
 
+	/**
+	 * Retrieves the encoded bindings.
+	 */
 	get bindings(): Record<string, PartiallyEncoded> {
 		return this._bindings;
 	}
 
+	/**
+	 * Compile this query and its bindings into a single ArrayBuffer, optionally filling gaps.
+	 * @param fills - The gap values to fill
+	 */
 	build(fills?: Fill[]): ArrayBuffer {
 		return encode([this.query, this.bindings], { fills });
 	}
 
+	/**
+	 * A template literal tag function for appending additional query segments and bindings to the prepared query.
+	 * @param query_raw - The additional query segments to append
+	 * @param values - The additional interpolated values to append
+	 * @example
+	 * const query = surrealql`SELECT * FROM person`;
+	 *
+	 * if (filter) {
+	 *   query.append` WHERE name = ${filter}`;
+	 * }
+	 */
 	append(
 		query_raw: string[] | TemplateStringsArray,
 		...values: unknown[]
