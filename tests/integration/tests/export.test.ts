@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { setupServer } from "../surreal.ts";
 import { compareVersions } from "compare-versions";
 import { surql } from "../../../src";
+import { fetchVersion } from "../helpers.ts";
 
 const { createSurreal } = await setupServer();
 
@@ -17,7 +18,7 @@ beforeAll(async () => {
 
 describe("export", async () => {
 	const surreal = await createSurreal();
-	const version = (await surreal.version()).replace(/^surrealdb-/, "");
+	const version = await fetchVersion(surreal);
 	const hasPostExport = compareVersions(version, "2.1.0") >= 0;
 
 	test.if(hasPostExport)("basic", async () => {

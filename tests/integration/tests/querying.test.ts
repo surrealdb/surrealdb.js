@@ -21,6 +21,7 @@ import {
 } from "../../../src/data/types/range.ts";
 import { setupServer } from "../surreal.ts";
 import { compareVersions } from "compare-versions";
+import { fetchVersion } from "../helpers.ts";
 
 const { createSurreal } = await setupServer();
 
@@ -201,7 +202,7 @@ describe("update", async () => {
 
 describe("upsert", async () => {
 	const surreal = await createSurreal();
-	const version = await surreal.version();
+	const version = await fetchVersion(surreal);
 	const hasUpsert = compareVersions(version, "2.0.0") >= 0;
 	const isLegacy = compareVersions(version, "2.1.0") < 0;
 
