@@ -1,5 +1,4 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import type Surreal from "../../../src";
 import { setupServer } from "../surreal.ts";
 import { compareVersions } from "compare-versions";
 import { surql } from "../../../src";
@@ -16,23 +15,8 @@ beforeAll(async () => {
 	`);
 });
 
-describe("http export", async () => {
-	const surreal = await createSurreal({
-		protocol: "http",
-	});
-
-	await runExportTests(surreal);
-});
-
-describe("ws export", async () => {
-	const surreal = await createSurreal({
-		protocol: "ws",
-	});
-
-	await runExportTests(surreal);
-});
-
-async function runExportTests(surreal: Surreal) {
+describe("export", async () => {
+	const surreal = await createSurreal();
 	const version = (await surreal.version()).replace(/^surrealdb-/, "");
 	const hasPostExport = compareVersions(version, "2.1.0") >= 0;
 
@@ -58,4 +42,4 @@ async function runExportTests(surreal: Surreal) {
 
 		expect(res).toMatchSnapshot();
 	});
-}
+});
