@@ -55,8 +55,8 @@ type RecordId<Tb extends string = string> = _RecordId<Tb> | StringRecordId;
 
 const DEFAULT_RECONNECT_OPTIONS: ReconnectOptions = {
 	enabled: true,
-	interval: 5000,
 	attempts: 5,
+	interval: 1000,
 };
 
 interface ConnectOptions {
@@ -73,7 +73,6 @@ interface ReconnectOptions {
 	enabled: boolean;
 	interval: number;
 	attempts: number;
-	options?: () => ConnectOptions;
 }
 
 export class Surreal {
@@ -138,10 +137,7 @@ export class Surreal {
 
 			// Schedule reconnect timeout
 			this.reconnectTask = setTimeout(async () => {
-				this.connectInternal(lastUrl, {
-					...lastOpts,
-					...reconnect.options?.(),
-				});
+				this.connectInternal(lastUrl, lastOpts);
 			}, reconnect.interval);
 		});
 
