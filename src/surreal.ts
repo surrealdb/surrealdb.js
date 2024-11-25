@@ -48,7 +48,7 @@ import {
 	SurrealDbError,
 	UnsupportedEngine,
 } from "./errors.ts";
-import { newCompletable, type Completable } from "./util/completable.ts";
+import { type Completable, newCompletable } from "./util/completable.ts";
 
 type R = Prettify<Record<string, unknown>>;
 type RecordId<Tb extends string = string> = _RecordId<Tb> | StringRecordId;
