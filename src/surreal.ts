@@ -93,6 +93,7 @@ export class Surreal {
 	private attempts = 0;
 	private lastUrl: URL | undefined;
 	private lastOpts: ConnectOptions = {};
+	private terminated = false;
 
 	constructor({
 		engines,
@@ -114,10 +115,11 @@ export class Surreal {
 		this.emitter.subscribe(ConnectionStatus.Disconnected, () => {
 			this.clean();
 
-			const { reconnect, lastUrl, lastOpts } = this;
+			const { reconnect, lastUrl, lastOpts, terminated } = this;
 
 			// Propagate EngineDisconnected error if reconnect is disabled
-			if (!reconnect.enabled || !lastUrl || !lastOpts) {
+			// or if the connection was terminated manually
+			if (!reconnect.enabled || !lastUrl || !lastOpts || terminated) {
 				this.completable?.reject(new EngineDisconnected());
 				this.completable = undefined;
 				this.connection = undefined;
@@ -158,6 +160,7 @@ export class Surreal {
 
 		this.lastUrl = endpoint;
 		this.lastOpts = opts;
+		this.terminated = false;
 		this.completable ??= newCompletable();
 
 		// Abort any existing reconnect task
@@ -236,6 +239,7 @@ export class Surreal {
 	 */
 	async close(): Promise<true> {
 		this.clean();
+		this.terminated = true;
 		await this.connection?.disconnect();
 		return true;
 	}
