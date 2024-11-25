@@ -43,18 +43,43 @@ import {
 	EngineDisconnected,
 	NoActiveSocket,
 	NoTokenReturned,
+	ReconnectFailed,
 	ResponseError,
 	SurrealDbError,
 	UnsupportedEngine,
 } from "./errors.ts";
+import { newCompletable, type Completable } from "./util/completable.ts";
 
 type R = Prettify<Record<string, unknown>>;
 type RecordId<Tb extends string = string> = _RecordId<Tb> | StringRecordId;
 
+const DEFAULT_RECONNECT_OPTIONS: ReconnectOptions = {
+	enabled: true,
+	interval: 5000,
+	attempts: 5,
+};
+
+interface ConnectOptions {
+	namespace?: string;
+	database?: string;
+	auth?: AnyAuth | Token;
+	prepare?: (connection: Surreal) => unknown;
+	versionCheck?: boolean;
+	versionCheckTimeout?: number;
+	reconnect?: boolean | Partial<ReconnectOptions>;
+}
+
+interface ReconnectOptions {
+	enabled: boolean;
+	interval: number;
+	attempts: number;
+	options?: () => ConnectOptions;
+}
+
 export class Surreal {
 	public connection: AbstractEngine | undefined;
-	ready?: Promise<void>;
-	emitter: Emitter<EngineEvents>;
+	public emitter: Emitter<EngineEvents>;
+
 	protected engines: Engines = {
 		ws: WebsocketEngine,
 		wss: WebsocketEngine,
@@ -62,14 +87,20 @@ export class Surreal {
 		https: HttpEngine,
 	};
 
+	private completable: Completable | undefined;
+	private reconnect: ReconnectOptions;
+	private reconnectTask?: Timer;
+	private attempts = 0;
+	private lastUrl: URL | undefined;
+	private lastOpts: ConnectOptions = {};
+
 	constructor({
 		engines,
 	}: {
 		engines?: Engines;
 	} = {}) {
 		this.emitter = new Emitter();
-		this.emitter.subscribe(ConnectionStatus.Disconnected, () => this.clean());
-		this.emitter.subscribe(ConnectionStatus.Error, () => this.close());
+		this.reconnect = DEFAULT_RECONNECT_OPTIONS;
 
 		if (engines) {
 			this.engines = {
@@ -77,31 +108,69 @@ export class Surreal {
 				...engines,
 			};
 		}
+
+		this.emitter.subscribe(ConnectionStatus.Error, () => this.close());
+
+		this.emitter.subscribe(ConnectionStatus.Disconnected, () => {
+			this.clean();
+
+			const { reconnect, lastUrl, lastOpts } = this;
+
+			// Propagate EngineDisconnected error if reconnect is disabled
+			if (!reconnect.enabled || !lastUrl || !lastOpts) {
+				this.completable?.reject(new EngineDisconnected());
+				this.completable = undefined;
+				this.connection = undefined;
+				return;
+			}
+
+			this.attempts++;
+
+			// Restrict reconnect attempts and propagate ReconnectFailed error
+			if (this.attempts > reconnect.attempts) {
+				this.completable?.reject(new ReconnectFailed());
+				this.completable = undefined;
+				this.connection = undefined;
+				return;
+			}
+
+			// Schedule reconnect timeout
+			this.reconnectTask = setTimeout(async () => {
+				this.connectInternal(lastUrl, {
+					...lastOpts,
+					...reconnect.options?.(),
+				});
+			}, reconnect.interval);
+		});
+
+		this.emitter.subscribe(ConnectionStatus.Connected, () => {
+			this.completable?.resolve();
+			this.attempts = 0;
+		});
 	}
 
 	/**
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	async connect(
-		url: string | URL,
-		opts: {
-			namespace?: string;
-			database?: string;
-			auth?: AnyAuth | Token;
-			prepare?: (connection: Surreal) => unknown;
-			versionCheck?: boolean;
-			versionCheckTimeout?: number;
-		} = {},
+	async connect(url: string | URL, opts: ConnectOptions = {}): Promise<true> {
+		const endpoint = parseUrl(url);
+
+		this.lastUrl = endpoint;
+		this.lastOpts = opts;
+		this.completable ??= newCompletable();
+
+		// Abort any existing reconnect task
+		clearTimeout(this.reconnectTask);
+
+		return await this.connectInternal(endpoint, opts);
+	}
+
+	// Open a connection to the configured remote
+	private async connectInternal(
+		url: URL,
+		opts: ConnectOptions = {},
 	): Promise<true> {
-		// biome-ignore lint/style/noParameterAssign: Need to ensure it's a URL
-		url = new URL(url);
-
-		if (!url.pathname.endsWith("/rpc")) {
-			if (!url.pathname.endsWith("/")) url.pathname += "/";
-			url.pathname += "rpc";
-		}
-
 		const engineName = url.protocol.slice(0, -1);
 		const engine = this.engines[engineName];
 		if (!engine) throw new UnsupportedEngine(engineName);
@@ -129,31 +198,36 @@ export class Surreal {
 			versionCheck(version);
 		}
 
+		// Configure reconnect behavior
+		if (typeof opts.reconnect === "boolean") {
+			this.reconnect = {
+				...DEFAULT_RECONNECT_OPTIONS,
+				enabled: opts.reconnect,
+			};
+		} else if (opts) {
+			this.reconnect = { ...DEFAULT_RECONNECT_OPTIONS, ...opts.reconnect };
+		}
+
 		this.connection = connection;
-		this.ready = new Promise((resolve, reject) =>
-			connection
-				.connect(url as URL)
-				.then(async () => {
-					if (namespace || database) {
-						await this.use({
-							namespace,
-							database,
-						});
-					}
 
-					if (typeof auth === "string") {
-						await this.authenticate(auth);
-					} else if (auth) {
-						await this.signin(auth);
-					}
+		await connection.connect(url as URL);
 
-					await prepare?.(this);
-					resolve();
-				})
-				.catch(reject),
-		);
+		if (namespace || database) {
+			await this.use({
+				namespace,
+				database,
+			});
+		}
 
-		await this.ready;
+		if (typeof auth === "string") {
+			await this.authenticate(auth);
+		} else if (auth) {
+			await this.signin(auth);
+		}
+
+		await prepare?.(this);
+		this.completable?.resolve();
+
 		return true;
 	}
 
@@ -189,6 +263,20 @@ export class Surreal {
 	 */
 	get status(): ConnectionStatus {
 		return this.connection?.status ?? ConnectionStatus.Disconnected;
+	}
+
+	/**
+	 * A promise which resolves when the connection is ready
+	 */
+	get ready(): Promise<void> | undefined {
+		return this.completable?.promise;
+	}
+
+	/**
+	 * Check if the connection is currently attempting to reconnect
+	 */
+	get isReconnecting(): boolean {
+		return this.attempts > 0;
 	}
 
 	/**
@@ -774,6 +862,7 @@ export class Surreal {
 		params?: unknown[],
 	): Promise<RpcResponse<Result>> {
 		if (!this.connection) throw new NoActiveSocket();
+
 		return this.connection.rpc<typeof method, typeof params, Result>({
 			method,
 			params,
@@ -796,4 +885,15 @@ function output<T, S>(subject: S, input: T | T[]): Output<T, S> {
 	const one = subject instanceof _RecordId || subject instanceof StringRecordId;
 	if (one) return (Array.isArray(input) ? input[0] : input) as Output<T, S>;
 	return (Array.isArray(input) ? input : [input]) as Output<T, S>;
+}
+
+function parseUrl(value: string | URL): URL {
+	const url = new URL(value);
+
+	if (!url.pathname.endsWith("/rpc")) {
+		if (!url.pathname.endsWith("/")) url.pathname += "/";
+		url.pathname += "rpc";
+	}
+
+	return url;
 }

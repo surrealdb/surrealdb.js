@@ -29,6 +29,11 @@ export class EngineDisconnected extends SurrealDbError {
 	message = "The engine reported the connection to SurrealDB has dropped";
 }
 
+export class ReconnectFailed extends SurrealDbError {
+	name = "ReconnectFailed";
+	message = "The engine failed to reconnect to SurrealDB";
+}
+
 export class UnexpectedServerResponse extends SurrealDbError {
 	name = "UnexpectedServerResponse";
 
