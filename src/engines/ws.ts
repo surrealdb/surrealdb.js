@@ -17,18 +17,12 @@ import { retrieveRemoteVersion } from "../util/version-check";
 import {
 	AbstractEngine,
 	ConnectionStatus,
-	type EngineContext,
 	type EngineEvents,
 } from "./abstract";
 
 export class WebsocketEngine extends AbstractEngine {
 	private pinger?: Pinger;
 	private socket?: WebSocket;
-
-	constructor(context: EngineContext) {
-		super(context);
-		this.emitter.subscribe("disconnected", () => this.pinger?.stop());
-	}
 
 	private setStatus<T extends ConnectionStatus>(
 		status: T,
@@ -76,6 +70,7 @@ export class WebsocketEngine extends AbstractEngine {
 
 			socket.addEventListener("close", () => {
 				this.setStatus(ConnectionStatus.Disconnected);
+				this.pinger?.stop();
 			});
 
 			socket.addEventListener("message", async ({ data }) => {
@@ -107,11 +102,18 @@ export class WebsocketEngine extends AbstractEngine {
 		});
 
 		this.ready = ready;
+
 		return await ready.then(() => {
 			this.socket = socket;
 			this.pinger?.stop();
 			this.pinger = new Pinger(30000);
-			this.pinger.start(() => this.rpc({ method: "ping" }));
+			this.pinger.start(() => {
+				try {
+					this.rpc({ method: "ping" });
+				} catch {
+					// we are not interested in the result
+				}
+			});
 		});
 	}
 
