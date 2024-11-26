@@ -56,23 +56,42 @@ type RecordId<Tb extends string = string> = _RecordId<Tb> | StringRecordId;
 const DEFAULT_RECONNECT_OPTIONS: ReconnectOptions = {
 	enabled: true,
 	attempts: 5,
-	interval: 1000,
+	retryDelay: 1000,
+	retryDelayMax: 60000,
+	retryDelayMultiplier: 2,
+	retryDelayJitter: 0.1,
 };
 
 interface ConnectOptions {
+	/** The namespace to connect to */
 	namespace?: string;
+	/** The database to connect to */
 	database?: string;
+	/** Authentication details to use */
 	auth?: AnyAuth | Token;
+	/** A callback to customise the connection before connection completion */
 	prepare?: (connection: Surreal) => unknown;
+	/** Enable automated SurrealDB version checking */
 	versionCheck?: boolean;
+	/** The maximum amount of time in milliseconds to wait for version checking */
 	versionCheckTimeout?: number;
+	/** Configure reconnect behavior */
 	reconnect?: boolean | Partial<ReconnectOptions>;
 }
 
 interface ReconnectOptions {
+	/** Reconnect after a connection has unexpectedly dropped */
 	enabled: boolean;
-	interval: number;
+	/** How many attempts will be made at reconnecting, -1 for unlimited */
 	attempts: number;
+	/** The minimum amount of time in milliseconds to wait before reconnecting */
+	retryDelay: number;
+	/** The maximum amount of time in milliseconds to wait before reconnecting */
+	retryDelayMax: number;
+	/** The amount to multiply the delay by after each failed attempt */
+	retryDelayMultiplier: number;
+	/** A float percentage to randomly offset each delay by  */
+	retryDelayJitter: number;
 }
 
 export class Surreal {
@@ -135,10 +154,22 @@ export class Surreal {
 				return;
 			}
 
+			// Compute the next reconnect delay
+			const multiplier = reconnect.retryDelayMultiplier ** this.attempts;
+			const adjustedDelay = reconnect.retryDelay * multiplier;
+			const jitterModifier = rand(
+				-reconnect.retryDelayJitter,
+				reconnect.retryDelayJitter,
+			);
+			const nextDelay = Math.min(
+				adjustedDelay * (1 + jitterModifier),
+				reconnect.retryDelayMax,
+			);
+
 			// Schedule reconnect timeout
 			this.reconnectTask = setTimeout(async () => {
 				this.connectInternal(lastUrl, lastOpts);
-			}, reconnect.interval);
+			}, nextDelay);
 		});
 
 		this.emitter.subscribe(ConnectionStatus.Connected, () => {
@@ -896,4 +927,8 @@ function parseUrl(value: string | URL): URL {
 	}
 
 	return url;
+}
+
+function rand(min: number, max: number) {
+	return Math.random() * (max - min) + min;
 }
