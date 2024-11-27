@@ -2,6 +2,8 @@ import { WebSocket } from "isows";
 import {
 	ConnectionUnavailable,
 	EngineDisconnected,
+	NoURLProvided,
+	ReconnectFailed,
 	ResponseError,
 	UnexpectedConnectionError,
 	UnexpectedServerResponse,
@@ -12,6 +14,7 @@ import {
 	type RpcResponse,
 	isLiveResult,
 } from "../types";
+import { newCompletable } from "../util/completable";
 import { getIncrementalID } from "../util/get-incremental-id";
 import { retrieveRemoteVersion } from "../util/version-check";
 import { ConnectionStatus, type EngineEvents } from "./abstract";
@@ -45,62 +48,159 @@ export class WebsocketEngine extends AbstractRemoteEngine {
 
 	async connect(url: URL): Promise<void> {
 		this.connection.url = url;
-		this.setStatus(ConnectionStatus.Connecting);
-		const socket = new WebSocket(url.toString(), "cbor");
-		const ready = new Promise<void>((resolve, reject) => {
-			socket.addEventListener("open", () => {
-				this.setStatus(ConnectionStatus.Connected);
-				resolve();
-			});
 
-			socket.addEventListener("error", (e) => {
-				const error = new UnexpectedConnectionError(
-					"detail" in e
-						? e.detail
-						: "error" in e
-							? e.error
-							: "An unexpected error occurred",
-				);
-				this.setStatus(ConnectionStatus.Error, error);
-				reject(error);
-			});
+		// Create an async loop
+		(async () => {
+			let initial = true;
+			let controls: [() => void, (reason?: Error) => void] | undefined =
+				undefined;
 
-			socket.addEventListener("close", () => {
-				this.setStatus(ConnectionStatus.Disconnected);
-				this.pinger?.stop();
-			});
-
-			socket.addEventListener("message", async ({ data }) => {
-				try {
-					const decoded = this.decodeCbor(
-						data instanceof ArrayBuffer
-							? data
-							: data instanceof Blob
-								? await data.arrayBuffer()
-								: data.buffer.slice(
-										data.byteOffset,
-										data.byteOffset + data.byteLength,
-									),
-					);
-
-					if (
-						typeof decoded === "object" &&
-						decoded != null &&
-						Object.getPrototypeOf(decoded) === Object.prototype
-					) {
-						this.handleRpcResponse(decoded);
-					} else {
-						throw new UnexpectedServerResponse(decoded);
+			while (this.connection.url) {
+				if (initial) {
+					initial = false;
+					this.setStatus(ConnectionStatus.Connecting);
+					this.ready = this.createSocket();
+					await this.emitter.subscribeOnce(ConnectionStatus.Disconnected);
+				} else {
+					// Check if reconnecting is enabled
+					if (!this.context.reconnect.enabled) {
+						break;
 					}
-				} catch (detail) {
-					socket.dispatchEvent(new CustomEvent("error", { detail }));
+
+					// Configure controls for the promise if they are currently lacking
+					if (!controls) {
+						const { promise, resolve, reject } = newCompletable();
+						this.ready = promise;
+						controls = [resolve, reject];
+					}
+
+					// Obtain the controls for the promise
+					const [resolve, reject] = controls;
+
+					// Try to iterate
+					if (!(await this.context.reconnect.iterate())) {
+						return reject(new ReconnectFailed());
+					}
+
+					// Emit the status
+					this.setStatus(ConnectionStatus.Reconnecting);
+
+					// Attempt to reconnect
+					await this.createSocket()
+						.then(async () => {
+							// Reconfigure the namespace and database
+							if (this.connection.namespace || this.connection.database) {
+								await this.rpc(
+									{
+										method: "use",
+										params: [
+											this.connection.namespace,
+											this.connection.database,
+										],
+									},
+									true,
+								);
+							}
+
+							// Reconfigure the authentication details
+							if (this.connection.token) {
+								await this.rpc(
+									{
+										method: "authenticate",
+										params: [this.connection.token],
+									},
+									true,
+								);
+							}
+
+							// Reset the reconnection status
+							this.context.reconnect.reset();
+
+							// Unblock the connection
+							resolve();
+						})
+						// Ignore any error
+						// the connection failed, let's try again
+						.catch(() => {});
+
+					// If we are connection, wait for the connection to be dropped
+					if (this.status === ConnectionStatus.Connected) {
+						await this.emitter.subscribeOnce(ConnectionStatus.Disconnected);
+					}
 				}
-			});
+			}
+		})();
+
+		await this.ready;
+	}
+
+	private async createSocket() {
+		const { promise, resolve, reject } = newCompletable();
+
+		// Validate requirements
+		if (!this.connection.url) {
+			throw new NoURLProvided();
+		}
+
+		// Open a new connection
+		const socket = new WebSocket(this.connection.url.toString(), "cbor");
+
+		// Wait for the connection to open
+		socket.addEventListener("open", () => {
+			this.setStatus(ConnectionStatus.Connected);
+			resolve();
 		});
 
-		this.ready = ready;
+		// Handle any errors
+		socket.addEventListener("error", (e) => {
+			const error = new UnexpectedConnectionError(
+				"detail" in e && e.detail
+					? e.detail
+					: "message" in e && e.message
+						? e.message
+						: "error" in e && e.error
+							? e.error
+							: "An unexpected error occurred",
+			);
+			this.setStatus(ConnectionStatus.Error, error);
+			reject(error);
+		});
 
-		return await ready.then(() => {
+		// Handle connection closure
+		socket.addEventListener("close", () => {
+			this.setStatus(ConnectionStatus.Disconnected);
+			this.pinger?.stop();
+		});
+
+		// Handle any messages
+		socket.addEventListener("message", async ({ data }) => {
+			try {
+				const decoded = this.decodeCbor(
+					data instanceof ArrayBuffer
+						? data
+						: data instanceof Blob
+							? await data.arrayBuffer()
+							: data.buffer.slice(
+									data.byteOffset,
+									data.byteOffset + data.byteLength,
+								),
+				);
+
+				if (
+					typeof decoded === "object" &&
+					decoded != null &&
+					Object.getPrototypeOf(decoded) === Object.prototype
+				) {
+					this.handleRpcResponse(decoded);
+				} else {
+					throw new UnexpectedServerResponse(decoded);
+				}
+			} catch (detail) {
+				socket.dispatchEvent(new CustomEvent("error", { detail }));
+			}
+		});
+
+		await promise.then(() => {
 			this.socket = socket;
 			this.pinger?.stop();
 			this.pinger = new Pinger(30000);
@@ -137,8 +237,11 @@ export class WebsocketEngine extends AbstractRemoteEngine {
 		Method extends string,
 		Params extends unknown[] | undefined,
 		Result,
-	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
-		await this.ready;
+	>(
+		request: RpcRequest<Method, Params>,
+		force?: boolean,
+	): Promise<RpcResponse<Result>> {
+		if (!force) await this.ready;
 		if (!this.socket) throw new ConnectionUnavailable();
 
 		// It's not realistic for the message to ever arrive before the listener is registered on the emitter

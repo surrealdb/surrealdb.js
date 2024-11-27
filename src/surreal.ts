@@ -23,14 +23,12 @@ import {
 	type ActionResult,
 	type AnyAuth,
 	type ConnectOptions,
-	DEFAULT_RECONNECT_OPTIONS,
 	type ExportOptions,
 	type LiveHandler,
 	type MapQueryResult,
 	type Patch,
 	type Prettify,
 	type QueryParameters,
-	type ReconnectOptions,
 	type RpcResponse,
 	type ScopeAuth,
 	type Token,
@@ -46,12 +44,11 @@ import {
 	EngineDisconnected,
 	NoActiveSocket,
 	NoTokenReturned,
-	ReconnectFailed,
 	ResponseError,
 	SurrealDbError,
 	UnsupportedEngine,
 } from "./errors.ts";
-import { type Completable, newCompletable } from "./util/completable.ts";
+import { ReconnectContext } from "./util/reconnect.ts";
 
 type R = Prettify<Record<string, unknown>>;
 type RecordId<Tb extends string = string> = _RecordId<Tb> | StringRecordId;
@@ -67,13 +64,7 @@ export class Surreal {
 		https: HttpEngine,
 	};
 
-	private completable: Completable | undefined;
-	private reconnect: ReconnectOptions;
-	private reconnectTask?: Timer;
-	private attempts = 0;
-	private lastUrl: URL | undefined;
-	private lastOpts: ConnectOptions = {};
-	private terminated = false;
+	private _ready?: Promise<void> | undefined;
 
 	constructor({
 		engines,
@@ -81,7 +72,6 @@ export class Surreal {
 		engines?: Engines;
 	} = {}) {
 		this.emitter = new Emitter();
-		this.reconnect = DEFAULT_RECONNECT_OPTIONS;
 
 		if (engines) {
 			this.engines = {
@@ -89,55 +79,6 @@ export class Surreal {
 				...engines,
 			};
 		}
-
-		this.emitter.subscribe(ConnectionStatus.Error, () => this.close());
-
-		this.emitter.subscribe(ConnectionStatus.Disconnected, () => {
-			this.clean();
-
-			const { reconnect, lastUrl, lastOpts, terminated } = this;
-
-			// Propagate EngineDisconnected error if reconnect is disabled
-			// or if the connection was terminated manually
-			if (!reconnect.enabled || !lastUrl || !lastOpts || terminated) {
-				this.completable?.reject(new EngineDisconnected());
-				this.completable = undefined;
-				this.connection = undefined;
-				return;
-			}
-
-			this.attempts++;
-
-			// Restrict reconnect attempts and propagate ReconnectFailed error
-			if (this.attempts > reconnect.attempts) {
-				this.completable?.reject(new ReconnectFailed());
-				this.completable = undefined;
-				this.connection = undefined;
-				return;
-			}
-
-			// Compute the next reconnect delay
-			const multiplier = reconnect.retryDelayMultiplier ** this.attempts;
-			const adjustedDelay = reconnect.retryDelay * multiplier;
-			const jitterModifier = rand(
-				-reconnect.retryDelayJitter,
-				reconnect.retryDelayJitter,
-			);
-			const nextDelay = Math.min(
-				adjustedDelay * (1 + jitterModifier),
-				reconnect.retryDelayMax,
-			);
-
-			// Schedule reconnect timeout
-			this.reconnectTask = setTimeout(async () => {
-				this.connectInternal(lastUrl, lastOpts);
-			}, nextDelay);
-		});
-
-		this.emitter.subscribe(ConnectionStatus.Connected, () => {
-			this.completable?.resolve();
-			this.attempts = 0;
-		});
 	}
 
 	/**
@@ -145,30 +86,22 @@ export class Surreal {
 	 * @param connection - Connection details
 	 */
 	async connect(url: string | URL, opts: ConnectOptions = {}): Promise<true> {
-		const endpoint = parseUrl(url);
-
-		this.lastUrl = endpoint;
-		this.lastOpts = opts;
-		this.terminated = false;
-		this.completable ??= newCompletable();
-
-		// Abort any existing reconnect task
-		clearTimeout(this.reconnectTask);
-
-		return await this.connectInternal(endpoint, opts);
+		this._ready = this.connectInner(url, opts);
+		await this._ready;
+		return true;
 	}
 
-	// Open a connection to the configured remote
-	private async connectInternal(
-		url: URL,
+	private async connectInner(
+		url: string | URL,
 		opts: ConnectOptions = {},
-	): Promise<true> {
-		const engineName = url.protocol.slice(0, -1);
+	): Promise<void> {
+		const endpoint = parseUrl(url);
+		const engineName = endpoint.protocol.slice(0, -1);
 		const engine = this.engines[engineName];
 		if (!engine) throw new UnsupportedEngine(engineName);
 
 		// Process options
-		const { prepare, auth, namespace, database } = opts;
+		const { prepare, auth, namespace, database, reconnect } = opts;
 
 		// Close any existing connections
 		await this.close();
@@ -179,6 +112,7 @@ export class Surreal {
 			emitter: this.emitter,
 			encodeCbor,
 			decodeCbor,
+			reconnect: new ReconnectContext(reconnect),
 		});
 
 		// The promise does not know if `this.connection` is undefined or not, but it does about `connection`
@@ -186,23 +120,16 @@ export class Surreal {
 
 		// If not disabled, run a version check
 		if (opts.versionCheck !== false) {
-			const version = await connection.version(url, opts.versionCheckTimeout);
+			const version = await connection.version(
+				endpoint,
+				opts.versionCheckTimeout,
+			);
 			versionCheck(version);
-		}
-
-		// Configure reconnect behavior
-		if (typeof opts.reconnect === "boolean") {
-			this.reconnect = {
-				...DEFAULT_RECONNECT_OPTIONS,
-				enabled: opts.reconnect,
-			};
-		} else if (opts) {
-			this.reconnect = { ...DEFAULT_RECONNECT_OPTIONS, ...opts.reconnect };
 		}
 
 		this.connection = connection;
 
-		await connection.connect(url as URL);
+		await connection.connect(endpoint);
 
 		if (namespace || database) {
 			await this.use({
@@ -218,9 +145,6 @@ export class Surreal {
 		}
 
 		await prepare?.(this);
-		this.completable?.resolve();
-
-		return true;
 	}
 
 	/**
@@ -228,7 +152,6 @@ export class Surreal {
 	 */
 	async close(): Promise<true> {
 		this.clean();
-		this.terminated = true;
 		await this.connection?.disconnect();
 		return true;
 	}
@@ -261,15 +184,8 @@ export class Surreal {
 	/**
 	 * A promise which resolves when the connection is ready
 	 */
-	get ready(): Promise<void> | undefined {
-		return this.completable?.promise;
-	}
-
-	/**
-	 * Check if the connection is currently attempting to reconnect
-	 */
-	get isReconnecting(): boolean {
-		return this.attempts > 0;
+	get ready(): Promise<void> {
+		return Promise.all([this._ready, this.connection?.ready]).then(() => {});
 	}
 
 	/**

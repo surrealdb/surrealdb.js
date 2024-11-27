@@ -24,6 +24,12 @@ export class InvalidURLProvided extends SurrealDbError {
 		"The provided string is either not a URL or is a URL but with an invalid protocol!";
 }
 
+export class NoURLProvided extends SurrealDbError {
+	name = "NoURLProvided";
+	message =
+		"Tried to establish a connection while no connection URL was provided";
+}
+
 export class EngineDisconnected extends SurrealDbError {
 	name = "EngineDisconnected";
 	message = "The engine reported the connection to SurrealDB has dropped";

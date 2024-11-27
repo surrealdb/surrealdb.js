@@ -6,6 +6,7 @@ import type {
 	RpcResponse,
 } from "../types";
 import type { Emitter } from "../util/emitter";
+import type { ReconnectContext } from "../util/reconnect";
 
 export type Engine = new (context: EngineContext) => AbstractEngine;
 export type Engines = Record<string, Engine>;
@@ -34,20 +35,24 @@ export class EngineContext {
 	readonly encodeCbor: (value: unknown) => ArrayBuffer;
 	// biome-ignore lint/suspicious/noExplicitAny: Don't know what it will return
 	readonly decodeCbor: (value: ArrayBufferLike) => any;
+	readonly reconnect: ReconnectContext;
 
 	constructor({
 		emitter,
 		encodeCbor,
 		decodeCbor,
+		reconnect,
 	}: {
 		emitter: Emitter<EngineEvents>;
 		encodeCbor: (value: unknown) => ArrayBuffer;
 		// biome-ignore lint/suspicious/noExplicitAny: Don't know what it will return
 		decodeCbor: (value: ArrayBufferLike) => any;
+		reconnect: ReconnectContext;
 	}) {
 		this.emitter = emitter;
 		this.encodeCbor = encodeCbor;
 		this.decodeCbor = decodeCbor;
+		this.reconnect = reconnect;
 	}
 }
 
