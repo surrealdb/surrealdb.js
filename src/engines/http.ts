@@ -2,11 +2,8 @@ import { ConnectionUnavailable, MissingNamespaceDatabase } from "../errors";
 import type { ExportOptions, RpcRequest, RpcResponse } from "../types";
 import { getIncrementalID } from "../util/get-incremental-id";
 import { retrieveRemoteVersion } from "../util/version-check";
-import {
-	AbstractEngine,
-	ConnectionStatus,
-	type EngineEvents,
-} from "./abstract";
+import { ConnectionStatus, type EngineEvents } from "./abstract";
+import { AbstractRemoteEngine } from "./abstract-remote";
 
 const ALWAYS_ALLOW = new Set([
 	"signin",
@@ -20,7 +17,7 @@ const ALWAYS_ALLOW = new Set([
 	"query",
 ]);
 
-export class HttpEngine extends AbstractEngine {
+export class HttpEngine extends AbstractRemoteEngine {
 	connection: {
 		url: URL | undefined;
 		namespace: string | undefined;

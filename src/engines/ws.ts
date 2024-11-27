@@ -14,13 +14,10 @@ import {
 } from "../types";
 import { getIncrementalID } from "../util/get-incremental-id";
 import { retrieveRemoteVersion } from "../util/version-check";
-import {
-	AbstractEngine,
-	ConnectionStatus,
-	type EngineEvents,
-} from "./abstract";
+import { ConnectionStatus, type EngineEvents } from "./abstract";
+import { AbstractRemoteEngine } from "./abstract-remote";
 
-export class WebsocketEngine extends AbstractEngine {
+export class WebsocketEngine extends AbstractRemoteEngine {
 	private pinger?: Pinger;
 	private socket?: WebSocket;
 
