@@ -1,6 +1,7 @@
 import type { Fill } from "./cbor";
 import { type RecordId, Uuid } from "./data";
 import { SurrealDbError } from "./errors";
+import type { Surreal } from "./surreal";
 import type { PreparedQuery } from "./util/prepared-query";
 
 export type ActionResult<T extends Record<string, unknown>> = Prettify<
@@ -253,3 +254,48 @@ export type ExportOptions = {
 	tables: boolean | string[];
 	records: boolean;
 };
+
+/////////////////////////////////////
+////////   CONNECT OPTIONS   ////////
+/////////////////////////////////////
+
+export const DEFAULT_RECONNECT_OPTIONS: ReconnectOptions = {
+	enabled: true,
+	attempts: 5,
+	retryDelay: 1000,
+	retryDelayMax: 60000,
+	retryDelayMultiplier: 2,
+	retryDelayJitter: 0.1,
+};
+
+export interface ConnectOptions {
+	/** The namespace to connect to */
+	namespace?: string;
+	/** The database to connect to */
+	database?: string;
+	/** Authentication details to use */
+	auth?: AnyAuth | Token;
+	/** A callback to customise the connection before connection completion */
+	prepare?: (connection: Surreal) => unknown;
+	/** Enable automated SurrealDB version checking */
+	versionCheck?: boolean;
+	/** The maximum amount of time in milliseconds to wait for version checking */
+	versionCheckTimeout?: number;
+	/** Configure reconnect behavior */
+	reconnect?: boolean | Partial<ReconnectOptions>;
+}
+
+export interface ReconnectOptions {
+	/** Reconnect after a connection has unexpectedly dropped */
+	enabled: boolean;
+	/** How many attempts will be made at reconnecting, -1 for unlimited */
+	attempts: number;
+	/** The minimum amount of time in milliseconds to wait before reconnecting */
+	retryDelay: number;
+	/** The maximum amount of time in milliseconds to wait before reconnecting */
+	retryDelayMax: number;
+	/** The amount to multiply the delay by after each failed attempt */
+	retryDelayMultiplier: number;
+	/** A float percentage to randomly offset each delay by  */
+	retryDelayJitter: number;
+}
