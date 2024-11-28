@@ -17,7 +17,7 @@ import {
 import { newCompletable } from "../util/completable";
 import { getIncrementalID } from "../util/get-incremental-id";
 import { retrieveRemoteVersion } from "../util/version-check";
-import { ConnectionStatus, type EngineEvents } from "./abstract";
+import { ConnectionStatus, RetryMessage, type EngineEvents } from "./abstract";
 import { AbstractRemoteEngine } from "./abstract-remote";
 
 export class WebsocketEngine extends AbstractRemoteEngine {
@@ -118,6 +118,13 @@ export class WebsocketEngine extends AbstractRemoteEngine {
 
 							// Unblock the connection
 							resolve();
+
+							// Scan all pending rpc requests
+							const pending = this.emitter.scanListeners((k) =>
+								k.startsWith("rpc-"),
+							);
+							// Ensure all rpc requests receive a retry symbol
+							pending.map((k) => this.emitter.emit(k, [RetryMessage]));
 						})
 						// Ignore any error
 						// the connection failed, let's try again
@@ -244,16 +251,21 @@ export class WebsocketEngine extends AbstractRemoteEngine {
 		if (!force) await this.ready;
 		if (!this.socket) throw new ConnectionUnavailable();
 
-		// It's not realistic for the message to ever arrive before the listener is registered on the emitter
-		// And we don't want to collect the response messages in the emitter
-		// So to be sure we simply subscribe before we send the message :)
+		let res: RpcResponse | undefined = undefined;
+		while (!res) {
+			// It's not realistic for the message to ever arrive before the listener is registered on the emitter
+			// And we don't want to collect the response messages in the emitter
+			// So to be sure we simply subscribe before we send the message :)
 
-		const id = getIncrementalID();
-		const response = this.emitter.subscribeOnce(`rpc-${id}`);
-		this.socket.send(this.encodeCbor({ id, ...request }));
+			const id = getIncrementalID();
+			const response = this.emitter.subscribeOnce(`rpc-${id}`);
+			this.socket.send(this.encodeCbor({ id, ...request }));
 
-		const [res] = await response;
-		if (res instanceof EngineDisconnected) throw res;
+			const [raw] = await response;
+			if (raw instanceof EngineDisconnected) throw raw;
+			if (raw === RetryMessage) continue;
+			res = raw;
+		}
 
 		if ("result" in res) {
 			switch (request.method) {

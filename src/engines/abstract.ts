@@ -10,6 +10,7 @@ import type { ReconnectContext } from "../util/reconnect";
 
 export type Engine = new (context: EngineContext) => AbstractEngine;
 export type Engines = Record<string, Engine>;
+export const RetryMessage: unique symbol = Symbol("RetryMessage");
 
 export type EngineEvents = {
 	connecting: [];
@@ -18,7 +19,9 @@ export type EngineEvents = {
 	disconnected: [];
 	error: [Error];
 
-	[K: `rpc-${string | number}`]: [RpcResponse | EngineDisconnected];
+	[K: `rpc-${string | number}`]: [
+		RpcResponse | EngineDisconnected | typeof RetryMessage,
+	];
 	[K: `live-${string}`]: LiveHandlerArguments;
 };
 
