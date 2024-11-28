@@ -14,22 +14,41 @@ import {
 	type RpcResponse,
 	isLiveResult,
 } from "../types";
-import { newCompletable } from "../util/completable";
+import { newCompletable, type Completable } from "../util/completable";
 import { getIncrementalID } from "../util/get-incremental-id";
 import { retrieveRemoteVersion } from "../util/version-check";
-import { ConnectionStatus, RetryMessage, type EngineEvents } from "./abstract";
+import {
+	ConnectionStatus,
+	type EngineContext,
+	RetryMessage,
+	type EngineEvents,
+} from "./abstract";
 import { AbstractRemoteEngine } from "./abstract-remote";
 
 export class WebsocketEngine extends AbstractRemoteEngine {
 	private pinger?: Pinger;
 	private socket?: WebSocket;
+	private disconnected: Completable;
+
+	constructor(ctx: EngineContext) {
+		super(ctx);
+		this.disconnected = newCompletable();
+	}
 
 	private setStatus<T extends ConnectionStatus>(
 		status: T,
 		...args: EngineEvents[T]
 	) {
-		this.status = status;
-		this.emitter.emit(status, args);
+		if (
+			(this.connection.url && status === ConnectionStatus.Disconnected) ||
+			status === ConnectionStatus.Error
+		) {
+			this.disconnected.resolve();
+			this.disconnected = newCompletable();
+		} else {
+			this.status = status;
+			this.emitter.emit(status, args);
+		}
 	}
 
 	private async requireStatus<T extends ConnectionStatus>(
@@ -60,7 +79,7 @@ export class WebsocketEngine extends AbstractRemoteEngine {
 					initial = false;
 					this.setStatus(ConnectionStatus.Connecting);
 					this.ready = this.createSocket();
-					await this.emitter.subscribeOnce(ConnectionStatus.Disconnected);
+					await this.disconnected.promise;
 				} else {
 					// Check if reconnecting is enabled
 					if (!this.context.reconnect.enabled) {
@@ -77,62 +96,100 @@ export class WebsocketEngine extends AbstractRemoteEngine {
 					// Obtain the controls for the promise
 					const [resolve, reject] = controls;
 
-					// Try to iterate
-					if (!(await this.context.reconnect.iterate())) {
-						return reject(new ReconnectFailed());
+					// Check if we will be allowed to iterate
+					if (!this.context.reconnect.allowed) {
+						// Clear the engine
+						this.connection = {
+							url: undefined,
+							namespace: undefined,
+							database: undefined,
+							token: undefined,
+						};
+
+						this.socket = undefined;
+						reject(new ReconnectFailed());
+
+						// Emit the ReconnectFailed error
+						this.emitter.emit(ConnectionStatus.Error, [new ReconnectFailed()]);
+
+						// Emit the status
+						this.setStatus(ConnectionStatus.Disconnected);
+
+						// Break the loop
+						break;
 					}
 
 					// Emit the status
 					this.setStatus(ConnectionStatus.Reconnecting);
 
+					// Try to iterate
+					await this.context.reconnect.iterate();
+
 					// Attempt to reconnect
 					await this.createSocket()
-						.then(async () => {
-							// Reconfigure the namespace and database
-							if (this.connection.namespace || this.connection.database) {
-								await this.rpc(
-									{
-										method: "use",
-										params: [
-											this.connection.namespace,
-											this.connection.database,
-										],
-									},
-									true,
-								);
-							}
-
-							// Reconfigure the authentication details
-							if (this.connection.token) {
-								await this.rpc(
-									{
-										method: "authenticate",
-										params: [this.connection.token],
-									},
-									true,
-								);
-							}
-
-							// Reset the reconnection status
-							this.context.reconnect.reset();
-
-							// Unblock the connection
-							resolve();
-
-							// Scan all pending rpc requests
-							const pending = this.emitter.scanListeners((k) =>
-								k.startsWith("rpc-"),
-							);
-							// Ensure all rpc requests receive a retry symbol
-							pending.map((k) => this.emitter.emit(k, [RetryMessage]));
-						})
 						// Ignore any error
 						// the connection failed, let's try again
 						.catch(() => {});
 
+					try {
+						// Reconfigure the namespace and database
+						if (this.connection.namespace || this.connection.database) {
+							await this.rpc(
+								{
+									method: "use",
+									params: [this.connection.namespace, this.connection.database],
+								},
+								true,
+							);
+						}
+
+						// Reconfigure the authentication details
+						if (this.connection.token) {
+							await this.rpc(
+								{
+									method: "authenticate",
+									params: [this.connection.token],
+								},
+								true,
+							);
+						}
+					} catch (e) {
+						// Clear the engine
+						this.connection = {
+							url: undefined,
+							namespace: undefined,
+							database: undefined,
+							token: undefined,
+						};
+
+						this.socket = undefined;
+						reject(e as Error);
+
+						// Emit the ReconnectFailed error
+						this.emitter.emit(ConnectionStatus.Error, [e as Error]);
+
+						// Emit the status
+						this.setStatus(ConnectionStatus.Disconnected);
+
+						break;
+					}
+
+					// Reset the reconnection status
+					this.context.reconnect.reset();
+
+					// Unblock the connection
+					resolve();
+
+					// Scan all pending rpc requests
+					const pending = this.emitter.scanListeners((k) =>
+						k.startsWith("rpc-"),
+					);
+					// Ensure all rpc requests receive a retry symbol
+					pending.map((k) => this.emitter.emit(k, [RetryMessage]));
+
 					// If we are connection, wait for the connection to be dropped
 					if (this.status === ConnectionStatus.Connected) {
-						await this.emitter.subscribeOnce(ConnectionStatus.Disconnected);
+						await this.disconnected.promise;
 					}
 				}
 			}
@@ -233,6 +290,7 @@ export class WebsocketEngine extends AbstractRemoteEngine {
 		this.socket?.close();
 		this.ready = undefined;
 		this.socket = undefined;
+		this.disconnected.resolve();
 
 		await Promise.any([
 			this.requireStatus(ConnectionStatus.Disconnected),

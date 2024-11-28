@@ -1,8 +1,10 @@
+import { ReconnectIterationError } from "../errors";
 import { DEFAULT_RECONNECT_OPTIONS, type ReconnectOptions } from "../types";
 import { rand } from "./rand";
 
 export class ReconnectContext {
 	private _attempts = 0;
+	private _global: Date[] = [];
 	readonly options: ReconnectOptions;
 
 	// Process options as passed by the user
@@ -26,26 +28,42 @@ export class ReconnectContext {
 		return this._attempts;
 	}
 
+	get globalTimestamps(): Date[] {
+		const now = new Date().getTime();
+		return this._global.filter(
+			(d) => now - d.getTime() <= this.options.globalRetriesTimespan,
+		);
+	}
+
+	get globalAttempts(): number {
+		return this.globalTimestamps.length;
+	}
+
 	get enabled(): boolean {
 		return this.options.enabled;
 	}
 
-	reset(): void {
-		this._attempts = 0;
+	get allowed(): boolean {
+		return (
+			this.options.enabled &&
+			this._attempts < this.options.attempts &&
+			this.globalAttempts < this.options.globalRetryAttempts
+		);
 	}
 
-	async iterate(): Promise<boolean> {
-		if (!this.options.enabled) {
-			return false;
+	reset(): void {
+		this._attempts = 0;
+		this._global = [...this.globalTimestamps, new Date()];
+	}
+
+	async iterate(): Promise<void> {
+		// Restrict reconnect attempts and propagate ReconnectFailed error
+		if (!this.allowed) {
+			throw new ReconnectIterationError();
 		}
 
 		// Bump iteration
 		this._attempts++;
-
-		// Restrict reconnect attempts and propagate ReconnectFailed error
-		if (this._attempts > this.options.attempts) {
-			return false;
-		}
 
 		// Compute the next reconnect delay
 		const multiplier = this.options.retryDelayMultiplier ** this.attempts;
@@ -62,6 +80,5 @@ export class ReconnectContext {
 
 		// Wait for the next iteration
 		await new Promise<void>((r) => setTimeout(r, nextDelay));
-		return true;
 	}
 }

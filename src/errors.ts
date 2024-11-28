@@ -40,6 +40,11 @@ export class ReconnectFailed extends SurrealDbError {
 	message = "The engine failed to reconnect to SurrealDB";
 }
 
+export class ReconnectIterationError extends SurrealDbError {
+	name = "ReconnectIterationError";
+	message = "The reconnect iterator failed to iterate";
+}
+
 export class UnexpectedServerResponse extends SurrealDbError {
 	name = "UnexpectedServerResponse";
 
