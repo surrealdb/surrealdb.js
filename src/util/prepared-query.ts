@@ -3,6 +3,7 @@ import {
 	type Fill,
 	Gap,
 	type PartiallyEncoded,
+	type Replacer,
 	Writer,
 	encode,
 	partiallyEncodeObject,
@@ -19,13 +20,19 @@ export type ConvertMethod<T = unknown> = (result: unknown[]) => T;
 export class PreparedQuery {
 	private _query: Uint8Array;
 	private _bindings: Record<string, PartiallyEncoded>;
+	private _replacer: Replacer;
 	private length: number;
 
-	constructor(query: string, bindings?: Record<string, unknown>) {
+	constructor(
+		query: string,
+		bindings?: Record<string, unknown>,
+		{ replacer: customReplacer }: { replacer?: Replacer } = {},
+	) {
 		textEncoder ??= new TextEncoder();
 		this._query = textEncoder.encode(query);
+		this._replacer = customReplacer ?? replacer.encode;
 		this._bindings = partiallyEncodeObject(bindings ?? {}, {
-			replacer: replacer.encode,
+			replacer: this._replacer,
 		});
 		this.length = Object.keys(this._bindings).length;
 	}
@@ -53,7 +60,10 @@ export class PreparedQuery {
 	 * @param fills - The gap values to fill
 	 */
 	build(fills?: Fill[]): ArrayBuffer {
-		return encode([this.query, this.bindings], { fills });
+		return encode([this.query, this.bindings], {
+			fills,
+			replacer: this._replacer,
+		});
 	}
 
 	/**
@@ -92,7 +102,7 @@ export class PreparedQuery {
 
 		for (const [k, v] of mapped_bindings) {
 			this._bindings[k] = encode(v, {
-				replacer: replacer.encode,
+				replacer: this._replacer,
 				partial: true,
 			});
 		}
