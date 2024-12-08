@@ -1,4 +1,4 @@
-import { Tagged, decode, encode } from "../cbor";
+import { type Replacer, Tagged, decode, encode } from "../cbor";
 import {
 	cborCustomDateToDate,
 	dateToCborCustomDate,
@@ -55,7 +55,10 @@ const TAG_GEOMETRY_MULTILINE = 92;
 const TAG_GEOMETRY_MULTIPOLYGON = 93;
 const TAG_GEOMETRY_COLLECTION = 94;
 
-export const replacer = {
+export const replacer: {
+	encode: Replacer;
+	decode: Replacer;
+} = {
 	encode(v: unknown): unknown {
 		if (v instanceof Date) {
 			return new Tagged(TAG_CUSTOM_DATETIME, dateToCborCustomDate(v));

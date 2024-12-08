@@ -25,4 +25,4 @@ export {
 	GeometryPoint,
 	GeometryPolygon,
 } from "./types/geometry.ts";
-export { encodeCbor, decodeCbor } from "./cbor.ts";
+export { encodeCbor, decodeCbor, replacer } from "./cbor.ts";

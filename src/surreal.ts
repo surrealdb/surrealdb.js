@@ -3,8 +3,6 @@ import {
 	Table,
 	type Uuid,
 	RecordId as _RecordId,
-	decodeCbor,
-	encodeCbor,
 } from "./data";
 import {
 	type AbstractEngine,
@@ -34,7 +32,13 @@ import {
 	convertAuth,
 } from "./types.ts";
 
-import { type Fill, partiallyEncodeObject } from "./cbor";
+import {
+	type Fill,
+	type Replacer,
+	decode,
+	encode,
+	partiallyEncodeObject,
+} from "./cbor";
 import { replacer } from "./data/cbor.ts";
 import type { RecordIdRange } from "./data/types/range.ts";
 import { HttpEngine } from "./engines/http.ts";
@@ -51,6 +55,17 @@ import {
 type R = Prettify<Record<string, unknown>>;
 type RecordId<Tb extends string = string> = _RecordId<Tb> | StringRecordId;
 
+export type SurrealOptions = {
+	engines?: Engines;
+
+	replacer?: ReplacerOptions;
+};
+
+export type ReplacerOptions = {
+	encode: Replacer;
+	decode: Replacer;
+};
+
 export class Surreal {
 	public connection: AbstractEngine | undefined;
 	ready?: Promise<void>;
@@ -61,12 +76,9 @@ export class Surreal {
 		http: HttpEngine,
 		https: HttpEngine,
 	};
+	protected replacer: ReplacerOptions;
 
-	constructor({
-		engines,
-	}: {
-		engines?: Engines;
-	} = {}) {
+	constructor({ engines, replacer: customReplacer }: SurrealOptions = {}) {
 		this.emitter = new Emitter();
 		this.emitter.subscribe(ConnectionStatus.Disconnected, () => this.clean());
 		this.emitter.subscribe(ConnectionStatus.Error, () => this.close());
@@ -77,6 +89,11 @@ export class Surreal {
 				...engines,
 			};
 		}
+
+		this.replacer = customReplacer ?? {
+			encode: replacer.encode,
+			decode: replacer.decode,
+		};
 	}
 
 	/**
@@ -116,8 +133,8 @@ export class Surreal {
 		// to ensure that everything is using the same instance of classes that these methods depend on.
 		const context = new EngineContext({
 			emitter: this.emitter,
-			encodeCbor,
-			decodeCbor,
+			encodeCbor: (data) => encode(data, { replacer: this.replacer?.encode }),
+			decodeCbor: (data) => decode(data, { replacer: this.replacer?.decode }),
 		});
 
 		// The promise does not know if `this.connection` is undefined or not, but it does about `connection`
