@@ -35,7 +35,7 @@ We aim to develop according to coding standards in-line with each programming la
   
   ## Driver architecture
   
-  We would recommend following the API of the [Rust driver](https://github.com/surrealdb/surrealdb/tree/main/lib), as the Rust driver is fully utilising our capabilities and is the de-facto reference implementation. In the future, it will also be the underlying implementation as we begin to share a common API (either via foreign function interfaces or WASM), with native language-specific bindings.
+  We would recommend following the API of the [Rust driver](https://github.com/surrealdb/surrealdb/tree/main/crates/sdk), as the Rust driver is fully utilising our capabilities and is the de-facto reference implementation. In the future, it will also be the underlying implementation as we begin to share a common API (either via foreign function interfaces or WASM), with native language-specific bindings.
   
   Drivers connect to SurrealDB using either REST, a text-based WebSocket protocol, or a binary-based WebSocket protocol. Each of the protocols aims to support as many of the SurrealDB features as possible, ensuring that similar functionality and similar performance are supported regardless of the protocol being used.
   
