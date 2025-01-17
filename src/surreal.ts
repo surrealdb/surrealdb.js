@@ -22,6 +22,7 @@ import {
 	type AccessRecordAuth,
 	type ActionResult,
 	type AnyAuth,
+	type ConnectOptions,
 	type ExportOptions,
 	type LiveHandler,
 	type MapQueryResult,
@@ -47,14 +48,15 @@ import {
 	SurrealDbError,
 	UnsupportedEngine,
 } from "./errors.ts";
+import { ReconnectContext } from "./util/reconnect.ts";
 
 type R = Prettify<Record<string, unknown>>;
 type RecordId<Tb extends string = string> = _RecordId<Tb> | StringRecordId;
 
 export class Surreal {
 	public connection: AbstractEngine | undefined;
-	ready?: Promise<void>;
-	emitter: Emitter<EngineEvents>;
+	public emitter: Emitter<EngineEvents>;
+
 	protected engines: Engines = {
 		ws: WebsocketEngine,
 		wss: WebsocketEngine,
@@ -62,14 +64,14 @@ export class Surreal {
 		https: HttpEngine,
 	};
 
+	private _ready?: Promise<void> | undefined;
+
 	constructor({
 		engines,
 	}: {
 		engines?: Engines;
 	} = {}) {
 		this.emitter = new Emitter();
-		this.emitter.subscribe(ConnectionStatus.Disconnected, () => this.clean());
-		this.emitter.subscribe(ConnectionStatus.Error, () => this.close());
 
 		if (engines) {
 			this.engines = {
@@ -83,31 +85,23 @@ export class Surreal {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	async connect(
+	async connect(url: string | URL, opts: ConnectOptions = {}): Promise<true> {
+		this._ready = this.connectInner(url, opts);
+		await this._ready;
+		return true;
+	}
+
+	private async connectInner(
 		url: string | URL,
-		opts: {
-			namespace?: string;
-			database?: string;
-			auth?: AnyAuth | Token;
-			prepare?: (connection: Surreal) => unknown;
-			versionCheck?: boolean;
-			versionCheckTimeout?: number;
-		} = {},
-	): Promise<true> {
-		// biome-ignore lint/style/noParameterAssign: Need to ensure it's a URL
-		url = new URL(url);
-
-		if (!url.pathname.endsWith("/rpc")) {
-			if (!url.pathname.endsWith("/")) url.pathname += "/";
-			url.pathname += "rpc";
-		}
-
-		const engineName = url.protocol.slice(0, -1);
+		opts: ConnectOptions = {},
+	): Promise<void> {
+		const endpoint = parseUrl(url);
+		const engineName = endpoint.protocol.slice(0, -1);
 		const engine = this.engines[engineName];
 		if (!engine) throw new UnsupportedEngine(engineName);
 
 		// Process options
-		const { prepare, auth, namespace, database } = opts;
+		const { prepare, auth, namespace, database, reconnect } = opts;
 
 		// Close any existing connections
 		await this.close();
@@ -118,6 +112,7 @@ export class Surreal {
 			emitter: this.emitter,
 			encodeCbor,
 			decodeCbor,
+			reconnect: new ReconnectContext(reconnect),
 		});
 
 		// The promise does not know if `this.connection` is undefined or not, but it does about `connection`
@@ -125,36 +120,31 @@ export class Surreal {
 
 		// If not disabled, run a version check
 		if (opts.versionCheck !== false) {
-			const version = await connection.version(url, opts.versionCheckTimeout);
+			const version = await connection.version(
+				endpoint,
+				opts.versionCheckTimeout,
+			);
 			versionCheck(version);
 		}
 
 		this.connection = connection;
-		this.ready = new Promise((resolve, reject) =>
-			connection
-				.connect(url as URL)
-				.then(async () => {
-					if (namespace || database) {
-						await this.use({
-							namespace,
-							database,
-						});
-					}
 
-					if (typeof auth === "string") {
-						await this.authenticate(auth);
-					} else if (auth) {
-						await this.signin(auth);
-					}
+		await connection.connect(endpoint);
 
-					await prepare?.(this);
-					resolve();
-				})
-				.catch(reject),
-		);
+		if (namespace || database) {
+			await this.use({
+				namespace,
+				database,
+			});
+		}
 
-		await this.ready;
-		return true;
+		if (typeof auth === "string") {
+			await this.authenticate(auth);
+		} else if (auth) {
+			await this.signin(auth);
+		}
+
+		await prepare?.(this);
 	}
 
 	/**
@@ -189,6 +179,13 @@ export class Surreal {
 	 */
 	get status(): ConnectionStatus {
 		return this.connection?.status ?? ConnectionStatus.Disconnected;
+	}
+
+	/**
+	 * A promise which resolves when the connection is ready
+	 */
+	get ready(): Promise<void> {
+		return Promise.all([this._ready, this.connection?.ready]).then(() => {});
 	}
 
 	/**
@@ -774,6 +771,7 @@ export class Surreal {
 		params?: unknown[],
 	): Promise<RpcResponse<Result>> {
 		if (!this.connection) throw new NoActiveSocket();
+
 		return this.connection.rpc<typeof method, typeof params, Result>({
 			method,
 			params,
@@ -796,4 +794,19 @@ function output<T, S>(subject: S, input: T | T[]): Output<T, S> {
 	const one = subject instanceof _RecordId || subject instanceof StringRecordId;
 	if (one) return (Array.isArray(input) ? input[0] : input) as Output<T, S>;
 	return (Array.isArray(input) ? input : [input]) as Output<T, S>;
+}
+
+function parseUrl(value: string | URL): URL {
+	const url = new URL(value);
+
+	if (!url.pathname.endsWith("/rpc")) {
+		if (!url.pathname.endsWith("/")) url.pathname += "/";
+		url.pathname += "rpc";
+	}
+
+	return url;
+}
+
+function rand(min: number, max: number) {
+	return Math.random() * (max - min) + min;
 }
