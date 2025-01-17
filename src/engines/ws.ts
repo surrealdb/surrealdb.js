@@ -14,14 +14,14 @@ import {
 	type RpcResponse,
 	isLiveResult,
 } from "../types";
-import { newCompletable, type Completable } from "../util/completable";
+import { type Completable, newCompletable } from "../util/completable";
 import { getIncrementalID } from "../util/get-incremental-id";
 import { retrieveRemoteVersion } from "../util/version-check";
 import {
 	ConnectionStatus,
 	type EngineContext,
-	RetryMessage,
 	type EngineEvents,
+	RetryMessage,
 } from "./abstract";
 import { AbstractRemoteEngine } from "./abstract-remote";
 
