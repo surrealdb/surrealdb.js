@@ -9,7 +9,7 @@ if (typeof port_unreachable !== "number") {
 }
 
 export const SURREAL_EXECUTABLE_PATH: string =
-	process.env.SURREAL_EXECUTABLE_PATH || "/usr/bin/local/surreal";
+	process.env.SURREAL_EXECUTABLE_PATH || "/usr/local/bin/surreal";
 export const SURREAL_PORT: string = port.toString();
 export const SURREAL_BIND: string = `0.0.0.0:${SURREAL_PORT}`;
 export const SURREAL_PORT_UNREACHABLE: string = port_unreachable.toString();
