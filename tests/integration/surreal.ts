@@ -44,7 +44,7 @@ type CreateSurrealOptions = {
 export async function setupServer(): Promise<{
 	createSurreal: (options?: CreateSurrealOptions) => Promise<Surreal>;
 }> {
-	const proc = Bun.spawn(["surreal", "start"], {
+	const proc = Bun.spawn(["/usr/local/bin/surreal", "start"], {
 		env: {
 			SURREAL_BIND,
 			SURREAL_USER,
