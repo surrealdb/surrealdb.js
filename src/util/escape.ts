@@ -11,6 +11,11 @@ export function escapeIdent(str: string): string {
 		return `⟨${str}⟩`;
 	}
 
+	// Empty string should always be escaped
+	if (str === "") {
+		return "⟨⟩";
+	}
+
 	let code: number;
 	let i: number;
 	let len: number;
