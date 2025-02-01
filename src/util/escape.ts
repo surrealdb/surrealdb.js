@@ -54,7 +54,6 @@ export function escapeNumber(num: number | bigint): string {
     return num <= MAX_i64 ? num.toString() : `⟨${num}⟩`;
 }
 
-// THIS IS THE ONLY CHANGE
 function isOnlyNumbers(str: string): boolean {
     return /^\d+$/.test(str.replace(/_/g, ''));
 }
