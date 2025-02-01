@@ -68,15 +68,16 @@ export class StringRecordId extends Value {
 			throw new SurrealDbError("String Record ID must be a string");
 		}
 	}
+
 	equals(other: unknown): boolean {
 		if (!(other instanceof StringRecordId)) return false;
 		return this.rid === other.rid;
 	}
-	
+
 	toJSON(): string {
 		return this.rid;
 	}
-	
+
 	toString(): string {
 		return this.rid;
 	}
@@ -98,21 +99,11 @@ export function isValidIdPart(v: unknown): v is RecordIdValue {
 }
 
 export function escapeIdPart(id: RecordIdValue): string {
-    if (id instanceof Uuid) {
-        return `u"${id}"`;
-    }
-    
-    if (typeof id === "string" && /^\d{15,}$/.test(id)) {
-        return `⟨${id}⟩`;
-    }
-    
-    if (typeof id === "string") {
-        return escapeIdent(id);
-    }
-    
-    if (typeof id === "bigint" || typeof id === "number") {
-        return escapeNumber(id);
-    }
-    
-    return toSurrealqlString(id);
+	return id instanceof Uuid
+		? `u"${id}"`
+		: typeof id === "string"
+			? escapeIdent(id)
+			: typeof id === "bigint" || typeof id === "number"
+				? escapeNumber(id)
+				: toSurrealqlString(id);
 }
