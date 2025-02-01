@@ -6,33 +6,33 @@ const MAX_i64 = 9223372036854775807n;
  * @returns Optionally escaped string
  */
 export function escapeIdent(str: string): string {
-    // String which looks like a number should always be escaped, to prevent it from being parsed as a number
-    if (isOnlyNumbers(str)) {
-        return `⟨${str}⟩`;
-    }
+	// String which looks like a number should always be escaped, to prevent it from being parsed as a number
+	if (isOnlyNumbers(str)) {
+		return `⟨${str}⟩`;
+	}
 
-    // Empty string should always be escaped
-    if (str === "") {
-        return "⟨⟩";
-    }
+	// Empty string should always be escaped
+	if (str === "") {
+		return "⟨⟩";
+	}
 
-    let code: number;
-    let i: number;
-    let len: number;
+	let code: number;
+	let i: number;
+	let len: number;
 
-    for (i = 0, len = str.length; i < len; i++) {
-        code = str.charCodeAt(i);
-        if (
-            !(code > 47 && code < 58) && // numeric (0-9)
-            !(code > 64 && code < 91) && // upper alpha (A-Z)
-            !(code > 96 && code < 123) && // lower alpha (a-z)
-            !(code === 95) // underscore (_)
-        ) {
-            return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
-        }
-    }
+	for (i = 0, len = str.length; i < len; i++) {
+		code = str.charCodeAt(i);
+		if (
+			!(code > 47 && code < 58) && // numeric (0-9)
+			!(code > 64 && code < 91) && // upper alpha (A-Z)
+			!(code > 96 && code < 123) && // lower alpha (a-z)
+			!(code === 95) // underscore (_)
+		) {
+			return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
+		}
+	}
 
-    return str;
+	return str;
 }
 
 /**
@@ -42,7 +42,7 @@ export function escapeIdent(str: string): string {
  * @deprecated Use `escapeIdent` instead
  */
 export function escape_ident(str: string): string {
-    return escapeIdent(str);
+	return escapeIdent(str);
 }
 
 /**
@@ -51,9 +51,9 @@ export function escape_ident(str: string): string {
  * @returns Optionally escaped number
  */
 export function escapeNumber(num: number | bigint): string {
-    return num <= MAX_i64 ? num.toString() : `⟨${num}⟩`;
+	return num <= MAX_i64 ? num.toString() : `⟨${num}⟩`;
 }
 
 function isOnlyNumbers(str: string): boolean {
-    return /^\d+$/.test(str.replace(/_/g, ''));
+	return /^\d+$/.test(str.replace(/_/g, ""));
 }
