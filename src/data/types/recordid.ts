@@ -51,28 +51,23 @@ export class RecordId<Tb extends string = string> extends Value {
  * A SurrealQL string-represented record ID value.
  */
 export class StringRecordId extends Value {
-    public readonly rid: string;
+	public readonly rid: string;
 
-    constructor(rid: string | StringRecordId | RecordId) {
-        super();
+	constructor(rid: string | StringRecordId | RecordId) {
+		super();
 
-        if (rid instanceof StringRecordId) {
-            this.rid = rid.rid;
-        } else if (rid instanceof RecordId) {
-            this.rid = rid.toString();
-        } else if (typeof rid === "string") {
-            // Handle long numeric string IDs in the constructor
-            const [table, id] = rid.split(':');
-            if (id && /^\d{15,}$/.test(id)) {
-                this.rid = `${table}:⟨${id}⟩`;
-            } else {
-                this.rid = rid;
-            }
-        } else {
-            throw new SurrealDbError("String Record ID must be a string");
-        }
-    }
-
+		// In some cases the same method may be used with different data sources
+		// this can cause this method to be called with an already instanced class object.
+		if (rid instanceof StringRecordId) {
+			this.rid = rid.rid;
+		} else if (rid instanceof RecordId) {
+			this.rid = rid.toString();
+		} else if (typeof rid === "string") {
+			this.rid = rid;
+		} else {
+			throw new SurrealDbError("String Record ID must be a string");
+		}
+	}
 	equals(other: unknown): boolean {
 		if (!(other instanceof StringRecordId)) return false;
 		return this.rid === other.rid;
@@ -108,7 +103,7 @@ export function escapeIdPart(id: RecordIdValue): string {
     }
     
     if (typeof id === "string" && /^\d{15,}$/.test(id)) {
-        return `⟨${id}⟩`; // Wrap long numeric strings in angle brackets
+        return `⟨${id}⟩`;
     }
     
     if (typeof id === "string") {
