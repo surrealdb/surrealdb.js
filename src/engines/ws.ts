@@ -126,32 +126,43 @@ export class WebsocketEngine extends AbstractRemoteEngine {
 					await this.context.reconnect.iterate();
 
 					// Attempt to reconnect
-					await this.createSocket()
+					try {
+						await this.createSocket();
+					} catch {
 						// Ignore any error
 						// the connection failed, let's try again
-						.catch(() => {});
+						continue;
+					}
 
 					try {
 						// Reconfigure the namespace and database
 						if (this.connection.namespace || this.connection.database) {
-							await this.rpc(
+							const res = await this.rpc(
 								{
 									method: "use",
 									params: [this.connection.namespace, this.connection.database],
 								},
 								true,
 							);
+
+							if (res.error) {
+								throw new ResponseError(res.error.message);
+							}
 						}
 
 						// Reconfigure the authentication details
 						if (this.connection.token) {
-							await this.rpc(
+							const res = await this.rpc(
 								{
 									method: "authenticate",
 									params: [this.connection.token],
 								},
 								true,
 							);
+
+							if (res.error) {
+								throw new ResponseError(res.error.message);
+							}
 						}
 					} catch (e) {
 						// Clear the engine

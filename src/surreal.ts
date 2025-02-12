@@ -112,7 +112,7 @@ export class Surreal {
 			emitter: this.emitter,
 			encodeCbor,
 			decodeCbor,
-			reconnect: new ReconnectContext(reconnect),
+			reconnect: new ReconnectContext(reconnect, this),
 		});
 
 		// The promise does not know if `this.connection` is undefined or not, but it does about `connection`

@@ -1,11 +1,18 @@
 import type { EngineDisconnected } from "../errors";
-import type {
-	ExportOptions,
-	LiveHandlerArguments,
-	RpcRequest,
-	RpcResponse,
+import {
+	convertAuth,
+	type AuthClient,
+	type ExportOptions,
+	type LiveHandlerArguments,
+	type RpcRequest,
+	type RpcResponse,
+	type ScopeAuth,
+	type AccessRecordAuth,
+	type AnyAuth,
+	type Token,
 } from "../types";
 import type { Emitter } from "../util/emitter";
+import { processAuthVars } from "../util/process-auth-vars";
 import type { ReconnectContext } from "../util/reconnect";
 
 export type Engine = new (context: EngineContext) => AbstractEngine;
@@ -101,4 +108,53 @@ export abstract class AbstractEngine {
 
 	abstract version(url: URL, timeout?: number): Promise<string>;
 	abstract export(options?: Partial<ExportOptions>): Promise<string>;
+
+	// protected authClient(): AuthClient {
+	// 	const self = this;
+
+	// 	return {
+	// 		async signup(vars: ScopeAuth | AccessRecordAuth): Promise<Token> {
+	// 			const parsed = processAuthVars(vars, self.connection);
+	// 			const converted = convertAuth(parsed);
+	// 			const res: RpcResponse<Token> = await self.rpc({
+	// 				method: "signup",
+	// 				params: [converted],
+	// 			});
+
+	// 			if (res.error) throw new ResponseError(res.error.message);
+	// 			if (!res.result) {
+	// 				throw new NoTokenReturned();
+	// 			}
+
+	// 			return res.result;
+	// 		}
+
+	// 		async signin(vars: AnyAuth): Promise<Token> {
+	// 			if (!this.connection) throw new NoActiveSocket();
+
+	// 			const parsed = processAuthVars(vars, this.connection.connection);
+	// 			const converted = convertAuth(parsed);
+	// 			const res = await this.rpc<Token>("signin", [converted]);
+
+	// 			if (res.error) throw new ResponseError(res.error.message);
+	// 			if (!res.result) {
+	// 				throw new NoTokenReturned();
+	// 			}
+
+	// 			return res.result;
+	// 		}
+
+	// 		async authenticate(token: Token): Promise<true> {
+	// 			const res = await this.rpc<string>("authenticate", [token]);
+	// 			if (res.error) throw new ResponseError(res.error.message);
+	// 			return true;
+	// 		}
+
+	// 		async invalidate(): Promise<true> {
+	// 			const res = await this.rpc("invalidate");
+	// 			if (res.error) throw new ResponseError(res.error.message);
+	// 			return true;
+	// 		}
+	// 	}
+	// }
 }

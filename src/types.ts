@@ -108,6 +108,11 @@ export type AnyAuth =
 
 export type Token = string;
 
+export type AuthClient = Pick<
+	Surreal,
+	"signin" | "signup" | "authenticate" | "invalidate"
+>;
+
 /////////////////////////////////////
 //////////   QUERY TYPES   //////////
 /////////////////////////////////////
@@ -304,4 +309,6 @@ export interface ReconnectOptions {
 	globalRetryAttempts: number;
 	/** In what timeframe can we make the global retry attempts */
 	globalRetriesTimespan: number;
+	/** Ability to customise the authentication behaviour upon reconnecting */
+	auth?: AnyAuth | ((client: AuthClient) => Promise<unknown>);
 }

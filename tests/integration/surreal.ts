@@ -1,10 +1,11 @@
 import { afterAll } from "bun:test";
-import Surreal, { type AnyAuth } from "../../src";
+import Surreal, { type AnyAuth, type ReconnectOptions } from "../../src";
 import { SURREAL_BIND, SURREAL_PORT_UNREACHABLE, SURREAL_USER } from "./env.ts";
 import { SURREAL_PASS } from "./env.ts";
 import { SURREAL_DB } from "./env.ts";
 import { SURREAL_NS } from "./env.ts";
 import { SURREAL_PORT } from "./env.ts";
+import type { Subprocess } from "bun";
 
 export type Protocol = "http" | "ws";
 export const PROTOCOL: Protocol =
@@ -39,30 +40,39 @@ type CreateSurrealOptions = {
 	auth?: PremadeAuth;
 	reachable?: boolean;
 	unselected?: boolean;
+	reconnect?: boolean | Partial<ReconnectOptions>;
 };
 
 export async function setupServer(): Promise<{
 	createSurreal: (options?: CreateSurrealOptions) => Promise<Surreal>;
+	spawn: () => Promise<void>;
+	kill: () => Promise<void>;
 }> {
-	const proc = Bun.spawn(["/usr/local/bin/surreal", "start"], {
-		env: {
-			SURREAL_BIND,
-			SURREAL_USER,
-			SURREAL_PASS,
-		},
-	});
+	let proc: undefined | Subprocess = undefined;
 
-	await Bun.sleep(1000);
+	async function spawn() {
+		proc = Bun.spawn(["/usr/local/bin/surreal", "start"], {
+			env: {
+				SURREAL_BIND,
+				SURREAL_USER,
+				SURREAL_PASS,
+			},
+		});
 
-	afterAll(async () => {
-		proc.kill();
-	});
+		await Bun.sleep(1000);
+	}
+
+	async function kill() {
+		proc?.kill();
+		await Bun.sleep(100);
+	}
 
 	async function createSurreal({
 		protocol,
 		auth,
 		reachable,
 		unselected,
+		reconnect,
 	}: CreateSurrealOptions = {}) {
 		protocol = protocol ? protocol : PROTOCOL;
 		const surreal = new Surreal();
@@ -71,11 +81,18 @@ export async function setupServer(): Promise<{
 			namespace: unselected ? undefined : SURREAL_NS,
 			database: unselected ? undefined : SURREAL_DB,
 			auth: createAuth(auth ?? "root"),
+			reconnect,
 		});
 
 		afterAll(async () => await surreal.close());
 		return surreal;
 	}
 
-	return { createSurreal };
+	afterAll(async () => {
+		kill();
+	});
+
+	await spawn();
+
+	return { createSurreal, spawn, kill };
 }

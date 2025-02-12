@@ -1,4 +1,5 @@
 import { ReconnectIterationError } from "../errors";
+import type { Surreal } from "../surreal";
 import { DEFAULT_RECONNECT_OPTIONS, type ReconnectOptions } from "../types";
 import { rand } from "./rand";
 
@@ -6,9 +7,15 @@ export class ReconnectContext {
 	private _attempts = 0;
 	private _global: Date[] = [];
 	readonly options: ReconnectOptions;
+	readonly surreal: Surreal;
 
 	// Process options as passed by the user
-	constructor(input?: Partial<ReconnectOptions> | boolean) {
+	constructor(
+		input: undefined | Partial<ReconnectOptions> | boolean,
+		surreal: Surreal,
+	) {
+		this.surreal = surreal;
+
 		if (!input) {
 			this.options = {
 				...DEFAULT_RECONNECT_OPTIONS,
