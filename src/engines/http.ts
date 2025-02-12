@@ -176,4 +176,17 @@ export class HttpEngine extends AbstractEngine {
 		const dec = new TextDecoder("utf-8");
 		return dec.decode(buffer);
 	}
+
+	async import(data: string): Promise<void> {
+		if (!this.connection.url) {
+			throw new ConnectionUnavailable();
+		}
+		const url = new URL(this.connection.url);
+		const basepath = url.pathname.slice(0, -4);
+		url.pathname = `${basepath}/import`;
+
+		await this.req_post(data, url, {
+			Accept: "application/json",
+		});
+	}
 }

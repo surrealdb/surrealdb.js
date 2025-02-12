@@ -789,6 +789,16 @@ export class Surreal {
 		if (!this.connection) throw new NoActiveSocket();
 		return this.connection.export(options);
 	}
+
+	/**
+	 * Import an existing export into the database
+	 * @param input - The data to import
+	 */
+	public async import(input: string): Promise<void> {
+		await this.ready;
+		if (!this.connection) throw new NoActiveSocket();
+		return this.connection.import(input);
+	}
 }
 
 type Output<T, S> = S extends RecordId ? T : T[];
