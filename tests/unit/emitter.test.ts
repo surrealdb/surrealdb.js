@@ -62,11 +62,15 @@ describe("emitter", () => {
 	test("collectable", async () => {
 		const emitter = new Emitter<{ test: [number] }>();
 
-		emitter.emit("test", [1], true);
+		await emitter.emit("test", [1], true);
+		await emitter.emit("test", [2], true);
 		expect(emitter.scanListeners().length).toBe(0);
 
-		const p1 = await emitter.subscribeOnce("test");
+		const p1 = await emitter.subscribeOnce("test", true);
 		expect(p1).toEqual([1]);
+
+		const p2 = await emitter.subscribeOnce("test", true);
+		expect(p2).toEqual([2]);
 
 		expect(emitter.scanListeners().length).toBe(0);
 	});
