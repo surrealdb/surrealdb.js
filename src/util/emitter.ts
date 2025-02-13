@@ -75,8 +75,11 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 	): void {
 		if (this.listeners[event]) {
 			const index = this.listeners[event]?.findIndex((v) => v === listener);
-			if (index) {
+			if (typeof index === "number") {
 				this.listeners[event]?.splice(index, 1);
+				if (this.listeners[event]?.length === 0) {
+					delete this.listeners[event];
+				}
 			}
 		}
 	}
