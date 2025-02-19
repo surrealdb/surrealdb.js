@@ -51,11 +51,26 @@ export class ReconnectContext {
 	}
 
 	get allowed(): boolean {
-		return (
-			this.options.enabled &&
-			this._attempts < this.options.attempts &&
-			this.globalAttempts < this.options.globalRetryAttempts
-		);
+		// Check if reconnecting is enabled
+		if (!this.options.enabled) return false;
+
+		// Check if the maximum number of attempts has been reached
+		if (
+			this.options.attempts !== -1 &&
+			this._attempts >= this.options.attempts
+		) {
+			return false;
+		}
+
+		// Check if the global maximum number of attempts has been reached
+		if (
+			this.options.globalRetryAttempts !== -1 &&
+			this.globalAttempts >= this.options.globalRetryAttempts
+		) {
+			return false;
+		}
+
+		return true;
 	}
 
 	reset(): void {

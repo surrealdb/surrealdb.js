@@ -329,6 +329,8 @@ export class WebsocketEngine extends AbstractRemoteEngine {
 			const id = getIncrementalID();
 			const response = this.emitter.subscribeOnce(`rpc-${id}`);
 			this.socket.send(this.encodeCbor({ id, ...request }));
+			if (force && this.socket.readyState === WebSocket.CLOSED)
+				throw new EngineDisconnected();
 
 			const [raw] = await response;
 			if (raw instanceof EngineDisconnected) throw raw;
