@@ -43,7 +43,7 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 
 			if (historic && this.collectable[event]) {
 				const buffer = this.collectable[event];
-				this.collectable[event] = [];
+				delete this.collectable[event];
 				for (const args of buffer) {
 					listener(...args);
 				}
@@ -51,10 +51,19 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 		}
 	}
 
-	subscribeOnce<Event extends keyof Events>(
+	async subscribeOnce<Event extends keyof Events>(
 		event: Event,
 		historic = false,
 	): Promise<Events[Event]> {
+		if (historic && this.collectable[event]) {
+			const args = this.collectable[event]?.shift();
+			if (this.collectable[event]?.length === 0) {
+				delete this.collectable[event];
+			}
+
+			if (args) return args;
+		}
+
 		return new Promise<Events[Event]>((resolve) => {
 			let resolved = false;
 			const listener = (...args: Events[Event]) => {
@@ -65,7 +74,7 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 				}
 			};
 
-			this.subscribe(event, listener, historic);
+			this.subscribe(event, listener, false);
 		});
 	}
 
@@ -75,8 +84,11 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 	): void {
 		if (this.listeners[event]) {
 			const index = this.listeners[event]?.findIndex((v) => v === listener);
-			if (index) {
+			if (index >= 0) {
 				this.listeners[event]?.splice(index, 1);
+				if (this.listeners[event]?.length === 0) {
+					delete this.listeners[event];
+				}
 			}
 		}
 	}
@@ -96,7 +108,10 @@ export class Emitter<Events extends UnknownEvents = UnknownEvents> {
 		const interceptor = this.interceptors[event];
 		const computedArgs = interceptor ? await interceptor(...args) : args;
 
-		if (this.listeners[event]?.length === 0 && collectable) {
+		if (
+			(collectable && !this.listeners[event]) ||
+			this.listeners[event]?.length === 0
+		) {
 			if (!this.collectable[event]) {
 				this.collectable[event] = [];
 			}

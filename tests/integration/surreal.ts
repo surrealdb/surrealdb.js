@@ -1,6 +1,7 @@
 import { afterAll } from "bun:test";
 import Surreal, { type AnyAuth, type ReconnectOptions } from "../../src";
 import { SURREAL_BIND, SURREAL_PORT_UNREACHABLE, SURREAL_USER } from "./env.ts";
+import { SURREAL_EXECUTABLE_PATH } from "./env.ts";
 import { SURREAL_PASS } from "./env.ts";
 import { SURREAL_DB } from "./env.ts";
 import { SURREAL_NS } from "./env.ts";
@@ -51,7 +52,7 @@ export async function setupServer(): Promise<{
 	let proc: undefined | Subprocess = undefined;
 
 	async function spawn() {
-		proc = Bun.spawn(["/usr/local/bin/surreal", "start"], {
+		proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "start"], {
 			env: {
 				SURREAL_BIND,
 				SURREAL_USER,

@@ -108,6 +108,7 @@ export abstract class AbstractEngine {
 
 	abstract version(url: URL, timeout?: number): Promise<string>;
 	abstract export(options?: Partial<ExportOptions>): Promise<string>;
+	abstract import(data: string): Promise<void>;
 
 	// protected authClient(): AuthClient {
 	// 	const self = this;

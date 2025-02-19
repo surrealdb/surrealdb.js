@@ -11,6 +11,11 @@ export function escapeIdent(str: string): string {
 		return `⟨${str}⟩`;
 	}
 
+	// Empty string should always be escaped
+	if (str === "") {
+		return "⟨⟩";
+	}
+
 	let code: number;
 	let i: number;
 	let len: number;
@@ -50,7 +55,5 @@ export function escapeNumber(num: number | bigint): string {
 }
 
 function isOnlyNumbers(str: string): boolean {
-	const stripped = str.replace("_", "");
-	const parsed = Number.parseInt(stripped);
-	return !Number.isNaN(parsed) && parsed.toString() === stripped;
+	return /^\d+$/.test(str.replace(/_/g, ""));
 }
