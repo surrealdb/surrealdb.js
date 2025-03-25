@@ -1,6 +1,6 @@
 name: Feature request
 description: File a feature request
-title: "Feature: "
+title: ".js | Feature: "
 labels: ["feature", "triage"]
 assignees:
   - octocat
@@ -46,7 +46,7 @@ body:
     attributes:
       label: JavaScript SDK version
       description: Enter your project's directory, then copy and paste the output of `npm view surrealdb version`
-      placeholder: '0.0.0'
+      placeholder: "0.0.0"
     validations:
       required: true
   - type: input
@@ -63,8 +63,8 @@ body:
       label: Is there an existing issue for this?
       description: Please search [our issues](https://github.com/surrealdb/surrealdb.js/issues) to see if this bug already exists.
       options:
-      - label: I have searched the existing issues
-        required: true
+        - label: I have searched the existing issues
+          required: true
   - type: checkboxes
     id: terms
     attributes:
