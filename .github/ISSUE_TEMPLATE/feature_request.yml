@@ -1,6 +1,6 @@
 name: Feature request
 description: File a feature request
-title: ".js | Feature: "
+title: "Feature: "
 labels: ["feature", "triage"]
 assignees:
   - octocat
@@ -73,3 +73,6 @@ body:
       options:
         - label: I agree to follow this project's Code of Conduct
           required: true
+  - type: markdown
+    attributes:
+      value: "<!— DO NOT REMOVE: sdk:js —>"
