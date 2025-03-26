@@ -1,28 +1,41 @@
-import { type EngineDisconnected, HttpConnectionError } from "../errors";
-import type {
-	ExportOptions,
-	LiveHandlerArguments,
-	RpcRequest,
-	RpcResponse,
+import type { EngineDisconnected } from "../errors";
+import {
+	convertAuth,
+	type AuthClient,
+	type ExportOptions,
+	type LiveHandlerArguments,
+	type RpcRequest,
+	type RpcResponse,
+	type ScopeAuth,
+	type AccessRecordAuth,
+	type AnyAuth,
+	type Token,
 } from "../types";
 import type { Emitter } from "../util/emitter";
+import { processAuthVars } from "../util/process-auth-vars";
+import type { ReconnectContext } from "../util/reconnect";
 
 export type Engine = new (context: EngineContext) => AbstractEngine;
 export type Engines = Record<string, Engine>;
+export const RetryMessage: unique symbol = Symbol("RetryMessage");
 
 export type EngineEvents = {
 	connecting: [];
 	connected: [];
+	reconnecting: [];
 	disconnected: [];
 	error: [Error];
 
-	[K: `rpc-${string | number}`]: [RpcResponse | EngineDisconnected];
+	[K: `rpc-${string | number}`]: [
+		RpcResponse | EngineDisconnected | typeof RetryMessage,
+	];
 	[K: `live-${string}`]: LiveHandlerArguments;
 };
 
 export enum ConnectionStatus {
 	Disconnected = "disconnected",
 	Connecting = "connecting",
+	Reconnecting = "reconnecting",
 	Connected = "connected",
 	Error = "error",
 }
@@ -32,20 +45,24 @@ export class EngineContext {
 	readonly encodeCbor: (value: unknown) => ArrayBuffer;
 	// biome-ignore lint/suspicious/noExplicitAny: Don't know what it will return
 	readonly decodeCbor: (value: ArrayBufferLike) => any;
+	readonly reconnect: ReconnectContext;
 
 	constructor({
 		emitter,
 		encodeCbor,
 		decodeCbor,
+		reconnect,
 	}: {
 		emitter: Emitter<EngineEvents>;
 		encodeCbor: (value: unknown) => ArrayBuffer;
 		// biome-ignore lint/suspicious/noExplicitAny: Don't know what it will return
 		decodeCbor: (value: ArrayBufferLike) => any;
+		reconnect: ReconnectContext;
 	}) {
 		this.emitter = emitter;
 		this.encodeCbor = encodeCbor;
 		this.decodeCbor = decodeCbor;
+		this.reconnect = reconnect;
 	}
 }
 
@@ -93,47 +110,52 @@ export abstract class AbstractEngine {
 	abstract export(options?: Partial<ExportOptions>): Promise<string>;
 	abstract import(data: string): Promise<void>;
 
-	protected async req_post(
-		body: unknown,
-		url?: URL,
-		headers_?: Record<string, string>,
-	): Promise<ArrayBuffer> {
-		const headers: Record<string, string> = {
-			"Content-Type": "application/cbor",
-			Accept: "application/cbor",
-			...headers_,
-		};
+	// protected authClient(): AuthClient {
+	// 	const self = this;
 
-		if (this.connection.namespace) {
-			headers["Surreal-NS"] = this.connection.namespace;
-		}
+	// 	return {
+	// 		async signup(vars: ScopeAuth | AccessRecordAuth): Promise<Token> {
+	// 			const parsed = processAuthVars(vars, self.connection);
+	// 			const converted = convertAuth(parsed);
+	// 			const res: RpcResponse<Token> = await self.rpc({
+	// 				method: "signup",
+	// 				params: [converted],
+	// 			});
 
-		if (this.connection.database) {
-			headers["Surreal-DB"] = this.connection.database;
-		}
+	// 			if (res.error) throw new ResponseError(res.error.message);
+	// 			if (!res.result) {
+	// 				throw new NoTokenReturned();
+	// 			}
 
-		if (this.connection.token) {
-			headers.Authorization = `Bearer ${this.connection.token}`;
-		}
+	// 			return res.result;
+	// 		}
 
-		const raw = await fetch(`${url ?? this.connection.url}`, {
-			method: "POST",
-			headers,
-			body: this.encodeCbor(body),
-		});
+	// 		async signin(vars: AnyAuth): Promise<Token> {
+	// 			if (!this.connection) throw new NoActiveSocket();
 
-		const buffer = await raw.arrayBuffer();
+	// 			const parsed = processAuthVars(vars, this.connection.connection);
+	// 			const converted = convertAuth(parsed);
+	// 			const res = await this.rpc<Token>("signin", [converted]);
 
-		if (raw.status === 200) {
-			return buffer;
-		}
+	// 			if (res.error) throw new ResponseError(res.error.message);
+	// 			if (!res.result) {
+	// 				throw new NoTokenReturned();
+	// 			}
 
-		const dec = new TextDecoder("utf-8");
-		throw new HttpConnectionError(
-			dec.decode(buffer),
-			raw.status,
-			raw.statusText,
-			buffer,
-		);
-	}
+	// 			return res.result;
+	// 		}
+
+	// 		async authenticate(token: Token): Promise<true> {
+	// 			const res = await this.rpc<string>("authenticate", [token]);
+	// 			if (res.error) throw new ResponseError(res.error.message);
+	// 			return true;
+	// 		}
+
+	// 		async invalidate(): Promise<true> {
+	// 			const res = await this.rpc("invalidate");
+	// 			if (res.error) throw new ResponseError(res.error.message);
+	// 			return true;
+	// 		}
+	// 	}
+	// }
 }
