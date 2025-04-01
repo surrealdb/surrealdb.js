@@ -7,6 +7,7 @@ export * from "./cbor/error";
 export * from "./data";
 export * from "./errors.ts";
 export * from "./types.ts";
+export * from "./transaction.ts";
 export * from "./util/equals.ts";
 export * from "./util/jsonify.ts";
 export * from "./util/version-check.ts";
