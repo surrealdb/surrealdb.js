@@ -22,18 +22,18 @@ describe("reconnect", async () => {
 			didReconnect = true;
 		});
 
-		const id = new RecordId("test", 1);
-		const req0 = surreal.upsert(id);
-		const req1 = Bun.sleep(1000).then(() => surreal.upsert(id));
+		const id1 = new RecordId("test", 1);
+		const id2 = new RecordId("test", 2);
+		const req1 = surreal.create(id1);
+		const req2 = Bun.sleep(1000).then(() => surreal.create(id2));
 
-		await req0;
+		await req1;
 
 		await kill();
 		await spawn();
 
-		const res = { id };
-		expect(req0).resolves.toMatchObject(res);
-		expect(req1).resolves.toMatchObject(res);
+		expect(req1).resolves.toMatchObject({ id: id1 });
+		expect(req2).resolves.toMatchObject({ id: id2 });
 
 		await Bun.sleep(2000);
 		expect(didReconnect).toBe(true);
