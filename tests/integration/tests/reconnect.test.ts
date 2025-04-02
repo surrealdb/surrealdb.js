@@ -19,9 +19,7 @@ describe("reconnect", async () => {
 		let didReconnect = false;
 
 		surreal.emitter.subscribe("reconnecting", () => {
-			console.log("reconnecting");
 			didReconnect = true;
-			spawn();
 		});
 
 		const id = new RecordId("test", 1);
@@ -31,6 +29,7 @@ describe("reconnect", async () => {
 		await req0;
 
 		await kill();
+		await spawn();
 
 		const res = { id };
 		expect(req0).resolves.toMatchObject(res);

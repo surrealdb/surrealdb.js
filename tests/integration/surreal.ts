@@ -7,6 +7,7 @@ import { SURREAL_DB } from "./env.ts";
 import { SURREAL_NS } from "./env.ts";
 import { SURREAL_PORT } from "./env.ts";
 import type { Subprocess } from "bun";
+import { rm } from "node:fs/promises";
 
 export type Protocol = "http" | "ws";
 export const PROTOCOL: Protocol =
@@ -49,10 +50,11 @@ export async function setupServer(): Promise<{
 	spawn: () => Promise<void>;
 	kill: () => Promise<void>;
 }> {
+	const folder = `test.db/${Math.random().toString(36).substring(2, 7)}`;
 	let proc: undefined | Subprocess = undefined;
 
 	async function spawn() {
-		proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "start"], {
+		proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "start", `rocksdb:${folder}`], {
 			env: {
 				SURREAL_BIND,
 				SURREAL_USER,
@@ -65,7 +67,7 @@ export async function setupServer(): Promise<{
 
 	async function kill() {
 		proc?.kill();
-		await Bun.sleep(100);
+		await Bun.sleep(1000);
 	}
 
 	async function createSurreal({
@@ -85,12 +87,12 @@ export async function setupServer(): Promise<{
 			reconnect,
 		});
 
-		afterAll(async () => await surreal.close());
 		return surreal;
 	}
 
 	afterAll(async () => {
-		kill();
+		await kill();
+		await rm(folder, { recursive: true, force: true });
 	});
 
 	await spawn();
