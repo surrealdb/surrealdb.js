@@ -1,18 +1,11 @@
 import type { EngineDisconnected } from "../errors";
-import {
-	convertAuth,
-	type AuthClient,
-	type ExportOptions,
-	type LiveHandlerArguments,
-	type RpcRequest,
-	type RpcResponse,
-	type ScopeAuth,
-	type AccessRecordAuth,
-	type AnyAuth,
-	type Token,
+import type {
+	ExportOptions,
+	LiveHandlerArguments,
+	RpcRequest,
+	RpcResponse,
 } from "../types";
 import type { Emitter } from "../util/emitter";
-import { processAuthVars } from "../util/process-auth-vars";
 import type { ReconnectContext } from "../util/reconnect";
 
 export type Engine = new (context: EngineContext) => AbstractEngine;

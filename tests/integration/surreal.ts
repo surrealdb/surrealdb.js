@@ -1,4 +1,6 @@
 import { afterAll } from "bun:test";
+import { rm } from "node:fs/promises";
+import type { Subprocess } from "bun";
 import Surreal, { type AnyAuth, type ReconnectOptions } from "../../src";
 import { SURREAL_BIND, SURREAL_PORT_UNREACHABLE, SURREAL_USER } from "./env.ts";
 import { SURREAL_EXECUTABLE_PATH } from "./env.ts";
@@ -6,8 +8,6 @@ import { SURREAL_PASS } from "./env.ts";
 import { SURREAL_DB } from "./env.ts";
 import { SURREAL_NS } from "./env.ts";
 import { SURREAL_PORT } from "./env.ts";
-import type { Subprocess } from "bun";
-import { rm } from "node:fs/promises";
 
 export type Protocol = "http" | "ws";
 export const PROTOCOL: Protocol =
