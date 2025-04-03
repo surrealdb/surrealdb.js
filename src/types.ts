@@ -303,6 +303,4 @@ export interface ReconnectOptions {
 	retryDelayMultiplier: number;
 	/** A float percentage to randomly offset each delay by  */
 	retryDelayJitter: number;
-	/** Ability to customise the authentication behaviour upon reconnecting */
-	auth?: AnyAuth | ((client: AuthClient) => Promise<unknown>);
 }

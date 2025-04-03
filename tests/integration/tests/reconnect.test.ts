@@ -7,12 +7,10 @@ const { createSurreal, kill, spawn } = await setupServer();
 describe("reconnect", async () => {
 	test.skipIf(PROTOCOL === "http")("restart on reconnect", async () => {
 		const surreal = await createSurreal({
+			auth: "root",
 			reconnect: {
 				enabled: true,
-				auth: {
-					username: "root",
-					password: "root",
-				},
+				
 			},
 		});
 
