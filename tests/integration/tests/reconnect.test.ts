@@ -10,7 +10,6 @@ describe("reconnect", async () => {
 			auth: "root",
 			reconnect: {
 				enabled: true,
-				
 			},
 		});
 

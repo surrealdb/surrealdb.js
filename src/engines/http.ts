@@ -1,3 +1,4 @@
+import { EngineAuth } from "../auth";
 import { ConnectionUnavailable, MissingNamespaceDatabase } from "../errors";
 import type { ExportOptions, RpcRequest, RpcResponse } from "../types";
 import { getIncrementalID } from "../util/get-incremental-id";
@@ -44,9 +45,10 @@ export class HttpEngine extends AbstractRemoteEngine {
 		return retrieveRemoteVersion(url, timeout);
 	}
 
-	connect(url: URL): Promise<void> {
+	async connect(url: URL): Promise<void> {
 		this.setStatus(ConnectionStatus.Connecting);
 		this.connection.url = url;
+		await this.context.prepare?.(new EngineAuth(this));
 		this.setStatus(ConnectionStatus.Connected);
 		this.ready = new Promise<void>((r) => r());
 		return this.ready;

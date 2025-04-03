@@ -2,6 +2,7 @@ import type { EngineDisconnected } from "../errors";
 import type {
 	ExportOptions,
 	LiveHandlerArguments,
+	PrepareFn,
 	RpcRequest,
 	RpcResponse,
 } from "../types";
@@ -39,23 +40,27 @@ export class EngineContext {
 	// biome-ignore lint/suspicious/noExplicitAny: Don't know what it will return
 	readonly decodeCbor: (value: ArrayBufferLike) => any;
 	readonly reconnect: ReconnectContext;
+	readonly prepare: PrepareFn | undefined;
 
 	constructor({
 		emitter,
 		encodeCbor,
 		decodeCbor,
 		reconnect,
+		prepare,
 	}: {
 		emitter: Emitter<EngineEvents>;
 		encodeCbor: (value: unknown) => ArrayBuffer;
 		// biome-ignore lint/suspicious/noExplicitAny: Don't know what it will return
 		decodeCbor: (value: ArrayBufferLike) => any;
 		reconnect: ReconnectContext;
+		prepare: PrepareFn | undefined;
 	}) {
 		this.emitter = emitter;
 		this.encodeCbor = encodeCbor;
 		this.decodeCbor = decodeCbor;
 		this.reconnect = reconnect;
+		this.prepare = prepare;
 	}
 }
 

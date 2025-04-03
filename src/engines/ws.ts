@@ -1,4 +1,5 @@
 import { WebSocket } from "isows";
+import { EngineAuth } from "../auth";
 import {
 	ConnectionUnavailable,
 	EngineDisconnected,
@@ -221,7 +222,8 @@ export class WebsocketEngine extends AbstractRemoteEngine {
 		const socket = new WebSocket(this.connection.url.toString(), "cbor");
 
 		// Wait for the connection to open
-		socket.addEventListener("open", () => {
+		socket.addEventListener("open", async () => {
+			await this.context.prepare?.(new EngineAuth(this));
 			this.setStatus(ConnectionStatus.Connected);
 			resolve();
 		});

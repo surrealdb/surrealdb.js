@@ -1,3 +1,4 @@
+import type { AuthController } from "./auth";
 import type { Fill } from "./cbor";
 import { type RecordId, Uuid } from "./data";
 import { SurrealDbError } from "./errors";
@@ -273,6 +274,8 @@ export const DEFAULT_RECONNECT_OPTIONS: ReconnectOptions = {
 	retryDelayJitter: 0.1,
 };
 
+export type PrepareFn = (auth: AuthController) => unknown;
+
 export interface ConnectOptions {
 	/** The namespace to connect to */
 	namespace?: string;
@@ -281,7 +284,7 @@ export interface ConnectOptions {
 	/** Authentication details to use */
 	auth?: AnyAuth | Token;
 	/** A callback to customise the connection before connection completion */
-	prepare?: (connection: Surreal) => unknown;
+	prepare?: PrepareFn;
 	/** Enable automated SurrealDB version checking */
 	versionCheck?: boolean;
 	/** The maximum amount of time in milliseconds to wait for version checking */
