@@ -1,12 +1,10 @@
+import { EngineAuth } from "../auth";
 import { ConnectionUnavailable, MissingNamespaceDatabase } from "../errors";
 import type { ExportOptions, RpcRequest, RpcResponse } from "../types";
 import { getIncrementalID } from "../util/get-incremental-id";
 import { retrieveRemoteVersion } from "../util/version-check";
-import {
-	AbstractEngine,
-	ConnectionStatus,
-	type EngineEvents,
-} from "./abstract";
+import { ConnectionStatus, type EngineEvents } from "./abstract";
+import { AbstractRemoteEngine } from "./abstract-remote";
 
 const ALWAYS_ALLOW = new Set([
 	"signin",
@@ -20,7 +18,7 @@ const ALWAYS_ALLOW = new Set([
 	"query",
 ]);
 
-export class HttpEngine extends AbstractEngine {
+export class HttpEngine extends AbstractRemoteEngine {
 	connection: {
 		url: URL | undefined;
 		namespace: string | undefined;
@@ -47,9 +45,10 @@ export class HttpEngine extends AbstractEngine {
 		return retrieveRemoteVersion(url, timeout);
 	}
 
-	connect(url: URL): Promise<void> {
+	async connect(url: URL): Promise<void> {
 		this.setStatus(ConnectionStatus.Connecting);
 		this.connection.url = url;
+		await this.context.prepare?.(new EngineAuth(this));
 		this.setStatus(ConnectionStatus.Connected);
 		this.ready = new Promise<void>((r) => r());
 		return this.ready;

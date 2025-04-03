@@ -70,6 +70,7 @@ describe("create", async () => {
 
 describe("select", async () => {
 	const surreal = await createSurreal();
+	const version = await surreal.version();
 
 	test("single", async () => {
 		const single = await surreal.select<Person>(new RecordId("person", 1));
@@ -98,10 +99,7 @@ describe("select", async () => {
 		]);
 	});
 
-	test("range", async () => {
-		const version = await surreal.version();
-		if (version.startsWith("surrealdb-1")) return;
-
+	test.skipIf(version.startsWith("surrealdb-1"))("range", async () => {
 		const range = await surreal.select<Person>(
 			new RecordIdRange("person", new BoundIncluded(1), new BoundIncluded(2)),
 		);
@@ -206,9 +204,7 @@ describe("upsert", async () => {
 	const hasUpsert = compareVersions(version, "2.0.0") >= 0;
 	const isLegacy = compareVersions(version, "2.1.0") < 0;
 
-	if (!hasUpsert) return;
-
-	test("single", async () => {
+	test.if(hasUpsert)("single", async () => {
 		const single = await surreal.upsert<Person, Omit<Person, "id">>(
 			new RecordId("person", 1),
 			{
@@ -224,7 +220,7 @@ describe("upsert", async () => {
 		});
 	});
 
-	test.if(isLegacy)("multiple (legacy)", async () => {
+	test.if(hasUpsert && isLegacy)("multiple (legacy)", async () => {
 		const multiple = await surreal.upsert<Person, Omit<Person, "id">>(
 			"person",
 			{
@@ -341,9 +337,9 @@ describe("delete", async () => {
 describe("relate", async () => {
 	const surreal = await createSurreal();
 	const version = await surreal.version();
-	if (version === "surrealdb-1.4.2") return;
+	const skip = version === "surrealdb-1.4.2";
 
-	test("single", async () => {
+	test.skipIf(skip)("single", async () => {
 		const single = await surreal.relate(
 			new RecordId("edge", "in"),
 			new RecordId("graph", 1),
@@ -361,7 +357,7 @@ describe("relate", async () => {
 		});
 	});
 
-	test("multiple", async () => {
+	test.skipIf(skip)("multiple", async () => {
 		const multiple = await surreal.relate(
 			new RecordId("edge", "in"),
 			"graph",
@@ -383,13 +379,15 @@ describe("relate", async () => {
 	});
 });
 
-test("run", async () => {
+describe("run", async () => {
 	const surreal = await createSurreal();
 	const version = await surreal.version();
-	if (version === "surrealdb-1.4.2") return;
+	const skip = version === "surrealdb-1.4.2";
 
-	const res = await surreal.run<number[]>("array::add", [[1, 2], 3]);
-	expect(res).toMatchObject([1, 2, 3]);
+	test.skipIf(skip)("run", async () => {
+		const res = await surreal.run<number[]>("array::add", [[1, 2], 3]);
+		expect(res).toMatchObject([1, 2, 3]);
+	});
 });
 
 describe("template literal", async () => {
@@ -477,35 +475,58 @@ describe("template literal", async () => {
 	});
 });
 
-test("query", async () => {
+describe("value encoding/decoding", async () => {
 	const surreal = await createSurreal();
 	const version = await surreal.version();
 
-	const input = {
-		// Native
-		string: "Hello World!",
-		number: 123,
-		float: 123.456,
-		true: true,
-		false: false,
-		null: null,
-		undefined: undefined,
-		array: [123],
-		object: { num: 456 },
-		date: new Date(),
+	const testValue = (
+		name: string,
+		input: unknown,
+		cond?: boolean,
+		todo?: boolean,
+	) => {
+		const runner = todo ? test.todoIf(true) : test.if(cond ?? true);
+		runner(name, async () => {
+			const [output] = await surreal.query<[typeof input]>(
+				/* surql */ "$input",
+				{
+					input,
+				},
+			);
 
-		// Custom
-		// Decimals are currently bugged on SurrealDB side of decoding
-		// decimal: new Decimal("123.456"),
-		rid: new RecordId("some-custom", [
-			"recordid",
-			{ with_an: "object" },
-			undefined,
-		]),
-		uuidv4: Uuid.v4(),
-		uuidv7: Uuid.v7(),
-		duration: new Duration("1w1d1h1s1ms"),
-		geometries: new GeometryCollection([
+			expect(output).toStrictEqual(input);
+		});
+	};
+
+	// Native values
+
+	describe("native", () => {
+		testValue("string", "Hello World!");
+		testValue("number", 123);
+		testValue("float", 123.456);
+		testValue("true", true);
+		testValue("false", false);
+		testValue("null", null);
+		testValue("undefined", undefined);
+		testValue("array", [123]);
+		testValue("object", { num: 456 });
+		testValue("date", new Date());
+	});
+
+	// Custom values
+
+	testValue("UUID v4", Uuid.v4());
+	testValue("UUID v7", Uuid.v7());
+	testValue("Duration", new Duration("1w1d1h1s1ms"));
+
+	testValue(
+		"Record ID",
+		new RecordId("some-custom", ["recordid", { with_an: "object" }, undefined]),
+	);
+
+	testValue(
+		"Geometries",
+		new GeometryCollection([
 			new GeometryPoint([1, 2]),
 			new GeometryMultiPolygon([
 				new GeometryPolygon([
@@ -520,25 +541,30 @@ test("query", async () => {
 				]),
 			]),
 		]),
-		// Test these only for SurrealDB 2.x
-		...(version.startsWith("surreal-2")
-			? {
-					range: new Range(new BoundIncluded(1), new BoundExcluded(5)),
-					range_unbounded: new Range(new BoundIncluded(1), undefined),
-					rid_range: new RecordIdRange(
-						"test",
-						new BoundIncluded(1),
-						new BoundExcluded(5),
-					),
-				}
-			: {}),
-	};
+	);
 
-	const [output] = await surreal.query<[typeof input]>(/* surql */ "$input", {
-		input,
-	});
+	// Ranges
 
-	expect(output).toStrictEqual(input);
+	testValue(
+		"Range",
+		new Range(new BoundIncluded(1), new BoundExcluded(5)),
+		version.startsWith("surrealdb-2"),
+		true,
+	);
+
+	testValue(
+		"Range Unbounded",
+		new Range(new BoundIncluded(1), undefined),
+		version.startsWith("surrealdb-2"),
+		true,
+	);
+
+	testValue(
+		"Record ID Range",
+		new RecordIdRange("test", new BoundIncluded(1), new BoundExcluded(5)),
+		version.startsWith("surrealdb-2"),
+		true,
+	);
 });
 
 test("record id bigint", async () => {

@@ -1,5 +1,7 @@
 import { afterAll } from "bun:test";
-import Surreal, { type AnyAuth } from "../../src";
+import { rm } from "node:fs/promises";
+import type { Subprocess } from "bun";
+import Surreal, { type AnyAuth, type ReconnectOptions } from "../../src";
 import { SURREAL_BIND, SURREAL_PORT_UNREACHABLE, SURREAL_USER } from "./env.ts";
 import { SURREAL_EXECUTABLE_PATH } from "./env.ts";
 import { SURREAL_PASS } from "./env.ts";
@@ -40,30 +42,40 @@ type CreateSurrealOptions = {
 	auth?: PremadeAuth;
 	reachable?: boolean;
 	unselected?: boolean;
+	reconnect?: boolean | Partial<ReconnectOptions>;
 };
 
 export async function setupServer(): Promise<{
 	createSurreal: (options?: CreateSurrealOptions) => Promise<Surreal>;
+	spawn: () => Promise<void>;
+	kill: () => Promise<void>;
 }> {
-	const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "start"], {
-		env: {
-			SURREAL_BIND,
-			SURREAL_USER,
-			SURREAL_PASS,
-		},
-	});
+	const folder = `test.db/${Math.random().toString(36).substring(2, 7)}`;
+	let proc: undefined | Subprocess = undefined;
 
-	await Bun.sleep(1000);
+	async function spawn() {
+		proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "start", `rocksdb:${folder}`], {
+			env: {
+				SURREAL_BIND,
+				SURREAL_USER,
+				SURREAL_PASS,
+			},
+		});
 
-	afterAll(async () => {
-		proc.kill();
-	});
+		await Bun.sleep(1000);
+	}
+
+	async function kill() {
+		proc?.kill();
+		await Bun.sleep(1000);
+	}
 
 	async function createSurreal({
 		protocol,
 		auth,
 		reachable,
 		unselected,
+		reconnect,
 	}: CreateSurrealOptions = {}) {
 		protocol = protocol ? protocol : PROTOCOL;
 		const surreal = new Surreal();
@@ -72,11 +84,18 @@ export async function setupServer(): Promise<{
 			namespace: unselected ? undefined : SURREAL_NS,
 			database: unselected ? undefined : SURREAL_DB,
 			auth: createAuth(auth ?? "root"),
+			reconnect,
 		});
 
-		afterAll(async () => await surreal.close());
 		return surreal;
 	}
 
-	return { createSurreal };
+	afterAll(async () => {
+		await kill();
+		await rm(folder, { recursive: true, force: true });
+	});
+
+	await spawn();
+
+	return { createSurreal, spawn, kill };
 }

@@ -15,25 +15,21 @@ import {
 } from "./engines/abstract.ts";
 import { Emitter } from "./util/emitter.ts";
 import { PreparedQuery } from "./util/prepared-query.ts";
-import { processAuthVars } from "./util/process-auth-vars.ts";
 import { versionCheck } from "./util/version-check.ts";
 
-import {
-	type AccessRecordAuth,
-	type ActionResult,
-	type AnyAuth,
-	type ExportOptions,
-	type LiveHandler,
-	type MapQueryResult,
-	type Patch,
-	type Prettify,
-	type QueryParameters,
-	type RpcResponse,
-	type ScopeAuth,
-	type Token,
-	convertAuth,
+import type {
+	ActionResult,
+	ConnectOptions,
+	ExportOptions,
+	LiveHandler,
+	MapQueryResult,
+	Patch,
+	Prettify,
+	QueryParameters,
+	RpcResponse,
 } from "./types.ts";
 
+import { AuthController } from "./auth.ts";
 import { type Fill, partiallyEncodeObject } from "./cbor";
 import { replacer } from "./data/cbor.ts";
 import type { RecordIdRange } from "./data/types/range.ts";
@@ -42,19 +38,19 @@ import { WebsocketEngine } from "./engines/ws.ts";
 import {
 	EngineDisconnected,
 	NoActiveSocket,
-	NoTokenReturned,
 	ResponseError,
 	SurrealDbError,
 	UnsupportedEngine,
 } from "./errors.ts";
+import { ReconnectContext } from "./util/reconnect.ts";
 
 type R = Prettify<Record<string, unknown>>;
 type RecordId<Tb extends string = string> = _RecordId<Tb> | StringRecordId;
 
-export class Surreal {
+export class Surreal extends AuthController {
 	public connection: AbstractEngine | undefined;
-	ready?: Promise<void>;
-	emitter: Emitter<EngineEvents>;
+	public emitter: Emitter<EngineEvents>;
+
 	protected engines: Engines = {
 		ws: WebsocketEngine,
 		wss: WebsocketEngine,
@@ -62,14 +58,15 @@ export class Surreal {
 		https: HttpEngine,
 	};
 
+	private _ready?: Promise<void> | undefined;
+
 	constructor({
 		engines,
 	}: {
 		engines?: Engines;
 	} = {}) {
+		super();
 		this.emitter = new Emitter();
-		this.emitter.subscribe(ConnectionStatus.Disconnected, () => this.clean());
-		this.emitter.subscribe(ConnectionStatus.Error, () => this.close());
 
 		if (engines) {
 			this.engines = {
@@ -83,31 +80,23 @@ export class Surreal {
 	 * Establish a socket connection to the database
 	 * @param connection - Connection details
 	 */
-	async connect(
+	async connect(url: string | URL, opts: ConnectOptions = {}): Promise<true> {
+		this._ready = this.connectInner(url, opts);
+		await this._ready;
+		return true;
+	}
+
+	private async connectInner(
 		url: string | URL,
-		opts: {
-			namespace?: string;
-			database?: string;
-			auth?: AnyAuth | Token;
-			prepare?: (connection: Surreal) => unknown;
-			versionCheck?: boolean;
-			versionCheckTimeout?: number;
-		} = {},
-	): Promise<true> {
-		// biome-ignore lint/style/noParameterAssign: Need to ensure it's a URL
-		url = new URL(url);
-
-		if (!url.pathname.endsWith("/rpc")) {
-			if (!url.pathname.endsWith("/")) url.pathname += "/";
-			url.pathname += "rpc";
-		}
-
-		const engineName = url.protocol.slice(0, -1);
+		opts: ConnectOptions = {},
+	): Promise<void> {
+		const endpoint = parseUrl(url);
+		const engineName = endpoint.protocol.slice(0, -1);
 		const engine = this.engines[engineName];
 		if (!engine) throw new UnsupportedEngine(engineName);
 
 		// Process options
-		const { prepare, auth, namespace, database } = opts;
+		const { prepare, auth, namespace, database, reconnect } = opts;
 
 		// Close any existing connections
 		await this.close();
@@ -118,6 +107,8 @@ export class Surreal {
 			emitter: this.emitter,
 			encodeCbor,
 			decodeCbor,
+			reconnect: new ReconnectContext(reconnect, this),
+			prepare,
 		});
 
 		// The promise does not know if `this.connection` is undefined or not, but it does about `connection`
@@ -125,36 +116,29 @@ export class Surreal {
 
 		// If not disabled, run a version check
 		if (opts.versionCheck !== false) {
-			const version = await connection.version(url, opts.versionCheckTimeout);
+			const version = await connection.version(
+				endpoint,
+				opts.versionCheckTimeout,
+			);
 			versionCheck(version);
 		}
 
 		this.connection = connection;
-		this.ready = new Promise((resolve, reject) =>
-			connection
-				.connect(url as URL)
-				.then(async () => {
-					if (namespace || database) {
-						await this.use({
-							namespace,
-							database,
-						});
-					}
 
-					if (typeof auth === "string") {
-						await this.authenticate(auth);
-					} else if (auth) {
-						await this.signin(auth);
-					}
+		await connection.connect(endpoint);
 
-					await prepare?.(this);
-					resolve();
-				})
-				.catch(reject),
-		);
+		if (namespace || database) {
+			await this.use({
+				namespace,
+				database,
+			});
+		}
 
-		await this.ready;
-		return true;
+		if (typeof auth === "string") {
+			await this.authenticate(auth);
+		} else if (auth) {
+			await this.signin(auth);
+		}
 	}
 
 	/**
@@ -189,6 +173,13 @@ export class Surreal {
 	 */
 	get status(): ConnectionStatus {
 		return this.connection?.status ?? ConnectionStatus.Disconnected;
+	}
+
+	/**
+	 * A promise which resolves when the connection is ready
+	 */
+	get ready(): Promise<void> {
+		return Promise.all([this._ready, this.connection?.ready]).then(() => {});
 	}
 
 	/**
@@ -236,65 +227,6 @@ export class Surreal {
 		const res = await this.rpc<ActionResult<T> | undefined>("info");
 		if (res.error) throw new ResponseError(res.error.message);
 		return res.result ?? undefined;
-	}
-
-	/**
-	 * Signs up to a specific authentication scope.
-	 * @param vars - Variables used in a signup query.
-	 * @return The authentication token.
-	 */
-	async signup(vars: ScopeAuth | AccessRecordAuth): Promise<Token> {
-		if (!this.connection) throw new NoActiveSocket();
-
-		const parsed = processAuthVars(vars, this.connection.connection);
-		const converted = convertAuth(parsed);
-		const res = await this.rpc<Token>("signup", [converted]);
-
-		if (res.error) throw new ResponseError(res.error.message);
-		if (!res.result) {
-			throw new NoTokenReturned();
-		}
-
-		return res.result;
-	}
-
-	/**
-	 * Signs in to a specific authentication scope.
-	 * @param vars - Variables used in a signin query.
-	 * @return The authentication token.
-	 */
-	async signin(vars: AnyAuth): Promise<Token> {
-		if (!this.connection) throw new NoActiveSocket();
-
-		const parsed = processAuthVars(vars, this.connection.connection);
-		const converted = convertAuth(parsed);
-		const res = await this.rpc<Token>("signin", [converted]);
-
-		if (res.error) throw new ResponseError(res.error.message);
-		if (!res.result) {
-			throw new NoTokenReturned();
-		}
-
-		return res.result;
-	}
-
-	/**
-	 * Authenticates the current connection with a JWT token.
-	 * @param token - The JWT authentication token.
-	 */
-	async authenticate(token: Token): Promise<true> {
-		const res = await this.rpc<string>("authenticate", [token]);
-		if (res.error) throw new ResponseError(res.error.message);
-		return true;
-	}
-
-	/**
-	 * Invalidates the authentication for the current connection.
-	 */
-	async invalidate(): Promise<true> {
-		const res = await this.rpc("invalidate");
-		if (res.error) throw new ResponseError(res.error.message);
-		return true;
 	}
 
 	/**
@@ -774,6 +706,7 @@ export class Surreal {
 		params?: unknown[],
 	): Promise<RpcResponse<Result>> {
 		if (!this.connection) throw new NoActiveSocket();
+
 		return this.connection.rpc<typeof method, typeof params, Result>({
 			method,
 			params,
@@ -806,4 +739,19 @@ function output<T, S>(subject: S, input: T | T[]): Output<T, S> {
 	const one = subject instanceof _RecordId || subject instanceof StringRecordId;
 	if (one) return (Array.isArray(input) ? input[0] : input) as Output<T, S>;
 	return (Array.isArray(input) ? input : [input]) as Output<T, S>;
+}
+
+function parseUrl(value: string | URL): URL {
+	const url = new URL(value);
+
+	if (!url.pathname.endsWith("/rpc")) {
+		if (!url.pathname.endsWith("/")) url.pathname += "/";
+		url.pathname += "rpc";
+	}
+
+	return url;
+}
+
+function rand(min: number, max: number) {
+	return Math.random() * (max - min) + min;
 }

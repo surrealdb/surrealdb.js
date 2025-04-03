@@ -1,7 +1,10 @@
 import { WebSocket } from "isows";
+import { EngineAuth } from "../auth";
 import {
 	ConnectionUnavailable,
 	EngineDisconnected,
+	NoURLProvided,
+	ReconnectFailed,
 	ResponseError,
 	UnexpectedConnectionError,
 	UnexpectedServerResponse,
@@ -12,30 +15,41 @@ import {
 	type RpcResponse,
 	isLiveResult,
 } from "../types";
+import { type Completable, newCompletable } from "../util/completable";
 import { getIncrementalID } from "../util/get-incremental-id";
 import { retrieveRemoteVersion } from "../util/version-check";
 import {
-	AbstractEngine,
 	ConnectionStatus,
 	type EngineContext,
 	type EngineEvents,
+	RetryMessage,
 } from "./abstract";
+import { AbstractRemoteEngine } from "./abstract-remote";
 
-export class WebsocketEngine extends AbstractEngine {
+export class WebsocketEngine extends AbstractRemoteEngine {
 	private pinger?: Pinger;
 	private socket?: WebSocket;
+	private disconnected: Completable;
 
-	constructor(context: EngineContext) {
-		super(context);
-		this.emitter.subscribe("disconnected", () => this.pinger?.stop());
+	constructor(ctx: EngineContext) {
+		super(ctx);
+		this.disconnected = newCompletable();
 	}
 
 	private setStatus<T extends ConnectionStatus>(
 		status: T,
 		...args: EngineEvents[T]
 	) {
-		this.status = status;
-		this.emitter.emit(status, args);
+		if (
+			(this.connection.url && status === ConnectionStatus.Disconnected) ||
+			status === ConnectionStatus.Error
+		) {
+			this.disconnected.resolve();
+			this.disconnected = newCompletable();
+		} else {
+			this.status = status;
+			this.emitter.emit(status, args);
+		}
 	}
 
 	private async requireStatus<T extends ConnectionStatus>(
@@ -54,64 +68,226 @@ export class WebsocketEngine extends AbstractEngine {
 
 	async connect(url: URL): Promise<void> {
 		this.connection.url = url;
-		this.setStatus(ConnectionStatus.Connecting);
-		const socket = new WebSocket(url.toString(), "cbor");
-		const ready = new Promise<void>((resolve, reject) => {
-			socket.addEventListener("open", () => {
-				this.setStatus(ConnectionStatus.Connected);
-				resolve();
-			});
 
-			socket.addEventListener("error", (e) => {
-				const error = new UnexpectedConnectionError(
-					"detail" in e
-						? e.detail
-						: "error" in e
-							? e.error
-							: "An unexpected error occurred",
-				);
-				this.setStatus(ConnectionStatus.Error, error);
-				reject(error);
-			});
+		// Create an async loop
+		(async () => {
+			let initial = true;
+			let controls: [() => void, (reason?: Error) => void] | undefined =
+				undefined;
 
-			socket.addEventListener("close", () => {
-				this.setStatus(ConnectionStatus.Disconnected);
-			});
-
-			socket.addEventListener("message", async ({ data }) => {
-				try {
-					const decoded = this.decodeCbor(
-						data instanceof ArrayBuffer
-							? data
-							: data instanceof Blob
-								? await data.arrayBuffer()
-								: data.buffer.slice(
-										data.byteOffset,
-										data.byteOffset + data.byteLength,
-									),
-					);
-
-					if (
-						typeof decoded === "object" &&
-						decoded != null &&
-						Object.getPrototypeOf(decoded) === Object.prototype
-					) {
-						this.handleRpcResponse(decoded);
-					} else {
-						throw new UnexpectedServerResponse(decoded);
+			while (this.connection.url) {
+				if (initial) {
+					initial = false;
+					this.setStatus(ConnectionStatus.Connecting);
+					this.ready = this.createSocket();
+					await this.disconnected.promise;
+				} else {
+					// Check if reconnecting is enabled
+					if (!this.context.reconnect.enabled) {
+						break;
 					}
-				} catch (detail) {
-					socket.dispatchEvent(new CustomEvent("error", { detail }));
+
+					// Configure controls for the promise if they are currently lacking
+					if (!controls) {
+						const { promise, resolve, reject } = newCompletable();
+						this.ready = promise;
+						controls = [resolve, reject];
+					}
+
+					// Obtain the controls for the promise
+					const [resolve, reject] = controls;
+
+					// Check if we will be allowed to iterate
+					if (!this.context.reconnect.allowed) {
+						// Clear the engine
+						this.connection = {
+							url: undefined,
+							namespace: undefined,
+							database: undefined,
+							token: undefined,
+						};
+
+						this.socket = undefined;
+						reject(new ReconnectFailed());
+
+						// Emit the ReconnectFailed error
+						this.emitter.emit(ConnectionStatus.Error, [new ReconnectFailed()]);
+
+						// Emit the status
+						this.setStatus(ConnectionStatus.Disconnected);
+
+						// Break the loop
+						break;
+					}
+
+					// Emit the status
+					this.setStatus(ConnectionStatus.Reconnecting);
+
+					// Try to iterate
+					await this.context.reconnect.iterate();
+
+					// Attempt to reconnect
+					try {
+						await this.createSocket();
+					} catch {
+						// Ignore any error
+						// the connection failed, let's try again
+						continue;
+					}
+
+					try {
+						// Reconfigure the namespace and database
+						if (this.connection.namespace || this.connection.database) {
+							const res = await this.rpc(
+								{
+									method: "use",
+									params: [this.connection.namespace, this.connection.database],
+								},
+								true,
+							);
+
+							if (res.error) {
+								throw new ResponseError(res.error.message);
+							}
+						}
+
+						// Reconfigure the authentication details
+						if (this.connection.token) {
+							const res = await this.rpc(
+								{
+									method: "authenticate",
+									params: [this.connection.token],
+								},
+								true,
+							);
+
+							if (res.error) {
+								throw new ResponseError(res.error.message);
+							}
+						}
+					} catch (e) {
+						// Clear the engine
+						this.connection = {
+							url: undefined,
+							namespace: undefined,
+							database: undefined,
+							token: undefined,
+						};
+
+						this.socket = undefined;
+						reject(e as Error);
+
+						// Emit the ReconnectFailed error
+						this.emitter.emit(ConnectionStatus.Error, [e as Error]);
+
+						// Emit the status
+						this.setStatus(ConnectionStatus.Disconnected);
+
+						break;
+					}
+
+					// Reset the reconnection status
+					this.context.reconnect.reset();
+
+					// Unblock the connection
+					resolve();
+
+					// Scan all pending rpc requests
+					const pending = this.emitter.scanListeners((k) =>
+						k.startsWith("rpc-"),
+					);
+					// Ensure all rpc requests receive a retry symbol
+					pending.map((k) => this.emitter.emit(k, [RetryMessage]));
+
+					// If we are connection, wait for the connection to be dropped
+					if (this.status === ConnectionStatus.Connected) {
+						await this.disconnected.promise;
+					}
 				}
-			});
+			}
+		})();
+
+		await this.ready;
+	}
+
+	private async createSocket() {
+		const { promise, resolve, reject } = newCompletable();
+
+		// Validate requirements
+		if (!this.connection.url) {
+			throw new NoURLProvided();
+		}
+
+		// Open a new connection
+		const socket = new WebSocket(this.connection.url.toString(), "cbor");
+
+		// Wait for the connection to open
+		socket.addEventListener("open", async () => {
+			await this.context.prepare?.(new EngineAuth(this));
+			this.setStatus(ConnectionStatus.Connected);
+			resolve();
 		});
 
-		this.ready = ready;
-		return await ready.then(() => {
+		// Handle any errors
+		socket.addEventListener("error", (e) => {
+			const error = new UnexpectedConnectionError(
+				"detail" in e && e.detail
+					? e.detail
+					: "message" in e && e.message
+						? e.message
+						: "error" in e && e.error
+							? e.error
+							: "An unexpected error occurred",
+			);
+			this.setStatus(ConnectionStatus.Error, error);
+			reject(error);
+		});
+
+		// Handle connection closure
+		socket.addEventListener("close", () => {
+			this.setStatus(ConnectionStatus.Disconnected);
+			this.pinger?.stop();
+		});
+
+		// Handle any messages
+		socket.addEventListener("message", async ({ data }) => {
+			try {
+				const decoded = this.decodeCbor(
+					data instanceof ArrayBuffer
+						? data
+						: data instanceof Blob
+							? await data.arrayBuffer()
+							: data.buffer.slice(
+									data.byteOffset,
+									data.byteOffset + data.byteLength,
+								),
+				);
+
+				if (
+					typeof decoded === "object" &&
+					decoded != null &&
+					Object.getPrototypeOf(decoded) === Object.prototype
+				) {
+					this.handleRpcResponse(decoded);
+				} else {
+					throw new UnexpectedServerResponse(decoded);
+				}
+			} catch (detail) {
+				socket.dispatchEvent(new CustomEvent("error", { detail }));
+			}
+		});
+
+		await promise.then(() => {
 			this.socket = socket;
 			this.pinger?.stop();
 			this.pinger = new Pinger(30000);
-			this.pinger.start(() => this.rpc({ method: "ping" }));
+			this.pinger.start(() => {
+				try {
+					this.rpc({ method: "ping" });
+				} catch {
+					// we are not interested in the result
+				}
+			});
 		});
 	}
 
@@ -127,6 +303,7 @@ export class WebsocketEngine extends AbstractEngine {
 		this.socket?.close();
 		this.ready = undefined;
 		this.socket = undefined;
+		this.disconnected.resolve();
 
 		await Promise.any([
 			this.requireStatus(ConnectionStatus.Disconnected),
@@ -138,20 +315,30 @@ export class WebsocketEngine extends AbstractEngine {
 		Method extends string,
 		Params extends unknown[] | undefined,
 		Result,
-	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
-		await this.ready;
+	>(
+		request: RpcRequest<Method, Params>,
+		force?: boolean,
+	): Promise<RpcResponse<Result>> {
+		if (!force) await this.ready;
 		if (!this.socket) throw new ConnectionUnavailable();
 
-		// It's not realistic for the message to ever arrive before the listener is registered on the emitter
-		// And we don't want to collect the response messages in the emitter
-		// So to be sure we simply subscribe before we send the message :)
+		let res: RpcResponse | undefined = undefined;
+		while (!res) {
+			// It's not realistic for the message to ever arrive before the listener is registered on the emitter
+			// And we don't want to collect the response messages in the emitter
+			// So to be sure we simply subscribe before we send the message :)
 
-		const id = getIncrementalID();
-		const response = this.emitter.subscribeOnce(`rpc-${id}`);
-		this.socket.send(this.encodeCbor({ id, ...request }));
+			const id = getIncrementalID();
+			const response = this.emitter.subscribeOnce(`rpc-${id}`);
+			this.socket.send(this.encodeCbor({ id, ...request }));
+			if (force && this.socket.readyState === WebSocket.CLOSED)
+				throw new EngineDisconnected();
 
-		const [res] = await response;
-		if (res instanceof EngineDisconnected) throw res;
+			const [raw] = await response;
+			if (raw instanceof EngineDisconnected) throw raw;
+			if (raw === RetryMessage) continue;
+			res = raw;
+		}
 
 		if ("result" in res) {
 			switch (request.method) {
