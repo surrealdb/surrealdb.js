@@ -22,3 +22,4 @@ export {
 	type EngineEvents,
 } from "./engines/abstract.ts";
 export { Surreal, Surreal as default } from "./surreal.ts";
+export { EngineAuth, AuthController } from "./auth.ts";
