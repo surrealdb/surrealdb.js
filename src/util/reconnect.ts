@@ -5,7 +5,6 @@ import { rand } from "./rand";
 
 export class ReconnectContext {
 	private _attempts = 0;
-	private _global: Date[] = [];
 	readonly options: ReconnectOptions;
 	readonly surreal: Surreal;
 
@@ -35,17 +34,6 @@ export class ReconnectContext {
 		return this._attempts;
 	}
 
-	get globalTimestamps(): Date[] {
-		const now = new Date().getTime();
-		return this._global.filter(
-			(d) => now - d.getTime() <= this.options.globalRetriesTimespan,
-		);
-	}
-
-	get globalAttempts(): number {
-		return this.globalTimestamps.length;
-	}
-
 	get enabled(): boolean {
 		return this.options.enabled;
 	}
@@ -62,20 +50,11 @@ export class ReconnectContext {
 			return false;
 		}
 
-		// Check if the global maximum number of attempts has been reached
-		if (
-			this.options.globalRetryAttempts !== -1 &&
-			this.globalAttempts >= this.options.globalRetryAttempts
-		) {
-			return false;
-		}
-
 		return true;
 	}
 
 	reset(): void {
 		this._attempts = 0;
-		this._global = [...this.globalTimestamps, new Date()];
 	}
 
 	async iterate(): Promise<void> {

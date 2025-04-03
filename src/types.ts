@@ -271,8 +271,6 @@ export const DEFAULT_RECONNECT_OPTIONS: ReconnectOptions = {
 	retryDelayMax: 60000,
 	retryDelayMultiplier: 2,
 	retryDelayJitter: 0.1,
-	globalRetryAttempts: 5,
-	globalRetriesTimespan: 10000,
 };
 
 export interface ConnectOptions {
@@ -305,10 +303,6 @@ export interface ReconnectOptions {
 	retryDelayMultiplier: number;
 	/** A float percentage to randomly offset each delay by  */
 	retryDelayJitter: number;
-	/** How many global attempts will be made at reconnecting, -1 for unlimited */
-	globalRetryAttempts: number;
-	/** In what timeframe can we make the global retry attempts */
-	globalRetriesTimespan: number;
 	/** Ability to customise the authentication behaviour upon reconnecting */
 	auth?: AnyAuth | ((client: AuthClient) => Promise<unknown>);
 }
