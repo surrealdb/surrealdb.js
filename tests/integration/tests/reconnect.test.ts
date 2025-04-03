@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { RecordId } from "../../../src";
-import { setupServer } from "../surreal.ts";
+import { PROTOCOL, setupServer } from "../surreal.ts";
 
 const { createSurreal, kill, spawn } = await setupServer();
 
 describe("reconnect", async () => {
-	test("restart on reconnect", async () => {
+	test.skipIf(PROTOCOL === "http")("restart on reconnect", async () => {
 		const surreal = await createSurreal({
 			reconnect: {
 				enabled: true,
