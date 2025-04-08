@@ -549,21 +549,18 @@ describe("value encoding/decoding", async () => {
 		"Range",
 		new Range(new BoundIncluded(1), new BoundExcluded(5)),
 		version.startsWith("surrealdb-2"),
-		true,
 	);
 
 	testValue(
 		"Range Unbounded",
 		new Range(new BoundIncluded(1), undefined),
 		version.startsWith("surrealdb-2"),
-		true,
 	);
 
 	testValue(
 		"Record ID Range",
 		new RecordIdRange("test", new BoundIncluded(1), new BoundExcluded(5)),
 		version.startsWith("surrealdb-2"),
-		true,
 	);
 });
 

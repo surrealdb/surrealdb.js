@@ -40,6 +40,7 @@ export class Range<Beg, End> extends Value {
 }
 
 export type Bound<T> = BoundIncluded<T> | BoundExcluded<T> | undefined;
+type DecodedBound = BoundIncluded<unknown> | BoundExcluded<unknown> | null;
 export class BoundIncluded<T> {
 	constructor(readonly value: T) {}
 }
@@ -131,13 +132,13 @@ export function rangeToCbor([beg, end]: [Bound<unknown>, Bound<unknown>]): [
 }
 
 export function cborToRange(
-	range: [Tagged | null, Tagged | null],
+	range: [DecodedBound | null, DecodedBound | null],
 ): [Bound<unknown>, Bound<unknown>] {
-	function decodeBound(bound: Tagged | null): Bound<unknown> {
+	function decodeBound(bound: DecodedBound | null): Bound<unknown> {
 		if (bound === null) return undefined;
-		if (bound.tag === TAG_BOUND_INCLUDED) return new BoundIncluded(bound.value);
-		if (bound.tag === TAG_BOUND_EXCLUDED) return new BoundExcluded(bound.value);
-		throw new SurrealDbError("Invalid bound tag");
+		if (bound instanceof BoundIncluded) return bound;
+		if (bound instanceof BoundExcluded) return bound;
+		throw new SurrealDbError("Expected the bounds to be decoded already");
 	}
 
 	return [decodeBound(range[0]), decodeBound(range[1])];
