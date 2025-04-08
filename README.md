@@ -199,11 +199,11 @@ For Deno, no build is needed. For all other environments run
 
 ### Code Quality Fixes
 
-`bun quality:apply`
+`bun qa`
 
 ### Code Quality unsafe fixes
 
-`bun quality:apply:unsafe`
+`bun qau`
 
 ### Run tests for WS
 
