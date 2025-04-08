@@ -16,6 +16,8 @@ import {
 	GeometryPolygon,
 } from "./types/geometry.ts";
 import {
+	BoundExcluded,
+	BoundIncluded,
 	Range,
 	RecordIdRange,
 	cborToRange,
@@ -134,6 +136,10 @@ export const replacer = {
 				return new Future(v.value);
 			case TAG_RANGE:
 				return new Range(...cborToRange(v.value));
+			case TAG_BOUND_INCLUDED:
+				return new BoundIncluded(v.value);
+			case TAG_BOUND_EXCLUDED:
+				return new BoundExcluded(v.value);
 			case TAG_RECORDID: {
 				if (v.value[1] instanceof Range) {
 					return new RecordIdRange(v.value[0], v.value[1].beg, v.value[1].end);
