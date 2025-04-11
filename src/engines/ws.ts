@@ -223,8 +223,18 @@ export class WebsocketEngine extends AbstractRemoteEngine {
 
 		// Wait for the connection to open
 		socket.addEventListener("open", async () => {
+			this.socket = socket;
 			await this.context.prepare?.(new EngineAuth(this));
 			this.setStatus(ConnectionStatus.Connected);
+			this.pinger?.stop();
+			this.pinger = new Pinger(30000);
+			this.pinger.start(() => {
+				try {
+					this.rpc({ method: "ping" });
+				} catch {
+					// we are not interested in the result
+				}
+			});
 			resolve();
 		});
 
@@ -277,18 +287,7 @@ export class WebsocketEngine extends AbstractRemoteEngine {
 			}
 		});
 
-		await promise.then(() => {
-			this.socket = socket;
-			this.pinger?.stop();
-			this.pinger = new Pinger(30000);
-			this.pinger.start(() => {
-				try {
-					this.rpc({ method: "ping" });
-				} catch {
-					// we are not interested in the result
-				}
-			});
-		});
+		await promise;
 	}
 
 	async disconnect(): Promise<void> {

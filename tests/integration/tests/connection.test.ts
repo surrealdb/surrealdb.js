@@ -48,3 +48,20 @@ describe("rpc", async () => {
 		}).toThrow();
 	});
 });
+
+describe("prepare", async () => {
+	test("authentication with prepare", async () => {
+		const surreal = await createSurreal({
+			protocol: "ws",
+			auth: "none",
+			prepare: async (auth) => {
+				await auth.signin({
+					username: "root",
+					password: "root",
+				});
+			},
+		});
+
+		await surreal.query("CREATE example");
+	});
+});
