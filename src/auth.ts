@@ -89,9 +89,12 @@ export class EngineAuth extends AuthController {
 	): Promise<RpcResponse<Result>> {
 		if (!this.connection) throw new NoActiveSocket();
 
-		return this.connection.rpc<typeof method, typeof params, Result>({
-			method,
-			params,
-		});
+		return this.connection.rpc<typeof method, typeof params, Result>(
+			{
+				method,
+				params,
+			},
+			true,
+		);
 	}
 }

@@ -72,12 +72,12 @@ export class HttpEngine extends AbstractRemoteEngine {
 		Method extends string,
 		Params extends unknown[] | undefined,
 		Result,
-	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
-		await this.ready;
-
-		if (!this.connection.url) {
-			throw new ConnectionUnavailable();
-		}
+	>(
+		request: RpcRequest<Method, Params>,
+		force?: boolean,
+	): Promise<RpcResponse<Result>> {
+		if (!force) await this.ready;
+		if (!this.connection.url) throw new ConnectionUnavailable();
 
 		if (
 			(!this.connection.namespace || !this.connection.database) &&

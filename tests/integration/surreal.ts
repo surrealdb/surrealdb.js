@@ -1,7 +1,11 @@
 import { afterAll } from "bun:test";
 import { rm } from "node:fs/promises";
 import type { Subprocess } from "bun";
-import Surreal, { type AnyAuth, type ReconnectOptions } from "../../src";
+import Surreal, {
+	type AnyAuth,
+	type PrepareFn,
+	type ReconnectOptions,
+} from "../../src";
 import { SURREAL_BIND, SURREAL_PORT_UNREACHABLE, SURREAL_USER } from "./env.ts";
 import { SURREAL_EXECUTABLE_PATH } from "./env.ts";
 import { SURREAL_PASS } from "./env.ts";
@@ -17,8 +21,8 @@ declare global {
 	var surrealProc: number;
 }
 
-type PremadeAuth = "root" | "invalid";
-export function createAuth(auth: PremadeAuth): AnyAuth {
+type PremadeAuth = "root" | "invalid" | "none";
+export function createAuth(auth: PremadeAuth): AnyAuth | undefined {
 	switch (auth) {
 		case "root": {
 			return {
@@ -32,6 +36,9 @@ export function createAuth(auth: PremadeAuth): AnyAuth {
 				password: "invalid",
 			};
 		}
+		case "none": {
+			return undefined;
+		}
 		default:
 			throw new Error("Invalid auth option");
 	}
@@ -43,6 +50,7 @@ type CreateSurrealOptions = {
 	reachable?: boolean;
 	unselected?: boolean;
 	reconnect?: boolean | Partial<ReconnectOptions>;
+	prepare?: PrepareFn;
 };
 
 export async function setupServer(): Promise<{
@@ -76,6 +84,7 @@ export async function setupServer(): Promise<{
 		reachable,
 		unselected,
 		reconnect,
+		prepare,
 	}: CreateSurrealOptions = {}) {
 		protocol = protocol ? protocol : PROTOCOL;
 		const surreal = new Surreal();
@@ -84,6 +93,7 @@ export async function setupServer(): Promise<{
 			namespace: unselected ? undefined : SURREAL_NS,
 			database: unselected ? undefined : SURREAL_DB,
 			auth: createAuth(auth ?? "root"),
+			prepare,
 			reconnect,
 		});
 
