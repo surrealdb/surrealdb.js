@@ -50,9 +50,24 @@ describe("rpc", async () => {
 });
 
 describe("prepare", async () => {
-	test("authentication with prepare", async () => {
+	test("authentication with prepare over ws", async () => {
 		const surreal = await createSurreal({
 			protocol: "ws",
+			auth: "none",
+			prepare: async (auth) => {
+				await auth.signin({
+					username: "root",
+					password: "root",
+				});
+			},
+		});
+
+		await surreal.query("CREATE example");
+	});
+
+	test("authentication with prepare over http", async () => {
+		const surreal = await createSurreal({
+			protocol: "http",
 			auth: "none",
 			prepare: async (auth) => {
 				await auth.signin({
