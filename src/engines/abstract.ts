@@ -102,7 +102,10 @@ export abstract class AbstractEngine {
 		Method extends string,
 		Params extends unknown[] | undefined,
 		Result,
-	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>>;
+	>(
+		request: RpcRequest<Method, Params>,
+		force?: boolean,
+	): Promise<RpcResponse<Result>>;
 
 	abstract version(url: URL, timeout?: number): Promise<string>;
 	abstract export(options?: Partial<ExportOptions>): Promise<string>;
