@@ -3,7 +3,7 @@ import {
 	VersionRetrievalFailure,
 	defaultVersionCheckTimeout,
 } from "../../../src";
-import { setupServer, VERSION_CHECK } from "../surreal.ts";
+import { VERSION_CHECK, setupServer } from "../surreal.ts";
 
 const { createSurreal } = await setupServer();
 
