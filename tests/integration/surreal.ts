@@ -16,6 +16,8 @@ import { SURREAL_PORT } from "./env.ts";
 export type Protocol = "http" | "ws";
 export const PROTOCOL: Protocol =
 	process.env.SURREAL_PROTOCOL === "http" ? "http" : "ws";
+export const VERSION_CHECK: boolean =
+	process.env.SURREAL_VERSION_CHECK !== "false";
 
 declare global {
 	var surrealProc: number;
@@ -70,12 +72,12 @@ export async function setupServer(): Promise<{
 			},
 		});
 
-		await Bun.sleep(1000);
+		await waitForListening(proc);
 	}
 
 	async function kill() {
 		proc?.kill();
-		await Bun.sleep(1000);
+		await proc?.exited;
 	}
 
 	async function createSurreal({
@@ -95,6 +97,7 @@ export async function setupServer(): Promise<{
 			auth: createAuth(auth ?? "root"),
 			prepare,
 			reconnect,
+			versionCheck: VERSION_CHECK,
 		});
 
 		return surreal;
@@ -108,4 +111,41 @@ export async function setupServer(): Promise<{
 	await spawn();
 
 	return { createSurreal, spawn, kill };
+}
+
+function waitForListening(proc: Subprocess): Promise<void> {
+	return new Promise<void>((resolve) => {
+		// If stdout is a ReadableStream
+		if (proc.stdout && typeof proc.stdout !== "number") {
+			const reader = proc.stdout.getReader();
+
+			function readChunk(): void {
+				reader
+					.read()
+					.then(({ done, value }) => {
+						if (done) {
+							resolve();
+							return;
+						}
+
+						const output = new TextDecoder().decode(value);
+						if (output.includes("Started web server on")) {
+							resolve();
+						} else {
+							readChunk(); // Continue reading
+						}
+					})
+					.catch(() => {
+						resolve(); // Resolve on error
+					});
+			}
+
+			readChunk();
+		} else {
+			console.warn(
+				"stdout for process is not a readable stream, waiting 3 seconds instead",
+			);
+			setTimeout(resolve, 3000);
+		}
+	});
 }
