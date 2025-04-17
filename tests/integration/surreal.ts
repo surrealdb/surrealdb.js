@@ -70,9 +70,12 @@ export async function setupServer(): Promise<{
 				SURREAL_USER,
 				SURREAL_PASS,
 			},
+			stdout: "pipe",
+			stderr: "pipe",
+			stdin: "pipe",
 		});
 
-		await waitForListening(proc);
+		await waitForHealth();
 	}
 
 	async function kill() {
@@ -113,39 +116,23 @@ export async function setupServer(): Promise<{
 	return { createSurreal, spawn, kill };
 }
 
-function waitForListening(proc: Subprocess): Promise<void> {
-	return new Promise<void>((resolve) => {
-		// If stdout is a ReadableStream
-		if (proc.stdout && typeof proc.stdout !== "number") {
-			const reader = proc.stdout.getReader();
-
-			function readChunk(): void {
-				reader
-					.read()
-					.then(({ done, value }) => {
-						if (done) {
-							resolve();
-							return;
-						}
-
-						const output = new TextDecoder().decode(value);
-						if (output.includes("Started web server on")) {
-							resolve();
-						} else {
-							readChunk(); // Continue reading
-						}
-					})
-					.catch(() => {
-						resolve(); // Resolve on error
-					});
-			}
-
-			readChunk();
-		} else {
-			console.warn(
-				"stdout for process is not a readable stream, waiting 3 seconds instead",
-			);
-			setTimeout(resolve, 3000);
+function waitForHealth(): Promise<void> {
+	// biome-ignore lint/suspicious/noAsyncPromiseExecutor: needed for the loop
+	return new Promise<void>(async (resolve, reject) => {
+		let failed = false;
+		let healthy = false;
+		while (!failed && !healthy) {
+			await fetch(`http://127.0.0.1:${SURREAL_PORT}/health`)
+				.then(() => {
+					healthy = true;
+					resolve();
+				})
+				.catch(() => new Promise((r) => setTimeout(r, 100)));
 		}
+
+		setTimeout(() => {
+			failed = true;
+			reject("Could not resolve health endpoint after 10 seconds.");
+		});
 	});
 }
