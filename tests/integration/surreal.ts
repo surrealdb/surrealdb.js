@@ -16,6 +16,8 @@ import { SURREAL_PORT } from "./env.ts";
 export type Protocol = "http" | "ws";
 export const PROTOCOL: Protocol =
 	process.env.SURREAL_PROTOCOL === "http" ? "http" : "ws";
+export const VERSION_CHECK: boolean =
+	process.env.SURREAL_VERSION_CHECK !== "false";
 
 declare global {
 	var surrealProc: number;
@@ -68,14 +70,17 @@ export async function setupServer(): Promise<{
 				SURREAL_USER,
 				SURREAL_PASS,
 			},
+			stdout: "pipe",
+			stderr: "pipe",
+			stdin: "pipe",
 		});
 
-		await Bun.sleep(1000);
+		await waitForHealth();
 	}
 
 	async function kill() {
 		proc?.kill();
-		await Bun.sleep(1000);
+		await proc?.exited;
 	}
 
 	async function createSurreal({
@@ -95,6 +100,7 @@ export async function setupServer(): Promise<{
 			auth: createAuth(auth ?? "root"),
 			prepare,
 			reconnect,
+			versionCheck: VERSION_CHECK,
 		});
 
 		return surreal;
@@ -108,4 +114,25 @@ export async function setupServer(): Promise<{
 	await spawn();
 
 	return { createSurreal, spawn, kill };
+}
+
+function waitForHealth(): Promise<void> {
+	// biome-ignore lint/suspicious/noAsyncPromiseExecutor: needed for the loop
+	return new Promise<void>(async (resolve, reject) => {
+		let failed = false;
+		let healthy = false;
+		while (!failed && !healthy) {
+			await fetch(`http://127.0.0.1:${SURREAL_PORT}/health`)
+				.then(() => {
+					healthy = true;
+					resolve();
+				})
+				.catch(() => new Promise((r) => setTimeout(r, 100)));
+		}
+
+		setTimeout(() => {
+			failed = true;
+			reject("Could not resolve health endpoint after 10 seconds.");
+		});
+	});
 }
