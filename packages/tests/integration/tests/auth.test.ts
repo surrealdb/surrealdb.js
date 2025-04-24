@@ -1,8 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import {
-	RecordId,
-	ResponseError,
-} from "../../../packages/_legacy/src/index.ts";
+import { RecordId, ResponseError, type AnyAuth } from "@surrealdb/legacy";
 import { createAuth, setupServer } from "../surreal.ts";
 
 const { createSurreal } = await setupServer();
@@ -11,12 +8,12 @@ describe("basic auth", async () => {
 	const surreal = await createSurreal();
 
 	test("root signin", async () => {
-		const res = await surreal.signin(createAuth("root"));
+		const res = await surreal.signin(createAuth("root") as AnyAuth);
 		expect(typeof res).toBe("string");
 	});
 
 	test("invalid credentials", async () => {
-		const req = surreal.signin(createAuth("invalid"));
+		const req = surreal.signin(createAuth("invalid") as AnyAuth);
 		expect(req).rejects.toBeInstanceOf(ResponseError);
 	});
 });

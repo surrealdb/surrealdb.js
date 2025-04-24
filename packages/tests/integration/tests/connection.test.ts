@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	VersionRetrievalFailure,
 	defaultVersionCheckTimeout,
-} from "../../../packages/_legacy/src/index.ts";
+} from "@surrealdb/legacy";
 import { setupServer } from "../surreal.ts";
 
 const { createSurreal } = await setupServer();

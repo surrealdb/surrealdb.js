@@ -3,13 +3,10 @@
 	"version": "0.1.0",
 	"type": "module",
 	"private": true,
-	"license": "Apache-2.0",
-	"description": "CBOR encoder and decoder for SurrealDB.",
-	"keywords": ["surrealdb", "surrealdb.js", "cbor"],
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/surrealdb/surrealdb.js.git"
-	},
-	"homepage": "https://github.com/surrealdb/surrealdb.js",
-	"packageManager": "^bun@1.1.17"
+	"dependencies": {
+		"@surrealdb/cbor": "workspace:*",
+		"@surrealdb/legacy": "workspace:*",
+		"surrealdb": "workspace:*",
+		"get-port": "^7.1.0"
+	}
 }

@@ -5,7 +5,7 @@ import Surreal, {
 	type AnyAuth,
 	type PrepareFn,
 	type ReconnectOptions,
-} from "../../packages/_legacy/src/index.ts";
+} from "@surrealdb/legacy";
 import { SURREAL_BIND, SURREAL_PORT_UNREACHABLE, SURREAL_USER } from "./env.ts";
 import { SURREAL_EXECUTABLE_PATH } from "./env.ts";
 import { SURREAL_PASS } from "./env.ts";

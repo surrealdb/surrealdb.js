@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { escapeIdent } from "../../packages/_legacy/src";
+import { escapeIdent } from "@surrealdb/legacy";
 
 describe("idents", () => {
 	test("escape empty", () => {

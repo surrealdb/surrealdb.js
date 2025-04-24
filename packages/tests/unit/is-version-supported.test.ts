@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isVersionSupported } from "../../packages/_legacy/src/util/version-check.ts";
+import { isVersionSupported } from "@surrealdb/legacy";
 
 describe("isVersionSupported", () => {
 	test("1.0.0 should be unsupported", () => {

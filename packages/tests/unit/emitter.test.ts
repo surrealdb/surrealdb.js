@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Emitter } from "../../packages/_legacy/src";
+import { Emitter } from "@surrealdb/legacy";
 
 describe("emitter", () => {
 	test("scan", () => {

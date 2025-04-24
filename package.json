@@ -12,18 +12,7 @@
 		"qa": "biome check . --write",
 		"qau": "biome check . --write --unsafe",
 		"build:cbor": "bun run -F @surrealdb/cbor build",
-		"build:sdk": "bun run -F @surrealdb/sdk build"
-	},
-	"browser": "./dist/index.mjs",
-	"types": "./dist/index.d.ts",
-	"main": "./dist/index.mjs",
-	"exports": {
-		".": {
-			"require": "./dist/index.cjs",
-			"import": "./dist/index.mjs",
-			"types": "./dist/index.d.ts",
-			"browser": "./dist/index.mjs"
-		}
-	},
-	"files": ["dist"]
+		"build:sdk": "bun run -F @surrealdb/sdk build",
+		"build:legacy": "bun run -F @surrealdb/legacy build"
+	}
 }

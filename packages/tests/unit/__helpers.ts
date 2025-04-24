@@ -14,7 +14,7 @@ import {
 	StringRecordId,
 	Table,
 	Uuid,
-} from "../../packages/_legacy/src";
+} from "@surrealdb/legacy";
 
 export function createMockValue(): object {
 	return {

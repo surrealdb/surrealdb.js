@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { jsonify } from "../../packages/_legacy/src";
+import { jsonify } from "@surrealdb/legacy";
 import { createMockValue } from "./__helpers";
 
 test("jsonify matches snapshot", () => {

@@ -6,7 +6,7 @@ import {
 	ResponseError,
 	type Surreal,
 	Uuid,
-} from "../../../packages/_legacy/src/index.ts";
+} from "@surrealdb/legacy";
 import { fetchVersion } from "../helpers.ts";
 import { setupServer } from "../surreal.ts";
 

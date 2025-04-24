@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { Duration } from "../../packages/_legacy/src";
+import { Duration } from "@surrealdb/legacy";
 
 test("durations", () => {
 	expect(new Duration("1ns").toString()).toBe("1ns");

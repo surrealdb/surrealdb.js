@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { convertAuth } from "../../packages/_legacy/src";
+import { convertAuth } from "@surrealdb/legacy";
 
 test("valid", () => {
 	expect(convertAuth({ username: "root", password: "root" })).toStrictEqual({

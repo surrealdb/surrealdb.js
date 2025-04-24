@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { StringRecordId, Uuid, d, r, s, u } from "../../packages/_legacy/src";
+import { StringRecordId, Uuid, d, r, s, u } from "@surrealdb/legacy";
 
 describe("string prefixes", () => {
 	test("s", () => {

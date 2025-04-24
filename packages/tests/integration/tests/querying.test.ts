@@ -5,7 +5,7 @@ import {
 	BoundIncluded,
 	Range,
 	RecordIdRange,
-} from "../../../packages/_legacy/src/data/types/range.ts";
+} from "@surrealdb/legacy";
 import {
 	Duration,
 	Gap,
@@ -19,7 +19,7 @@ import {
 	Table,
 	Uuid,
 	surql,
-} from "../../../packages/_legacy/src/index.ts";
+} from "@surrealdb/legacy";
 import { fetchVersion } from "../helpers.ts";
 import { setupServer } from "../surreal.ts";
 
