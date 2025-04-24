@@ -1,45 +1,20 @@
 {
-	"name": "surrealdb",
+	"name": "surrealdb.js",
 	"version": "1.3.2",
-	"type": "module",
-	"license": "Apache-2.0",
-	"description": "The official SurrealDB SDK for JavaScript.",
-	"keywords": ["surrealdb", "surrealdb.js", "javascript", "typescript"],
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/surrealdb/surrealdb.js.git"
-	},
-	"homepage": "https://github.com/surrealdb/surrealdb.js",
+	"private": true,
 	"packageManager": "^bun@1.1.17",
+	"workspaces": ["packages/*"],
 	"devDependencies": {
-		"@biomejs/biome": "1.8.3",
-		"@types/bun": "latest",
-		"compare-versions": "^6.1.1",
-		"dts-bundle-generator": "^9.5.1",
-		"esbuild": "^0.21.5",
-		"esbuild-plugin-tsc": "^0.4.0",
-		"get-port": "^7.1.0"
-	},
-	"peerDependencies": {
-		"typescript": "^5.0.0",
-		"tslib": "^2.6.3"
-	},
-	"dependencies": {
-		"isows": "^1.0.6",
-		"uuidv7": "^1.0.1"
+		"@biomejs/biome": "1.8.3"
 	},
 	"scripts": {
-		"ts": "tsc --watch --noEmit true --emitDeclarationOnly false",
 		"qc": "biome check .",
 		"qa": "biome check . --write",
 		"qau": "biome check . --write --unsafe",
-		"build": "bun run scripts/build.ts",
-		"jsr": "bun run scripts/jsr.ts"
+		"build:cbor": "bun run -F @surrealdb/cbor build",
+		"build:sdk": "bun run -F @surrealdb/sdk build"
 	},
-	"engines": {
-		"node": ">=18.0.0"
-	},
-	"browser": "./dist/index.bundled.mjs",
+	"browser": "./dist/index.mjs",
 	"types": "./dist/index.d.ts",
 	"main": "./dist/index.mjs",
 	"exports": {
@@ -47,8 +22,8 @@
 			"require": "./dist/index.cjs",
 			"import": "./dist/index.mjs",
 			"types": "./dist/index.d.ts",
-			"browser": "./dist/index.bundled.mjs"
+			"browser": "./dist/index.mjs"
 		}
 	},
-	"files": ["dist", "README.md", "LICENCE", "SECURITY.md"]
+	"files": ["dist"]
 }
