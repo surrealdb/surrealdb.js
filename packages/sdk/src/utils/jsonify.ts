@@ -1,4 +1,4 @@
-import {
+import type {
 	Uuid,
 	Decimal,
 	Duration,
@@ -10,6 +10,8 @@ import {
 	Table,
 	Range,
 } from "../value";
+
+import { Value } from "../value/value";
 
 export type Jsonify<T> = T extends
 	| Date
@@ -47,19 +49,7 @@ export function jsonify<T>(input: T): Jsonify<T> {
 		if (input === null) return null as Jsonify<T>;
 
 		// We only want to process "SurrealQL values"
-		if (
-			input instanceof Date ||
-			input instanceof Uuid ||
-			input instanceof Decimal ||
-			input instanceof Duration ||
-			input instanceof Future ||
-			input instanceof Range ||
-			input instanceof StringRecordId ||
-			input instanceof RecordIdRange ||
-			input instanceof RecordId ||
-			input instanceof Geometry ||
-			input instanceof Table
-		) {
+		if (input instanceof Date || input instanceof Value) {
 			return input.toJSON() as Jsonify<T>;
 		}
 

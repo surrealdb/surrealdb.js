@@ -56,7 +56,7 @@ export class PreparedQuery {
 
 	/**
 	 * A template literal tag function for appending additional query segments and bindings to the prepared query.
-	 * @param query_raw - The additional query segments to append
+	 * @param rawQuery - The additional query segments to append
 	 * @param values - The additional interpolated values to append
 	 * @example
 	 * const query = surrealql`SELECT * FROM person`;
@@ -66,7 +66,7 @@ export class PreparedQuery {
 	 * }
 	 */
 	append(
-		query_raw: string[] | TemplateStringsArray,
+		rawQuery: string[] | TemplateStringsArray,
 		...values: unknown[]
 	): PreparedQuery {
 		const base = this.length;
@@ -95,7 +95,7 @@ export class PreparedQuery {
 			});
 		}
 
-		const query = query_raw
+		const query = rawQuery
 			.flatMap((segment, i) => {
 				const variable = mapped_bindings[i]?.[0];
 				return [segment, ...(variable ? [`$${variable}`] : [])];

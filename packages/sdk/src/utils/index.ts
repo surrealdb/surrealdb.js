@@ -1,9 +1,9 @@
-export { equals } from "./equals";
-export {
-	escapeIdent,
-	escapeNumber,
-	escapeIdPart,
-	escapeRangeBound,
-} from "./escape";
-export { jsonify, type Jsonify } from "./jsonify";
-export { PreparedQuery } from "./prepared-query";
+export * from "./equals";
+export * from "./escape";
+export * from "./jsonify";
+export * from "./prepared-query";
+export * from "./range";
+export * from "./string-prefixes";
+export * from "./tagged-template";
+export * from "./to-surrealql-string";
+export * from "./version";
