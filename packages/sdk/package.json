@@ -23,6 +23,7 @@
 		"tslib": "^2.6.3"
 	},
 	"dependencies": {
+		"@surrealdb/cbor": "workspace:*",
 		"isows": "^1.0.6",
 		"uuidv7": "^1.0.1"
 	},
