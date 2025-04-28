@@ -1,14 +1,9 @@
+import { encodeCbor } from "../cbor";
 import { HttpConnectionError } from "../errors";
+import type { ConnectionState } from "../types/surreal";
 
-export interface Connection {
-	url: URL;
-	namespace: string;
-	database: string;
-	token: string;
-}
-
-export async function postConnection(
-	connection: Connection,
+export async function postEndpoint(
+	state: ConnectionState,
 	body: unknown,
 	url?: URL,
 	headers?: Record<string, string>,
@@ -19,22 +14,22 @@ export async function postConnection(
 		...headers,
 	};
 
-	if (connection.namespace) {
-		headerMap["Surreal-NS"] = connection.namespace;
+	if (state.namespace) {
+		headerMap["Surreal-NS"] = state.namespace;
 	}
 
-	if (connection.database) {
-		headerMap["Surreal-DB"] = connection.database;
+	if (state.database) {
+		headerMap["Surreal-DB"] = state.database;
 	}
 
-	if (connection.token) {
-		headerMap.Authorization = `Bearer ${connection.token}`;
+	if (state.token) {
+		headerMap.Authorization = `Bearer ${state.token}`;
 	}
 
-	const raw = await fetch(url ?? connection.url, {
+	const raw = await fetch(url ?? state.url, {
 		method: "POST",
 		headers: headerMap,
-		body: this.encodeCbor(body),
+		body: encodeCbor(body),
 	});
 
 	const buffer = await raw.arrayBuffer();
