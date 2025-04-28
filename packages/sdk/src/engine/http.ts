@@ -1,4 +1,3 @@
-import { decodeCbor } from "../cbor";
 import { ConnectionUnavailable, MissingNamespaceDatabase } from "../errors";
 import { getIncrementalID } from "../internal/get-incremental-id";
 import { postEndpoint } from "../internal/http";
@@ -7,6 +6,7 @@ import type { ExportOptions } from "../types/export";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
 import type {
 	ConnectionState,
+	DriverContext,
 	EngineEvents,
 	SurrealEngine,
 } from "../types/surreal";
@@ -23,11 +23,19 @@ const ALWAYS_ALLOW = new Set([
 	"query",
 ]);
 
+/**
+ * An engine that communicates by sending individual HTTP requests
+ */
 export class HttpEngine implements SurrealEngine {
 	#publisher = new Publisher<EngineEvents>();
 	#state: ConnectionState | undefined;
+	#context: DriverContext;
 
 	subscribe: SurrealEngine["subscribe"] = this.#publisher.subscribe;
+
+	constructor(context: DriverContext) {
+		this.#context = context;
+	}
 
 	async open(state: ConnectionState): Promise<void> {
 		this.#publisher.publish("connecting");
@@ -50,7 +58,7 @@ export class HttpEngine implements SurrealEngine {
 
 		endpoint.pathname = `${basepath}/import`;
 
-		await postEndpoint(this.#state, data, endpoint, {
+		await postEndpoint(this.#context, this.#state, data, endpoint, {
 			Accept: "application/json",
 		});
 	}
@@ -65,9 +73,15 @@ export class HttpEngine implements SurrealEngine {
 
 		endpoint.pathname = `${basepath}/export`;
 
-		const buffer = await postEndpoint(this.#state, options ?? {}, endpoint, {
-			Accept: "plain/text",
-		});
+		const buffer = await postEndpoint(
+			this.#context,
+			this.#state,
+			options ?? {},
+			endpoint,
+			{
+				Accept: "plain/text",
+			},
+		);
 
 		return new TextDecoder("utf-8").decode(buffer);
 	}
@@ -89,9 +103,11 @@ export class HttpEngine implements SurrealEngine {
 		}
 
 		const id = getIncrementalID();
-		const buffer = await postEndpoint(this.#state, { id, ...request });
-		const response: RpcResponse = decodeCbor(buffer);
+		const buffer = await postEndpoint(this.#context, this.#state, {
+			id,
+			...request,
+		});
 
-		return response as RpcResponse<Result>;
+		return this.#context.decode<RpcResponse<Result>>(buffer);
 	}
 }

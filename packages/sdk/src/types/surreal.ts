@@ -1,8 +1,12 @@
 import type { EventPublisher } from "./publisher";
 import type { ExportOptions } from "./export";
 import type { RpcRequest, RpcResponse } from "./rpc";
+import type { AnyAuth, Token } from "./auth";
+import type { ReconnectContext } from "../internal/reconnect";
+import type { decodeCbor, encodeCbor } from "../cbor";
+import type { LiveAction } from "./live";
+import type { Uuid } from "../value";
 
-export type ControllerImpl = new (context: DriverContext) => SurrealController;
 export type EngineImpl = new (context: DriverContext) => SurrealEngine;
 
 export type EngineEvents = {
@@ -11,7 +15,7 @@ export type EngineEvents = {
 	reconnecting: [];
 	disconnected: [];
 	error: [Error];
-	live: [string, unknown];
+	live: [Uuid, LiveAction, unknown];
 };
 
 /**
@@ -47,13 +51,43 @@ export interface SurrealController {
  */
 export interface DriverOptions {
 	engines?: Record<string, EngineImpl>;
+	// TODO custom encodeCbor decodeCbor
 }
 
 /**
  * Options used to customize a specific connection to a SurrealDB datastore
  */
 export interface ConnectOptions {
-	controller?: ControllerImpl;
+	/** The namespace to connect to */
+	namespace?: string;
+	/** The database to connect to */
+	database?: string;
+	/** Authentication details to use */
+	authenticate?: () => AnyAuth | Token;
+	/** Enable automated SurrealDB version checking */
+	versionCheck?: boolean;
+	/** Configure reconnect behavior for supported engines */
+	reconnect?: boolean | Partial<ReconnectOptions>;
+}
+
+/**
+ * Options to configure reconnect behavior
+ */
+export interface ReconnectOptions {
+	/** Reconnect after a connection has unexpectedly dropped */
+	enabled: boolean;
+	/** How many attempts will be made at reconnecting, -1 for unlimited */
+	attempts: number;
+	/** The minimum amount of time in milliseconds to wait before reconnecting */
+	retryDelay: number;
+	/** The maximum amount of time in milliseconds to wait before reconnecting */
+	retryDelayMax: number;
+	/** The amount to multiply the delay by after each failed attempt */
+	retryDelayMultiplier: number;
+	/** A float percentage to randomly offset each delay by  */
+	retryDelayJitter: number;
+	/** Handle errors caught during reconnecting */
+	catch?: (error: Error) => boolean;
 }
 
 /**
@@ -61,6 +95,7 @@ export interface ConnectOptions {
  */
 export interface ConnectionState {
 	url: URL;
+	reconnect: ReconnectContext;
 	namespace?: string;
 	database?: string;
 	token?: string;
@@ -71,4 +106,6 @@ export interface ConnectionState {
  */
 export interface DriverContext {
 	options: DriverOptions;
+	encode: typeof encodeCbor;
+	decode: typeof decodeCbor;
 }

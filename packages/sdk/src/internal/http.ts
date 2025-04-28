@@ -1,8 +1,8 @@
-import { encodeCbor } from "../cbor";
 import { HttpConnectionError } from "../errors";
-import type { ConnectionState } from "../types/surreal";
+import type { ConnectionState, DriverContext } from "../types/surreal";
 
 export async function postEndpoint(
+	context: DriverContext,
 	state: ConnectionState,
 	body: unknown,
 	url?: URL,
@@ -29,7 +29,7 @@ export async function postEndpoint(
 	const raw = await fetch(url ?? state.url, {
 		method: "POST",
 		headers: headerMap,
-		body: encodeCbor(body),
+		body: context.encode(body),
 	});
 
 	const buffer = await raw.arrayBuffer();

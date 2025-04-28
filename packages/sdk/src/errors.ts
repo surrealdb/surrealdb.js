@@ -36,11 +36,11 @@ export class EngineDisconnected extends SurrealError {
 }
 
 /**
- * Thrown when a reconnect attempt fails
+ * Thrown when reconnect attempts have been exhausted
  */
-export class ReconnectFailed extends SurrealError {
-	name = "ReconnectFailed";
-	message = "The engine failed to reconnect to SurrealDB";
+export class ReconnectExhaustion extends SurrealError {
+	name = "ReconnectExhaustion";
+	message = "The engine failed exhausted all reconnect attempts";
 }
 
 /**

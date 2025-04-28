@@ -1,3 +1,4 @@
+import { Uuid } from "../value";
 import type { Patch } from "./patch";
 
 export const LIVE_ACTIONS = ["CREATE", "UPDATE", "DELETE"] as const;
