@@ -4,3 +4,4 @@ export * from "./surreal";
 export * from "./engine";
 export * from "./cbor";
 export * from "./utils";
+export * from "./types";
