@@ -19,6 +19,7 @@ import { Publisher } from "../internal/publisher";
 import type { ExportOptions } from "../types/export";
 import { isLiveResult } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
+import type { Subscribe } from "../types";
 
 type Interval = Parameters<typeof clearInterval>[0];
 type Response = Record<string, unknown>;
@@ -42,7 +43,7 @@ export class WebSocketEngine implements SurrealEngine {
 	#active = false;
 	#terminated = false;
 
-	subscribe: SurrealEngine["subscribe"] = this.#publisher.subscribe;
+	subscribe: Subscribe<EngineEvents> = this.#publisher.subscribe;
 
 	constructor(context: DriverContext) {
 		this.#context = context;

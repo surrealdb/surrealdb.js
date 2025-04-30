@@ -2,6 +2,7 @@ import { ConnectionUnavailable, MissingNamespaceDatabase } from "../errors";
 import { getIncrementalID } from "../internal/get-incremental-id";
 import { postEndpoint } from "../internal/http";
 import { Publisher } from "../internal/publisher";
+import type { Subscribe } from "../types";
 import type { ExportOptions } from "../types/export";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
 import type {
@@ -31,7 +32,7 @@ export class HttpEngine implements SurrealEngine {
 	#state: ConnectionState | undefined;
 	#context: DriverContext;
 
-	subscribe: SurrealEngine["subscribe"] = this.#publisher.subscribe;
+	subscribe: Subscribe<EngineEvents> = this.#publisher.subscribe;
 
 	constructor(context: DriverContext) {
 		this.#context = context;

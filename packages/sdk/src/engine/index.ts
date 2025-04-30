@@ -1,2 +1,2 @@
 export { HttpEngine } from "./http";
-// export { WebSocketEngine } from "./websocket";
+export { WebSocketEngine } from "./websocket";

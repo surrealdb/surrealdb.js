@@ -1,28 +1,39 @@
-import { UnsupportedEngine } from "../errors";
-import { ReconnectContext } from "../internal/reconnect";
 import type {
 	ConnectionState,
+	ConnectionStatus,
 	ConnectOptions,
 	DriverContext,
+	EngineImpl,
 	SurrealEngine,
 } from "../types/surreal";
 
-export class SurrealController {
+import { HttpEngine, WebSocketEngine } from "../engine";
+import { UnsupportedEngine } from "../errors";
+import { ReconnectContext } from "../internal/reconnect";
+
+const DEFAULT_ENGINES: Record<string, EngineImpl> = {
+	ws: WebSocketEngine,
+	wss: WebSocketEngine,
+	http: HttpEngine,
+	https: HttpEngine,
+};
+
+export class ConnectionController {
 	#context: DriverContext;
 	#state: ConnectionState | undefined;
 	#engine: SurrealEngine | undefined;
-	#isConnected = false;
+	#status: ConnectionStatus = "disconnected";
 
 	constructor(context: DriverContext) {
 		this.#context = context;
 	}
 
-	public async connect(url: URL, options: ConnectOptions): Promise<void> {
+	public async connect(url: URL, options: ConnectOptions): Promise<true> {
 		if (this.#engine) {
 			await this.#engine.close();
 		}
 
-		const engineMap = this.#context.options.engines ?? {};
+		const engineMap = { ...DEFAULT_ENGINES, ...this.#context.options.engines };
 		const protocol = url.protocol.slice(0, -1);
 		const Engine = engineMap[protocol];
 
@@ -42,24 +53,30 @@ export class SurrealController {
 		this.#engine.subscribe("connected", () => this.onConnected());
 		this.#engine.subscribe("disconnected", () => this.onConnected());
 
-		return this.#engine.open(this.#state);
+		await this.#engine.open(this.#state);
+
+		return true;
 	}
 
-	public disconnect(): Promise<void> {
+	public async disconnect(): Promise<true> {
 		if (this.#engine) {
-			return this.#engine.close();
+			await this.#engine.close();
 		}
 
-		return Promise.resolve();
+		return true;
+	}
+
+	public get status(): ConnectionStatus {
+		return this.#status;
+	}
+
+	public get connected(): boolean {
+		return this.status === "connected";
 	}
 
 	private onConnected(): void {
 		this.#isConnected = true;
 		// TODO Apply state (auth + namespace + database)
-	}
-
-	public get connected(): boolean {
-		return this.#isConnected;
 	}
 
 	private onDisconnected(): void {

@@ -47,3 +47,14 @@ export async function postEndpoint(
 		buffer,
 	);
 }
+
+export function parseEndpoint(value: string | URL): URL {
+	const url = new URL(value);
+
+	if (!url.pathname.endsWith("/rpc")) {
+		if (!url.pathname.endsWith("/")) url.pathname += "/";
+		url.pathname += "rpc";
+	}
+
+	return url;
+}

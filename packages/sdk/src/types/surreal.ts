@@ -3,9 +3,14 @@ import type { ExportOptions } from "./export";
 import type { RpcRequest, RpcResponse } from "./rpc";
 import type { AnyAuth, Token } from "./auth";
 import type { ReconnectContext } from "../internal/reconnect";
-import type { decodeCbor, encodeCbor } from "../cbor";
 import type { LiveAction } from "./live";
 import type { Uuid } from "../value";
+
+export type ConnectionStatus =
+	| "disconnected"
+	| "connecting"
+	| "reconnecting"
+	| "connected";
 
 export type EngineImpl = new (context: DriverContext) => SurrealEngine;
 
@@ -34,24 +39,10 @@ export interface SurrealEngine extends EventPublisher<EngineEvents> {
 }
 
 /**
- * A controller responsible for implementing a communication protocol
- */
-export interface SurrealController {
-	open(state: ConnectionState): Promise<void>;
-	close(): Promise<void>;
-
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	rpc<Method extends string, Params extends unknown[] | undefined, Result>(
-		request: RpcRequest<Method, Params>,
-	): Promise<RpcResponse<Result>>;
-}
-
-/**
  * Options used to configure behavior of the SurrealDB driver
  */
 export interface DriverOptions {
 	engines?: Record<string, EngineImpl>;
-	// TODO custom encodeCbor decodeCbor
 }
 
 /**
