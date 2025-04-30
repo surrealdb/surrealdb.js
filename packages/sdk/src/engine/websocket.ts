@@ -67,6 +67,11 @@ export class WebSocketEngine implements SurrealEngine {
 						this.#active = true;
 						this.#publisher.publish("connected");
 						reconnect.reset();
+
+						for (const { request } of this.#calls.values()) {
+							this.#socket?.send(this.#context.encode(request));
+						}
+
 						resolve();
 					});
 
@@ -164,13 +169,13 @@ export class WebSocketEngine implements SurrealEngine {
 
 			const id = getIncrementalID();
 			const call: Call<Result> = {
-				request,
+				request: { id, ...request },
 				resolve,
 				reject,
 			};
 
 			this.#calls.set(id, call as Call<unknown>);
-			this.#socket?.send(this.#context.encode({ id, ...request }));
+			this.#socket?.send(this.#context.encode(call.request));
 		});
 	}
 
