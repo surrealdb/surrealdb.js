@@ -1,5 +1,6 @@
 import {
 	ConnectionUnavailable,
+	EngineDisconnected,
 	ReconnectExhaustion,
 	UnexpectedConnectionError,
 	UnexpectedServerResponse,
@@ -21,7 +22,12 @@ import type { RpcRequest, RpcResponse } from "../types/rpc";
 
 type Interval = Parameters<typeof clearInterval>[0];
 type Response = Record<string, unknown>;
-type Call<T> = [(value: RpcResponse<T>) => void, (error: Error) => void];
+
+interface Call<T> {
+	request: object;
+	resolve: (value: RpcResponse<T>) => void;
+	reject: (error: Error) => void;
+}
 
 /**
  * An engine that communicates over WebSocket protocol
@@ -33,6 +39,7 @@ export class WebSocketEngine implements SurrealEngine {
 	#calls = new Map<string, Call<unknown>>();
 	#context: DriverContext;
 	#pinger: Interval;
+	#active = false;
 	#terminated = false;
 
 	subscribe: SurrealEngine["subscribe"] = this.#publisher.subscribe;
@@ -57,10 +64,13 @@ export class WebSocketEngine implements SurrealEngine {
 			(async () => {
 				while (true) {
 					const error = await this.createSocket(() => {
+						this.#active = true;
 						this.#publisher.publish("connected");
 						reconnect.reset();
 						resolve();
 					});
+
+					this.#socket = undefined;
 
 					// Check if we should continue to iterate and reconnect
 					if (this.#terminated || !reconnect.enabled || !reconnect.allowed) {
@@ -69,14 +79,16 @@ export class WebSocketEngine implements SurrealEngine {
 							this.#publisher.publish("error", new ReconnectExhaustion());
 						}
 
-						// Error pending calls
-						for (const [_, reject] of this.#calls.values()) {
-							reject(new ConnectionUnavailable());
+						// Optionally terminate pending calls
+						if (!this.#terminated) {
+							for (const { reject } of this.#calls.values()) {
+								reject(new EngineDisconnected());
+							}
 						}
 
 						this.#publisher.publish("disconnected");
-						this.#socket = undefined;
 						this.#state = undefined;
+						this.#active = false;
 						this.#calls.clear();
 
 						reject(error);
@@ -145,16 +157,20 @@ export class WebSocketEngine implements SurrealEngine {
 		request: RpcRequest<Method, Params>,
 	): Promise<RpcResponse<Result>> {
 		return new Promise((resolve, reject) => {
-			if (!this.#socket) {
+			if (!this.#active) {
 				reject(new ConnectionUnavailable());
 				return;
 			}
 
 			const id = getIncrementalID();
+			const call: Call<Result> = {
+				request,
+				resolve,
+				reject,
+			};
 
-			// @ts-ignore
-			this.#calls.set(id, [resolve, reject]);
-			this.#socket.send(this.#context.encode({ id, ...request }));
+			this.#calls.set(id, call as Call<unknown>);
+			this.#socket?.send(this.#context.encode({ id, ...request }));
 		});
 	}
 
@@ -241,8 +257,13 @@ export class WebSocketEngine implements SurrealEngine {
 
 	private handleRpcResponse({ id, ...res }: Response) {
 		if (typeof id === "string") {
-			const [resolve] = this.#calls.get(id) ?? [];
-			resolve?.(res as RpcResponse<unknown>);
+			try {
+				const { resolve } = this.#calls.get(id) ?? {};
+				resolve?.(res as RpcResponse<unknown>);
+			} finally {
+				this.#calls.delete(id);
+			}
+
 			return;
 		}
 
