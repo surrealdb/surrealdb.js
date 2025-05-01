@@ -1,10 +1,11 @@
 import type { EventPublisher } from "./publisher";
 import type { ExportOptions } from "./export";
 import type { RpcRequest, RpcResponse } from "./rpc";
-import type { AnyAuth, Token } from "./auth";
 import type { ReconnectContext } from "../internal/reconnect";
 import type { LiveAction } from "./live";
 import type { Uuid } from "../value";
+import type { decodeCbor, encodeCbor } from "../cbor";
+import type { AuthProvider } from "./auth";
 
 export type ConnectionStatus =
 	| "disconnected"
@@ -27,7 +28,7 @@ export type EngineEvents = {
  * An engine responsible for communicating to a SurrealDB datastore
  */
 export interface SurrealEngine extends EventPublisher<EngineEvents> {
-	open(state: ConnectionState): Promise<void>;
+	open(state: ConnectionState): void;
 	close(): Promise<void>;
 
 	export(options?: Partial<ExportOptions>): Promise<string>;
@@ -54,10 +55,10 @@ export interface ConnectOptions {
 	/** The database to connect to */
 	database?: string;
 	/** Authentication details to use */
-	authenticate?: () => AnyAuth | Token;
-	/** Enable automated SurrealDB version checking */
+	authentication?: AuthProvider;
+	/** Automatically check for version compatibility on connect @default true */
 	versionCheck?: boolean;
-	/** Configure reconnect behavior for supported engines */
+	/** Configure reconnect behavior for supported engines @default false */
 	reconnect?: boolean | Partial<ReconnectOptions>;
 }
 
@@ -87,9 +88,11 @@ export interface ReconnectOptions {
 export interface ConnectionState {
 	url: URL;
 	reconnect: ReconnectContext;
+	variables: Record<string, unknown>;
 	namespace?: string;
 	database?: string;
-	token?: string;
+	accessToken?: string;
+	refreshToken?: string;
 }
 
 /**

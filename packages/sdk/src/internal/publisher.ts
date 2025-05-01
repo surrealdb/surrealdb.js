@@ -29,3 +29,31 @@ export class Publisher<T extends EventPayload> implements EventPublisher<T> {
 		}
 	}
 }
+
+/**
+ * Subscribe to the first event that is emitted and resolve the promise with the event payload
+ *
+ * @param publisher The event publisher
+ * @param events The events to subscribe to
+ * @returns A promise that resolves with the event payload for the first triggered event
+ */
+export function subscribeFirst<T extends EventPayload, K extends keyof T>(
+	publisher: EventPublisher<T>,
+	...events: K[]
+): Promise<T[K]> {
+	const subscriptions: (() => void)[] = [];
+
+	return new Promise((resolve) => {
+		for (const event of events) {
+			const unsubscribe = publisher.subscribe(event, (payload: T[K]) => {
+				for (const subscription of subscriptions) {
+					subscription();
+				}
+
+				resolve(payload);
+			});
+
+			subscriptions.push(unsubscribe);
+		}
+	});
+}

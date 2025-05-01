@@ -16,12 +16,10 @@ const ALWAYS_ALLOW = new Set([
 	"signin",
 	"signup",
 	"authenticate",
-	"invalidate",
 	"version",
-	"use",
-	"let",
-	"unset",
 	"query",
+	"info",
+	"ping",
 ]);
 
 /**
@@ -38,7 +36,7 @@ export class HttpEngine implements SurrealEngine {
 		this.#context = context;
 	}
 
-	async open(state: ConnectionState): Promise<void> {
+	open(state: ConnectionState): void {
 		this.#publisher.publish("connecting");
 		this.#state = state;
 		this.#publisher.publish("connected");
@@ -96,11 +94,34 @@ export class HttpEngine implements SurrealEngine {
 			throw new ConnectionUnavailable();
 		}
 
+		switch (request.method) {
+			case "use":
+			case "let":
+			case "unset":
+			case "reset":
+			case "invalidate": {
+				return { result: null as Result };
+			}
+		}
+
 		if (
 			(!this.#state.namespace || !this.#state.database) &&
 			!ALWAYS_ALLOW.has(request.method)
 		) {
 			throw new MissingNamespaceDatabase();
+		}
+
+		switch (request.method) {
+			case "query": {
+				request.params = [
+					request.params?.[0],
+					{
+						...this.#state.variables,
+						...(request.params?.[1] ?? {}),
+					},
+				] as Params;
+				break;
+			}
 		}
 
 		const id = getIncrementalID();

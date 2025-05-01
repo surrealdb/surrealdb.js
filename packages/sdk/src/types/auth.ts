@@ -53,3 +53,12 @@ export type AnyAuth =
 	| AccessRecordAuth;
 
 export type Token = string;
+export type AuthOrToken = AnyAuth | Token;
+export type AuthProvider =
+	| AuthOrToken
+	| (() => AuthOrToken | Promise<AuthOrToken>);
+
+export type AuthResponse = {
+	token: Token;
+	refresh?: Token;
+};

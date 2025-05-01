@@ -13,7 +13,7 @@ import type {
 
 import type { RecordIdRange, Table, Uuid, RecordId } from "../value";
 import { Publisher } from "../internal/publisher";
-import { ConnectionController } from "../controller/connection";
+import { ConnectionController } from "../controller";
 import { decodeCbor, encodeCbor } from "../cbor";
 import { AuthController } from "../controller/auth";
 import { LiveController } from "../controller/live";
@@ -32,8 +32,6 @@ export type SurrealV1Events = {
 export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	readonly #publisher = new Publisher<SurrealV1Events>();
 	readonly #connection: ConnectionController;
-	readonly #auth: AuthController;
-	readonly #live: LiveController;
 
 	subscribe: Subscribe<SurrealV1Events> = this.#publisher.subscribe;
 
@@ -43,9 +41,6 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 			encode: encodeCbor,
 			decode: decodeCbor,
 		});
-
-		this.#auth = new AuthController(this.#connection);
-		this.#live = new LiveController(this.#connection);
 	}
 
 	/**
@@ -63,6 +58,20 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 */
 	async close(): Promise<true> {
 		return this.#connection.disconnect();
+	}
+
+	/**
+	 * Returns the active selected namespace
+	 */
+	get namespace(): string | undefined {
+		return this.#connection.state?.namespace;
+	}
+
+	/**
+	 * Returns the active selected database
+	 */
+	get database(): string | undefined {
+		return this.#connection.state?.database;
 	}
 
 	/**

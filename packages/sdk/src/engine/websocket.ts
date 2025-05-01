@@ -15,7 +15,7 @@ import type {
 
 import { getIncrementalID } from "../internal/get-incremental-id";
 import { postEndpoint } from "../internal/http";
-import { Publisher } from "../internal/publisher";
+import { Publisher, subscribeFirst } from "../internal/publisher";
 import type { ExportOptions } from "../types/export";
 import { isLiveResult } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
@@ -49,76 +49,80 @@ export class WebSocketEngine implements SurrealEngine {
 		this.#context = context;
 	}
 
-	open(state: ConnectionState): Promise<void> {
-		return new Promise<void>((resolve, reject) => {
-			if (!this.#state) {
-				reject(new ConnectionUnavailable());
-				return;
-			}
+	open(state: ConnectionState): void {
+		if (!this.#state) {
+			throw new ConnectionUnavailable();
+		}
 
-			this.#publisher.publish("connecting");
-			this.#terminated = false;
-			this.#state = state;
+		this.#publisher.publish("connecting");
+		this.#terminated = false;
+		this.#state = state;
 
-			const { reconnect } = state;
+		const { reconnect } = state;
 
-			(async () => {
-				while (true) {
-					const error = await this.createSocket(() => {
-						this.#active = true;
-						this.#publisher.publish("connected");
-						reconnect.reset();
+		(async () => {
+			while (true) {
+				// Open a new socket and await until closure
+				const error = await this.createSocket(() => {
+					this.#active = true;
+					reconnect.reset();
 
-						for (const { request } of this.#calls.values()) {
-							this.#socket?.send(this.#context.encode(request));
-						}
-
-						resolve();
-					});
-
-					this.#socket = undefined;
-
-					// Check if we should continue to iterate and reconnect
-					if (this.#terminated || !reconnect.enabled || !reconnect.allowed) {
-						// Propagate reconnect exhaustion
-						if (reconnect.enabled && !reconnect.allowed) {
-							this.#publisher.publish("error", new ReconnectExhaustion());
-						}
-
-						// Optionally terminate pending calls
-						if (!this.#terminated) {
-							for (const { reject } of this.#calls.values()) {
-								reject(new EngineDisconnected());
-							}
-						}
-
-						this.#publisher.publish("disconnected");
-						this.#state = undefined;
-						this.#active = false;
-						this.#calls.clear();
-
-						reject(error);
-						break;
+					for (const { request } of this.#calls.values()) {
+						this.#socket?.send(this.#context.encode(request));
 					}
 
-					// Propagate caught errors
-					if (error) {
-						reconnect.propagate(error);
-					}
+					this.#publisher.publish("connected");
+				});
 
-					this.#publisher.publish("reconnecting");
+				this.#socket = undefined;
 
-					// Perform a reconnect iteration cooldown
-					await reconnect.iterate();
+				if (error) {
+					this.#publisher.publish("error", error);
 				}
-			})();
-		});
+
+				// Check if we should continue to iterate and reconnect
+				if (this.#terminated || !reconnect.enabled || !reconnect.allowed) {
+					// Propagate reconnect exhaustion
+					if (reconnect.enabled && !reconnect.allowed) {
+						this.#publisher.publish("error", new ReconnectExhaustion());
+					}
+
+					// Optionally terminate pending calls
+					if (!this.#terminated) {
+						for (const { reject } of this.#calls.values()) {
+							reject(new EngineDisconnected());
+						}
+					}
+
+					this.#publisher.publish("disconnected");
+					this.#state = undefined;
+					this.#active = false;
+					this.#calls.clear();
+
+					break;
+				}
+
+				// Propagate caught errors
+				if (error) {
+					reconnect.propagate(error);
+				}
+
+				this.#publisher.publish("reconnecting");
+
+				// Perform a reconnect iteration cooldown
+				await reconnect.iterate();
+			}
+		})();
 	}
 
 	async close(): Promise<void> {
 		this.#state = undefined;
 		this.#terminated = true;
 		this.#socket?.close();
+
+		if (this.#socket && this.#socket.readyState !== WebSocket.CLOSED) {
+			await subscribeFirst(this, "close");
+		}
 	}
 
 	async import(data: string): Promise<void> {
@@ -196,7 +200,22 @@ export class WebSocketEngine implements SurrealEngine {
 			let caughtError: Error | null = null;
 
 			// Wait for the connection to open
-			socket.addEventListener("open", onConnected);
+			socket.addEventListener("open", () => {
+				try {
+					onConnected();
+
+					setInterval(() => {
+						try {
+							this.send({ method: "ping" });
+						} catch {
+							// we are not interested in the result
+						}
+					}, 30_000);
+				} catch (err: unknown) {
+					caughtError = err as Error;
+					socket.close();
+				}
+			});
 
 			// Handle any errors
 			socket.addEventListener("error", (e) => {
@@ -210,7 +229,6 @@ export class WebSocketEngine implements SurrealEngine {
 								: "An unexpected error occurred",
 				);
 
-				this.#publisher.publish("error", error);
 				caughtError = error;
 			});
 

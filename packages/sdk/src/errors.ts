@@ -68,10 +68,11 @@ export class UnexpectedServerResponse extends SurrealError {
  */
 export class UnexpectedConnectionError extends SurrealError {
 	name = "UnexpectedConnectionError";
+	message = "An unexpected connection error occurred";
 
-	constructor(public readonly error: unknown) {
+	constructor(cause: unknown) {
 		super();
-		this.message = `${error}`;
+		this.cause = cause;
 	}
 }
 
@@ -81,7 +82,7 @@ export class UnexpectedConnectionError extends SurrealError {
 export class UnsupportedEngine extends SurrealError {
 	name = "UnsupportedEngine";
 	message =
-		"The engine you are trying to connect to is not supported or configured.";
+		"The engine you are trying to connect to is not supported or configured";
 
 	constructor(public readonly engine: string) {
 		super();
@@ -93,8 +94,7 @@ export class UnsupportedEngine extends SurrealError {
  */
 export class FeatureUnavailableForEngine extends SurrealError {
 	name = "FeatureUnavailableForEngine";
-	message =
-		"The feature you are trying to use is not available on this engine.";
+	message = "The feature you are trying to use is not available on this engine";
 }
 
 /**
@@ -102,7 +102,7 @@ export class FeatureUnavailableForEngine extends SurrealError {
  */
 export class ConnectionUnavailable extends SurrealError {
 	name = "ConnectionUnavailable";
-	message = "There is no connection available at this moment.";
+	message = "There is no connection available at this moment";
 }
 
 /**
@@ -110,7 +110,7 @@ export class ConnectionUnavailable extends SurrealError {
  */
 export class MissingNamespaceDatabase extends SurrealError {
 	name = "MissingNamespaceDatabase";
-	message = "There is no namespace and/or database selected.";
+	message = "There is no namespace and/or database selected";
 }
 
 /**
@@ -147,7 +147,7 @@ export class ResponseError extends SurrealError {
  */
 export class NoNamespaceSpecified extends SurrealError {
 	name = "NoNamespaceSpecified";
-	message = "Please specify a namespace to use.";
+	message = "Please specify a namespace to use";
 }
 
 /**
@@ -157,7 +157,7 @@ export class NoNamespaceSpecified extends SurrealError {
  */
 export class NoDatabaseSpecified extends SurrealError {
 	name = "NoDatabaseSpecified";
-	message = "Please specify a database to use.";
+	message = "Please specify a database to use";
 }
 
 /**
@@ -165,7 +165,7 @@ export class NoDatabaseSpecified extends SurrealError {
  */
 export class NoTokenReturned extends SurrealError {
 	name = "NoTokenReturned";
-	message = "Did not receive an authentication token.";
+	message = "Did not receive an authentication token";
 }
 
 /**
@@ -180,19 +180,24 @@ export class UnsupportedVersion extends SurrealError {
 		super();
 		this.version = version;
 		this.supportedRange = supportedRange;
-		this.message = `The version "${version}" reported by the engine is not supported by this library, expected a version that satisfies "${supportedRange}".`;
+		this.message = `The version "${version}" reported by the engine is not supported by this library, expected a version that satisfies "${supportedRange}"`;
 	}
 }
 
 /**
- * Thrown when version retrieval is unsuccessful
+ * Thrown when version checking is unsuccessful
  */
-export class VersionRetrievalFailure extends SurrealError {
-	name = "VersionRetrievalFailure";
-	message =
-		"Failed to retrieve remote version. If the server is behind a proxy, make sure it's configured correctly.";
+export class VersionCheckFailure extends SurrealError {
+	name = "VersionCheckFailure";
+	message = "Failed to check version compatibility with the SurrealDB instance";
 
-	constructor(readonly error?: Error | undefined) {
+	constructor(
+		readonly error?: Error | undefined,
+		readonly response?: {
+			code: number;
+			message: string;
+		},
+	) {
 		super();
 	}
 }

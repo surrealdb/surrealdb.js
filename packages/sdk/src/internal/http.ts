@@ -22,8 +22,8 @@ export async function postEndpoint(
 		headerMap["Surreal-DB"] = state.database;
 	}
 
-	if (state.token) {
-		headerMap.Authorization = `Bearer ${state.token}`;
+	if (state.accessToken) {
+		headerMap.Authorization = `Bearer ${state.accessToken}`;
 	}
 
 	const raw = await fetch(url ?? state.url, {
