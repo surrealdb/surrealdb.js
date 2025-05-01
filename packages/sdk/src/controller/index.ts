@@ -189,11 +189,15 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 			return;
 		}
 
-		await subscribeFirst(
+		const [error] = await subscribeFirst(
 			this as EventPublisher<ConnectionEvents>,
 			"connected",
 			"error",
 		);
+
+		if (error) {
+			throw error;
+		}
 	}
 
 	private onConnecting(): void {
