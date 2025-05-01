@@ -184,7 +184,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		return this.#status;
 	}
 
-	public async awaitConnectedOrError(): Promise<void> {
+	public async ready(): Promise<void> {
 		if (this.#status === "connected") {
 			return;
 		}
