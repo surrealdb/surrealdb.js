@@ -6,23 +6,26 @@ import type {
 	EventPublisher,
 	ExportOptions,
 	LiveHandler,
-	Params,
+	Doc,
 	Patch,
 	Prettify,
-	QueryParameters,
 	RpcResponse,
 	Subscribe,
+	RelateInOut,
 } from "../types";
 
-import type { RecordIdRange, Table, Uuid, RecordId } from "../value";
+import { Table, type RecordIdRange, type Uuid, type RecordId } from "../value";
+
 import { Publisher } from "../internal/publisher";
 import { ConnectionController } from "../controller";
 import { decodeCbor, encodeCbor } from "../cbor";
 import { parseEndpoint } from "../internal/http";
 import { ResponseError, SurrealError } from "../errors";
 import type { MapQueryResult } from "../types/query";
-import type { PreparedQuery } from "../utils";
-import type { Fill } from "@surrealdb/cbor";
+import { PreparedQuery } from "../utils";
+import { partiallyEncodeObject, type Fill } from "@surrealdb/cbor";
+import { REPLACER } from "../cbor/replacer";
+import { output } from "../internal/output";
 
 export type SurrealV1Events = {
 	connecting: [];
@@ -164,7 +167,7 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 *
 	 * @return The record linked to the record ID used for authentication
 	 */
-	async info<T extends Params>(): Promise<ActionResult<T> | undefined> {
+	async info<T extends Doc>(): Promise<ActionResult<T> | undefined> {
 		await this.ready;
 		const res = await this.rpc<ActionResult<T> | undefined>("info");
 		if (res.error) throw new ResponseError(res.error.message);
@@ -315,294 +318,467 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	async #queryImpl<T extends unknown[]>(
 		preparedOrQuery: string | PreparedQuery,
 		gapsOrBinds?: Record<string, unknown> | Fill[],
-	): Promise<Prettify<MapQueryResult<T>>> {
-		// const params =
-		// 	q instanceof PreparedQuery
-		// 		? [
-		// 				q.query,
-		// 				partiallyEncodeObject(q.bindings, {
-		// 					fills: b as Fill[],
-		// 					replacer: replacer.encode,
-		// 				}),
-		// 			]
-		// 		: [q, b];
-		// await this.ready;
-		// const res = await this.rpc<MapQueryResult<T>>("query", params);
-		// if (res.error) throw new ResponseError(res.error.message);
-		// return res.result;
-		throw new Error("Not implemented");
+	) {
+		await this.ready;
+
+		let params: unknown[];
+
+		if (preparedOrQuery instanceof PreparedQuery) {
+			params = [
+				preparedOrQuery.query,
+				partiallyEncodeObject(preparedOrQuery.bindings, {
+					fills: gapsOrBinds as Fill[],
+					replacer: REPLACER.encode,
+				}),
+			];
+		} else {
+			params = [preparedOrQuery, gapsOrBinds];
+		}
+
+		const res = await this.rpc<MapQueryResult<T>>("query", params);
+		if (res.error) throw new ResponseError(res.error.message);
+		return res.result;
 	}
 
 	/**
-	 * Selects all records in a table, or a specific record, from the database.
-	 * If you intend on sorting, filtering, or performing other operations on the data, it is recommended to use the `query` method instead.
-	 * @param thing - The table name or a record ID to select.
+	 * Select all fields from a specific record based on the provied Record ID
+	 *
+	 * @param recordId The record ID to select
 	 */
-	async select<T extends R>(thing: RecordId): Promise<ActionResult<T>>;
-	async select<T extends R>(
-		thing: RecordIdRange | Table | string,
-	): Promise<ActionResult<T>[]>;
-	async select<T extends R>(thing: RecordId | RecordIdRange | Table | string) {
-		throw new Error("Not implemented");
+	async select<T extends Doc>(recordId: RecordId): Promise<ActionResult<T>>;
+
+	/**
+	 * Select all records based on the provided Record ID range
+	 *
+	 * @param range The range of record IDs to select
+	 */
+	async select<T extends Doc>(range: RecordIdRange): Promise<ActionResult<T>[]>;
+
+	/**
+	 * Select all records present in the specified table
+	 *
+	 * @param recordId The record ID to select
+	 */
+	async select<T extends Doc>(table: Table): Promise<ActionResult<T>[]>;
+
+	// Shadow implementation
+	async select<T extends Doc>(what: RecordId | RecordIdRange | Table) {
+		await this.ready;
+		const res = await this.rpc<ActionResult<T>>("select", [what]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return output(what, res.result);
 	}
 
 	/**
-	 * Creates a record in the database.
-	 * @param thing - The table name or the specific record ID to create.
-	 * @param data - The document / record data to insert.
+	 * Create a new record in the database
+	 *
+	 * @param recordId The record id of the record to create
+	 * @param data The record data to insert
 	 */
-	async create<T extends R, U extends R = T>(
-		thing: RecordId,
+	async create<T extends Doc, U extends Doc = T>(
+		recordId: RecordId,
 		data?: U,
 	): Promise<ActionResult<T>>;
-	async create<T extends R, U extends R = T>(
-		thing: Table | string,
+
+	/**
+	 * Create a new record in the database
+	 *
+	 * @param table The table to create a record in
+	 * @param data The record data to insert
+	 */
+	async create<T extends Doc, U extends Doc = T>(
+		table: Table,
 		data?: U,
 	): Promise<ActionResult<T>[]>;
-	async create<T extends R, U extends R = T>(
-		thing: RecordId | Table | string,
+
+	// Shadow implementation
+	async create<T extends Doc, U extends Doc = T>(
+		what: RecordId | Table,
 		data?: U,
 	) {
-		throw new Error("Not implemented");
+		await this.ready;
+		const res = await this.rpc<ActionResult<T>>("create", [what, data]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return output(what, res.result);
 	}
 
 	/**
-	 * Inserts one or multiple records in the database.
-	 * @param table - The table name to insert into.
-	 * @param data - The document(s) / record(s) to insert.
+	 * Create a graph edge between the from record(s) and the to record(s) using a specific edge record id
+	 *
+	 * @param from The in property on the edge record
+	 * @param edge The id of the edge record
+	 * @param to  The out property on the edge record
+	 * @param data The optional record data to store on the edge
 	 */
-	async insert<T extends R, U extends R = T>(
+	async relate<T extends Doc, U extends Doc = T>(
+		from: RelateInOut,
+		edge: RecordId,
+		to: RelateInOut,
+		data?: U,
+	): Promise<T>;
+
+	/**
+	 * Create a graph edge between the from record(s) and the to record(s) on the specified edge table
+	 *
+	 * @param from The in property on the edge record
+	 * @param edge The edge table to create the relation in
+	 * @param to  The out property on the edge record
+	 * @param data The optional record data to store on the edge
+	 */
+	async relate<T extends Doc, U extends Doc = T>(
+		from: RelateInOut,
+		edge: Table,
+		to: RelateInOut,
+		data?: U,
+	): Promise<T[]>;
+
+	// Shadow implementation
+	async relate<T extends Doc, U extends Doc = T>(
+		from: RelateInOut,
+		thing: Table | RecordId,
+		to: RelateInOut,
+		data?: U,
+	) {
+		await this.ready;
+		const res = await this.rpc("relate", [from, thing, to, data]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return output(thing, res.result);
+	}
+
+	/**
+	 * Inserts one or multiple records into the database
+	 *
+	 * @param data One or more records to insert
+	 */
+	async insert<T extends Doc, U extends Doc = T>(
 		data?: U | U[],
 	): Promise<ActionResult<T>[]>;
-	async insert<T extends R, U extends R = T>(
-		table: Table | string,
+
+	/**
+	 * Inserts one or multiple records into the database
+	 *
+	 * @param table The table to insert the record into
+	 * @param data One or more records to insert
+	 */
+	async insert<T extends Doc, U extends Doc = T>(
+		table: Table,
 		data?: U | U[],
 	): Promise<ActionResult<T>[]>;
-	async insert<T extends R, U extends R = T>(
-		arg1: Table | string | U | U[],
+
+	// Shadow implementation
+	async insert<T extends Doc, U extends Doc = T>(
+		arg1: Table | U | U[],
 		arg2?: U | U[],
 	) {
-		throw new Error("Not implemented");
+		await this.ready;
+		const params = arg1 instanceof Table ? [arg1, arg2] : [undefined, arg1];
+		const res = await this.rpc<ActionResult<T>>("insert", params);
+		if (res.error) throw new ResponseError(res.error.message);
+		return res.result;
 	}
 
 	/**
-	 * Inserts one or multiple records in the database.
-	 * @param thing - The table name or the specific record ID to create.
-	 * @param data - The document(s) / record(s) to insert.
+	 * Inserts one or multiple relations in the database
+	 *
+	 * @param data One or more relations to insert
 	 */
-	async insertRelation<T extends R, U extends R = T>(
+	async insertRelation<T extends Doc, U extends Doc = T>(
 		data?: U | U[],
 	): Promise<ActionResult<T>[]>;
-	async insertRelation<T extends R, U extends R = T>(
-		table: Table | string,
+
+	/**
+	 * Inserts one or multiple relations in the database
+	 *
+	 * @param table The table to insert the relation into
+	 * @param data One or more relations to insert
+	 */
+	async insertRelation<T extends Doc, U extends Doc = T>(
+		table: Table,
 		data?: U | U[],
 	): Promise<ActionResult<T>[]>;
-	async insertRelation<T extends R, U extends R = T>(
-		arg1: Table | string | U | U[],
+
+	// Shadow implementation
+	async insertRelation<T extends Doc, U extends Doc = T>(
+		arg1: Table | U | U[],
 		arg2?: U | U[],
 	) {
-		throw new Error("Not implemented");
+		await this.ready;
+		const params = arg1 instanceof Table ? [arg1, arg2] : [undefined, arg1];
+		const res = await this.rpc<ActionResult<T>>("insert_relation", params);
+		if (res.error) throw new ResponseError(res.error.message);
+		return res.result;
 	}
 
 	/**
-	 * Inserts one or multiple records in the database.
-	 * @param thing - The table name or the specific record ID to create.
-	 * @param data - The document(s) / record(s) to insert.
-	 * @deprecated Use `insertRelation` instead
-	 */
-	async insert_relation<T extends R, U extends R = T>(
-		data?: U | U[],
-	): Promise<ActionResult<T>[]>;
-	async insert_relation<T extends R, U extends R = T>(
-		table: Table | string,
-		data?: U | U[],
-	): Promise<ActionResult<T>[]>;
-	async insert_relation<T extends R, U extends R = T>(
-		arg1: Table | string | U | U[],
-		arg2?: U | U[],
-	) {
-		throw new Error("Not implemented");
-	}
-
-	/**
-	 * Updates all records in a table, or a specific record, in the database.
+	 * Updates a single record based on the provided Record ID
 	 *
-	 * ***NOTE: This function replaces the current document / record data with the specified data.***
-	 * @param thing - The table name or the specific record ID to update.
-	 * @param data - The document / record data to insert.
+	 * ***NOTE: This function replaces the existing record data with the specified data***
+	 *
+	 * @param recordId The record ID to update
+	 * @param data The record data to update
 	 */
-	async update<T extends R, U extends R = T>(
+	async update<T extends Doc, U extends Doc = T>(
+		recordId: RecordId,
+		data?: U,
+	): Promise<ActionResult<T>>;
+
+	/**
+	 * Updates all records based on the provided Record ID range
+	 *
+	 * ***NOTE: This function replaces the existing record data with the specified data***
+	 *
+	 * @param range The range of record IDs to update
+	 * @param data The record data to update
+	 */
+	async update<T extends Doc, U extends Doc = T>(
+		range: RecordIdRange,
+		data?: U,
+	): Promise<ActionResult<T>[]>;
+
+	/**
+	 * Updates all records present in the specified table
+	 *
+	 * ***NOTE: This function replaces the existing record data with the specified data***
+	 *
+	 * @param table The table to update
+	 * @param data The record data to update
+	 */
+	async update<T extends Doc, U extends Doc = T>(
+		range: Table,
+		data?: U,
+	): Promise<ActionResult<T>[]>;
+
+	// Shadow implementation
+	async update<T extends Doc, U extends Doc = T>(
+		thing: RecordId | RecordIdRange | Table,
+		data?: U,
+	) {
+		await this.ready;
+		const res = await this.rpc<ActionResult<T>>("update", [thing, data]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return output(thing, res.result);
+	}
+
+	/**
+	 * Upserts a single record based on the provided Record ID
+	 *
+	 * ***NOTE: This function replaces the existing record data with the specified data**
+	 *
+	 * @param recordId The record ID to upsert
+	 * @param data The record data to upsert
+	 */
+	async upsert<T extends Doc, U extends Doc = T>(
+		recordId: RecordId,
+		data?: U,
+	): Promise<ActionResult<T>>;
+
+	/**
+	 * Upserts all records based on the provided Record ID range
+	 *
+	 * ***NOTE: This function replaces the existing record data with the specified data**
+	 *
+	 * @param range The range of record IDs to upsert
+	 * @param data The record data to upsert
+	 */
+	async upsert<T extends Doc, U extends Doc = T>(
+		thing: RecordIdRange,
+		data?: U,
+	): Promise<ActionResult<T>[]>;
+
+	/**
+	 * Upserts all records present in the specified table
+	 *
+	 * ***NOTE: This function replaces the existing record data with the specified data**
+	 *
+	 * @param table The table to upsert
+	 * @param data The record data to upsert
+	 */
+	async upsert<T extends Doc, U extends Doc = T>(
+		thing: Table,
+		data?: U,
+	): Promise<ActionResult<T>[]>;
+
+	// Shadow implementation
+	async upsert<T extends Doc, U extends Doc = T>(
+		thing: RecordId | RecordIdRange | Table,
+		data?: U,
+	) {
+		await this.ready;
+		const res = await this.rpc<ActionResult<T>>("upsert", [thing, data]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return output(thing, res.result);
+	}
+
+	/**
+	 * Merges a single record based on the provided Record ID
+	 *
+	 * @param recordId The record ID to merge
+	 * @param data The record data to merge
+	 */
+	async merge<T extends Doc, U extends Doc = Partial<T>>(
 		thing: RecordId,
 		data?: U,
 	): Promise<ActionResult<T>>;
-	async update<T extends R, U extends R = T>(
-		thing: RecordIdRange | Table | string,
+
+	/**
+	 * Merges all records based on the provided Record ID range
+	 *
+	 * @param range The range of record IDs to merge
+	 * @param data The record data to merge
+	 */
+	async merge<T extends Doc, U extends Doc = Partial<T>>(
+		thing: RecordIdRange,
 		data?: U,
 	): Promise<ActionResult<T>[]>;
-	async update<T extends R, U extends R = T>(
-		thing: RecordId | RecordIdRange | Table | string,
+
+	/**
+	 * Merges all records present in the specified table
+	 *
+	 * @param table The table to merge
+	 * @param data The record data to merge
+	 */
+	async merge<T extends Doc, U extends Doc = Partial<T>>(
+		thing: Table,
+		data?: U,
+	): Promise<ActionResult<T>[]>;
+
+	// Shadow implementation
+	async merge<T extends Doc, U extends Doc = Partial<T>>(
+		thing: RecordId | RecordIdRange | Table,
 		data?: U,
 	) {
-		throw new Error("Not implemented");
+		await this.ready;
+		const res = await this.rpc<ActionResult<T>>("merge", [thing, data]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return output(thing, res.result);
 	}
 
 	/**
-	 * Upserts all records in a table, or a specific record, in the database.
+	 * Applies JSON Patch changes to all records, or a specific record, in the database
 	 *
-	 * ***NOTE: This function replaces the current document / record data with the specified data.***
-	 * @param thing - The table name or the specific record ID to upsert.
-	 * @param data - The document / record data to insert.
-	 */
-	async upsert<T extends R, U extends R = T>(
-		thing: RecordId,
-		data?: U,
-	): Promise<ActionResult<T>>;
-	async upsert<T extends R, U extends R = T>(
-		thing: RecordIdRange | Table | string,
-		data?: U,
-	): Promise<ActionResult<T>[]>;
-	async upsert<T extends R, U extends R = T>(
-		thing: RecordId | RecordIdRange | Table | string,
-		data?: U,
-	) {
-		throw new Error("Not implemented");
-	}
-
-	/**
-	 * Modifies all records in a table, or a specific record, in the database.
+	 * ***NOTE: This function patches the existing record data with the specified JSON Patch operations***
 	 *
-	 * ***NOTE: This function merges the current document / record data with the specified data.***
-	 * @param thing - The table name or the specific record ID to change.
-	 * @param data - The document / record data to insert.
+	 * @param what The table name, record ID range, or specifc record ID to patch
+	 * @param data The JSON Patch operations to apply
 	 */
-	async merge<T extends R, U extends R = Partial<T>>(
-		thing: RecordId,
-		data?: U,
-	): Promise<ActionResult<T>>;
-	async merge<T extends R, U extends R = Partial<T>>(
-		thing: RecordIdRange | Table | string,
-		data?: U,
-	): Promise<ActionResult<T>[]>;
-	async merge<T extends R, U extends R = Partial<T>>(
-		thing: RecordId | RecordIdRange | Table | string,
-		data?: U,
-	) {
-		throw new Error("Not implemented");
-	}
-
-	/**
-	 * Applies JSON Patch changes to all records, or a specific record, in the database.
-	 *
-	 * ***NOTE: This function patches the current document / record data with the specified JSON Patch data.***
-	 * @param thing - The table name or the specific record ID to modify.
-	 * @param data - The JSON Patch data with which to modify the records.
-	 */
-	async patch<T extends R>(
-		thing: RecordId,
+	async patch<T extends Doc>(
+		what: RecordId,
 		data?: Patch[],
 		diff?: false,
 	): Promise<ActionResult<T>>;
-	async patch<T extends R>(
-		thing: RecordIdRange | Table | string,
+	async patch<T extends Doc>(
+		what: RecordIdRange | Table,
 		data?: Patch[],
 		diff?: false,
 	): Promise<ActionResult<T>[]>;
-	async patch<T extends R>(
-		thing: RecordId,
+	async patch<T extends Doc>(
+		what: RecordId,
 		data: undefined | Patch[],
 		diff: true,
 	): Promise<Patch[]>;
-	async patch<T extends R>(
-		thing: RecordIdRange | Table | string,
+	async patch<T extends Doc>(
+		what: RecordIdRange | Table,
 		data: undefined | Patch[],
 		diff: true,
 	): Promise<Patch[][]>;
 	async patch(
-		thing: RecordId | RecordIdRange | Table | string,
+		what: RecordId | RecordIdRange | Table,
 		data?: Patch[],
 		diff?: boolean,
 	) {
-		throw new Error("Not implemented");
+		await this.ready;
+		const res = await this.rpc<unknown>("patch", [what, data, diff]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return diff ? res.result : output(what, res.result);
 	}
 
 	/**
-	 * Deletes all records in a table, or a specific record, from the database.
-	 * @param thing - The table name or a record ID to select.
+	 * Deletes a single record from the database based on the provided Record ID
+	 *
+	 * @param recordId The record ID to delete
 	 */
-	async delete<T extends R>(thing: RecordId): Promise<ActionResult<T>>;
-	async delete<T extends R>(
-		thing: RecordIdRange | Table | string,
-	): Promise<ActionResult<T>[]>;
-	async delete<T extends R>(thing: RecordId | RecordIdRange | Table | string) {
-		throw new Error("Not implemented");
+	async delete<T extends Doc>(recordId: RecordId): Promise<ActionResult<T>>;
+
+	/**
+	 * Deletes all records based on the provided Record ID range
+	 *
+	 * @param range The range of record IDs to delete
+	 */
+	async delete<T extends Doc>(thing: RecordIdRange): Promise<ActionResult<T>[]>;
+
+	/**
+	 * Deletes all records present in the specified table
+	 *
+	 * @param table The table to delete
+	 */
+	async delete<T extends Doc>(table: Table): Promise<ActionResult<T>[]>;
+
+	// Shadow implementation
+	async delete<T extends Doc>(thing: RecordId | RecordIdRange | Table) {
+		await this.ready;
+		const res = await this.rpc<ActionResult<T>>("delete", [thing]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return output(thing, res.result);
 	}
 
 	/**
-	 * Obtain the version of the SurrealDB instance
+	 * Retrieves the version of the connected SurrealDB instance
+	 *
 	 * @example `surrealdb-2.1.0`
 	 */
 	async version(): Promise<string> {
-		throw new Error("Not implemented");
+		await this.ready;
+		const res = await this.rpc<string>("version");
+		if (res.error) throw new ResponseError(res.error.message);
+		return res.result;
 	}
 
 	/**
-	 * Run a SurrealQL function
-	 * @param name - The full name of the function
-	 * @param args - The arguments supplied to the function. You can also supply a version here as a string, in which case the third argument becomes the parameter list.
+	 * Run a SurrealQL function and return the result
+	 *
+	 * @param name The full name of the function to run
+	 * @param args The arguments supplied to the function
 	 */
 	async run<T>(name: string, args?: unknown[]): Promise<T>;
-	/**
-	 * Run a SurrealQL function
-	 * @param name - The full name of the function
-	 * @param version - The version of the function. If omitted, the second argument is the parameter list.
-	 * @param args - The arguments supplied to the function.
-	 */
-	async run<T>(name: string, version: string, args?: unknown[]): Promise<T>;
-	async run(name: string, arg2?: string | unknown[], arg3?: unknown[]) {
-		throw new Error("Not implemented");
-	}
 
 	/**
-	 * Obtain the version of the SurrealDB instance
-	 * @param from - The in property on the edge record
-	 * @param thing - The id of the edge record
-	 * @param to - The out property on the edge record
-	 * @param data - Optionally, provide a body for the edge record
+	 * Run a SurrealML function with the specified version and return the result
+	 *
+	 * @param name The full name of the function to run
+	 * @param version The version of the function to use
+	 * @param args The arguments supplied to the function
 	 */
-	async relate<T extends R, U extends R = T>(
-		from: string | RecordId | RecordId[],
-		thing: RecordId,
-		to: string | RecordId | RecordId[],
-		data?: U,
-	): Promise<T>;
-	async relate<T extends R, U extends R = T>(
-		from: string | RecordId | RecordId[],
-		thing: string,
-		to: string | RecordId | RecordId[],
-		data?: U,
-	): Promise<T[]>;
-	async relate<T extends R, U extends R = T>(
-		from: string | RecordId | RecordId[],
-		thing: string | RecordId,
-		to: string | RecordId | RecordId[],
-		data?: U,
-	) {
-		throw new Error("Not implemented");
+	async run<T>(name: string, version: string, args?: unknown[]): Promise<T>;
+
+	// Shadow implementation
+	async run(name: string, arg2?: string | unknown[], arg3?: unknown[]) {
+		await this.ready;
+		const [version, args] = Array.isArray(arg2)
+			? [undefined, arg2]
+			: [arg2, arg3];
+
+		const res = await this.rpc("run", [name, version, args]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return res.result;
 	}
 
 	/**
 	 * Export the database and return the result as a string
-	 * @param options - Export configuration options
+	 *
+	 * @param options Optional export options
 	 */
 	public async export(options?: Partial<ExportOptions>): Promise<string> {
-		throw new Error("Not implemented");
+		await this.ready;
+		return this.#connection.export(options);
 	}
 
 	/**
 	 * Import an existing export into the database
-	 * @param input - The data to import
+	 *
+	 * @param input The data to import
 	 */
 	public async import(input: string): Promise<void> {
-		throw new Error("Not implemented");
+		await this.ready;
+		return this.#connection.import(input);
 	}
 }

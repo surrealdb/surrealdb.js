@@ -11,6 +11,7 @@ import type {
 	Subscribe,
 	AuthResponse,
 	AuthProvider,
+	ExportOptions,
 } from "../types";
 
 import {
@@ -198,6 +199,22 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		if (error) {
 			throw error;
 		}
+	}
+
+	public async import(data: string): Promise<void> {
+		if (!this.#engine) {
+			throw new ConnectionUnavailable();
+		}
+
+		return this.#engine.import(data);
+	}
+
+	public async export(options?: Partial<ExportOptions>): Promise<string> {
+		if (!this.#engine) {
+			throw new ConnectionUnavailable();
+		}
+
+		return this.#engine.export(options);
 	}
 
 	private onConnecting(): void {
