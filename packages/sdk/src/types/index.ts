@@ -6,3 +6,4 @@ export * from "./patch";
 export * from "./publisher";
 export * from "./rpc";
 export * from "./surreal";
+export * from "./query";

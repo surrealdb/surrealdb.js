@@ -1,12 +1,15 @@
 import type {
+	ActionResult,
 	ConnectionStatus,
 	ConnectOptions,
 	DriverOptions,
 	EventPublisher,
 	ExportOptions,
 	LiveHandler,
+	Params,
 	Patch,
 	Prettify,
+	QueryParameters,
 	RpcResponse,
 	Subscribe,
 } from "../types";
@@ -15,9 +18,11 @@ import type { RecordIdRange, Table, Uuid, RecordId } from "../value";
 import { Publisher } from "../internal/publisher";
 import { ConnectionController } from "../controller";
 import { decodeCbor, encodeCbor } from "../cbor";
-import { AuthController } from "../controller/auth";
-import { LiveController } from "../controller/live";
 import { parseEndpoint } from "../internal/http";
+import { ResponseError, SurrealError } from "../errors";
+import type { MapQueryResult } from "../types/query";
+import type { PreparedQuery } from "../utils";
+import type { Fill } from "@surrealdb/cbor";
 
 export type SurrealV1Events = {
 	connecting: [];
@@ -82,23 +87,52 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	}
 
 	/**
-	 * A promise which resolves when the connection is ready
+	 * Returns whether the connection is considered connected
+	 *
+	 * Equivalent to `this.status === "connected"`
+	 */
+	get isConnected(): boolean {
+		return this.#connection.status === "connected";
+	}
+
+	/**
+	 * A promise which resolves when the connection is ready, or rejects
+	 * if a connection error occurs.
 	 */
 	get ready(): Promise<void> {
-		throw new Error("Not implemented");
+		return this.#connection.ready();
 	}
 
 	/**
-	 * Ping SurrealDB instance
+	 * Send a raw RPC message to the SurrealDB instance
+	 *
+	 * @param method Type of message to send
+	 * @param params Optional parameters for the message
+	 */
+	public rpc<Result>(
+		method: string,
+		params?: unknown[],
+	): Promise<RpcResponse<Result>> {
+		return this.#connection.rpc({
+			method,
+			params,
+		});
+	}
+
+	/**
+	 * Ping the connected SurrealDB instance
 	 */
 	async ping(): Promise<true> {
-		throw new Error("Not implemented");
+		const { error } = await this.rpc("ping");
+		if (error) throw new ResponseError(error.message);
+		return true;
 	}
 
 	/**
-	 * Switch to a specific namespace and database.
-	 * @param database - Switches to a specific namespace.
-	 * @param db - Switches to a specific database.
+	 * Switch to a specific namespace and database
+	 *
+	 * @param database Switches to a specific namespace
+	 * @param db Switches to a specific database
 	 */
 	async use({
 		namespace,
@@ -107,40 +141,64 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 		namespace?: string | null;
 		database?: string | null;
 	}): Promise<true> {
-		throw new Error("Not implemented");
+		await this.ready;
+
+		if (namespace === null && database !== null)
+			throw new SurrealError(
+				"Cannot unset namespace without unsetting database",
+			);
+
+		const { error } = await this.rpc("use", [namespace, database]);
+		if (error) throw new ResponseError(error.message);
+		return true;
 	}
 
 	/**
 	 * Selects everything from the [$auth](https://surrealdb.com/docs/surrealql/parameters) variable.
+	 *
+	 * This is equivalent to running:
 	 * ```sql
 	 * SELECT * FROM $auth;
 	 * ```
-	 * Make sure the user actually has the permission to select their own record, otherwise you'll get back an empty result.
+	 * Make sure the user actually has the permission to select their own record, otherwise you'll get back an empty result
+	 *
 	 * @return The record linked to the record ID used for authentication
 	 */
-	async info<T extends R>(): Promise<ActionResult<T> | undefined> {
-		throw new Error("Not implemented");
+	async info<T extends Params>(): Promise<ActionResult<T> | undefined> {
+		await this.ready;
+		const res = await this.rpc<ActionResult<T> | undefined>("info");
+		if (res.error) throw new ResponseError(res.error.message);
+		return res.result ?? undefined;
 	}
 
 	/**
-	 * Specify a variable for the current socket connection.
-	 * @param key - Specifies the name of the variable.
-	 * @param val - Assigns the value to the variable name.
+	 * Specify a variable for the current socket connection
+	 *
+	 * @param key Specifies the name of the variable
+	 * @param val Assigns the value to the variable name
 	 */
 	async let(variable: string, value: unknown): Promise<true> {
-		throw new Error("Not implemented");
+		await this.ready;
+		const res = await this.rpc("let", [variable, value]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return true;
 	}
 
 	/**
-	 * Remove a variable from the current socket connection.
-	 * @param key - Specifies the name of the variable.
+	 * Remove a variable from the current socket connection
+	 *
+	 * @param key Specifies the name of the variable.
 	 */
 	async unset(variable: string): Promise<true> {
-		throw new Error("Not implemented");
+		await this.ready;
+		const res = await this.rpc("unset", [variable]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return true;
 	}
 
 	/**
 	 * Start a live select query and invoke the callback with responses
+	 *
 	 * @param table - The table that you want to receive live results for.
 	 * @param callback - Callback function that receives updates.
 	 * @param diff - If set to true, will return a set of patches instead of complete records
@@ -187,36 +245,91 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	}
 
 	/**
-	 * Runs a set of SurrealQL statements against the database.
-	 * @param query - Specifies the SurrealQL statements.
-	 * @param bindings - Assigns variables which can be used in the query.
+	 * Runs a set of SurrealQL statements against the database, returning the first error
+	 * if any of the statements result in an error
+	 *
+	 * @param query Specifies the SurrealQL statements
+	 * @param bindings Assigns variables which can be used in the query
 	 */
 	async query<T extends unknown[]>(
-		...args: QueryParameters
+		query: string,
+		bindings?: Record<string, unknown>,
+	): Promise<Prettify<T>>;
+
+	/**
+	 * Runs a set of SurrealQL statements against the database, returning the first error
+	 * if any of the statements result in an error
+	 *
+	 * @param prepared Specifies the prepared query to run
+	 * @param gaps Assigns values to gaps present in the prepared query
+	 */
+	async query<T extends unknown[]>(
+		prepared: PreparedQuery,
+		gaps?: Fill[],
+	): Promise<Prettify<T>>;
+
+	// Shadow implementation
+	async query<T extends unknown[]>(
+		preparedOrQuery: string | PreparedQuery,
+		gapsOrBinds?: Record<string, unknown> | Fill[],
 	): Promise<Prettify<T>> {
-		throw new Error("Not implemented");
+		const response = await this.#queryImpl<T>(preparedOrQuery, gapsOrBinds);
+
+		return response.map(({ status, result }) => {
+			if (status === "ERR") throw new ResponseError(result);
+			return result;
+		}) as T;
 	}
 
 	/**
-	 * Runs a set of SurrealQL statements against the database.
-	 * @param query - Specifies the SurrealQL statements.
-	 * @param bindings - Assigns variables which can be used in the query.
+	 * Runs a set of SurrealQL statements against the database
+	 *
+	 * @param query Specifies the SurrealQL statements
+	 * @param bindings Assigns variables which can be used in the query
 	 */
 	async queryRaw<T extends unknown[]>(
-		...[q, b]: QueryParameters
-	): Promise<Prettify<MapQueryResult<T>>> {
-		throw new Error("Not implemented");
-	}
+		query: string,
+		bindings?: Record<string, unknown>,
+	): Promise<Prettify<MapQueryResult<T>>>;
 
 	/**
-	 * Runs a set of SurrealQL statements against the database.
-	 * @param query - Specifies the SurrealQL statements.
-	 * @param bindings - Assigns variables which can be used in the query.
-	 * @deprecated Use `queryRaw` instead
+	 * Runs a set of SurrealQL statements against the database
+	 *
+	 * @param prepared Specifies the prepared query to run
+	 * @param gaps Assigns values to gaps present in the prepared query
 	 */
-	async query_raw<T extends unknown[]>(
-		...args: QueryParameters
+	async queryRaw<T extends unknown[]>(
+		prepared: PreparedQuery,
+		gaps?: Fill[],
+	): Promise<Prettify<MapQueryResult<T>>>;
+
+	// Shadow implementation
+	async queryRaw<T extends unknown[]>(
+		preparedOrQuery: string | PreparedQuery,
+		gapsOrBinds?: Record<string, unknown> | Fill[],
 	): Promise<Prettify<MapQueryResult<T>>> {
+		return this.#queryImpl(preparedOrQuery, gapsOrBinds);
+	}
+
+	// Internal implementation
+	async #queryImpl<T extends unknown[]>(
+		preparedOrQuery: string | PreparedQuery,
+		gapsOrBinds?: Record<string, unknown> | Fill[],
+	): Promise<Prettify<MapQueryResult<T>>> {
+		// const params =
+		// 	q instanceof PreparedQuery
+		// 		? [
+		// 				q.query,
+		// 				partiallyEncodeObject(q.bindings, {
+		// 					fills: b as Fill[],
+		// 					replacer: replacer.encode,
+		// 				}),
+		// 			]
+		// 		: [q, b];
+		// await this.ready;
+		// const res = await this.rpc<MapQueryResult<T>>("query", params);
+		// if (res.error) throw new ResponseError(res.error.message);
+		// return res.result;
 		throw new Error("Not implemented");
 	}
 
@@ -474,18 +587,6 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 		to: string | RecordId | RecordId[],
 		data?: U,
 	) {
-		throw new Error("Not implemented");
-	}
-
-	/**
-	 * Send a raw message to the SurrealDB instance
-	 * @param method - Type of message to send.
-	 * @param params - Parameters for the message.
-	 */
-	public rpc<Result>(
-		method: string,
-		params?: unknown[],
-	): Promise<RpcResponse<Result>> {
 		throw new Error("Not implemented");
 	}
 

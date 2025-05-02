@@ -1,3 +1,6 @@
+import type { RecordId } from "../value";
+import type { Prettify } from "./helpers";
+
 export type RpcRequest<
 	Method extends string = string,
 	Params extends unknown[] | undefined = unknown[],
@@ -22,3 +25,7 @@ export type RpcErrorResponse = {
 		message: string;
 	};
 };
+
+export type ActionResult<T extends Record<string, unknown>> = Prettify<
+	T["id"] extends RecordId ? T : { id: RecordId } & T
+>;
