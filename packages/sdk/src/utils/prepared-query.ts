@@ -7,12 +7,15 @@ import {
 	type Fill,
 	type PartiallyEncoded,
 } from "@surrealdb/cbor";
+
 import { REPLACER } from "../cbor/replacer";
 
 let textEncoder: TextEncoder;
 
 /**
- * A query and its bindings prepared for execution, which can be passed to the .query() method.
+ * A prepared query partially encodes a SurrealQL query string
+ * and its bindings ahead of tim in order to speed up repeated
+ * executions of the same query.
  */
 export class PreparedQuery {
 	private _query: Uint8Array;
@@ -48,7 +51,8 @@ export class PreparedQuery {
 
 	/**
 	 * Compile this query and its bindings into a single ArrayBuffer, optionally filling gaps.
-	 * @param fills - The gap values to fill
+	 *
+	 * @param fills The gap values to fill
 	 */
 	build(fills?: Fill[]): ArrayBuffer {
 		return encode([this.query, this.bindings], { fills });
@@ -56,8 +60,9 @@ export class PreparedQuery {
 
 	/**
 	 * A template literal tag function for appending additional query segments and bindings to the prepared query.
-	 * @param rawQuery - The additional query segments to append
-	 * @param values - The additional interpolated values to append
+	 *
+	 * @param rawQuery The additional query segments to append
+	 * @param values The additional interpolated values to append
 	 * @example
 	 * const query = surrealql`SELECT * FROM person`;
 	 *

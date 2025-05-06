@@ -25,13 +25,6 @@ export type AccessSystemAuth = Prettify<
 	}
 >;
 
-export type ScopeAuth = {
-	namespace?: string;
-	database?: string;
-	scope: string;
-	[K: string]: unknown;
-};
-
 export type AccessRecordAuth = {
 	namespace?: string;
 	database?: string;
@@ -48,7 +41,6 @@ export type AnyAuth =
 	| RootAuth
 	| NamespaceAuth
 	| DatabaseAuth
-	| ScopeAuth
 	| AccessSystemAuth
 	| AccessRecordAuth;
 

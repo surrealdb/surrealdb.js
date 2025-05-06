@@ -5,5 +5,5 @@ export * from "./prepared-query";
 export * from "./range";
 export * from "./string-prefixes";
 export * from "./tagged-template";
-export * from "./to-surrealql-string";
+export * from "./to-surql-string";
 export * from "./version";

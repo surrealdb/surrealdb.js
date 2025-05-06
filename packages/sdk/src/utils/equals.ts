@@ -1,4 +1,4 @@
-import { Value } from "../data/value";
+import { Value } from "../value/value";
 
 /**
  * Recursively compare supported SurrealQL values for equality.

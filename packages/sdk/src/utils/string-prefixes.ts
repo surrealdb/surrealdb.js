@@ -1,9 +1,10 @@
 import { StringRecordId, Uuid } from "../value";
 
 /**
- * A template literal tag function for parsing a string type
- * @param string - The string to parse
- * @param values - The interpolated values
+ * A template literal tag function for parsing a string type.
+ *
+ * @param string The string to parse
+ * @param values The interpolated values
  * @returns The parsed string
  */
 export function s(
@@ -17,9 +18,10 @@ export function s(
 }
 
 /**
- * A template literal tag function for parsing a string into a Date
- * @param string - The string to parse
- * @param values - The interpolated values
+ * A template literal tag function for parsing a string into a Date.
+ *
+ * @param string The string to parse
+ * @param values The interpolated values
  * @returns The parsed Date
  */
 export function d(
@@ -30,9 +32,10 @@ export function d(
 }
 
 /**
- * A template literal tag function for parsing a string into a StringRecordId
- * @param string - The string to parse
- * @param values - The interpolated values
+ * A template literal tag function for parsing a string into a StringRecordId.
+ *
+ * @param string The string to parse
+ * @param values The interpolated values
  * @returns The parsed StringRecordId
  */
 export function r(
@@ -43,9 +46,10 @@ export function r(
 }
 
 /**
- * A template literal tag function for parsing a string into a Uuid
- * @param string - The string to parse
- * @param values - The interpolated values
+ * A template literal tag function for parsing a string into a Uuid.
+ *
+ * @param string The string to parse
+ * @param values The interpolated values
  * @returns The parsed Uuid
  */
 export function u(

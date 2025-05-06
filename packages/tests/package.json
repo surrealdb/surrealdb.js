@@ -5,7 +5,6 @@
 	"private": true,
 	"dependencies": {
 		"@surrealdb/cbor": "workspace:*",
-		"@surrealdb/legacy": "workspace:*",
 		"surrealdb": "workspace:*",
 		"get-port": "^7.1.0"
 	}

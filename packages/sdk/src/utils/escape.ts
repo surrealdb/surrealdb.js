@@ -1,7 +1,7 @@
 import { isValidIdPart } from "../internal/validation";
 import { Range, Uuid, type RecordIdValue } from "../value";
 import type { Bound } from "./range";
-import { toSurrealqlString } from "./to-surrealql-string";
+import { toSurrealqlString } from "./to-surql-string";
 
 const MAX_i64 = 9223372036854775807n;
 
@@ -43,17 +43,6 @@ export function escapeIdent(str: string): string {
 	}
 
 	return str;
-}
-
-/**
- * Escape a given string to be used as a valid SurrealQL ident
- *
- * @param str - The string to escape
- * @returns Optionally escaped string
- * @deprecated Use `escapeIdent` instead
- */
-export function escape_ident(str: string): string {
-	return escapeIdent(str);
 }
 
 /**

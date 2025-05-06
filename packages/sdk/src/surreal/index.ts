@@ -1,14 +1,18 @@
+import type { DriverOptions } from "../types";
 import { SurrealV2 } from "./v2";
 
 export * from "./v1";
 export * from "./v2";
 
 /**
- * The Surreal class provides the entrypoint for connecting to and interacting with
- * any SurrealDB instance.
+ * The Surreal class serves as the main entry point for interacting with a Surreal database.
  *
- * This class implements the v2 RPC protocol.
+ * By default the Surreal class supports endpoints with the `http`, `https`,
+ * `ws`, and `wss` protocols. The constructor accepts an options object that can be used to configure additional engines,
+ * such as those provided by the `@surrealdb/wasm` package.
  */
-const Surreal: SurrealV2 = SurrealV2;
-
-export { Surreal };
+export class Surreal extends SurrealV2 {
+	constructor(options: DriverOptions = {}) {
+		super(options);
+	}
+}

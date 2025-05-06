@@ -5,17 +5,22 @@ import type {
 	DriverOptions,
 	EventPublisher,
 	ExportOptions,
-	LiveHandler,
 	Doc,
 	Patch,
 	Prettify,
 	RpcResponse,
 	Subscribe,
 	RelateInOut,
+	LiveResource,
 } from "../types";
 
-import { Table, type RecordIdRange, type Uuid, type RecordId } from "../value";
+import {
+	type LiveSubscription,
+	ManagedLiveSubscription,
+	UnmanagedLiveSubscription,
+} from "../utils/live";
 
+import { Table, type RecordIdRange, type Uuid, type RecordId } from "../value";
 import { Publisher } from "../internal/publisher";
 import { ConnectionController } from "../controller";
 import { decodeCbor, encodeCbor } from "../cbor";
@@ -27,7 +32,7 @@ import { partiallyEncodeObject, type Fill } from "@surrealdb/cbor";
 import { REPLACER } from "../cbor/replacer";
 import { output } from "../internal/output";
 
-export type SurrealV1Events = {
+export type SurrealV2Events = {
 	connecting: [];
 	connected: [];
 	reconnecting: [];
@@ -37,11 +42,11 @@ export type SurrealV1Events = {
 /**
  * An interface for communicating to SurrealDB over the v2 RPC protocol
  */
-export class SurrealV2 implements EventPublisher<SurrealV1Events> {
-	readonly #publisher = new Publisher<SurrealV1Events>();
+export class SurrealV2 implements EventPublisher<SurrealV2Events> {
+	readonly #publisher = new Publisher<SurrealV2Events>();
 	readonly #connection: ConnectionController;
 
-	subscribe: Subscribe<SurrealV1Events> = this.#publisher.subscribe;
+	subscribe: Subscribe<SurrealV2Events> = this.#publisher.subscribe;
 
 	constructor(options: DriverOptions = {}) {
 		this.#connection = new ConnectionController({
@@ -200,51 +205,27 @@ export class SurrealV2 implements EventPublisher<SurrealV1Events> {
 	}
 
 	/**
-	 * Start a live select query and invoke the callback with responses
+	 * Create a new live subscription to a specific table, record id, or record id range
 	 *
-	 * @param table - The table that you want to receive live results for.
-	 * @param callback - Callback function that receives updates.
-	 * @param diff - If set to true, will return a set of patches instead of complete records
-	 * @returns A unique subscription ID
+	 * @param what The table, record id, or record id range to subscribe to
+	 * @returns A new live subscription object
 	 */
-	async live<
-		Result extends Record<string, unknown> | Patch = Record<string, unknown>,
-	>(
-		table: RecordIdRange | Table | string,
-		callback?: LiveHandler<Result>,
-		diff?: boolean,
-	): Promise<Uuid> {
-		throw new Error("Not implemented");
+	async live(what: LiveResource, diff?: boolean): Promise<LiveSubscription> {
+		await this.ready;
+		return new ManagedLiveSubscription(this.#connection, what, diff ?? false);
 	}
 
 	/**
-	 * Subscribe to an existing live select query and invoke the callback with responses
-	 * @param queryUuid - The unique ID of an existing live query you want to receive updates for.
-	 * @param callback - Callback function that receives updates.
+	 * Manually subscribe to an existing live subscription using the provided ID
+	 *
+	 * **NOTE:** This function is for use with live select queries that are not managed by the driver.
+	 *
+	 * @param id The ID of the live subscription to subscribe to
+	 * @returns A new unmanaged live subscription object
 	 */
-	async subscribeLive<
-		Result extends Record<string, unknown> | Patch = Record<string, unknown>,
-	>(queryUuid: Uuid, callback: LiveHandler<Result>): Promise<void> {
-		throw new Error("Not implemented");
-	}
-
-	/**
-	 * Unsubscribe a callback from a live select query
-	 * @param queryUuid - The unique ID of an existing live query you want to ubsubscribe from.
-	 * @param callback - The previously subscribed callback function.
-	 */
-	async unSubscribeLive<
-		Result extends Record<string, unknown> | Patch = Record<string, unknown>,
-	>(queryUuid: Uuid, callback: LiveHandler<Result>): Promise<void> {
-		throw new Error("Not implemented");
-	}
-
-	/**
-	 * Kill a live query
-	 * @param queryUuid - The query that you want to kill.
-	 */
-	async kill(queryUuid: Uuid | readonly Uuid[]): Promise<void> {
-		throw new Error("Not implemented");
+	async liveOf(id: Uuid): Promise<LiveSubscription> {
+		await this.ready;
+		return new UnmanagedLiveSubscription(this.#connection, id);
 	}
 
 	/**
