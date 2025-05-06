@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { RecordId } from "@surrealdb/legacy";
+import { RecordId } from "surrealdb";
 import { PROTOCOL, setupServer } from "../surreal.ts";
 
 const { createSurreal, kill, spawn } = await setupServer();

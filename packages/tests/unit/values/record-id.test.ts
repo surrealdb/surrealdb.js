@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { RecordId, Uuid } from "@surrealdb/legacy";
+import { RecordId, Uuid } from "surrealdb";
 
 describe("record ids", () => {
 	test("toString()", () => {

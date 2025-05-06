@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { RecordId, ResponseError, type AnyAuth } from "@surrealdb/legacy";
+import { RecordId, ResponseError, type AnyAuth } from "surrealdb";
 import { createAuth, setupServer } from "../surreal.ts";
 
 const { createSurreal } = await setupServer();

@@ -2,8 +2,8 @@ import { UnsupportedVersion } from "../errors.ts";
 import type { Version } from "../types";
 
 export const DEFAULT_TIMEOUT = 5000;
-export const MINIMUM_VERSION: Version = "1.4.2";
-export const MAXIMUM_VERSION: Version = "3.0.0";
+export const MINIMUM_VERSION: Version = "2.0.0";
+export const MAXIMUM_VERSION: Version = "4.0.0";
 export const SUPPORT_RANGE: string = `>= ${MINIMUM_VERSION} < ${MAXIMUM_VERSION}`;
 
 /**

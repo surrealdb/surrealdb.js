@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { compareVersions } from "compare-versions";
-import { surql } from "@surrealdb/legacy";
+import { surql } from "surrealdb";
 import { fetchVersion } from "../helpers.ts";
 import { setupServer } from "../surreal.ts";
 

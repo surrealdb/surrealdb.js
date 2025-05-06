@@ -1,11 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { compareVersions } from "compare-versions";
-import {
-	BoundExcluded,
-	BoundIncluded,
-	Range,
-	RecordIdRange,
-} from "@surrealdb/legacy";
+import { BoundExcluded, BoundIncluded, Range, RecordIdRange } from "surrealdb";
 import {
 	Duration,
 	Gap,
@@ -19,7 +14,7 @@ import {
 	Table,
 	Uuid,
 	surql,
-} from "@surrealdb/legacy";
+} from "surrealdb";
 import { fetchVersion } from "../helpers.ts";
 import { setupServer } from "../surreal.ts";
 

@@ -12,7 +12,7 @@
 		"qa": "biome check . --write",
 		"qau": "biome check . --write --unsafe",
 		"build:cbor": "bun run -F @surrealdb/cbor build",
-		"build:sdk": "bun run -F @surrealdb/sdk build",
-		"build:legacy": "bun run -F @surrealdb/legacy build"
+		"build:sdk": "bun run -F surrealdb build",
+		"test": "bun run build:sdk && bun test packages/tests"
 	}
 }
