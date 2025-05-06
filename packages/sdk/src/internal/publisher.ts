@@ -13,7 +13,11 @@ export class Publisher<T extends EventPayload> implements EventPublisher<T> {
 		this.#subscriptions[event]?.add(listener);
 
 		return () => {
-			this.#subscriptions[event]?.delete(listener);
+			const subscriptions = this.#subscriptions[event];
+
+			if (subscriptions?.delete(listener) && subscriptions.size === 0) {
+				delete this.#subscriptions[event];
+			}
 		};
 	}
 

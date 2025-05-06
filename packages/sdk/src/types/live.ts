@@ -1,26 +1,27 @@
-import { Uuid } from "../value";
+import { type RecordId, type RecordIdRange, type Table, Uuid } from "../value";
+import type { AnyRecordId } from "./helpers";
 import type { Patch } from "./patch";
 
 export const LIVE_ACTIONS = ["CREATE", "UPDATE", "DELETE"] as const;
 
+export type LiveResource = RecordIdRange | Table | AnyRecordId;
 export type LiveAction = (typeof LIVE_ACTIONS)[number];
-export type LiveResult = {
+export type LiveMessage = {
 	id: Uuid;
 	action: LiveAction;
+	record: RecordId;
 	result: Record<string, unknown>;
 };
 
-export type LiveHandlerArguments<
+export type LivePayload<
 	Result extends Record<string, unknown> | Patch = Record<string, unknown>,
-> =
-	| [action: LiveAction, result: Result]
-	| [action: "CLOSE", result: "killed" | "disconnected"];
+> = [action: LiveAction, result: Result, id: RecordId];
 
 export type LiveHandler<
 	Result extends Record<string, unknown> | Patch = Record<string, unknown>,
-> = (...[action, result]: LiveHandlerArguments<Result>) => unknown;
+> = (...[action, result]: LivePayload<Result>) => unknown;
 
-export function isLiveResult(v: unknown): v is LiveResult {
+export function isLiveMessage(v: unknown): v is LiveMessage {
 	if (typeof v !== "object") return false;
 	if (v === null) return false;
 	if (!("id" in v && "action" in v && "result" in v)) return false;

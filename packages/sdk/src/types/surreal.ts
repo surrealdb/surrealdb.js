@@ -2,8 +2,7 @@ import type { EventPublisher } from "./publisher";
 import type { ExportOptions } from "./export";
 import type { RpcRequest, RpcResponse } from "./rpc";
 import type { ReconnectContext } from "../internal/reconnect";
-import type { LiveAction } from "./live";
-import type { Uuid } from "../value";
+import type { LiveMessage } from "./live";
 import type { decodeCbor, encodeCbor } from "../cbor";
 import type { AuthProvider } from "./auth";
 
@@ -21,7 +20,7 @@ export type EngineEvents = {
 	reconnecting: [];
 	disconnected: [];
 	error: [Error];
-	live: [Uuid, LiveAction, unknown];
+	live: [LiveMessage];
 };
 
 /**

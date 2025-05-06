@@ -17,7 +17,7 @@ import { getIncrementalID } from "../internal/get-incremental-id";
 import { postEndpoint } from "../internal/http";
 import { Publisher, subscribeFirst } from "../internal/publisher";
 import type { ExportOptions } from "../types/export";
-import { isLiveResult } from "../types/live";
+import { isLiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
 import type { Subscribe } from "../types";
 
@@ -291,10 +291,8 @@ export class WebSocketEngine implements SurrealEngine {
 			return;
 		}
 
-		if (isLiveResult(res.result)) {
-			const { id, action, result } = res.result;
-
-			this.#publisher.publish("live", id, action, result);
+		if (isLiveMessage(res.result)) {
+			this.#publisher.publish("live", res.result);
 			return;
 		}
 

@@ -12,6 +12,9 @@ import type {
 	AuthResponse,
 	AuthProvider,
 	ExportOptions,
+	LiveHandler,
+	LivePayload,
+	LiveMessage,
 } from "../types";
 
 import {
@@ -24,6 +27,7 @@ import { HttpEngine, WebSocketEngine } from "../engine";
 import { ReconnectContext } from "../internal/reconnect";
 import { Publisher, subscribeFirst } from "../internal/publisher";
 import { versionCheck } from "../utils";
+import type { Uuid } from "../value";
 
 const DEFAULT_ENGINES: Record<string, EngineImpl> = {
 	ws: WebSocketEngine,
@@ -40,17 +44,19 @@ type ConnectionEvents = {
 	error: [Error];
 };
 
+type LiveChannels = Record<string, LivePayload>;
+
 export class ConnectionController implements EventPublisher<ConnectionEvents> {
-	#publisher = new Publisher<ConnectionEvents>();
+	#eventPublisher = new Publisher<ConnectionEvents>();
+	#livePublisher = new Publisher<LiveChannels>();
 	#context: DriverContext;
 	#state: ConnectionState | undefined;
 	#engine: SurrealEngine | undefined;
 	#status: ConnectionStatus = "disconnected";
 	#authProvider: AuthProvider | undefined;
-	#liveQueries = new Map<string, unknown>();
 	#checkVersion = true;
 
-	subscribe: Subscribe<ConnectionEvents> = this.#publisher.subscribe;
+	subscribe: Subscribe<ConnectionEvents> = this.#eventPublisher.subscribe;
 
 	constructor(context: DriverContext) {
 		this.#context = context;
@@ -85,6 +91,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		this.#engine.subscribe("connected", () => this.onConnected());
 		this.#engine.subscribe("disconnected", () => this.onDisconnected());
 		this.#engine.subscribe("reconnecting", () => this.onReconnecting());
+		this.#engine.subscribe("live", ([msg]) => this.onLiveMessage(msg));
 
 		this.#engine.open(this.#state);
 
@@ -185,6 +192,12 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		return this.#status;
 	}
 
+	public liveSubscribe(id: Uuid, handler: LiveHandler): () => void {
+		return this.#livePublisher.subscribe(id.toString(), (payload) =>
+			handler(...payload),
+		);
+	}
+
 	public async ready(): Promise<void> {
 		if (this.#status === "connected") {
 			return;
@@ -219,7 +232,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 
 	private onConnecting(): void {
 		this.#status = "connecting";
-		this.#publisher.publish("connecting");
+		this.#eventPublisher.publish("connecting");
 	}
 
 	private async onConnected(): Promise<void> {
@@ -236,14 +249,14 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 					throw new VersionCheckFailure(undefined, version.error);
 				}
 			} catch (err: unknown) {
-				this.#publisher.publish("error", err as Error);
+				this.#eventPublisher.publish("error", err as Error);
 				return;
 			}
 		}
 
 		// Apply selected namespace and database
 		if (this.#state?.namespace || this.#state?.database) {
-			this.rpc({
+			await this.rpc({
 				method: "use",
 				params: [this.#state.namespace, this.#state.database],
 			});
@@ -257,12 +270,12 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 					: this.#authProvider;
 
 			if (typeof auth === "string") {
-				this.rpc({
+				await this.rpc({
 					method: "authenticate",
 					params: [auth],
 				});
 			} else {
-				this.rpc({
+				await this.rpc({
 					method: "signin",
 					params: [auth],
 				});
@@ -270,18 +283,27 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		}
 
 		this.#status = "connected";
-		this.#publisher.publish("connected");
+		this.#eventPublisher.publish("connected");
 	}
 
 	private onDisconnected(): void {
 		this.#state = undefined;
 		this.#engine = undefined;
 		this.#status = "disconnected";
-		this.#publisher.publish("disconnected");
+		this.#eventPublisher.publish("disconnected");
 	}
 
 	private onReconnecting(): void {
 		this.#status = "reconnecting";
-		this.#publisher.publish("reconnecting");
+		this.#eventPublisher.publish("reconnecting");
+	}
+
+	private onLiveMessage(msg: LiveMessage): void {
+		this.#livePublisher.publish(
+			msg.id.toString(),
+			msg.action,
+			msg.result,
+			msg.record,
+		);
 	}
 }
