@@ -1,17 +1,13 @@
 import type { ConnectionController } from "../controller";
 import { ConnectionUnavailable, SurrealError } from "../errors";
-import type {
-	LiveHandler,
-	LivePayload,
-	LiveResource,
-	RpcResponse,
-} from "../types";
+import type { LiveHandler, LiveResource, RpcResponse } from "../types";
 import type { Uuid } from "../value";
 
 /**
  * Represents a subscription to a LIVE SELECT query
  */
-export abstract class LiveSubscription implements AsyncIterable<LivePayload> {
+export abstract class LiveSubscription {
+	/*implements AsyncIterable<LivePayload>*/
 	/**
 	 * The ID of the live subscription. Note that this id might change after
 	 * a live query has been restarted.
@@ -48,16 +44,16 @@ export abstract class LiveSubscription implements AsyncIterable<LivePayload> {
 	 */
 	abstract kill(): Promise<RpcResponse<unknown>>;
 
-	/**
-	 * Iterate over the live subscription using an async iterator
-	 */
-	iterate(): AsyncIterator<LivePayload> {
-		throw new Error("Not implemented");
-	}
+	// /**
+	//  * Iterate over the live subscription using an async iterator
+	//  */
+	// iterate(): AsyncIterator<LivePayload> {
+	// 	throw new Error("Not implemented");
+	// }
 
-	[Symbol.asyncIterator](): AsyncIterator<LivePayload> {
-		return this.iterate();
-	}
+	// [Symbol.asyncIterator](): AsyncIterator<LivePayload> {
+	// 	return this.iterate();
+	// }
 }
 
 /**
@@ -146,9 +142,9 @@ export class ManagedLiveSubscription extends LiveSubscription {
 		this.#currentId = response.result;
 		this.#cleanup = this.#controller.liveSubscribe(
 			response.result,
-			(action, result) => {
+			(action, result, id) => {
 				for (const listener of this.#listeners) {
-					listener(action, result);
+					listener(action, result, id);
 				}
 			},
 		);
@@ -176,9 +172,9 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
 			throw new ConnectionUnavailable();
 		}
 
-		this.#cleanup = this.#controller.liveSubscribe(id, (action, result) => {
+		this.#cleanup = this.#controller.liveSubscribe(id, (action, result, id) => {
 			for (const listener of this.#listeners) {
-				listener(action, result);
+				listener(action, result, id);
 			}
 		});
 	}
