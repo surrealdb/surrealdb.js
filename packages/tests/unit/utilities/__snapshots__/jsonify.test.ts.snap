@@ -98,7 +98,7 @@ exports[`jsonify() match snapshot 1`] = `
   "rng_rid": "bla:a..z",
   "str_rid": "⟨some:thing⟩:under_score",
   "string": "I am a string",
-  "tb": "some super _ cool table",
+  "tb": "⟨some super _ cool table⟩",
   "true": true,
   "uuid": "92b84bde-39c8-4b4b-92f7-626096d6c4d9",
 }

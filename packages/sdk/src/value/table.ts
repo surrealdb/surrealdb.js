@@ -1,4 +1,5 @@
 import { SurrealError } from "../errors";
+import { escapeIdent } from "../utils";
 import { Value } from "./value";
 
 /**
@@ -20,10 +21,10 @@ export class Table<Tb extends string = string> extends Value {
 	}
 
 	toJSON(): string {
-		return this.tb;
+		return this.toString();
 	}
 
 	toString(): string {
-		return this.tb;
+		return escapeIdent(this.tb);
 	}
 }
