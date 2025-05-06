@@ -1,0 +1,105 @@
+// Bun Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`jsonify() match snapshot 1`] = `
+{
+  "date": "2024-05-06T17:44:57.085Z",
+  "dec": "3.333333",
+  "dur": "1d2h",
+  "false": false,
+  "float": 123.456,
+  "geo": {
+    "geometries": [
+      {
+        "coordinates": [
+          1,
+          2,
+        ],
+        "type": "Point",
+      },
+      {
+        "coordinates": [
+          [
+            [
+              [
+                1,
+                2,
+              ],
+              [
+                3,
+                4,
+              ],
+              [
+                1,
+                2,
+              ],
+            ],
+            [
+              [
+                5,
+                6,
+              ],
+              [
+                7,
+                8,
+              ],
+              [
+                5,
+                6,
+              ],
+            ],
+          ],
+        ],
+        "type": "MultiPolygon",
+      },
+      {
+        "coordinates": [
+          [
+            [
+              1,
+              2,
+            ],
+            [
+              3,
+              4,
+            ],
+            [
+              1,
+              2,
+            ],
+          ],
+          [
+            [
+              5,
+              6,
+            ],
+            [
+              7,
+              8,
+            ],
+            [
+              5,
+              6,
+            ],
+          ],
+        ],
+        "type": "Polygon",
+      },
+    ],
+    "type": "GeometryCollection",
+  },
+  "id_almost_a_number": "⟨some:thing⟩:1e23",
+  "id_is_a_number": "⟨some:thing⟩:123",
+  "id_looks_like_number": "⟨some:thing⟩:⟨123⟩",
+  "null": null,
+  "num": 123,
+  "range": "r"bla:a"..z",
+  "range_unbounded": "..z",
+  "rid": "⟨some:thing⟩:under_score",
+  "rng_rid": "bla:a..z",
+  "str_rid": "⟨some:thing⟩:under_score",
+  "string": "I am a string",
+  "tb": "some super _ cool table",
+  "true": true,
+  "uuid": "92b84bde-39c8-4b4b-92f7-626096d6c4d9",
+}
+`;

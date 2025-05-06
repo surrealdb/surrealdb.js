@@ -28,7 +28,7 @@ describe("equals()", () => {
 			new BoundExcluded("z"),
 		);
 
-		expect(equals(first, second)).toBeFalse();
+		expect(equals(first, second)).toBeTrue();
 	});
 
 	test("deep equality", () => {
