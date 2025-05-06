@@ -3,7 +3,8 @@ import type { Uuid } from "./uuid";
 import { SurrealError } from "../errors";
 import { equals } from "../utils/equals";
 import { escapeIdent, escapeIdPart } from "../utils/escape";
-import { isValidIdPart } from "../internal/validation";
+import { isValidIdPart, isValidTable } from "../internal/validation";
+import { Table } from "./table";
 
 export type RecordIdValue =
 	| string
@@ -20,14 +21,18 @@ export class RecordId<Tb extends string = string> extends Value {
 	public readonly tb: Tb;
 	public readonly id: RecordIdValue;
 
-	constructor(tb: Tb, id: RecordIdValue) {
+	constructor(tb: Tb | Table, id: RecordIdValue) {
 		super();
 
-		if (typeof tb !== "string") throw new SurrealError("tb part is not valid");
+		if (!isValidTable(tb)) throw new SurrealError("tb part is not valid");
 		if (!isValidIdPart(id)) throw new SurrealError("id part is not valid");
 
-		this.tb = tb;
+		this.tb = tb instanceof Table ? (tb.tb as Tb) : tb;
 		this.id = id;
+	}
+
+	get table(): Table {
+		return new Table(this.tb);
 	}
 
 	equals(other: unknown): boolean {

@@ -1,10 +1,11 @@
 import { SurrealError } from "../errors";
 import { getRangeJoin } from "../internal/range";
-import { isValidIdBound } from "../internal/validation";
+import { isValidIdBound, isValidTable } from "../internal/validation";
 import { equals } from "../utils/equals";
 import { escapeIdent, escapeRangeBound } from "../utils/escape";
 import type { Bound } from "../utils/range";
 import type { RecordIdValue } from "./record-id";
+import { Table } from "./table";
 import { Value } from "./value";
 
 /**
@@ -15,16 +16,24 @@ export class RecordIdRange<Tb extends string = string> extends Value {
 	public readonly beg: Bound<RecordIdValue>;
 	public readonly end: Bound<RecordIdValue>;
 
-	constructor(tb: Tb, beg: Bound<RecordIdValue>, end: Bound<RecordIdValue>) {
+	constructor(
+		tb: Tb | Table,
+		beg: Bound<RecordIdValue>,
+		end: Bound<RecordIdValue>,
+	) {
 		super();
 
-		if (typeof tb !== "string") throw new SurrealError("tb part is not valid");
+		if (!isValidTable(tb)) throw new SurrealError("tb part is not valid");
 		if (!isValidIdBound(beg)) throw new SurrealError("Begin part is not valid");
 		if (!isValidIdBound(end)) throw new SurrealError("End part is not valid");
 
-		this.tb = tb;
+		this.tb = tb instanceof Table ? (tb.tb as Tb) : tb;
 		this.beg = beg;
 		this.end = end;
+	}
+
+	get table(): Table {
+		return new Table(this.tb);
 	}
 
 	equals(other: unknown): boolean {
