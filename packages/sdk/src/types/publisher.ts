@@ -11,6 +11,6 @@ export interface EventPublisher<EventMap extends EventPayload> {
 	 */
 	subscribe<K extends keyof EventMap>(
 		event: K,
-		listener: (payload: EventMap[K]) => void,
+		listener: (...payload: EventMap[K]) => void,
 	): () => void;
 }

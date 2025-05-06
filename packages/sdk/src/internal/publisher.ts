@@ -2,12 +2,12 @@ import type { EventPayload, EventPublisher } from "../types/publisher";
 
 export class Publisher<T extends EventPayload> implements EventPublisher<T> {
 	#subscriptions: Partial<{
-		[K in keyof T]: Set<(event: T[K]) => void>;
+		[K in keyof T]: Set<(...event: T[K]) => void>;
 	}> = {};
 
 	subscribe<K extends keyof T>(
 		event: K,
-		listener: (event: T[K]) => void,
+		listener: (...event: T[K]) => void,
 	): () => void {
 		this.#subscriptions[event] ??= new Set();
 		this.#subscriptions[event]?.add(listener);
@@ -29,7 +29,7 @@ export class Publisher<T extends EventPayload> implements EventPublisher<T> {
 		}
 
 		for (const subscription of subscriptions) {
-			subscription(payload);
+			subscription(...payload);
 		}
 	}
 }
@@ -49,7 +49,7 @@ export function subscribeFirst<T extends EventPayload, K extends keyof T>(
 
 	return new Promise((resolve) => {
 		for (const event of events) {
-			const unsubscribe = publisher.subscribe(event, (payload: T[K]) => {
+			const unsubscribe = publisher.subscribe(event, (...payload: T[K]) => {
 				for (const subscription of subscriptions) {
 					subscription();
 				}

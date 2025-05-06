@@ -91,7 +91,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		this.#engine.subscribe("connected", () => this.onConnected());
 		this.#engine.subscribe("disconnected", () => this.onDisconnected());
 		this.#engine.subscribe("reconnecting", () => this.onReconnecting());
-		this.#engine.subscribe("live", ([msg]) => this.onLiveMessage(msg));
+		this.#engine.subscribe("live", (msg) => this.onLiveMessage(msg));
 
 		this.#engine.open(this.#state);
 
@@ -193,7 +193,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 	}
 
 	public liveSubscribe(id: Uuid, handler: LiveHandler): () => void {
-		return this.#livePublisher.subscribe(id.toString(), (payload) =>
+		return this.#livePublisher.subscribe(id.toString(), (...payload) =>
 			handler(...payload),
 		);
 	}

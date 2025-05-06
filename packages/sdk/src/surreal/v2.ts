@@ -37,6 +37,7 @@ export type SurrealV2Events = {
 	connected: [];
 	reconnecting: [];
 	disconnected: [];
+	error: [Error];
 };
 
 /**
@@ -54,6 +55,26 @@ export class SurrealV2 implements EventPublisher<SurrealV2Events> {
 			encode: encodeCbor,
 			decode: decodeCbor,
 		});
+
+		this.#connection.subscribe("connecting", () =>
+			this.#publisher.publish("connecting"),
+		);
+
+		this.#connection.subscribe("connected", () =>
+			this.#publisher.publish("connected"),
+		);
+
+		this.#connection.subscribe("disconnected", () =>
+			this.#publisher.publish("disconnected"),
+		);
+
+		this.#connection.subscribe("reconnecting", () =>
+			this.#publisher.publish("reconnecting"),
+		);
+
+		this.#connection.subscribe("error", (error) =>
+			this.#publisher.publish("error", error),
+		);
 	}
 
 	/**
