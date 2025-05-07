@@ -5,14 +5,14 @@ import { setupServer } from "../surreal.ts";
 const { createSurreal } = await setupServer();
 
 describe("version check", async () => {
-	test("check version", async () => {
+	test.todoIf(!VERSION_CHECK)("check version", async () => {
 		const surreal = await createSurreal();
 
 		const res = await surreal.version();
 		expect(res.startsWith("surrealdb-")).toBe(true);
 	});
 
-	test("version check timeout", async () => {
+	test.skipIf(!VERSION_CHECK)("version check timeout", async () => {
 		const start = new Date();
 		const res = createSurreal({ reachable: false });
 		const end = new Date();

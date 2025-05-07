@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { compareVersions } from "compare-versions";
 import {
 	type LiveHandlerArguments,
 	RecordId,
@@ -13,26 +12,17 @@ import { setupServer } from "../surreal.ts";
 const { createSurreal } = await setupServer();
 
 const isHttp = (surreal: Surreal) =>
-	surreal.connection?.connection.url?.protocol.startsWith("http");
+	!!surreal.connection?.connection.url?.protocol.startsWith("http");
 
-describe("Live Queries HTTP", async () => {
+describe("Live Queries", async () => {
 	const surreal = await createSurreal();
-	if (!isHttp(surreal)) return;
+	const http = isHttp(surreal);
 
-	test("not supported", () => {
+	test.skipIf(!http)("not supported on HTTP", () => {
 		expect(surreal.live("person")).rejects.toBeInstanceOf(ResponseError);
 	});
-});
 
-describe("Live Queries WS", async () => {
-	const surreal = await createSurreal();
-	const version = await fetchVersion(surreal);
-	if (isHttp(surreal)) return;
-
-	// temp - subscribe is broken is 2.1.0
-	if (compareVersions(version, "2.1.0") >= 0) return;
-
-	test("live", async () => {
+	test.skipIf(http)("live", async () => {
 		const events = new CollectablePromise<{
 			action: LiveHandlerArguments[0];
 			result: LiveHandlerArguments[1];
@@ -84,7 +74,7 @@ describe("Live Queries WS", async () => {
 		]);
 	});
 
-	test("unsubscribe", async () => {
+	test.skipIf(http)("unsubscribe", async () => {
 		// Prepare
 		let primaryCount = 0;
 		let secondaryCount = 0;
@@ -128,7 +118,7 @@ describe("Live Queries WS", async () => {
 		expect(primaryCount).toBeGreaterThan(secondaryCount);
 	});
 
-	test("kill", async () => {
+	test.skipIf(http)("kill", async () => {
 		// Prepare
 		let primaryCount = 0;
 		let secondaryCount = 0;
