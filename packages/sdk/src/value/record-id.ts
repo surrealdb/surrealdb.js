@@ -18,26 +18,22 @@ export type RecordIdValue =
  * A SurrealQL record ID value.
  */
 export class RecordId<Tb extends string = string> extends Value {
-	public readonly tb: Tb;
+	public readonly table: Table<Tb>;
 	public readonly id: RecordIdValue;
 
-	constructor(tb: Tb | Table, id: RecordIdValue) {
+	constructor(table: Tb | Table<Tb>, id: RecordIdValue) {
 		super();
 
-		if (!isValidTable(tb)) throw new SurrealError("tb part is not valid");
+		if (!isValidTable(table)) throw new SurrealError("tb part is not valid");
 		if (!isValidIdPart(id)) throw new SurrealError("id part is not valid");
 
-		this.tb = tb instanceof Table ? (tb.tb as Tb) : tb;
+		this.table = table instanceof Table ? table : new Table(table);
 		this.id = id;
-	}
-
-	get table(): Table {
-		return new Table(this.tb);
 	}
 
 	equals(other: unknown): boolean {
 		if (!(other instanceof RecordId)) return false;
-		return this.tb === other.tb && equals(this.id, other.id);
+		return this.table.equals(other.table) && equals(this.id, other.id);
 	}
 
 	toJSON(): string {
@@ -45,7 +41,7 @@ export class RecordId<Tb extends string = string> extends Value {
 	}
 
 	toString(): string {
-		const tb = escapeIdent(this.tb);
+		const tb = escapeIdent(this.table.name);
 		const id = escapeIdPart(this.id);
 		return `${tb}:${id}`;
 	}

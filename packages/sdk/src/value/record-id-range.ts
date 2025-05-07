@@ -12,28 +12,24 @@ import { Value } from "./value";
  * A SurrealQL record ID range value.
  */
 export class RecordIdRange<Tb extends string = string> extends Value {
-	public readonly tb: Tb;
+	public readonly table: Table<Tb>;
 	public readonly beg: Bound<RecordIdValue>;
 	public readonly end: Bound<RecordIdValue>;
 
 	constructor(
-		tb: Tb | Table,
+		table: Tb | Table<Tb>,
 		beg: Bound<RecordIdValue>,
 		end: Bound<RecordIdValue>,
 	) {
 		super();
 
-		if (!isValidTable(tb)) throw new SurrealError("tb part is not valid");
+		if (!isValidTable(table)) throw new SurrealError("tb part is not valid");
 		if (!isValidIdBound(beg)) throw new SurrealError("Begin part is not valid");
 		if (!isValidIdBound(end)) throw new SurrealError("End part is not valid");
 
-		this.tb = tb instanceof Table ? (tb.tb as Tb) : tb;
+		this.table = table instanceof Table ? table : new Table(table);
 		this.beg = beg;
 		this.end = end;
-	}
-
-	get table(): Table {
-		return new Table(this.tb);
 	}
 
 	equals(other: unknown): boolean {
@@ -42,7 +38,7 @@ export class RecordIdRange<Tb extends string = string> extends Value {
 		if (this.end?.constructor !== other.end?.constructor) return false;
 
 		return (
-			this.tb === other.tb &&
+			this.table.equals(other.table) &&
 			equals(this.beg?.value, other.beg?.value) &&
 			equals(this.end?.value, other.end?.value)
 		);
@@ -53,7 +49,7 @@ export class RecordIdRange<Tb extends string = string> extends Value {
 	}
 
 	toString(): string {
-		const tb = escapeIdent(this.tb);
+		const tb = escapeIdent(this.table.name);
 		const beg = escapeRangeBound(this.beg);
 		const end = escapeRangeBound(this.end);
 		return `${tb}:${beg}${getRangeJoin(this.beg, this.end)}${end}`;

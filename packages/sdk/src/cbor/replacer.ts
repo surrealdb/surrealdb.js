@@ -74,18 +74,18 @@ export const REPLACER = {
 			return new Tagged(TAG_CUSTOM_DURATION, v.toCompact());
 		}
 		if (v instanceof RecordId) {
-			return new Tagged(TAG_RECORDID, [v.tb, v.id]);
+			return new Tagged(TAG_RECORDID, [v.table.name, v.id]);
 		}
 		if (v instanceof StringRecordId) {
 			return new Tagged(TAG_RECORDID, v.rid);
 		}
 		if (v instanceof RecordIdRange) {
 			return new Tagged(TAG_RECORDID, [
-				v.tb,
+				v.table.name,
 				new Tagged(TAG_RANGE, rangeToCbor([v.beg, v.end])),
 			]);
 		}
-		if (v instanceof Table) return new Tagged(TAG_TABLE, v.tb);
+		if (v instanceof Table) return new Tagged(TAG_TABLE, v.name);
 		if (v instanceof Future) return new Tagged(TAG_FUTURE, v.inner);
 		if (v instanceof Range)
 			return new Tagged(TAG_RANGE, rangeToCbor([v.beg, v.end]));
