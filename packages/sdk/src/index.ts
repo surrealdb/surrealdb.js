@@ -5,3 +5,5 @@ export * from "./engine";
 export * from "./cbor";
 export * from "./utils";
 export * from "./types";
+
+export { Surreal as default } from "./surreal";
