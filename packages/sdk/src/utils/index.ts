@@ -2,6 +2,7 @@ export * from "./equals";
 export * from "./escape";
 export * from "./jsonify";
 export * from "./prepared-query";
+export * from "./publisher";
 export * from "./range";
 export * from "./string-prefixes";
 export * from "./tagged-template";

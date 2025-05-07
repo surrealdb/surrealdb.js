@@ -9,9 +9,12 @@ import type {
 	Patch,
 	Prettify,
 	RpcResponse,
-	Subscribe,
 	RelateInOut,
 	LiveResource,
+	AccessRecordAuth,
+	Token,
+	AnyAuth,
+	AuthResponse,
 } from "../types";
 
 import {
@@ -21,16 +24,17 @@ import {
 } from "../utils/live";
 
 import { Table, type RecordIdRange, type Uuid, type RecordId } from "../value";
-import { Publisher } from "../internal/publisher";
+import { Publisher } from "../utils/publisher";
 import { ConnectionController } from "../controller";
 import { decodeCbor, encodeCbor } from "../cbor";
 import { parseEndpoint } from "../internal/http";
-import { ResponseError, SurrealError } from "../errors";
+import { NoTokenReturned, ResponseError, SurrealError } from "../errors";
 import type { MapQueryResult } from "../types/query";
 import { PreparedQuery } from "../utils";
 import { partiallyEncodeObject, type Fill } from "@surrealdb/cbor";
 import { REPLACER } from "../cbor/replacer";
 import { output } from "../internal/output";
+import { convertAuth } from "../internal/auth";
 
 export type SurrealV2Events = {
 	connecting: [];
@@ -47,7 +51,12 @@ export class SurrealV2 implements EventPublisher<SurrealV2Events> {
 	readonly #publisher = new Publisher<SurrealV2Events>();
 	readonly #connection: ConnectionController;
 
-	subscribe: Subscribe<SurrealV2Events> = this.#publisher.subscribe;
+	subscribe<K extends keyof SurrealV2Events>(
+		event: K,
+		listener: (...payload: SurrealV2Events[K]) => void,
+	): () => void {
+		return this.#publisher.subscribe(event, listener);
+	}
 
 	constructor(options: DriverOptions = {}) {
 		this.#connection = new ConnectionController({
@@ -158,7 +167,8 @@ export class SurrealV2 implements EventPublisher<SurrealV2Events> {
 	}
 
 	/**
-	 * Switch to a specific namespace and database
+	 * Switch to the specified {@link https://surrealdb.com/docs/surrealdb/introduction/concepts/namespace|namespace}
+	 * and {@link https://surrealdb.com/docs/surrealdb/introduction/concepts/database|database}
 	 *
 	 * @param database Switches to a specific namespace
 	 * @param db Switches to a specific database
@@ -179,6 +189,65 @@ export class SurrealV2 implements EventPublisher<SurrealV2Events> {
 
 		const { error } = await this.rpc("use", [namespace, database]);
 		if (error) throw new ResponseError(error.message);
+		return true;
+	}
+
+	/**
+	 * Sign up to the SurrealDB instance as a new
+	 * {@link https://surrealdb.com/docs/surrealdb/security/authentication#record-users|record user}.
+	 *
+	 * @param auth The authentication details to use.
+	 * @return The authentication token.
+	 */
+	async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
+		await this.ready;
+
+		const converted = convertAuth(auth);
+		const res = await this.rpc<AuthResponse>("signup", [converted]);
+
+		if (res.error) throw new ResponseError(res.error.message);
+		if (!res.result.token) throw new NoTokenReturned();
+
+		return res.result;
+	}
+
+	/**
+	 * Authenticate with the SurrealDB using the provided authentication details.
+	 *
+	 * @param auth The authentication details to use.
+	 * @return The authentication token.
+	 */
+	async signin(auth: AnyAuth): Promise<AuthResponse> {
+		await this.ready;
+
+		const converted = convertAuth(auth);
+		const res = await this.rpc<AuthResponse>("signin", [converted]);
+
+		if (res.error) throw new ResponseError(res.error.message);
+		if (!res.result.token) throw new NoTokenReturned();
+
+		return res.result;
+	}
+
+	/**
+	 * Authenticates the current connection with a JWT token.
+	 *
+	 * @param token The JWT authentication token.
+	 */
+	async authenticate(token: Token): Promise<true> {
+		await this.ready;
+		const res = await this.rpc<string>("authenticate", [token]);
+		if (res.error) throw new ResponseError(res.error.message);
+		return true;
+	}
+
+	/**
+	 * Invalidates the authentication for the current connection.
+	 */
+	async invalidate(): Promise<true> {
+		await this.ready;
+		const res = await this.rpc("invalidate");
+		if (res.error) throw new ResponseError(res.error.message);
 		return true;
 	}
 

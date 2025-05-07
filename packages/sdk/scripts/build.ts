@@ -1,6 +1,8 @@
 import * as esbuild from "esbuild";
 import tscPlugin from "esbuild-plugin-tsc";
 
+const shouldMinify = import.meta.env.NODE_ENV === "testing";
+
 await Promise.all([
 	esbuild.build({
 		entryPoints: ["src/index.ts"],

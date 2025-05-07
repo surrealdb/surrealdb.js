@@ -15,11 +15,10 @@ import type {
 
 import { getIncrementalID } from "../internal/get-incremental-id";
 import { postEndpoint } from "../internal/http";
-import { Publisher, subscribeFirst } from "../internal/publisher";
+import { Publisher } from "../utils/publisher";
 import type { ExportOptions } from "../types/export";
 import { isLiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
-import type { Subscribe } from "../types";
 
 type Interval = Parameters<typeof clearInterval>[0];
 type Response = Record<string, unknown>;
@@ -43,17 +42,18 @@ export class WebSocketEngine implements SurrealEngine {
 	#active = false;
 	#terminated = false;
 
-	subscribe: Subscribe<EngineEvents> = this.#publisher.subscribe;
+	subscribe<K extends keyof EngineEvents>(
+		event: K,
+		listener: (...payload: EngineEvents[K]) => void,
+	): () => void {
+		return this.#publisher.subscribe(event, listener);
+	}
 
 	constructor(context: DriverContext) {
 		this.#context = context;
 	}
 
 	open(state: ConnectionState): void {
-		if (!this.#state) {
-			throw new ConnectionUnavailable();
-		}
-
 		this.#publisher.publish("connecting");
 		this.#terminated = false;
 		this.#state = state;
@@ -121,7 +121,7 @@ export class WebSocketEngine implements SurrealEngine {
 		this.#socket?.close();
 
 		if (this.#socket && this.#socket.readyState !== WebSocket.CLOSED) {
-			await subscribeFirst(this, "close");
+			await this.#publisher.subscribeFirst("disconnected");
 		}
 	}
 

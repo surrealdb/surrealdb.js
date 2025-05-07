@@ -1,5 +1,3 @@
-import type { Prettify } from "./helpers";
-
 export type RootAuth = {
 	username: string;
 	password: string;
@@ -18,12 +16,13 @@ export type DatabaseAuth = {
 	password: string;
 };
 
-export type AccessSystemAuth = Prettify<
-	(RootAuth | NamespaceAuth | DatabaseAuth) & {
-		access: string;
-		variables?: never;
-	}
->;
+export type AccessSystemAuth = {
+	namespace?: string;
+	database?: string;
+	username: string;
+	password: string;
+	access: string;
+};
 
 export type AccessRecordAuth = {
 	namespace?: string;

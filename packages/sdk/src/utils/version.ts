@@ -41,11 +41,13 @@ export function isVersionSupported(
 	min: Version = MINIMUM_VERSION,
 	until: Version = MAXIMUM_VERSION,
 ): boolean {
+	const trimmed = version.replace("surrealdb-", "").trim();
+
 	return (
-		min.localeCompare(version, undefined, {
+		min.localeCompare(trimmed, undefined, {
 			numeric: true,
 		}) <= 0 &&
-		until.localeCompare(version, undefined, {
+		until.localeCompare(trimmed, undefined, {
 			numeric: true,
 		}) === 1
 	);

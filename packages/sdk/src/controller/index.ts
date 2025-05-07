@@ -8,7 +8,6 @@ import type {
 	EventPublisher,
 	RpcRequest,
 	RpcResponse,
-	Subscribe,
 	AuthResponse,
 	AuthProvider,
 	ExportOptions,
@@ -25,9 +24,10 @@ import {
 
 import { HttpEngine, WebSocketEngine } from "../engine";
 import { ReconnectContext } from "../internal/reconnect";
-import { Publisher, subscribeFirst } from "../internal/publisher";
+import { Publisher } from "../utils/publisher";
 import { versionCheck } from "../utils";
 import type { Uuid } from "../value";
+import { convertAuth } from "../internal/auth";
 
 const DEFAULT_ENGINES: Record<string, EngineImpl> = {
 	ws: WebSocketEngine,
@@ -56,7 +56,12 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 	#authProvider: AuthProvider | undefined;
 	#checkVersion = true;
 
-	subscribe: Subscribe<ConnectionEvents> = this.#eventPublisher.subscribe;
+	subscribe<K extends keyof ConnectionEvents>(
+		event: K,
+		listener: (...payload: ConnectionEvents[K]) => void,
+	): () => void {
+		return this.#eventPublisher.subscribe(event, listener);
+	}
 
 	constructor(context: DriverContext) {
 		this.#context = context;
@@ -199,12 +204,15 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 	}
 
 	public async ready(): Promise<void> {
+		if (this.#status === "disconnected") {
+			throw new ConnectionUnavailable();
+		}
+
 		if (this.#status === "connected") {
 			return;
 		}
 
-		const [error] = await subscribeFirst(
-			this as EventPublisher<ConnectionEvents>,
+		const [error] = await this.#eventPublisher.subscribeFirst(
 			"connected",
 			"error",
 		);
@@ -277,7 +285,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 			} else {
 				await this.rpc({
 					method: "signin",
-					params: [auth],
+					params: [convertAuth(auth)],
 				});
 			}
 		}

@@ -1,5 +1,4 @@
-export type EventPayload = Record<string, unknown[]>;
-export type Subscribe<T extends EventPayload> = EventPublisher<T>["subscribe"];
+export type EventPayload = Record<string | number | symbol, unknown[]>;
 
 export interface EventPublisher<EventMap extends EventPayload> {
 	/**
