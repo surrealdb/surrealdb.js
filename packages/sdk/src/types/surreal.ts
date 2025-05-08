@@ -43,6 +43,7 @@ export interface SurrealEngine extends EventPublisher<EngineEvents> {
  */
 export interface DriverOptions {
 	engines?: Record<string, EngineImpl>;
+	websocketImpl?: typeof WebSocket;
 }
 
 /**

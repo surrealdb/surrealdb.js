@@ -192,7 +192,8 @@ export class WebSocketEngine implements SurrealEngine {
 			}
 
 			// Open a new connection
-			const socket = new WebSocket(this.#state.url.toString(), "cbor");
+			const WebSocketImpl = this.#context.options.websocketImpl ?? WebSocket;
+			const socket = new WebSocketImpl(this.#state.url.toString(), "cbor");
 
 			this.#socket = socket;
 

@@ -48,7 +48,7 @@ describe("connection", async () => {
 		const { surreal, connect } = createIdleSurreal();
 
 		expect(surreal.status).toBe("disconnected");
-		await connect();
+		connect();
 		expect(surreal.status).toBe("connecting");
 		await surreal.ready;
 		expect(surreal.status).toBe("connected");

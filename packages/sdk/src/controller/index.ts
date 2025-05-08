@@ -101,6 +101,8 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 
 		this.#engine.open(this.#state);
 
+		await this.ready();
+
 		return true;
 	}
 
