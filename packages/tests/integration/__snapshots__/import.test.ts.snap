@@ -7,7 +7,9 @@ exports[`import basic 1`] = `
       "hello": "world",
       "id": RecordId {
         "id": 1,
-        "tb": "foo",
+        "table": Table {
+          "name": "foo",
+        },
       },
     },
   ],

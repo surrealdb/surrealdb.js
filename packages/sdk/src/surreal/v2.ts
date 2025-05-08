@@ -34,7 +34,6 @@ import { PreparedQuery } from "../utils";
 import { partiallyEncodeObject, type Fill } from "@surrealdb/cbor";
 import { REPLACER } from "../cbor/replacer";
 import { output } from "../internal/output";
-import { convertAuth } from "../internal/auth";
 
 export type SurrealV2Events = {
 	connecting: [];
@@ -202,7 +201,7 @@ export class SurrealV2 implements EventPublisher<SurrealV2Events> {
 	async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
 		await this.ready;
 
-		const converted = convertAuth(auth);
+		const converted = this.#connection.buildAuth(auth);
 		const res = await this.rpc<AuthResponse>("signup", [converted]);
 
 		if (res.error) throw new ResponseError(res.error.message);
@@ -220,7 +219,7 @@ export class SurrealV2 implements EventPublisher<SurrealV2Events> {
 	async signin(auth: AnyAuth): Promise<AuthResponse> {
 		await this.ready;
 
-		const converted = convertAuth(auth);
+		const converted = this.#connection.buildAuth(auth);
 		const res = await this.rpc<AuthResponse>("signin", [converted]);
 
 		if (res.error) throw new ResponseError(res.error.message);
@@ -452,7 +451,7 @@ export class SurrealV2 implements EventPublisher<SurrealV2Events> {
 	): Promise<ActionResult<T>>;
 
 	/**
-	 * Create a new record in the database
+	 * Create a new record in the specified table
 	 *
 	 * @param table The table to create a record in
 	 * @param data The record data to insert

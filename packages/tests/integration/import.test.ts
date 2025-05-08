@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { compareVersions } from "compare-versions";
-import { fetchVersion } from "../helpers.ts";
-import { setupServer } from "../surreal.ts";
+import { fetchVersion, setupServer } from "./__helpers__";
 
 const { createSurreal } = await setupServer();
 

@@ -135,7 +135,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
 
 		if (response.error) {
 			throw new SurrealError(
-				`Failed to subscribe to live updates: ${response.error}`,
+				`Failed to subscribe to live updates: ${response.error.message}`,
 			);
 		}
 

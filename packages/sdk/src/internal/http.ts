@@ -8,6 +8,7 @@ export async function postEndpoint(
 	url?: URL,
 	headers?: Record<string, string>,
 ): Promise<ArrayBuffer> {
+	const endpoint = new URL(url ?? state.url);
 	const headerMap: Record<string, string> = {
 		"Content-Type": "application/cbor",
 		Accept: "application/cbor",
@@ -26,7 +27,9 @@ export async function postEndpoint(
 		headerMap.Authorization = `Bearer ${state.accessToken}`;
 	}
 
-	const raw = await fetch(url ?? state.url, {
+	endpoint.protocol = endpoint.protocol.replace("ws", "http");
+
+	const raw = await fetch(endpoint, {
 		method: "POST",
 		headers: headerMap,
 		body: context.encode(body),

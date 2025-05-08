@@ -4,7 +4,7 @@
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"test": "bun test new_integration"
+		"test": "bun test"
 	},
 	"dependencies": {
 		"@surrealdb/cbor": "workspace:*",

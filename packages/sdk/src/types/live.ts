@@ -1,10 +1,9 @@
-import { type RecordId, type RecordIdRange, type Table, Uuid } from "../value";
-import type { AnyRecordId } from "./helpers";
+import { type RecordId, type Table, Uuid } from "../value";
 import type { Patch } from "./patch";
 
 export const LIVE_ACTIONS = ["CREATE", "UPDATE", "DELETE", "KILLED"] as const;
 
-export type LiveResource = RecordIdRange | Table | AnyRecordId;
+export type LiveResource = Table;
 export type LiveAction = (typeof LIVE_ACTIONS)[number];
 export type LiveMessage = {
 	id: Uuid;
