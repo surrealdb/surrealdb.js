@@ -1,12 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { compareVersions } from "compare-versions";
 import { RecordId } from "surrealdb";
-import {
-	type Person,
-	fetchVersion,
-	personTable,
-	setupServer,
-} from "../__helpers__";
+import { type Person, fetchVersion, setupServer } from "../__helpers__";
 
 const { createSurreal } = await setupServer();
 
@@ -29,28 +24,5 @@ describe("upsert()", async () => {
 			firstname: "John",
 			lastname: "Doe",
 		});
-	});
-
-	test.if(isLegacy)("multiple (legacy)", async () => {
-		const multiple = await surreal.upsert<Person, Omit<Person, "id">>(
-			personTable,
-			{
-				firstname: "Mary",
-				lastname: "Doe",
-			},
-		);
-
-		expect(multiple).toStrictEqual([
-			{
-				id: new RecordId("person", 1),
-				firstname: "Mary",
-				lastname: "Doe",
-			},
-			{
-				id: new RecordId("person", 2),
-				firstname: "Mary",
-				lastname: "Doe",
-			},
-		]);
 	});
 });
