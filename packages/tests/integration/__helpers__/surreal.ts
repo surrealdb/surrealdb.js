@@ -24,7 +24,7 @@ export type IdleSurreal = {
 };
 
 export const DEFAULT_PROTOCOL: Protocol =
-	import.meta.env.SURREAL_PROTOCOL === "http" ? "http" : "ws";
+	import.meta.env.SURREAL_DEFAULT_PROTOCOL === "http" ? "http" : "ws";
 
 export const VERSION_CHECK: boolean =
 	import.meta.env.SURREAL_VERSION_CHECK !== "false";
