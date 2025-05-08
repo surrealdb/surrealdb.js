@@ -1,10 +1,5 @@
-import { decode, encode, Tagged } from "@surrealdb/cbor";
-import {
-	cborCustomDateToDate,
-	cborToRange,
-	dateToCborCustomDate,
-	rangeToCbor,
-} from "./utils";
+import { Tagged, decode, encode } from "@surrealdb/cbor";
+import { BoundExcluded, BoundIncluded } from "../utils/range";
 import {
 	Decimal,
 	Duration,
@@ -23,7 +18,12 @@ import {
 	Table,
 	Uuid,
 } from "../value";
-import { BoundIncluded, BoundExcluded } from "../utils/range";
+import {
+	cborCustomDateToDate,
+	cborToRange,
+	dateToCborCustomDate,
+	rangeToCbor,
+} from "./utils";
 
 // Tags from the spec - https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml
 const TAG_SPEC_DATETIME = 0;

@@ -1,5 +1,5 @@
 import { isValidIdPart } from "../internal/validation";
-import { Range, Uuid, type RecordIdValue } from "../value";
+import { Range, type RecordIdValue, Uuid } from "../value";
 import type { Bound } from "./range";
 import { toSurrealqlString } from "./to-surql-string";
 

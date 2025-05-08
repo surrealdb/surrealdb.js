@@ -1,10 +1,10 @@
-import { Value } from "./value";
-import type { Uuid } from "./uuid";
 import { SurrealError } from "../errors";
-import { equals } from "../utils/equals";
-import { escapeIdent, escapeIdPart } from "../utils/escape";
 import { isValidIdPart, isValidTable } from "../internal/validation";
+import { equals } from "../utils/equals";
+import { escapeIdPart, escapeIdent } from "../utils/escape";
 import { Table } from "./table";
+import type { Uuid } from "./uuid";
+import { Value } from "./value";
 
 export type RecordIdValue =
 	| string

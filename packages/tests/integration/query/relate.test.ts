@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { RecordId } from "surrealdb";
 import { graphTable, setupServer } from "../__helpers__";
 

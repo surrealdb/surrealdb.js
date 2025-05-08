@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { setupServer } from "../__helpers__";
 
 const { createSurreal } = await setupServer();

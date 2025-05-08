@@ -1,19 +1,19 @@
 import type {
+	AccessRecordAuth,
 	ActionResult,
-	ConnectionStatus,
+	AnyAuth,
 	ConnectOptions,
+	ConnectionStatus,
+	Doc,
 	DriverOptions,
 	EventPublisher,
 	ExportOptions,
-	Doc,
+	LiveResource,
 	Patch,
 	Prettify,
-	RpcResponse,
 	RelateInOut,
-	LiveResource,
-	AccessRecordAuth,
+	RpcResponse,
 	Token,
-	AnyAuth,
 } from "../types";
 
 import {
@@ -22,17 +22,17 @@ import {
 	UnmanagedLiveSubscription,
 } from "../utils/live";
 
-import { Table, type RecordIdRange, type Uuid, type RecordId } from "../value";
-import { Publisher } from "../utils/publisher";
-import { ConnectionController } from "../controller";
+import { type Fill, partiallyEncodeObject } from "@surrealdb/cbor";
 import { decodeCbor, encodeCbor } from "../cbor";
-import { parseEndpoint } from "../internal/http";
+import { REPLACER } from "../cbor/replacer";
+import { ConnectionController } from "../controller";
 import { NoTokenReturned, ResponseError, SurrealError } from "../errors";
+import { parseEndpoint } from "../internal/http";
+import { output } from "../internal/output";
 import type { MapQueryResult } from "../types/query";
 import { PreparedQuery } from "../utils";
-import { partiallyEncodeObject, type Fill } from "@surrealdb/cbor";
-import { REPLACER } from "../cbor/replacer";
-import { output } from "../internal/output";
+import { Publisher } from "../utils/publisher";
+import { type RecordId, type RecordIdRange, Table, type Uuid } from "../value";
 
 export type SurrealV1Events = {
 	connecting: [];

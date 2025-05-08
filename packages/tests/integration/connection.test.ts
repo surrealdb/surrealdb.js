@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { setupServer, VERSION_CHECK } from "./__helpers__";
+import { VERSION_CHECK, setupServer } from "./__helpers__";
 
 const { createSurreal, createIdleSurreal } = await setupServer();
 

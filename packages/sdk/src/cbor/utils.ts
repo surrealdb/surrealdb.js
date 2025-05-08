@@ -1,7 +1,7 @@
 import { Tagged } from "@surrealdb/cbor";
 import { SurrealError } from "../errors";
 import { type Bound, BoundExcluded, BoundIncluded } from "../utils/range";
-import { TAG_BOUND_INCLUDED, TAG_BOUND_EXCLUDED } from "./replacer";
+import { TAG_BOUND_EXCLUDED, TAG_BOUND_INCLUDED } from "./replacer";
 
 type DecodedBound = BoundIncluded<unknown> | BoundExcluded<unknown> | null;
 

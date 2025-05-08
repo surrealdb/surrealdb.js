@@ -1,14 +1,14 @@
 import type {
-	Uuid,
 	Decimal,
 	Duration,
 	Future,
-	StringRecordId,
 	Geometry,
+	Range,
 	RecordId,
 	RecordIdRange,
+	StringRecordId,
 	Table,
-	Range,
+	Uuid,
 } from "../value";
 
 import { Value } from "../value/value";

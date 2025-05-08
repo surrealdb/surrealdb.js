@@ -1,8 +1,8 @@
 import {
-	SurrealV1,
-	type SurrealV2,
 	type AnyAuth,
 	type ReconnectOptions,
+	SurrealV1,
+	type SurrealV2,
 } from "surrealdb";
 
 import { afterAll } from "bun:test";

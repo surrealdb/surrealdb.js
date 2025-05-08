@@ -1,5 +1,5 @@
-import { BoundExcluded, BoundIncluded, type Bound } from "../utils/range";
-import { Table, Uuid, type RecordIdValue } from "../value";
+import { type Bound, BoundExcluded, BoundIncluded } from "../utils/range";
+import { type RecordIdValue, Table, Uuid } from "../value";
 
 export function isValidIdPart(v: unknown): v is RecordIdValue {
 	if (v instanceof Uuid) return true;

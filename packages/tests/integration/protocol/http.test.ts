@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { setupServer } from "../__helpers__";
 import { ConnectionUnavailable } from "surrealdb";
+import { setupServer } from "../__helpers__";
 
 const { createSurreal, createIdleSurreal } = await setupServer();
 

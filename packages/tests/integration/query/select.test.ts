@@ -1,10 +1,10 @@
-import { describe, test, expect } from "bun:test";
-import { RecordId, RecordIdRange, BoundIncluded } from "surrealdb";
+import { describe, expect, test } from "bun:test";
+import { BoundIncluded, RecordId, RecordIdRange } from "surrealdb";
 import {
+	type Person,
 	insertMockRecords,
 	personTable,
 	setupServer,
-	type Person,
 } from "../__helpers__";
 
 const { createSurreal } = await setupServer();

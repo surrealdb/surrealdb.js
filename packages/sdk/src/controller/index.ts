@@ -1,20 +1,20 @@
 import type {
+	AnyAuth,
+	AuthProvider,
+	AuthResponse,
+	ConnectOptions,
 	ConnectionState,
 	ConnectionStatus,
-	ConnectOptions,
 	DriverContext,
 	EngineImpl,
-	SurrealEngine,
 	EventPublisher,
-	RpcRequest,
-	RpcResponse,
-	AuthResponse,
-	AuthProvider,
 	ExportOptions,
 	LiveHandler,
-	LivePayload,
 	LiveMessage,
-	AnyAuth,
+	LivePayload,
+	RpcRequest,
+	RpcResponse,
+	SurrealEngine,
 } from "../types";
 
 import {
@@ -26,8 +26,8 @@ import {
 
 import { HttpEngine, WebSocketEngine } from "../engine";
 import { ReconnectContext } from "../internal/reconnect";
-import { Publisher } from "../utils/publisher";
 import { versionCheck } from "../utils";
+import { Publisher } from "../utils/publisher";
 import type { Uuid } from "../value";
 
 const DEFAULT_ENGINES: Record<string, EngineImpl> = {

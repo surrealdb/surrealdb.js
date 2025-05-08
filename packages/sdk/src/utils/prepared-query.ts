@@ -1,11 +1,11 @@
 import {
-	encode,
 	Encoded,
-	Gap,
-	partiallyEncodeObject,
-	Writer,
 	type Fill,
+	Gap,
 	type PartiallyEncoded,
+	Writer,
+	encode,
+	partiallyEncodeObject,
 } from "@surrealdb/cbor";
 
 import { REPLACER } from "../cbor/replacer";

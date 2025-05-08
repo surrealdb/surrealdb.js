@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { RecordId, ResponseError, type AnyAuth } from "surrealdb";
+import { type AnyAuth, RecordId, ResponseError } from "surrealdb";
 import { createAuth, setupServer } from "./__helpers__";
 
 const { createSurreal } = await setupServer();

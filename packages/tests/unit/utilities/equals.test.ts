@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { createMockValue } from "../__helpers__";
 import {
 	BoundExcluded,
 	BoundIncluded,
-	equals,
 	RecordId,
 	RecordIdRange,
+	equals,
 } from "surrealdb";
+import { createMockValue } from "../__helpers__";
 
 describe("equals()", () => {
 	test("record ids", () => {

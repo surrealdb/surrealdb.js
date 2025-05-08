@@ -15,10 +15,10 @@ import type {
 
 import { getIncrementalID } from "../internal/get-incremental-id";
 import { postEndpoint } from "../internal/http";
-import { Publisher } from "../utils/publisher";
 import type { ExportOptions } from "../types/export";
 import { isLiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
+import { Publisher } from "../utils/publisher";
 
 type Interval = Parameters<typeof clearInterval>[0];
 type Response = Record<string, unknown>;

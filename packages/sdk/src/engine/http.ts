@@ -1,7 +1,6 @@
 import { ConnectionUnavailable, MissingNamespaceDatabase } from "../errors";
 import { getIncrementalID } from "../internal/get-incremental-id";
 import { postEndpoint } from "../internal/http";
-import { Publisher } from "../utils/publisher";
 import type { ExportOptions } from "../types/export";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
 import type {
@@ -10,6 +9,7 @@ import type {
 	EngineEvents,
 	SurrealEngine,
 } from "../types/surreal";
+import { Publisher } from "../utils/publisher";
 
 const ALWAYS_ALLOW = new Set([
 	"signin",
