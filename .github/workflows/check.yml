@@ -7,6 +7,9 @@ on:
   pull_request:
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   quality:
     name: Code Quality
@@ -79,6 +82,9 @@ jobs:
   dry-run-npm-publish:
     name: NPM Publish Dry Run
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
