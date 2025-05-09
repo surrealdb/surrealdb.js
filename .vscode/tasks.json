@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"command": "cd ./packages/tests && bun run test",
+			"problemMatcher": [],
+			"label": "Run tests",
+			"detail": "bun test"
+		}
+	]
+}
