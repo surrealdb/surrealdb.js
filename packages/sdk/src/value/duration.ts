@@ -36,25 +36,25 @@ const durationPartRegex = new RegExp(
  * A SurrealQL duration value.
  */
 export class Duration extends Value {
-	readonly _seconds: bigint;
-	readonly _nanoseconds: bigint;
+	readonly #seconds: bigint;
+	readonly #nanoseconds: bigint;
 
 	constructor(input: Duration | [number | bigint, number | bigint] | string) {
 		super();
 
 		if (input instanceof Duration) {
-			this._seconds = input._seconds;
-			this._nanoseconds = input._nanoseconds;
+			this.#seconds = input.#seconds;
+			this.#nanoseconds = input.#nanoseconds;
 		} else if (typeof input === "string") {
 			const [s, ns] = Duration.parseString(input);
-			this._seconds = s;
-			this._nanoseconds = ns;
+			this.#seconds = s;
+			this.#nanoseconds = ns;
 		} else {
 			const s = BigInt(input[0] ?? 0);
 			const ns = BigInt(input[1] ?? 0);
 			const total = s * SECOND + ns;
-			this._seconds = total / SECOND;
-			this._nanoseconds = total % SECOND;
+			this.#seconds = total / SECOND;
+			this.#nanoseconds = total % SECOND;
 		}
 	}
 
@@ -68,21 +68,21 @@ export class Duration extends Value {
 	equals(other: unknown): boolean {
 		if (!(other instanceof Duration)) return false;
 		return (
-			this._seconds === other._seconds &&
-			this._nanoseconds === other._nanoseconds
+			this.#seconds === other.#seconds &&
+			this.#nanoseconds === other.#nanoseconds
 		);
 	}
 
 	toCompact(): [bigint, bigint] | [bigint] | [] {
-		return this._nanoseconds > 0n
-			? [this._seconds, this._nanoseconds]
-			: this._seconds > 0n
-				? [this._seconds]
+		return this.#nanoseconds > 0n
+			? [this.#seconds, this.#nanoseconds]
+			: this.#seconds > 0n
+				? [this.#seconds]
 				: [];
 	}
 
 	toString(): string {
-		let remainingSeconds = this._seconds;
+		let remainingSeconds = this.#seconds;
 		let result = "";
 
 		// First loop: process all units ≥ 1 second
@@ -97,7 +97,7 @@ export class Duration extends Value {
 		}
 
 		// Convert remaining seconds to nanoseconds for the sub-second units
-		let remainingNanoseconds = remainingSeconds * SECOND + this._nanoseconds;
+		let remainingNanoseconds = remainingSeconds * SECOND + this.#nanoseconds;
 
 		// Second loop: process sub-second units (< 1 second)
 		for (const [size, unit] of Array.from(unitsReverse).reverse()) {
@@ -185,7 +185,7 @@ export class Duration extends Value {
 	}
 
 	get nanoseconds(): bigint {
-		return this._seconds * SECOND + this._nanoseconds;
+		return this.#seconds * SECOND + this.#nanoseconds;
 	}
 
 	get microseconds(): bigint {
@@ -197,28 +197,28 @@ export class Duration extends Value {
 	}
 
 	get seconds(): bigint {
-		return this._seconds;
+		return this.#seconds;
 	}
 
 	get minutes(): bigint {
-		return this._seconds / (MINUTE / SECOND);
+		return this.#seconds / (MINUTE / SECOND);
 	}
 
 	get hours(): bigint {
-		return this._seconds / (HOUR / SECOND);
+		return this.#seconds / (HOUR / SECOND);
 	}
 
 	get days(): bigint {
-		return this._seconds / (DAY / SECOND);
+		return this.#seconds / (DAY / SECOND);
 	}
 
 	get weeks(): bigint {
-		return this._seconds / (WEEK / SECOND);
+		return this.#seconds / (WEEK / SECOND);
 	}
 
 	add(other: Duration): Duration {
-		let sec = this._seconds + other._seconds;
-		let ns = this._nanoseconds + other._nanoseconds;
+		let sec = this.#seconds + other.#seconds;
+		let ns = this.#nanoseconds + other.#nanoseconds;
 
 		if (ns >= SECOND) {
 			sec += 1n;
@@ -229,8 +229,8 @@ export class Duration extends Value {
 	}
 
 	sub(other: Duration): Duration {
-		let sec = this._seconds - other._seconds;
-		let ns = this._nanoseconds - other._nanoseconds;
+		let sec = this.#seconds - other.#seconds;
+		let ns = this.#nanoseconds - other.#nanoseconds;
 
 		if (ns < 0n) {
 			sec -= 1n;
@@ -243,7 +243,7 @@ export class Duration extends Value {
 	mul(factor: number | bigint): Duration {
 		const factorBig = BigInt(factor);
 
-		const totalNs = this._seconds * SECOND + this._nanoseconds;
+		const totalNs = this.#seconds * SECOND + this.#nanoseconds;
 		const resultNs = totalNs * factorBig;
 
 		const sec = resultNs / SECOND;
@@ -256,22 +256,22 @@ export class Duration extends Value {
 	div(divisor: number | bigint | Duration): bigint | Duration {
 		if (typeof divisor === "object" && divisor instanceof Duration) {
 			// returns a ratio (unitless bigint)
-			const a = this._seconds * SECOND + this._nanoseconds;
-			const b = divisor._seconds * SECOND + divisor._nanoseconds;
+			const a = this.#seconds * SECOND + this.#nanoseconds;
+			const b = divisor.#seconds * SECOND + divisor.#nanoseconds;
 			if (b === 0n) throw new SurrealError("Division by zero duration");
 			return a / b;
 		}
 
 		const divisorBig = BigInt(divisor);
 		if (divisorBig === 0n) throw new SurrealError("Division by zero");
-		const totalNs = this._seconds * SECOND + this._nanoseconds;
+		const totalNs = this.#seconds * SECOND + this.#nanoseconds;
 		const resultNs = totalNs / divisorBig;
 		return new Duration([resultNs / SECOND, resultNs % SECOND]);
 	}
 
 	mod(mod: Duration): Duration {
-		const a = this._seconds * SECOND + this._nanoseconds;
-		const b = mod._seconds * SECOND + mod._nanoseconds;
+		const a = this.#seconds * SECOND + this.#nanoseconds;
+		const b = mod.#seconds * SECOND + mod.#nanoseconds;
 		if (b === 0n) throw new SurrealError("Modulo by zero duration");
 		const resultNs = a % b;
 		return new Duration([resultNs / SECOND, resultNs % SECOND]);
