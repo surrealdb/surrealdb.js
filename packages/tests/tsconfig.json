@@ -1,9 +1,3 @@
 {
-	"extends": "../../tsconfig.json",
-	"compilerOptions": {
-		"paths": {
-			"surrealdb": ["../sdk/src"],
-			"@surrealdb/cbor": ["../cbor/src"]
-		}
-	}
+	"extends": "../../tsconfig.json"
 }

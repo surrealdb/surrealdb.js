@@ -1,14 +1,14 @@
 import { SurrealError } from "../errors";
 import { Value } from "./value";
 
-const MILLISECOND = 1;
-const MICROSECOND = MILLISECOND / 1000;
-const NANOSECOND = MICROSECOND / 1000;
-const SECOND = 1000 * MILLISECOND;
-const MINUTE = 60 * SECOND;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
-const WEEK = 7 * DAY;
+const NANOSECOND = 1n;
+const MICROSECOND = 1000n * NANOSECOND;
+const MILLISECOND = 1000n * MICROSECOND;
+const SECOND = 1000n * MILLISECOND;
+const MINUTE = 60n * SECOND;
+const HOUR = 60n * MINUTE;
+const DAY = 24n * HOUR;
+const WEEK = 7n * DAY;
 
 const units = new Map([
 	["ns", NANOSECOND],
@@ -26,7 +26,7 @@ const units = new Map([
 const unitsReverse = Array.from(units).reduce((map, [unit, size]) => {
 	map.set(size, unit);
 	return map;
-}, new Map<number, string>());
+}, new Map<bigint, string>());
 
 const durationPartRegex = new RegExp(
 	`^(\\d+)(${Array.from(units.keys()).join("|")})`,
@@ -36,50 +36,78 @@ const durationPartRegex = new RegExp(
  * A SurrealQL duration value.
  */
 export class Duration extends Value {
-	readonly _milliseconds: number;
+	readonly _seconds: bigint;
+	readonly _nanoseconds: bigint;
 
-	constructor(input: Duration | number | string) {
+	constructor(input: Duration | [number | bigint, number | bigint] | string) {
 		super();
 
 		if (input instanceof Duration) {
-			this._milliseconds = input._milliseconds;
+			this._seconds = input._seconds;
+			this._nanoseconds = input._nanoseconds;
 		} else if (typeof input === "string") {
-			this._milliseconds = Duration.parseString(input);
+			const [s, ns] = Duration.parseString(input);
+			this._seconds = s;
+			this._nanoseconds = ns;
 		} else {
-			this._milliseconds = input;
+			const s = BigInt(input[0] ?? 0);
+			const ns = BigInt(input[1] ?? 0);
+			const total = s * SECOND + ns;
+			this._seconds = total / SECOND;
+			this._nanoseconds = total % SECOND;
 		}
 	}
 
-	static fromCompact([s, ns]: [number, number] | [number] | []): Duration {
-		s = s ?? 0;
-		ns = ns ?? 0;
-		const ms = s * 1000 + ns / 1000000;
-		return new Duration(ms);
+	static fromCompact([s, ns]:
+		| [number | bigint, number | bigint]
+		| [number | bigint]
+		| []): Duration {
+		return new Duration([s ?? 0, ns ?? 0]);
 	}
 
 	equals(other: unknown): boolean {
 		if (!(other instanceof Duration)) return false;
-		return this._milliseconds === other._milliseconds;
+		return (
+			this._seconds === other._seconds &&
+			this._nanoseconds === other._nanoseconds
+		);
 	}
 
-	toCompact(): [number, number] | [number] | [] {
-		const s = Math.floor(this._milliseconds / 1000);
-		const ns = Math.floor((this._milliseconds - s * 1000) * 1000000);
-		return ns > 0 ? [s, ns] : s > 0 ? [s] : [];
+	toCompact(): [bigint, bigint] | [bigint] | [] {
+		return this._nanoseconds > 0n
+			? [this._seconds, this._nanoseconds]
+			: this._seconds > 0n
+				? [this._seconds]
+				: [];
 	}
 
 	toString(): string {
-		let left = this._milliseconds;
+		let remainingSeconds = this._seconds;
 		let result = "";
-		function scrap(size: number) {
-			const num = Math.floor(left / size);
-			if (num > 0) left = left % size;
-			return num;
+
+		// First loop: process all units ≥ 1 second
+		for (const [size, unit] of Array.from(unitsReverse).reverse()) {
+			if (size >= SECOND) {
+				const amount = remainingSeconds / (size / SECOND);
+				if (amount > 0n) {
+					remainingSeconds %= size / SECOND;
+					result += `${amount}${unit}`;
+				}
+			}
 		}
 
+		// Convert remaining seconds to nanoseconds for the sub-second units
+		let remainingNanoseconds = remainingSeconds * SECOND + this._nanoseconds;
+
+		// Second loop: process sub-second units (< 1 second)
 		for (const [size, unit] of Array.from(unitsReverse).reverse()) {
-			const scrapped = scrap(size);
-			if (scrapped > 0) result += `${scrapped}${unit}`;
+			if (size < SECOND) {
+				const amount = remainingNanoseconds / size;
+				if (amount > 0n) {
+					remainingNanoseconds %= size;
+					result += `${amount}${unit}`;
+				}
+			}
 		}
 
 		return result;
@@ -89,89 +117,163 @@ export class Duration extends Value {
 		return this.toString();
 	}
 
-	static parseString(input: string): number {
-		let ms = 0;
+	static parseString(input: string): [bigint, bigint] {
+		let seconds = 0n;
+		let nanoseconds = 0n;
 		let left = input;
+
 		while (left !== "") {
 			const match = left.match(durationPartRegex);
 			if (match) {
-				const amount = Number.parseInt(match[1]);
-				const factor = units.get(match[2]);
-				if (factor === undefined)
-					throw new SurrealError(`Invalid duration unit: ${match[2]}`);
+				const amount = BigInt(match[1]);
+				const unit = match[2];
+				const factor = units.get(unit);
+				if (!factor) throw new SurrealError(`Invalid duration unit: ${unit}`);
 
-				ms += amount * factor;
+				if (factor >= SECOND) {
+					seconds += amount * (factor / SECOND);
+				} else {
+					nanoseconds += amount * factor;
+				}
+
 				left = left.slice(match[0].length);
-				continue;
+			} else {
+				throw new SurrealError("Could not match a next duration part");
 			}
-
-			throw new SurrealError("Could not match a next duration part");
 		}
 
-		return ms;
+		// Normalize: convert excess nanoseconds to seconds
+		seconds += nanoseconds / SECOND;
+		nanoseconds %= SECOND;
+
+		return [seconds, nanoseconds];
 	}
 
-	static nanoseconds(nanoseconds: number): Duration {
-		return new Duration(Math.floor(nanoseconds * NANOSECOND));
+	static nanoseconds(ns: number | bigint): Duration {
+		const total = BigInt(ns);
+		return new Duration([total / SECOND, total % SECOND]);
 	}
 
-	static microseconds(microseconds: number): Duration {
-		return new Duration(Math.floor(microseconds * MICROSECOND));
+	static microseconds(µs: number | bigint): Duration {
+		const ns = BigInt(µs) * MICROSECOND;
+		return Duration.nanoseconds(ns);
 	}
 
-	static milliseconds(milliseconds: number): Duration {
-		return new Duration(milliseconds);
+	static milliseconds(ms: number | bigint): Duration {
+		const ns = BigInt(ms) * MILLISECOND;
+		return Duration.nanoseconds(ns);
 	}
 
-	static seconds(seconds: number): Duration {
-		return new Duration(seconds * SECOND);
+	static seconds(s: number | bigint): Duration {
+		return new Duration([BigInt(s), 0n]);
 	}
 
-	static minutes(minutes: number): Duration {
-		return new Duration(minutes * MINUTE);
+	static minutes(m: number | bigint): Duration {
+		return new Duration([BigInt(m) * (MINUTE / SECOND), 0n]);
 	}
 
-	static hours(hours: number): Duration {
-		return new Duration(hours * HOUR);
+	static hours(h: number | bigint): Duration {
+		return new Duration([BigInt(h) * (HOUR / SECOND), 0n]);
 	}
 
-	static days(days: number): Duration {
-		return new Duration(days * DAY);
+	static days(d: number | bigint): Duration {
+		return new Duration([BigInt(d) * (DAY / SECOND), 0n]);
 	}
 
-	static weeks(weeks: number): Duration {
-		return new Duration(weeks * WEEK);
+	static weeks(w: number | bigint): Duration {
+		return new Duration([BigInt(w) * (WEEK / SECOND), 0n]);
 	}
 
-	get microseconds(): number {
-		return Math.floor(this._milliseconds / MICROSECOND);
+	get nanoseconds(): bigint {
+		return this._seconds * SECOND + this._nanoseconds;
 	}
 
-	get nanoseconds(): number {
-		return Math.floor(this._milliseconds / NANOSECOND);
+	get microseconds(): bigint {
+		return this.nanoseconds / MICROSECOND;
 	}
 
-	get milliseconds(): number {
-		return Math.floor(this._milliseconds);
+	get milliseconds(): bigint {
+		return this.nanoseconds / MILLISECOND;
 	}
 
-	get seconds(): number {
-		return Math.floor(this._milliseconds / SECOND);
+	get seconds(): bigint {
+		return this._seconds;
 	}
 
-	get minutes(): number {
-		return Math.floor(this._milliseconds / MINUTE);
+	get minutes(): bigint {
+		return this._seconds / (MINUTE / SECOND);
 	}
 
-	get hours(): number {
-		return Math.floor(this._milliseconds / HOUR);
+	get hours(): bigint {
+		return this._seconds / (HOUR / SECOND);
 	}
 
-	get days(): number {
-		return Math.floor(this._milliseconds / DAY);
+	get days(): bigint {
+		return this._seconds / (DAY / SECOND);
 	}
 
-	get weeks(): number {
-		return Math.floor(this._milliseconds / WEEK);
+	get weeks(): bigint {
+		return this._seconds / (WEEK / SECOND);
+	}
+
+	add(other: Duration): Duration {
+		let sec = this._seconds + other._seconds;
+		let ns = this._nanoseconds + other._nanoseconds;
+
+		if (ns >= SECOND) {
+			sec += 1n;
+			ns -= SECOND;
+		}
+
+		return new Duration([sec, ns]);
+	}
+
+	sub(other: Duration): Duration {
+		let sec = this._seconds - other._seconds;
+		let ns = this._nanoseconds - other._nanoseconds;
+
+		if (ns < 0n) {
+			sec -= 1n;
+			ns += SECOND;
+		}
+
+		return new Duration([sec, ns]);
+	}
+
+	mul(factor: number | bigint): Duration {
+		const factorBig = BigInt(factor);
+
+		const totalNs = this._seconds * SECOND + this._nanoseconds;
+		const resultNs = totalNs * factorBig;
+
+		const sec = resultNs / SECOND;
+		const ns = resultNs % SECOND;
+		return new Duration([sec, ns]);
+	}
+
+	div(divisor: Duration): bigint;
+	div(divisor: number | bigint): Duration;
+	div(divisor: number | bigint | Duration): bigint | Duration {
+		if (typeof divisor === "object" && divisor instanceof Duration) {
+			// returns a ratio (unitless bigint)
+			const a = this._seconds * SECOND + this._nanoseconds;
+			const b = divisor._seconds * SECOND + divisor._nanoseconds;
+			if (b === 0n) throw new SurrealError("Division by zero duration");
+			return a / b;
+		}
+
+		const divisorBig = BigInt(divisor);
+		if (divisorBig === 0n) throw new SurrealError("Division by zero");
+		const totalNs = this._seconds * SECOND + this._nanoseconds;
+		const resultNs = totalNs / divisorBig;
+		return new Duration([resultNs / SECOND, resultNs % SECOND]);
+	}
+
+	mod(mod: Duration): Duration {
+		const a = this._seconds * SECOND + this._nanoseconds;
+		const b = mod._seconds * SECOND + mod._nanoseconds;
+		if (b === 0n) throw new SurrealError("Modulo by zero duration");
+		const resultNs = a % b;
+		return new Duration([resultNs / SECOND, resultNs % SECOND]);
 	}
 }
