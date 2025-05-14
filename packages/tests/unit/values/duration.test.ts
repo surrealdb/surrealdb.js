@@ -43,6 +43,12 @@ describe("durations", () => {
 		expect(Duration.weeks(1)).toMatchObject(dur);
 	});
 
+	test("bigint duration", () => {
+		const dur = Duration.milliseconds(28382400000000000n);
+		expect(dur.milliseconds).toEqual(28382400000000000n);
+		expect(dur.toString()).toEqual("46928571w3d");
+	});
+
 	test("compact and fromCompact", () => {
 		const dur = new Duration("1s");
 		expect(dur.toCompact()).toStrictEqual([1n]);
