@@ -402,10 +402,15 @@ export class Decimal extends Value {
 	 * @returns A Decimal instance.
 	 */
 	static fromScientificNotation(input: string): Decimal {
-		const match = input.trim().match(/^([+-]?\d*\.?\d+)[eE]([+-]?\d+)$/);
-		if (!match) throw new Error(`Invalid scientific notation: ${input}`);
+		const trimmed = input.trim();
 
-		const [, baseStr, expStr] = match;
+		// Cheap validation: basic format check without overlapping quantifiers
+		if (!/^[+-]?\d+(\.\d+)?[eE][+-]?\d+$/.test(trimmed)) {
+			throw new Error(`Invalid scientific notation: ${input}`);
+		}
+
+		// Safe and predictable manual split
+		const [baseStr, expStr] = trimmed.split(/[eE]/);
 		const exp = Number.parseInt(expStr, 10);
 		const negative = baseStr.startsWith("-");
 		const [intPart, fracPart = ""] = baseStr.replace(/^[-+]/, "").split(".");
