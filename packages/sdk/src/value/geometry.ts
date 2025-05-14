@@ -20,7 +20,7 @@ export abstract class Geometry extends Value {
 }
 
 function f(num: number | Decimal) {
-	if (num instanceof Decimal) return Number.parseFloat(num.decimal);
+	if (num instanceof Decimal) return num.toFloat();
 	return num;
 }
 
