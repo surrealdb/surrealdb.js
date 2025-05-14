@@ -112,11 +112,9 @@ describe("durations", () => {
 	});
 
 	test("normalization", () => {
-		// Constructor should normalize 1.5s to 1s + 500_000_000ns
+		// 1 second + 1.5s = 2s + 500_000_000ns after normalization
 		const dur = new Duration([1n, 1_500_000_000n]);
-		expect(dur.toCompact()).toStrictEqual(
-			dur._nanoseconds > 0n ? [2n, 500_000_000n] : [2n],
-		);
+		expect(dur.toCompact()).toStrictEqual([2n, 500_000_000n]);
 	});
 });
 
@@ -133,7 +131,7 @@ describe("fuzzing durations", () => {
 		fc.assert(
 			fc.property(durArb, (d) => {
 				const zero = new Duration([0n, 0n]);
-				return d.add(zero).equals(new Duration(d));
+				return d.add(zero).toCompact().toString() === d.toCompact().toString();
 			}),
 		);
 	});
@@ -141,8 +139,10 @@ describe("fuzzing durations", () => {
 	test("sub self equals zero", () => {
 		fc.assert(
 			fc.property(durArb, (d) => {
-				const result = d.sub(d);
-				return result._seconds === 0n && result._nanoseconds === 0n;
+				const result = d.sub(d).toCompact();
+				return (
+					result.length === 0 || (result[0] === 0n && (result[1] ?? 0n) === 0n)
+				);
 			}),
 		);
 	});
@@ -150,7 +150,7 @@ describe("fuzzing durations", () => {
 	test("multiply by one", () => {
 		fc.assert(
 			fc.property(durArb, (d) => {
-				return d.mul(1).equals(new Duration(d));
+				return d.mul(1).toCompact().toString() === d.toCompact().toString();
 			}),
 		);
 	});
@@ -158,10 +158,10 @@ describe("fuzzing durations", () => {
 	test("div by self is one (only if exact)", () => {
 		fc.assert(
 			fc.property(
-				durArb.filter((d) => d._seconds > 0n || d._nanoseconds > 0n),
+				durArb.filter((d) => d.toCompact().length > 0),
 				(d) => {
-					// only assert exact 1 if divisor has no nanos
-					if (d._nanoseconds === 0n) {
+					const [, ns = 0n] = d.toCompact();
+					if (ns === 0n) {
 						return d.div(d) === 1n;
 					}
 					return true;
@@ -173,11 +173,15 @@ describe("fuzzing durations", () => {
 	test("mod by self is zero (only if exact)", () => {
 		fc.assert(
 			fc.property(
-				durArb.filter((d) => d._seconds > 0n || d._nanoseconds > 0n),
+				durArb.filter((d) => d.toCompact().length > 0),
 				(d) => {
-					const result = d.mod(d);
-					if (d._nanoseconds === 0n) {
-						return result._seconds === 0n && result._nanoseconds === 0n;
+					const [, ns = 0n] = d.toCompact();
+					const result = d.mod(d).toCompact();
+					if (ns === 0n) {
+						return (
+							result.length === 0 ||
+							(result[0] === 0n && (result[1] ?? 0n) === 0n)
+						);
 					}
 					return true;
 				},
@@ -188,13 +192,13 @@ describe("fuzzing durations", () => {
 	test("division and remainder reconstruct original (only if clean)", () => {
 		fc.assert(
 			fc.property(
-				durArb.filter((d) => d._seconds > 0n || d._nanoseconds > 0n),
-				durArb.filter((d) => d._seconds > 0n || d._nanoseconds > 0n),
+				durArb.filter((d) => d.toCompact().length > 0),
+				durArb.filter((d) => d.toCompact().length > 0),
 				(a, b) => {
 					const q = a.div(b);
 					const r = a.mod(b);
 					const recon = b.mul(q).add(r);
-					return recon.equals(new Duration(a));
+					return recon.toCompact().toString() === a.toCompact().toString();
 				},
 			),
 		);
