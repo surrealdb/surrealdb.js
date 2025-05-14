@@ -105,11 +105,20 @@ export class Decimal extends Value {
 		const absInt = this.#int < 0n ? -this.#int : this.#int;
 		const absFrac = this.#frac < 0n ? -this.#frac : this.#frac;
 
-		if (this.#scale === 0) return `${sign}${absInt}`;
+		if (this.#scale === 0) {
+			return `${sign}${absInt}`;
+		}
 
-		// Convert frac to string and pad it, then trim trailing zeroes
+		// Convert frac to string and pad it to match the scale
 		let fracStr = absFrac.toString().padStart(this.#scale, "0");
-		fracStr = fracStr.replace(/0+$/, "");
+
+		// Trim trailing zeros without regex (avoids ReDoS)
+		let end = fracStr.length;
+		while (end > 0 && fracStr.charCodeAt(end - 1) === 48) {
+			// 48 === '0'
+			end--;
+		}
+		fracStr = fracStr.slice(0, end);
 
 		return fracStr === "" ? `${sign}${absInt}` : `${sign}${absInt}.${fracStr}`;
 	}
@@ -390,7 +399,9 @@ export class Decimal extends Value {
 			exponent = -(leadingZeros?.[0].length || 0) - 1;
 		}
 
-		const digits = raw.replace(/0+$/, "");
+		let end = raw.length;
+		while (end > 0 && raw.charCodeAt(end - 1) === 48) end--;
+		const digits = raw.slice(0, end);
 		const mantissa =
 			digits.length > 1 ? `${digits[0]}.${digits.slice(1)}` : digits[0];
 		return `${negative ? "-" : ""}${mantissa}e${exponent}`;
@@ -415,7 +426,11 @@ export class Decimal extends Value {
 		const negative = baseStr.startsWith("-");
 		const [intPart, fracPart = ""] = baseStr.replace(/^[-+]/, "").split(".");
 
-		const digits = (intPart + fracPart).replace(/^0+/, "") || "0";
+		const raw = intPart + fracPart;
+		let start = 0;
+		while (start < raw.length && raw.charCodeAt(start) === 48) start++;
+		const digits = raw.slice(start) || "0";
+
 		const pointIndex = intPart.length;
 		const newPointIndex = pointIndex + exp;
 
