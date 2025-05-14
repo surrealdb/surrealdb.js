@@ -395,8 +395,10 @@ export class Decimal extends Value {
 		if (intPart !== "0") {
 			exponent = intPart.length - 1;
 		} else {
-			const leadingZeros = fracPart.match(/^0+/);
-			exponent = -(leadingZeros?.[0].length || 0) - 1;
+			let leading = 0;
+			while (leading < fracPart.length && fracPart.charCodeAt(leading) === 48)
+				leading++;
+			exponent = -leading - 1;
 		}
 
 		let end = raw.length;
