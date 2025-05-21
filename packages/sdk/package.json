@@ -13,10 +13,7 @@
 	"packageManager": "^bun@1.1.17",
 	"devDependencies": {
 		"@types/bun": "latest",
-		"compare-versions": "^6.1.1",
-		"dts-bundle-generator": "^9.5.1",
-		"esbuild": "^0.21.5",
-		"esbuild-plugin-tsc": "^0.4.0"
+		"compare-versions": "^6.1.1"
 	},
 	"peerDependencies": {
 		"typescript": "^5.0.0",

@@ -6,15 +6,23 @@
 	"workspaces": ["packages/*"],
 	"devDependencies": {
 		"@biomejs/biome": "1.8.3",
+		"@types/signale": "^1.4.7",
 		"bun-types": "^1.2.12",
-		"fast-check": "^4.1.1"
+		"fast-check": "^4.1.1",
+		"signale": "^1.4.0",
+		"dts-bundle-generator": "^9.5.1",
+		"esbuild": "^0.21.5",
+		"esbuild-plugin-tsc": "^0.4.0"
 	},
 	"scripts": {
 		"qc": "biome check .",
 		"qa": "biome check . --write",
 		"qau": "biome check . --write --unsafe",
-		"build:cbor": "bun run -F @surrealdb/cbor build",
-		"build:sdk": "bun run -F surrealdb build",
-		"test": "bun run build:cbor && bun run build:sdk && cd ./packages/tests && bun run test"
+		"build": "bun scripts/build all",
+		"build:cbor": "bun scripts/build cbor",
+		"build:sdk": "bun scripts/build sdk",
+		"versions": "bun scripts/versions",
+		"publish": "bun scripts/publish",
+		"test": "bun run build && cd ./packages/tests && bun run test"
 	}
 }
