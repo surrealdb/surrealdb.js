@@ -261,7 +261,7 @@ export class WebSocketEngine implements SurrealEngine {
 		});
 	}
 
-	private async parseBuffer(data: unknown): Promise<Uint8Array> {
+	private async parseBuffer(data: unknown) {
 		if (data instanceof Uint8Array) {
 			return data;
 		}
