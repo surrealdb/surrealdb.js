@@ -70,7 +70,7 @@ describe("cbor", () => {
 					1, // Some byte
 					2, // Some byte
 					255, // break
-				]).buffer,
+				]),
 			);
 
 			expect(decoded).toMatchObject(new Uint8Array([1, 1, 2]).buffer);
@@ -86,7 +86,7 @@ describe("cbor", () => {
 						1, // Some byte
 						255, // break
 						255, // break
-					]).buffer,
+					]),
 				),
 			);
 
@@ -101,7 +101,7 @@ describe("cbor", () => {
 						65, // byte string, len 1
 						1, // Some byte
 						// break (255) is missing
-					]).buffer,
+					]),
 				),
 			);
 
@@ -116,7 +116,7 @@ describe("cbor", () => {
 						96, // text string, len 1 (invalid major)
 						1, // Some byte
 						255, // break
-					]).buffer,
+					]),
 				),
 			);
 
@@ -133,7 +133,7 @@ describe("cbor", () => {
 					98, // letter "b"
 					99, // letter "c"
 					255, // break
-				]).buffer,
+				]),
 			);
 
 			expect(decoded).toMatch("abc");
@@ -149,7 +149,7 @@ describe("cbor", () => {
 					98, // letter "b"
 					99, // letter "c"
 					255, // break
-				]).buffer,
+				]),
 			);
 
 			expect(decoded).toMatchObject(["a", "bc"]);
@@ -165,7 +165,7 @@ describe("cbor", () => {
 					98, // letter "b"
 					99, // letter "c"
 					255, // break
-				]).buffer,
+				]),
 			);
 
 			expect(decoded).toMatchObject({ a: "bc" });

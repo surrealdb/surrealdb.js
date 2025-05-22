@@ -1,3 +1,3 @@
 export class Encoded {
-	constructor(readonly encoded: ArrayBuffer) {}
+	constructor(readonly encoded: Uint8Array) {}
 }

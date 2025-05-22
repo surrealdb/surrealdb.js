@@ -6,22 +6,21 @@ import { Writer } from "./writer";
 
 export class PartiallyEncoded {
 	constructor(
-		readonly chunks: [ArrayBuffer, Gap][],
-		readonly end: ArrayBuffer,
+		readonly chunks: [Uint8Array, Gap][],
+		readonly end: Uint8Array,
 		readonly replacer: Replacer | undefined,
 	) {}
 
-	build<Partial extends boolean = false>(
-		fills: Fill[],
-		partial?: Partial,
-	): Partial extends true ? PartiallyEncoded : ArrayBuffer {
+	build(fills: Fill[], partial?: false): Uint8Array;
+	build(fills: Fill[], partial: true): PartiallyEncoded;
+	build(fills: Fill[], partial?: boolean): PartiallyEncoded | Uint8Array {
 		const writer = new Writer();
 		const map = new Map(fills);
 
 		for (const [buffer, gap] of this.chunks) {
 			const hasValue = map.has(gap) || gap.hasDefault();
 			if (!partial && !hasValue) throw new CborFillMissing();
-			writer.writeArrayBuffer(buffer);
+			writer.writeUint8Array(buffer);
 
 			if (hasValue) {
 				const data = map.get(gap) ?? gap.default;
@@ -34,8 +33,12 @@ export class PartiallyEncoded {
 			}
 		}
 
-		writer.writeArrayBuffer(this.end);
-		return writer.output<Partial>(!!partial as Partial, this.replacer);
+		writer.writeUint8Array(this.end);
+		if (partial) {
+			return writer.output(true, this.replacer);
+		}
+
+		return writer.output(false, this.replacer);
 	}
 }
 

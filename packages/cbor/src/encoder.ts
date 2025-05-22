@@ -6,54 +6,60 @@ import { PartiallyEncoded } from "./partial";
 import { Tagged } from "./tagged";
 import { Writer } from "./writer";
 
-let textEncoder: TextEncoder;
+const textEncoder = new TextEncoder();
 
-export interface EncoderOptions<Partial extends boolean> {
+export interface EncoderOptions<Partial extends boolean = boolean> {
 	replacer?: Replacer;
 	writer?: Writer;
 	partial?: Partial;
 	fills?: Fill[];
 }
 
-export function encode<Partial extends boolean = false>(
+function encode(input: unknown, options?: EncoderOptions<false>): Uint8Array;
+function encode(
 	input: unknown,
-	options: EncoderOptions<Partial> = {},
-): Partial extends true ? PartiallyEncoded : ArrayBuffer {
+	options?: EncoderOptions<true>,
+): PartiallyEncoded;
+function encode(
+	input: unknown,
+	options: EncoderOptions = {},
+): PartiallyEncoded | Uint8Array {
 	const w = options.writer ?? new Writer();
 	const fillsMap = new Map(options.fills ?? []);
 
 	function inner(input: unknown) {
-		const value = options.replacer ? options.replacer(input) : input;
+		// biome-ignore lint/style/noParameterAssign:
+		input = options.replacer?.(input) ?? input;
 
-		if (value === undefined) return w.writeUint8(0xf7);
-		if (value === null) return w.writeUint8(0xf6);
-		if (value === true) return w.writeUint8(0xf5);
-		if (value === false) return w.writeUint8(0xf4);
+		if (input === undefined) return w.writeUint8(0xf7);
+		if (input === null) return w.writeUint8(0xf6);
+		if (input === true) return w.writeUint8(0xf5);
+		if (input === false) return w.writeUint8(0xf4);
 
-		switch (typeof value) {
+		switch (typeof input) {
 			case "number": {
-				if (Number.isInteger(value)) {
-					if (value >= 0 && value <= POW_2_53) {
-						w.writeMajor(0, value);
-					} else if (value < 0 && value >= -POW_2_53) {
-						w.writeMajor(1, -(value + 1));
+				if (Number.isInteger(input)) {
+					if (input >= 0 && input <= POW_2_53) {
+						w.writeMajor(0, input);
+					} else if (input < 0 && input >= -POW_2_53) {
+						w.writeMajor(1, -(input + 1));
 					} else {
 						throw new CborNumberError("Number too big to be encoded");
 					}
 				} else {
 					// Better precision when encoded as 64-bit
 					w.writeUint8(0xfb);
-					w.writeFloat64(value);
+					w.writeFloat64(input);
 				}
 
 				return;
 			}
 
 			case "bigint": {
-				if (value >= 0 && value < POW_2_64) {
-					w.writeMajor(0, value);
-				} else if (value <= 0 && value >= -POW_2_64) {
-					w.writeMajor(1, -(value + 1n));
+				if (input >= 0 && input < POW_2_64) {
+					w.writeMajor(0, input);
+				} else if (input <= 0 && input >= -POW_2_64) {
+					w.writeMajor(1, -(input + 1n));
 				} else {
 					throw new CborNumberError("BigInt too big to be encoded");
 				}
@@ -62,88 +68,102 @@ export function encode<Partial extends boolean = false>(
 			}
 
 			case "string": {
-				textEncoder ??= new TextEncoder();
-				const encoded = textEncoder.encode(value);
+				const encoded = textEncoder.encode(input);
 				w.writeMajor(3, encoded.byteLength);
 				w.writeUint8Array(encoded);
 				return;
 			}
 
 			default: {
-				if (Array.isArray(value)) {
-					w.writeMajor(4, value.length);
-					for (const v of value) {
+				if (Array.isArray(input)) {
+					w.writeMajor(4, input.length);
+					for (const v of input) {
 						inner(v);
 					}
 					return;
 				}
 
-				if (value instanceof Tagged) {
-					w.writeMajor(6, value.tag);
-					inner(value.value);
+				if (input instanceof Tagged) {
+					w.writeMajor(6, input.tag);
+					inner(input.value);
 					return;
 				}
 
-				if (value instanceof Encoded) {
-					w.writeArrayBuffer(value.encoded);
+				if (input instanceof Encoded) {
+					w.writeUint8Array(input.encoded);
 					return;
 				}
 
-				if (value instanceof Gap) {
-					if (fillsMap.has(value)) {
-						inner(fillsMap.get(value));
+				if (input instanceof Gap) {
+					if (fillsMap.has(input)) {
+						inner(fillsMap.get(input));
 					} else {
-						if (!options.partial) throw new CborPartialDisabled();
-						w.chunk(value);
+						if (options.partial) {
+							w.chunk(input);
+						} else {
+							throw new CborPartialDisabled();
+						}
 					}
 
 					return;
 				}
 
-				if (value instanceof PartiallyEncoded) {
-					const res = value.build<Partial>(
-						options.fills ?? [],
-						options.partial,
-					);
-					if (options.partial) {
-						w.writePartiallyEncoded(res as PartiallyEncoded);
+				if (input instanceof PartiallyEncoded) {
+					const res = options.partial
+						? input.build(options.fills ?? [], true)
+						: input.build(options.fills ?? [], false);
+
+					if (res instanceof PartiallyEncoded) {
+						w.writePartiallyEncoded(res);
 					} else {
-						w.writeArrayBuffer(res as ArrayBuffer);
+						w.writeUint8Array(res);
 					}
 
 					return;
 				}
 
 				if (
-					value instanceof Uint8Array ||
-					value instanceof Uint16Array ||
-					value instanceof Uint32Array ||
-					value instanceof Int8Array ||
-					value instanceof Int16Array ||
-					value instanceof Int32Array ||
-					value instanceof Float32Array ||
-					value instanceof Float64Array ||
-					value instanceof ArrayBuffer
+					input instanceof Uint8Array ||
+					input instanceof Uint16Array ||
+					input instanceof Uint32Array ||
+					input instanceof Int8Array ||
+					input instanceof Int16Array ||
+					input instanceof Int32Array ||
+					input instanceof Float32Array ||
+					input instanceof Float64Array ||
+					input instanceof ArrayBuffer
 				) {
-					const v = new Uint8Array(value);
+					const v = input instanceof Uint8Array ? input : new Uint8Array(input);
 					w.writeMajor(2, v.byteLength);
 					w.writeUint8Array(v);
 					return;
 				}
 
-				const entries =
-					value instanceof Map
-						? Array.from(value.entries())
-						: Object.entries(value);
-
-				w.writeMajor(5, entries.length);
-				for (const v of entries.flat()) {
-					inner(v);
+				if (input instanceof Map) {
+					w.writeMajor(5, input.size);
+					for (const [k, v] of input) {
+						inner(k);
+						inner(v);
+					}
+				} else {
+					const entries = Object.entries(input);
+					w.writeMajor(5, entries.length);
+					for (const [k, v] of entries) {
+						inner(k);
+						inner(v);
+					}
 				}
 			}
 		}
 	}
 
 	inner(input);
-	return w.output<Partial>(!!options.partial as Partial, options.replacer);
+
+	if (options.partial) {
+		return w.output(true, options.replacer);
+	}
+
+	return w.output(false, options.replacer);
 }
+
+export { encode };

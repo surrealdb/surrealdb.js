@@ -1,4 +1,4 @@
-import { Tagged, decode, encode } from "@surrealdb/cbor";
+import { Tagged, decode, encode, type Replacer } from "@surrealdb/cbor";
 import { BoundExcluded, BoundIncluded } from "../utils/range";
 import {
 	Decimal,
@@ -112,57 +112,34 @@ export const REPLACER = {
 		}
 		return v;
 	},
-	decode(v: unknown): unknown {
-		if (!(v instanceof Tagged)) return v;
-
-		switch (v.tag) {
-			case TAG_SPEC_DATETIME:
-				return new Date(v.value);
-			case TAG_SPEC_UUID:
-			case TAG_STRING_UUID:
-				return new Uuid(v.value);
-			case TAG_CUSTOM_DATETIME:
-				return cborCustomDateToDate(v.value);
-			case TAG_NONE:
-				return undefined;
-			case TAG_STRING_DECIMAL:
-				return new Decimal(v.value);
-			case TAG_STRING_DURATION:
-				return new Duration(v.value);
-			case TAG_CUSTOM_DURATION:
-				return Duration.fromCompact(v.value);
-			case TAG_TABLE:
-				return new Table(v.value);
-			case TAG_FUTURE:
-				return new Future(v.value);
-			case TAG_RANGE:
-				return new Range(...cborToRange(v.value));
-			case TAG_BOUND_INCLUDED:
-				return new BoundIncluded(v.value);
-			case TAG_BOUND_EXCLUDED:
-				return new BoundExcluded(v.value);
-			case TAG_RECORDID: {
-				if (v.value[1] instanceof Range) {
-					return new RecordIdRange(v.value[0], v.value[1].beg, v.value[1].end);
-				}
-				return new RecordId(v.value[0], v.value[1]);
+	decode: {
+		[TAG_SPEC_DATETIME]: (v) => new Date(v),
+		[TAG_SPEC_UUID]: (v) => new Uuid(v),
+		[TAG_STRING_UUID]: (v) => new Uuid(v),
+		[TAG_CUSTOM_DATETIME]: cborCustomDateToDate,
+		[TAG_NONE]: (v) => undefined,
+		[TAG_STRING_DECIMAL]: (v) => new Decimal(v),
+		[TAG_STRING_DURATION]: (v) => new Duration(v),
+		[TAG_CUSTOM_DURATION]: (v) => Duration.fromCompact(v),
+		[TAG_TABLE]: (v) => new Table(v),
+		[TAG_FUTURE]: (v) => new Future(v),
+		[TAG_RANGE]: (v) => new Range(...cborToRange(v)),
+		[TAG_BOUND_INCLUDED]: (v) => new BoundIncluded(v),
+		[TAG_BOUND_EXCLUDED]: (v) => new BoundExcluded(v),
+		[TAG_RECORDID]: (v) => {
+			if (v[1] instanceof Range) {
+				return new RecordIdRange(v[0], v[1].beg, v[1].end);
 			}
-			case TAG_GEOMETRY_POINT:
-				return new GeometryPoint(v.value);
-			case TAG_GEOMETRY_LINE:
-				return new GeometryLine(v.value);
-			case TAG_GEOMETRY_POLYGON:
-				return new GeometryPolygon(v.value);
-			case TAG_GEOMETRY_MULTIPOINT:
-				return new GeometryMultiPoint(v.value);
-			case TAG_GEOMETRY_MULTILINE:
-				return new GeometryMultiLine(v.value);
-			case TAG_GEOMETRY_MULTIPOLYGON:
-				return new GeometryMultiPolygon(v.value);
-			case TAG_GEOMETRY_COLLECTION:
-				return new GeometryCollection(v.value);
-		}
-	},
+			return new RecordId(v[0], v[1]);
+		},
+		[TAG_GEOMETRY_POINT]: (v) => new GeometryPoint(v),
+		[TAG_GEOMETRY_LINE]: (v) => new GeometryLine(v),
+		[TAG_GEOMETRY_POLYGON]: (v) => new GeometryPolygon(v),
+		[TAG_GEOMETRY_MULTIPOINT]: (v) => new GeometryMultiPoint(v),
+		[TAG_GEOMETRY_MULTILINE]: (v) => new GeometryMultiLine(v),
+		[TAG_GEOMETRY_MULTIPOLYGON]: (v) => new GeometryMultiPolygon(v),
+		[TAG_GEOMETRY_COLLECTION]: (v) => new GeometryCollection(v),
+	} satisfies Record<number, Replacer>,
 };
 
 Object.freeze(REPLACER);
@@ -173,9 +150,10 @@ Object.freeze(REPLACER);
  * @param data - The input value
  * @returns CBOR binary representation
  */
-export function encodeCbor<T>(data: T): ArrayBuffer {
+export function encodeCbor<T>(data: T): Uint8Array {
 	return encode(data, {
 		replacer: REPLACER.encode,
+		partial: false,
 	});
 }
 
@@ -185,8 +163,8 @@ export function encodeCbor<T>(data: T): ArrayBuffer {
  * @param data - The encoded SurrealQL value
  * @returns The parsed SurrealQL value
  */
-export function decodeCbor<T>(data: ArrayBufferLike): T {
+export function decodeCbor<T>(data: Uint8Array): T {
 	return decode(data, {
-		replacer: REPLACER.decode,
+		tagged: REPLACER.decode,
 	});
 }

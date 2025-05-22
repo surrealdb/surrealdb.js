@@ -1,21 +1,21 @@
 // Bun Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`cbor encode basic types: positive integer 1`] = `
-ArrayBuffer [
+Uint8Array [
   24,
   123,
 ]
 `;
 
 exports[`cbor encode basic types: negative integer 1`] = `
-ArrayBuffer [
+Uint8Array [
   56,
   122,
 ]
 `;
 
 exports[`cbor encode basic types: positive float 1`] = `
-ArrayBuffer [
+Uint8Array [
   251,
   64,
   94,
@@ -29,7 +29,7 @@ ArrayBuffer [
 `;
 
 exports[`cbor encode basic types: negative float 1`] = `
-ArrayBuffer [
+Uint8Array [
   251,
   192,
   94,
@@ -43,7 +43,7 @@ ArrayBuffer [
 `;
 
 exports[`cbor encode basic types: positive bigint 1`] = `
-ArrayBuffer [
+Uint8Array [
   27,
   255,
   255,
@@ -57,7 +57,7 @@ ArrayBuffer [
 `;
 
 exports[`cbor encode basic types: negative bigint 1`] = `
-ArrayBuffer [
+Uint8Array [
   59,
   255,
   255,
@@ -71,7 +71,7 @@ ArrayBuffer [
 `;
 
 exports[`cbor encode basic types: string 1`] = `
-ArrayBuffer [
+Uint8Array [
   109,
   72,
   101,
@@ -90,31 +90,31 @@ ArrayBuffer [
 `;
 
 exports[`cbor encode basic types: undefined 1`] = `
-ArrayBuffer [
+Uint8Array [
   247,
 ]
 `;
 
 exports[`cbor encode basic types: null 1`] = `
-ArrayBuffer [
+Uint8Array [
   246,
 ]
 `;
 
 exports[`cbor encode basic types: true 1`] = `
-ArrayBuffer [
+Uint8Array [
   245,
 ]
 `;
 
 exports[`cbor encode basic types: false 1`] = `
-ArrayBuffer [
+Uint8Array [
   244,
 ]
 `;
 
 exports[`cbor encode basic types: map 1`] = `
-ArrayBuffer [
+Uint8Array [
   161,
   99,
   107,
@@ -130,7 +130,7 @@ ArrayBuffer [
 `;
 
 exports[`cbor encode basic types: object 1`] = `
-ArrayBuffer [
+Uint8Array [
   161,
   99,
   107,
@@ -146,7 +146,7 @@ ArrayBuffer [
 `;
 
 exports[`cbor encode basic types: array 1`] = `
-ArrayBuffer [
+Uint8Array [
   130,
   24,
   123,
@@ -158,7 +158,7 @@ ArrayBuffer [
 `;
 
 exports[`cbor encode basic types: uint8array 1`] = `
-ArrayBuffer [
+Uint8Array [
   67,
   1,
   2,
@@ -167,7 +167,7 @@ ArrayBuffer [
 `;
 
 exports[`cbor encode basic types: arraybuffer 1`] = `
-ArrayBuffer [
+Uint8Array [
   67,
   1,
   2,
@@ -176,7 +176,7 @@ ArrayBuffer [
 `;
 
 exports[`cbor encode/decode: encoded input 1`] = `
-ArrayBuffer [
+Uint8Array [
   175,
   102,
   112,
