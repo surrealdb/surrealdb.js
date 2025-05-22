@@ -1,6 +1,6 @@
 {
 	"name": "surrealdb.js",
-	"version": "1.3.2",
+	"version": "2.0.0-beta.1",
 	"private": true,
 	"packageManager": "^bun@1.1.17",
 	"workspaces": ["packages/*"],
