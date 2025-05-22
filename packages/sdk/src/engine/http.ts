@@ -134,6 +134,6 @@ export class HttpEngine implements SurrealEngine {
 			...request,
 		});
 
-		return this.#context.decode<RpcResponse<Result>>(buffer);
+		return this.#context.decode<RpcResponse<Result>>(new Uint8Array(buffer));
 	}
 }

@@ -7,7 +7,7 @@ export async function postEndpoint(
 	body: unknown,
 	url?: URL,
 	headers?: Record<string, string>,
-): Promise<ArrayBuffer> {
+): Promise<Uint8Array> {
 	const endpoint = new URL(url ?? state.url);
 	const headerMap: Record<string, string> = {
 		"Content-Type": "application/cbor",
@@ -38,7 +38,7 @@ export async function postEndpoint(
 	const buffer = await raw.arrayBuffer();
 
 	if (raw.status === 200) {
-		return buffer;
+		return new Uint8Array(buffer);
 	}
 
 	const dec = new TextDecoder("utf-8");

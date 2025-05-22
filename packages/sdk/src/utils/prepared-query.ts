@@ -54,7 +54,7 @@ export class PreparedQuery {
 	 *
 	 * @param fills The gap values to fill
 	 */
-	build(fills?: Fill[]): ArrayBuffer {
+	build(fills?: Fill[]): Uint8Array {
 		return encode([this.query, this.bindings], { fills });
 	}
 

@@ -261,20 +261,17 @@ export class WebSocketEngine implements SurrealEngine {
 		});
 	}
 
-	private async parseBuffer(data: unknown) {
-		if (data instanceof ArrayBuffer) {
+	private async parseBuffer(data: unknown): Promise<Uint8Array> {
+		if (data instanceof Uint8Array) {
 			return data;
 		}
 
-		if (data instanceof Blob) {
-			return await data.arrayBuffer();
+		if (data instanceof ArrayBuffer) {
+			return new Uint8Array(data);
 		}
 
-		if (data instanceof Uint8Array) {
-			return data.buffer.slice(
-				data.byteOffset,
-				data.byteOffset + data.byteLength,
-			);
+		if (data instanceof Blob) {
+			return await data.bytes();
 		}
 
 		throw new UnexpectedServerResponse(data);
