@@ -55,4 +55,14 @@ describe("connection", async () => {
 		await surreal.close();
 		expect(surreal.status).toBe("disconnected");
 	});
+
+	test("access token", async () => {
+		const surreal = await createSurreal({
+			unselected: true,
+		});
+
+		await surreal.ready;
+
+		expect(surreal.accessToken).toBeString();
+	});
 });

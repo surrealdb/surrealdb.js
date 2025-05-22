@@ -116,6 +116,20 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	}
 
 	/**
+	 * Returns the currently used authentication access token
+	 */
+	get accessToken(): string | undefined {
+		return this.#connection.state?.accessToken;
+	}
+
+	/**
+	 * Returns the parameters currently defined on the connection
+	 */
+	get parameters(): Record<string, unknown> {
+		return this.#connection.state?.variables ?? {};
+	}
+
+	/**
 	 * Returns the status of the connection
 	 */
 	get status(): ConnectionStatus {
