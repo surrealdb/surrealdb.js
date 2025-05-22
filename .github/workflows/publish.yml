@@ -8,6 +8,8 @@ jobs:
   check:
     name: Check
     uses: ./.github/workflows/check.yml
+    permissions:
+      contents: read
 
   versions:
     name: Version check
