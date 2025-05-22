@@ -26,5 +26,5 @@ export function infiniteBytes(r: Reader, forMajor: Major): ArrayBuffer {
 		w.writeUint8Array(r.readBytes(Number(r.readMajorLength(len))));
 	}
 
-	return w.buffer;
+	return w.buffer.buffer;
 }

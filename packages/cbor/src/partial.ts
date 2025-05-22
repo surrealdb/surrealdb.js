@@ -6,14 +6,17 @@ import { Writer } from "./writer";
 
 export class PartiallyEncoded {
 	constructor(
-		readonly chunks: [Uint8Array, Gap][],
-		readonly end: Uint8Array,
+		readonly chunks: [Uint8Array<ArrayBuffer>, Gap][],
+		readonly end: Uint8Array<ArrayBuffer>,
 		readonly replacer: Replacer | undefined,
 	) {}
 
-	build(fills: Fill[], partial?: false): Uint8Array;
+	build(fills: Fill[], partial?: false): Uint8Array<ArrayBuffer>;
 	build(fills: Fill[], partial: true): PartiallyEncoded;
-	build(fills: Fill[], partial?: boolean): PartiallyEncoded | Uint8Array {
+	build(
+		fills: Fill[],
+		partial?: boolean,
+	): PartiallyEncoded | Uint8Array<ArrayBuffer> {
 		const writer = new Writer();
 		const map = new Map(fills);
 
