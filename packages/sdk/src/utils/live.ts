@@ -1,6 +1,12 @@
 import type { ConnectionController } from "../controller";
 import { ConnectionUnavailable, SurrealError } from "../errors";
-import type { LiveHandler, LiveResource, RpcResponse } from "../types";
+import type {
+	LiveHandler,
+	LivePayload,
+	LiveResource,
+	LiveResult,
+	RpcResponse,
+} from "../types";
 import type { Uuid } from "../value";
 
 /**
@@ -44,16 +50,59 @@ export abstract class LiveSubscription {
 	 */
 	abstract kill(): Promise<RpcResponse<unknown>>;
 
-	// /**
-	//  * Iterate over the live subscription using an async iterator
-	//  */
-	// iterate(): AsyncIterator<LivePayload> {
-	// 	throw new Error("Not implemented");
-	// }
+	/**
+	 * Iterate over the live subscription using an async iterator
+	 */
+	iterate<Result extends LiveResult = Record<string, unknown>>(): AsyncIterator<
+		LivePayload<Result>
+	> {
+		const queue: LivePayload<Result>[] = [];
+		const waiters: (() => void)[] = [];
 
-	// [Symbol.asyncIterator](): AsyncIterator<LivePayload> {
-	// 	return this.iterate();
-	// }
+		const close = this.subscribe((...args) => {
+			if (args[0] === "CLOSED" && this.isAlive) return;
+
+			queue.push(args as LivePayload<Result>);
+			const waiter = waiters.shift();
+			if (waiter) waiter();
+		});
+
+		async function poll(): Promise<LivePayload<Result>> {
+			let value = queue.shift();
+			if (value) return value;
+
+			const { promise, resolve } = Promise.withResolvers();
+			waiters.push(resolve);
+			await promise;
+
+			value = queue.shift();
+			if (!value)
+				throw new Error("A notification was promised, but none was received");
+			return value;
+		}
+
+		return {
+			next: async (): Promise<IteratorResult<LivePayload<Result>>> => {
+				const value = await poll();
+				return {
+					value,
+					done: value[0] === "CLOSED",
+				};
+			},
+
+			return: async () => {
+				close();
+				while (waiters.length) waiters.shift()?.(); // clean up
+				return { done: true, value: undefined };
+			},
+		};
+	}
+
+	[Symbol.asyncIterator]<
+		Result extends LiveResult = Record<string, unknown>,
+	>(): AsyncIterator<LivePayload<Result>> {
+		return this.iterate<Result>();
+	}
 }
 
 /**
@@ -115,6 +164,10 @@ export class ManagedLiveSubscription extends LiveSubscription {
 
 	public kill(): Promise<RpcResponse<unknown>> {
 		this.#killed = true;
+		for (const listener of this.#listeners) {
+			listener("CLOSED", "KILLED");
+		}
+
 		this.#listeners.clear();
 		this.#cleanup?.();
 		this.#reconnector();
@@ -142,12 +195,18 @@ export class ManagedLiveSubscription extends LiveSubscription {
 		this.#currentId = response.result;
 		this.#cleanup = this.#controller.liveSubscribe(
 			response.result,
-			(action, result, id) => {
+			(...args) => {
 				for (const listener of this.#listeners) {
-					listener(action, result, id);
+					listener(...args);
 				}
 			},
 		);
+
+		this.#controller.subscribe("disconnected", () => {
+			for (const listener of this.#listeners) {
+				listener("CLOSED", "DISCONNECTED");
+			}
+		});
 	}
 }
 
@@ -172,9 +231,15 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
 			throw new ConnectionUnavailable();
 		}
 
-		this.#cleanup = this.#controller.liveSubscribe(id, (action, result, id) => {
+		this.#cleanup = this.#controller.liveSubscribe(id, (...args) => {
 			for (const listener of this.#listeners) {
-				listener(action, result, id);
+				listener(...args);
+			}
+		});
+
+		this.#controller.subscribe("disconnected", () => {
+			for (const listener of this.#listeners) {
+				listener("CLOSED", "DISCONNECTED");
 			}
 		});
 	}
@@ -205,6 +270,10 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
 
 	public kill(): Promise<RpcResponse<unknown>> {
 		this.#killed = true;
+		for (const listener of this.#listeners) {
+			listener("CLOSED", "KILLED");
+		}
+
 		this.#listeners.clear();
 		this.#cleanup();
 

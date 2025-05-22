@@ -191,4 +191,105 @@ describe("live() / liveOf()", async () => {
 
 		await subscription.kill();
 	});
+
+	test("iterator", async () => {
+		const subscription = await surreal.live(personTable);
+		const iterator = subscription.iterate();
+
+		await surreal.create(new RecordId("person", 5), {
+			firstname: "John",
+			lastname: "Doe",
+		});
+
+		await surreal.merge(new RecordId("person", 5), {
+			firstname: "Mary",
+		});
+
+		await surreal.delete(new RecordId("person", 5));
+
+		expect(await iterator.next()).toEqual({
+			done: false,
+			value: [
+				"CREATE",
+				{
+					id: new RecordId("person", 5),
+					firstname: "John",
+					lastname: "Doe",
+				},
+				new RecordId("person", 5),
+			],
+		});
+		expect(await iterator.next()).toEqual({
+			done: false,
+			value: [
+				"UPDATE",
+				{
+					id: new RecordId("person", 5),
+					firstname: "Mary",
+					lastname: "Doe",
+				},
+				new RecordId("person", 5),
+			],
+		});
+		expect(await iterator.next()).toEqual({
+			done: false,
+			value: [
+				"DELETE",
+				{
+					id: new RecordId("person", 5),
+					firstname: "Mary",
+					lastname: "Doe",
+				},
+				new RecordId("person", 5),
+			],
+		});
+
+		await subscription.kill();
+
+		expect(await iterator.next()).toEqual({
+			done: true,
+			value: ["CLOSED", "KILLED"],
+		});
+	});
+
+	test("iterator survives reconnect", async () => {
+		const subscription = await surreal.live(personTable);
+		const iterator = subscription.iterate();
+		const initialId = subscription.id;
+
+		// Restart server and wait for reconnection
+		await kill();
+		await spawn();
+		await surreal.ready;
+
+		// Make sure we obtained a new live id
+		expect(initialId).not.toEqual(subscription.id);
+
+		await surreal.create(new RecordId("person", 6), {
+			firstname: "John",
+			lastname: "Doe",
+		});
+
+		expect(await iterator.next()).toEqual({
+			done: false,
+			value: [
+				"CREATE",
+				{
+					id: new RecordId("person", 6),
+					firstname: "John",
+					lastname: "Doe",
+				},
+				new RecordId("person", 6),
+			],
+		});
+
+		subscription.kill();
+
+		expect(await iterator.next()).toEqual({
+			done: true,
+			value: ["CLOSED", "KILLED"],
+		});
+
+		expect(subscription.isAlive).toBeFalse();
+	});
 });

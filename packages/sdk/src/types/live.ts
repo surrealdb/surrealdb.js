@@ -12,13 +12,24 @@ export type LiveMessage = {
 	result: Record<string, unknown>;
 };
 
-export type LivePayload<
-	Result extends Record<string, unknown> | Patch = Record<string, unknown>,
-> = [action: LiveAction, result: Result, id: RecordId];
+export type LiveResult = Record<string, unknown> | Patch;
 
-export type LiveHandler<
-	Result extends Record<string, unknown> | Patch = Record<string, unknown>,
-> = (...[action, result]: LivePayload<Result>) => unknown;
+export type LivePayload<Result extends LiveResult = Record<string, unknown>> =
+	| LivePayloadUpdate<Result>
+	| LivePayloadClosed;
+
+export type LivePayloadUpdate<
+	Result extends LiveResult = Record<string, unknown>,
+> = [action: Exclude<LiveAction, "KILLED">, result: Result, id: RecordId];
+
+export type LivePayloadClosed = [
+	action: "CLOSED",
+	reason: "KILLED" | "DISCONNECTED",
+];
+
+export type LiveHandler<Result extends LiveResult = Record<string, unknown>> = (
+	...[action, result]: LivePayload<Result>
+) => unknown;
 
 export function isLiveMessage(v: unknown): v is LiveMessage {
 	if (typeof v !== "object") return false;

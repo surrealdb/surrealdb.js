@@ -356,11 +356,15 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 	}
 
 	private onLiveMessage(msg: LiveMessage): void {
-		this.#livePublisher.publish(
-			msg.id.toString(),
-			msg.action,
-			msg.result,
-			msg.record,
-		);
+		if (msg.action === "KILLED") {
+			this.#livePublisher.publish(msg.id.toString(), "CLOSED", "KILLED");
+		} else {
+			this.#livePublisher.publish(
+				msg.id.toString(),
+				msg.action,
+				msg.result,
+				msg.record,
+			);
+		}
 	}
 }
