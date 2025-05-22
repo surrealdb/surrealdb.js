@@ -1,7 +1,12 @@
 import { parseArgs } from "node:util";
 import { createLogger } from "scripts/utils/logger";
-import { PACKAGES, resolvePackage } from "scripts/utils/package";
+import {
+	PACKAGES,
+	readPackageJson,
+	resolvePackage,
+} from "scripts/utils/package";
 import { publishJSR, publishNPM } from "./publish";
+import { extractVersionChannel } from "./channel";
 
 const logger = createLogger("publish");
 
@@ -10,9 +15,9 @@ const { positionals, values } = parseArgs({
 	allowPositionals: true,
 	options: {
 		"dry-run": {
-			type: "boolean"
+			type: "boolean",
 		},
-	}
+	},
 });
 
 const target = positionals[0];
@@ -29,30 +34,34 @@ if (target === "all") {
 	}
 } else {
 	if (!PACKAGES.includes(target)) {
-		logger.error(`Invalid target specified. Available targets are: ${PACKAGES.join(", ")}`);
+		logger.error(
+			`Invalid target specified. Available targets are: ${PACKAGES.join(", ")}`,
+		);
 		process.exit(1);
 	}
-	
+
 	await publishPackage(target);
 }
 
 async function publishPackage(name: string): Promise<void> {
 	const pkg = resolvePackage(name);
+	const { version } = await readPackageJson(pkg);
+	const channel = extractVersionChannel(version);
 
 	// Dry run to check if the package can be published
 	await publishJSR(pkg, dryrun);
-	
+
 	if (dryrun) {
 		logger.success(`Verified JSR publish workflow for ${name}`);
 	} else {
 		logger.success(`Successfully published ${name} to JSR`);
 	}
 
-	await publishNPM(pkg, dryrun);
+	await publishNPM(pkg, dryrun, channel);
 
 	if (dryrun) {
-		logger.success(`Verified NPM publish workflow for ${name}`);
+		logger.success(`Verified NPM publish workflow for ${name} (${channel})`);
 	} else {
-		logger.success(`Successfully published ${name} to NPM`);
+		logger.success(`Successfully published ${name} to NPM (${channel})`);
 	}
 }

@@ -17,8 +17,12 @@ export async function publishJSR(pkg: string, dryrun: boolean): Promise<void> {
 	await task.exited;
 }
 
-export async function publishNPM(pkg: string, dryrun: boolean): Promise<void> {
-	const cmd = ["npm", "publish"];
+export async function publishNPM(
+	pkg: string,
+	dryrun: boolean,
+	channel: string,
+): Promise<void> {
+	const cmd = ["npm", "publish", "--tag", channel];
 
 	if (dryrun) {
 		cmd.push("--dry-run");
