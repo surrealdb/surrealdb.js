@@ -20,6 +20,7 @@ export class Writer {
 		this._buf = new ArrayBuffer(this.byteLength);
 		this._view = new DataView(this._buf);
 		this._byte = new Uint8Array(this._buf);
+		this._pos = 0;
 	}
 
 	get chunks(): [Uint8Array, Gap][] {
@@ -30,25 +31,22 @@ export class Writer {
 		return this._byte.subarray(0, this._pos);
 	}
 
-	ensure(length: number): void {
-		const needed = this._pos + length;
-		if (needed <= this._buf.byteLength) return;
+	private claim(length: number): number {
+		const pos = this._pos;
+		this._pos += length;
+
+		if (this._pos <= this._buf.byteLength) return pos;
 
 		// Resize with exponential growth
 		let newLen = this._buf.byteLength << 1;
-		while (newLen < needed) newLen <<= 1;
+		while (newLen < this._pos) newLen <<= 1;
 
 		const oldb = this._byte;
 		this._buf = new ArrayBuffer(newLen);
 		this._view = new DataView(this._buf);
 		this._byte = new Uint8Array(this._buf);
 		this._byte.set(oldb);
-	}
 
-	private claim(length: number): number {
-		this.ensure(length);
-		const pos = this._pos;
-		this._pos += length;
 		return pos;
 	}
 
