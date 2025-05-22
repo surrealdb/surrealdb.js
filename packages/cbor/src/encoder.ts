@@ -15,10 +15,7 @@ export interface EncoderOptions<Partial extends boolean = boolean> {
 	fills?: Fill[];
 }
 
-function encode(
-	input: unknown,
-	options?: EncoderOptions<false>,
-): Uint8Array<ArrayBuffer>;
+function encode(input: unknown, options?: EncoderOptions<false>): Uint8Array;
 function encode(
 	input: unknown,
 	options?: EncoderOptions<true>,
@@ -26,7 +23,7 @@ function encode(
 function encode(
 	input: unknown,
 	options: EncoderOptions = {},
-): PartiallyEncoded | Uint8Array<ArrayBuffer> {
+): PartiallyEncoded | Uint8Array {
 	const w = options.writer ?? new Writer();
 	const fillsMap = new Map(options.fills ?? []);
 

@@ -3,11 +3,11 @@ import type { Gap } from "./gap";
 import { PartiallyEncoded } from "./partial";
 
 export class Writer {
-	private _chunks: [Uint8Array<ArrayBuffer>, Gap][] = [];
+	private _chunks: [Uint8Array, Gap][] = [];
 	private _pos = 0;
 	private _buf: ArrayBuffer;
 	private _view: DataView;
-	private _byte: Uint8Array<ArrayBuffer>;
+	private _byte: Uint8Array;
 
 	constructor(readonly byteLength = 256) {
 		this._buf = new ArrayBuffer(this.byteLength);
@@ -23,11 +23,11 @@ export class Writer {
 		this._pos = 0;
 	}
 
-	get chunks(): [Uint8Array<ArrayBuffer>, Gap][] {
+	get chunks(): [Uint8Array, Gap][] {
 		return this._chunks;
 	}
 
-	get buffer(): Uint8Array<ArrayBuffer> {
+	get buffer(): Uint8Array {
 		return this._byte.subarray(0, this._pos);
 	}
 
@@ -133,12 +133,9 @@ export class Writer {
 		}
 	}
 
-	output(partial?: false, replacer?: Replacer): Uint8Array<ArrayBuffer>;
+	output(partial?: false, replacer?: Replacer): Uint8Array;
 	output(partial: true, replacer?: Replacer): PartiallyEncoded;
-	output(
-		partial = false,
-		replacer?: Replacer,
-	): Uint8Array<ArrayBuffer> | PartiallyEncoded {
+	output(partial = false, replacer?: Replacer): Uint8Array | PartiallyEncoded {
 		if (partial) {
 			return new PartiallyEncoded(this._chunks, this.buffer, replacer);
 		}
