@@ -48,6 +48,7 @@ function encode(
 					}
 				} else {
 					// Better precision when encoded as 64-bit
+					w.ensure(9);
 					w.writeUint8(0xfb);
 					w.writeFloat64(input);
 				}
@@ -69,6 +70,8 @@ function encode(
 
 			case "string": {
 				const encoded = textEncoder.encode(input);
+				// writeMajor uses up to 9, then also claim for the encoded string's length
+				w.ensure(9 + encoded.byteLength);
 				w.writeMajor(3, encoded.byteLength);
 				w.writeUint8Array(encoded);
 				return;
@@ -134,6 +137,8 @@ function encode(
 					input instanceof ArrayBuffer
 				) {
 					const v = input instanceof Uint8Array ? input : new Uint8Array(input);
+					// writeMajor uses up to 9, then also claim for the buffers length
+					w.ensure(9 + v.byteLength);
 					w.writeMajor(2, v.byteLength);
 					w.writeUint8Array(v);
 					return;
