@@ -32,7 +32,8 @@ function decodeValue(r: Reader, options: DecodeOptions): any {
 		}
 		case 2: {
 			if (len !== 31)
-				return r.readBytes(Number(r.readMajorLength(len))).slice().buffer;
+				return new Uint8Array(r.readBytes(Number(r.readMajorLength(len))))
+					.buffer;
 			return infiniteBytes(r, 2);
 		}
 		case 3: {
