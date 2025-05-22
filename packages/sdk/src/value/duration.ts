@@ -68,8 +68,16 @@ export class Duration extends Value {
 			this.#nanoseconds = ns;
 		} else {
 			// Construct from tuple [seconds, nanoseconds]
-			const s = BigInt(input[0] ?? 0);
-			const ns = BigInt(input[1] ?? 0);
+			const s =
+				typeof input[0] === "bigint"
+					? input[0]
+					: BigInt(Math.floor(input[0] ?? 0));
+
+			const ns =
+				typeof input[1] === "bigint"
+					? input[1]
+					: BigInt(Math.floor(input[1] ?? 0));
+
 			const total = s * SECOND + ns;
 			// Normalize total into separate seconds and nanoseconds fields
 			this.#seconds = total / SECOND;
@@ -86,7 +94,7 @@ export class Duration extends Value {
 		| [number | bigint, number | bigint]
 		| [number | bigint]
 		| []): Duration {
-		return new Duration([s ?? 0, ns ?? 0]);
+		return new Duration([s ?? 0n, ns ?? 0n]);
 	}
 
 	/**
@@ -234,7 +242,8 @@ export class Duration extends Value {
 	 * @returns {Duration} The resulting duration
 	 */
 	mul(factor: number | bigint): Duration {
-		const factorBig = BigInt(factor);
+		const factorBig =
+			typeof factor === "bigint" ? factor : BigInt(Math.floor(factor));
 		const totalNs = this.#seconds * SECOND + this.#nanoseconds;
 		const resultNs = totalNs * factorBig;
 		return new Duration([resultNs / SECOND, resultNs % SECOND]);
@@ -254,7 +263,8 @@ export class Duration extends Value {
 			if (b === 0n) throw new SurrealError("Division by zero duration");
 			return a / b;
 		}
-		const divisorBig = BigInt(divisor);
+		const divisorBig =
+			typeof divisor === "bigint" ? divisor : BigInt(Math.floor(divisor));
 		if (divisorBig === 0n) throw new SurrealError("Division by zero");
 		const totalNs = this.#seconds * SECOND + this.#nanoseconds;
 		const resultNs = totalNs / divisorBig;
@@ -336,8 +346,8 @@ export class Duration extends Value {
 	 * @returns {Duration} The resulting duration
 	 */
 	static nanoseconds(ns: number | bigint): Duration {
-		const total = BigInt(ns);
-		return new Duration([total / SECOND, total % SECOND]);
+		const n = typeof ns === "bigint" ? ns : BigInt(Math.floor(ns));
+		return new Duration([n / SECOND, n % SECOND]);
 	}
 
 	/**
@@ -346,7 +356,8 @@ export class Duration extends Value {
 	 * @returns {Duration} The resulting duration
 	 */
 	static microseconds(µs: number | bigint): Duration {
-		return Duration.nanoseconds(BigInt(µs) * MICROSECOND);
+		const n = typeof µs === "bigint" ? µs : BigInt(Math.floor(µs));
+		return Duration.nanoseconds(n * MICROSECOND);
 	}
 
 	/**
@@ -355,7 +366,8 @@ export class Duration extends Value {
 	 * @returns {Duration} The resulting duration
 	 */
 	static milliseconds(ms: number | bigint): Duration {
-		return Duration.nanoseconds(BigInt(ms) * MILLISECOND);
+		const n = typeof ms === "bigint" ? ms : BigInt(Math.floor(ms));
+		return Duration.nanoseconds(n * MILLISECOND);
 	}
 
 	/**
@@ -364,7 +376,8 @@ export class Duration extends Value {
 	 * @returns {Duration} The resulting duration
 	 */
 	static seconds(s: number | bigint): Duration {
-		return new Duration([BigInt(s), 0n]);
+		const n = typeof s === "bigint" ? s : BigInt(Math.floor(s));
+		return new Duration([n, 0n]);
 	}
 
 	/**
@@ -373,7 +386,8 @@ export class Duration extends Value {
 	 * @returns {Duration} The resulting duration
 	 */
 	static minutes(m: number | bigint): Duration {
-		return new Duration([BigInt(m) * (MINUTE / SECOND), 0n]);
+		const n = typeof m === "bigint" ? m : BigInt(Math.floor(m));
+		return new Duration([n * (MINUTE / SECOND), 0n]);
 	}
 
 	/**
@@ -382,7 +396,8 @@ export class Duration extends Value {
 	 * @returns {Duration} The resulting duration
 	 */
 	static hours(h: number | bigint): Duration {
-		return new Duration([BigInt(h) * (HOUR / SECOND), 0n]);
+		const n = typeof h === "bigint" ? h : BigInt(Math.floor(h));
+		return new Duration([n * (HOUR / SECOND), 0n]);
 	}
 
 	/**
@@ -391,7 +406,8 @@ export class Duration extends Value {
 	 * @returns {Duration} The resulting duration
 	 */
 	static days(d: number | bigint): Duration {
-		return new Duration([BigInt(d) * (DAY / SECOND), 0n]);
+		const n = typeof d === "bigint" ? d : BigInt(Math.floor(d));
+		return new Duration([n * (DAY / SECOND), 0n]);
 	}
 
 	/**
@@ -400,6 +416,7 @@ export class Duration extends Value {
 	 * @returns {Duration} The resulting duration
 	 */
 	static weeks(w: number | bigint): Duration {
-		return new Duration([BigInt(w) * (WEEK / SECOND), 0n]);
+		const n = typeof w === "bigint" ? w : BigInt(Math.floor(w));
+		return new Duration([n * (WEEK / SECOND), 0n]);
 	}
 }
