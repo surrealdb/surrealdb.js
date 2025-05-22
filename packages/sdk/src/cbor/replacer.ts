@@ -1,4 +1,4 @@
-import { Tagged, decode, encode, type Replacer } from "@surrealdb/cbor";
+import { type Replacer, Tagged, decode, encode } from "@surrealdb/cbor";
 import { BoundExcluded, BoundIncluded } from "../utils/range";
 import {
 	Decimal,
