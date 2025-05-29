@@ -1,3 +1,5 @@
+import type { RpcErrorResponse } from "./types";
+
 export class SurrealError extends Error {}
 
 /**
@@ -178,6 +180,19 @@ export class AuthenticationFailed extends SurrealError {
 	constructor(cause: unknown) {
 		super();
 		this.cause = cause;
+	}
+}
+
+/**
+ * Thrown when a live subscription fails to listen
+ */
+export class LiveSubscriptionFailed extends SurrealError {
+	name = "LiveSubscriptionFailed";
+	message = "Live subscription failed to listen";
+
+	constructor(public readonly response: RpcErrorResponse) {
+		super();
+		this.message = response.error.message;
 	}
 }
 

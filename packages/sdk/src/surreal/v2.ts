@@ -320,7 +320,12 @@ export class SurrealV2 implements EventPublisher<SurrealV2Events> {
 	 */
 	async live(what: LiveResource, diff?: boolean): Promise<LiveSubscription> {
 		await this.ready;
-		return new ManagedLiveSubscription(this.#connection, what, diff ?? false);
+		return new ManagedLiveSubscription(
+			this.#publisher,
+			this.#connection,
+			what,
+			diff ?? false,
+		);
 	}
 
 	/**

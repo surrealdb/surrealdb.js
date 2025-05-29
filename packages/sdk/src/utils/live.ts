@@ -1,5 +1,5 @@
 import type { ConnectionController } from "../controller";
-import { ConnectionUnavailable, SurrealError } from "../errors";
+import { ConnectionUnavailable, LiveSubscriptionFailed } from "../errors";
 import type {
 	LiveHandler,
 	LivePayload,
@@ -8,6 +8,11 @@ import type {
 	RpcResponse,
 } from "../types";
 import type { Uuid } from "../value";
+import type { Publisher } from "./publisher";
+
+type ErrorPublisher = Publisher<{
+	error: [Error];
+}>;
 
 /**
  * Represents a subscription to a LIVE SELECT query
@@ -116,15 +121,18 @@ export class ManagedLiveSubscription extends LiveSubscription {
 	#diff: boolean;
 	#killed = false;
 	#cleanup: (() => void) | undefined;
+	#publisher: ErrorPublisher;
 	#reconnector: () => void;
 	#listeners: Set<LiveHandler> = new Set();
 
 	constructor(
+		publisher: ErrorPublisher,
 		controller: ConnectionController,
 		resource: LiveResource,
 		diff: boolean,
 	) {
 		super();
+		this.#publisher = publisher;
 		this.#controller = controller;
 		this.#resource = resource;
 		this.#diff = diff;
@@ -187,9 +195,8 @@ export class ManagedLiveSubscription extends LiveSubscription {
 		});
 
 		if (response.error) {
-			throw new SurrealError(
-				`Failed to subscribe to live updates: ${response.error.message}`,
-			);
+			this.#publisher.publish("error", new LiveSubscriptionFailed(response));
+			return;
 		}
 
 		this.#currentId = response.result;
