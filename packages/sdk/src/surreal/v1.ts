@@ -40,6 +40,7 @@ export type SurrealV1Events = {
 	reconnecting: [];
 	disconnected: [];
 	error: [Error];
+	token: [Token];
 };
 
 /**
@@ -81,6 +82,10 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 
 		this.#connection.subscribe("error", (error) =>
 			this.#publisher.publish("error", error),
+		);
+
+		this.#connection.subscribe("token", (token) =>
+			this.#publisher.publish("token", token),
 		);
 	}
 

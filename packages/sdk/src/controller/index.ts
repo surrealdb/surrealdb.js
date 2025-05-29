@@ -15,6 +15,7 @@ import type {
 	RpcRequest,
 	RpcResponse,
 	SurrealEngine,
+	Token,
 } from "../types";
 
 import {
@@ -26,6 +27,7 @@ import {
 
 import { HttpEngine, WebSocketEngine } from "../engine";
 import { ReconnectContext } from "../internal/reconnect";
+import { fastParseJwt } from "../internal/tokens";
 import { versionCheck } from "../utils";
 import { Publisher } from "../utils/publisher";
 import type { Uuid } from "../value";
@@ -43,6 +45,7 @@ type ConnectionEvents = {
 	disconnected: [];
 	reconnecting: [];
 	error: [Error];
+	token: [Token];
 };
 
 type LiveChannels = Record<string, LivePayload>;
@@ -55,6 +58,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 	#engine: SurrealEngine | undefined;
 	#status: ConnectionStatus = "disconnected";
 	#authProvider: AuthProvider | undefined;
+	#authRenewal: ReturnType<typeof setTimeout> | undefined;
 	#checkVersion = true;
 
 	subscribe<K extends keyof ConnectionEvents>(
@@ -150,6 +154,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 			case "invalidate": {
 				this.#state.accessToken = undefined;
 				this.#state.refreshToken = undefined;
+				this.cancelAuthRenewal();
 				break;
 			}
 			case "reset": {
@@ -158,6 +163,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 				this.#state.namespace = undefined;
 				this.#state.database = undefined;
 				this.#state.variables = {};
+				this.cancelAuthRenewal();
 				break;
 			}
 		}
@@ -179,11 +185,13 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 						this.#state.refreshToken = result.refresh;
 					}
 
+					this.handleAuthUpdate();
 					break;
 				}
 				case "authenticate": {
 					const [token] = request.params as [string];
 					this.#state.accessToken = token;
+					this.handleAuthUpdate();
 					break;
 				}
 			}
@@ -348,6 +356,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		this.#engine = undefined;
 		this.#status = "disconnected";
 		this.#eventPublisher.publish("disconnected");
+		this.cancelAuthRenewal();
 	}
 
 	private onReconnecting(): void {
@@ -366,5 +375,52 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 				msg.record,
 			);
 		}
+	}
+
+	private handleAuthUpdate(): void {
+		if (!this.#state || !this.#state.accessToken) return;
+
+		this.cancelAuthRenewal();
+		this.#eventPublisher.publish("token", this.#state.accessToken);
+
+		const provider = this.#authProvider;
+
+		// Require auth callable
+		if (typeof provider !== "function") return;
+
+		const token = this.#state.accessToken;
+		const payload = fastParseJwt(token);
+
+		// Check expirey existance
+		if (!payload || !payload.exp) return;
+
+		// Renew 60 seconds before expiry
+		const now = Math.floor(Date.now() / 1000);
+		const delay = (payload.exp - now - 60) * 1000;
+
+		if (delay <= 0) return;
+
+		// Schedule next renewal
+		this.#authRenewal = setTimeout(async () => {
+			const auth = await provider();
+
+			if (typeof auth === "string") {
+				await this.rpc({
+					method: "authenticate",
+					params: [auth],
+				});
+			} else {
+				await this.rpc({
+					method: "signin",
+					params: [this.buildAuth(auth)],
+				});
+			}
+		}, delay);
+	}
+
+	private cancelAuthRenewal(): void {
+		if (this.#authRenewal === undefined) return;
+		clearTimeout(this.#authRenewal);
+		this.#authRenewal = undefined;
 	}
 }
