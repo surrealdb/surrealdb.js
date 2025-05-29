@@ -169,6 +169,19 @@ export class NoTokenReturned extends SurrealError {
 }
 
 /**
+ * Thrown when authentication fails
+ */
+export class AuthenticationFailed extends SurrealError {
+	name = "AuthenticationFailed";
+	message = "Authentication did not succeed";
+
+	constructor(cause: unknown) {
+		super();
+		this.cause = cause;
+	}
+}
+
+/**
  * Thrown when the version of the remote datastore is not supported
  */
 export class UnsupportedVersion extends SurrealError {

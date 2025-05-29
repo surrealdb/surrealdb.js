@@ -19,6 +19,7 @@ import type {
 } from "../types";
 
 import {
+	AuthenticationFailed,
 	ConnectionUnavailable,
 	SurrealError,
 	UnsupportedEngine,
@@ -329,22 +330,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 
 		// Apply authentication details
 		if (this.#authProvider) {
-			const auth =
-				typeof this.#authProvider === "function"
-					? await this.#authProvider()
-					: this.#authProvider;
-
-			if (typeof auth === "string") {
-				await this.rpc({
-					method: "authenticate",
-					params: [auth],
-				});
-			} else {
-				await this.rpc({
-					method: "signin",
-					params: [this.buildAuth(auth)],
-				});
-			}
+			await this.authenticate(this.#authProvider);
 		}
 
 		this.#status = "connected";
@@ -377,6 +363,26 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		}
 	}
 
+	private async authenticate(provider: AuthProvider): Promise<void> {
+		try {
+			const auth = typeof provider === "function" ? await provider() : provider;
+
+			if (typeof auth === "string") {
+				await this.rpc({
+					method: "authenticate",
+					params: [auth],
+				});
+			} else {
+				await this.rpc({
+					method: "signin",
+					params: [this.buildAuth(auth)],
+				});
+			}
+		} catch (err: unknown) {
+			this.#eventPublisher.publish("error", new AuthenticationFailed(err));
+		}
+	}
+
 	private handleAuthUpdate(): void {
 		if (!this.#state || !this.#state.accessToken) return;
 
@@ -401,20 +407,8 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		if (delay <= 0) return;
 
 		// Schedule next renewal
-		this.#authRenewal = setTimeout(async () => {
-			const auth = await provider();
-
-			if (typeof auth === "string") {
-				await this.rpc({
-					method: "authenticate",
-					params: [auth],
-				});
-			} else {
-				await this.rpc({
-					method: "signin",
-					params: [this.buildAuth(auth)],
-				});
-			}
+		this.#authRenewal = setTimeout(() => {
+			this.authenticate(provider);
 		}, delay);
 	}
 
