@@ -428,9 +428,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 
 		// Renew 60 seconds before expiry
 		const now = Math.floor(Date.now() / 1000);
-		const delay = Math.max(payload.exp - now - 60) * 1000;
-
-		if (delay <= 0) return;
+		const delay = Math.max((payload.exp - now - 60) * 1000, 0);
 
 		// Schedule next renewal or invalidation
 		this.#authRenewal = setTimeout(() => {
