@@ -41,7 +41,8 @@ export type SurrealV2Events = {
 	reconnecting: [];
 	disconnected: [];
 	error: [Error];
-	token: [Token];
+	authenticated: [Token];
+	invalidated: [];
 };
 
 /**
@@ -85,8 +86,12 @@ export class SurrealV2 implements EventPublisher<SurrealV2Events> {
 			this.#publisher.publish("error", error),
 		);
 
-		this.#connection.subscribe("token", (token) =>
-			this.#publisher.publish("token", token),
+		this.#connection.subscribe("authenticated", (token) =>
+			this.#publisher.publish("authenticated", token),
+		);
+
+		this.#connection.subscribe("invalidated", () =>
+			this.#publisher.publish("invalidated"),
 		);
 	}
 

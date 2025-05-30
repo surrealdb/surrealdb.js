@@ -61,6 +61,7 @@ type CreateSurrealOptions = {
 	reachable?: boolean;
 	unselected?: boolean;
 	reconnect?: boolean | Partial<ReconnectOptions>;
+	renewAccess?: boolean;
 };
 
 export async function setupServer(): Promise<{
@@ -95,6 +96,7 @@ export async function setupServer(): Promise<{
 		reachable,
 		unselected,
 		reconnect,
+		renewAccess,
 	}: CreateSurrealOptions = {}) {
 		const surreal = new SurrealV1();
 		const port = reachable === false ? SURREAL_PORT_UNREACHABLE : SURREAL_PORT;
@@ -106,6 +108,7 @@ export async function setupServer(): Promise<{
 					namespace: unselected ? undefined : SURREAL_NS,
 					database: unselected ? undefined : SURREAL_DB,
 					authentication: createAuth(auth ?? "root"),
+					renewAccess: renewAccess ?? false,
 					reconnect,
 				},
 			);

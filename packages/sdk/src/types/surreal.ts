@@ -56,6 +56,8 @@ export interface ConnectOptions {
 	database?: string;
 	/** Authentication details to use */
 	authentication?: AuthProvider;
+	/** Automatically attempt to renew access tokens @default true */
+	renewAccess?: boolean;
 	/** Automatically check for version compatibility on connect @default true */
 	versionCheck?: boolean;
 	/** Configure reconnect behavior for supported engines @default false */

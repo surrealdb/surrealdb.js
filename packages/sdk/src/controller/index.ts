@@ -46,10 +46,12 @@ type ConnectionEvents = {
 	disconnected: [];
 	reconnecting: [];
 	error: [Error];
-	token: [Token];
+	authenticated: [Token];
+	invalidated: [];
 };
 
 type LiveChannels = Record<string, LivePayload>;
+type ConvertedAuth = Record<string, unknown> | Token;
 
 export class ConnectionController implements EventPublisher<ConnectionEvents> {
 	#eventPublisher = new Publisher<ConnectionEvents>();
@@ -60,7 +62,9 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 	#status: ConnectionStatus = "disconnected";
 	#authProvider: AuthProvider | undefined;
 	#authRenewal: ReturnType<typeof setTimeout> | undefined;
+	#authCache: ConvertedAuth | undefined;
 	#checkVersion = true;
+	#renewAccess = true;
 
 	subscribe<K extends keyof ConnectionEvents>(
 		event: K,
@@ -89,6 +93,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		this.#engine = new Engine(this.#context);
 		this.#authProvider = options.authentication;
 		this.#checkVersion = options.versionCheck ?? true;
+		this.#renewAccess = options.renewAccess ?? true;
 		this.#state = {
 			url,
 			variables: {},
@@ -123,7 +128,10 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		Method extends string,
 		Params extends unknown[] | undefined,
 		Result,
-	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
+	>(
+		request: RpcRequest<Method, Params>,
+		skipAuthCache?: boolean,
+	): Promise<RpcResponse<Result>> {
 		if (!this.#state || !this.#engine) {
 			throw new ConnectionUnavailable();
 		}
@@ -152,21 +160,6 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 				delete this.#state.variables[key];
 				break;
 			}
-			case "invalidate": {
-				this.#state.accessToken = undefined;
-				this.#state.refreshToken = undefined;
-				this.cancelAuthRenewal();
-				break;
-			}
-			case "reset": {
-				this.#state.accessToken = undefined;
-				this.#state.refreshToken = undefined;
-				this.#state.namespace = undefined;
-				this.#state.database = undefined;
-				this.#state.variables = {};
-				this.cancelAuthRenewal();
-				break;
-			}
 		}
 
 		// Send the request to the underlying engine
@@ -186,13 +179,33 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 						this.#state.refreshToken = result.refresh;
 					}
 
+					if (!skipAuthCache) {
+						this.#authCache = request.params?.[0] as ConvertedAuth;
+					}
+
 					this.handleAuthUpdate();
 					break;
 				}
 				case "authenticate": {
 					const [token] = request.params as [string];
 					this.#state.accessToken = token;
+
+					if (!skipAuthCache) {
+						this.#authCache = request.params?.[0] as Token;
+					}
+
 					this.handleAuthUpdate();
+					break;
+				}
+				case "invalidate": {
+					this.handleAuthInvalidate();
+					break;
+				}
+				case "reset": {
+					this.#state.namespace = undefined;
+					this.#state.database = undefined;
+					this.#state.variables = {};
+					this.handleAuthInvalidate();
 					break;
 				}
 			}
@@ -329,9 +342,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		}
 
 		// Apply authentication details
-		if (this.#authProvider) {
-			await this.authenticate(this.#authProvider);
-		}
+		await this.internalAuth();
 
 		this.#status = "connected";
 		this.#eventPublisher.publish("connected");
@@ -363,21 +374,40 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		}
 	}
 
-	private async authenticate(provider: AuthProvider): Promise<void> {
-		try {
-			const auth = typeof provider === "function" ? await provider() : provider;
+	private async computeAuth(): Promise<ConvertedAuth | null> {
+		if (this.#authCache) {
+			return this.#authCache;
+		}
 
-			if (typeof auth === "string") {
-				await this.rpc({
-					method: "authenticate",
-					params: [auth],
-				});
-			} else {
-				await this.rpc({
-					method: "signin",
-					params: [this.buildAuth(auth)],
-				});
+		const provider = this.#authProvider;
+
+		if (!provider) {
+			return null;
+		}
+
+		const auth = typeof provider === "function" ? await provider() : provider;
+
+		if (typeof auth === "string") {
+			return auth;
+		}
+
+		return this.buildAuth(auth);
+	}
+
+	private async internalAuth(): Promise<void> {
+		try {
+			const auth = await this.computeAuth();
+
+			if (auth === null) {
+				return;
 			}
+
+			const request: RpcRequest =
+				typeof auth === "string"
+					? { method: "authenticate", params: [auth] }
+					: { method: "signin", params: [auth] };
+
+			await this.rpc(request, true);
 		} catch (err: unknown) {
 			this.#eventPublisher.publish("error", new AuthenticationFailed(err));
 		}
@@ -387,13 +417,9 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		if (!this.#state || !this.#state.accessToken) return;
 
 		this.cancelAuthRenewal();
-		this.#eventPublisher.publish("token", this.#state.accessToken);
+		this.#eventPublisher.publish("authenticated", this.#state.accessToken);
 
-		const provider = this.#authProvider;
-
-		// Require auth callable
-		if (typeof provider !== "function") return;
-
+		const renew = this.#renewAccess;
 		const token = this.#state.accessToken;
 		const payload = fastParseJwt(token);
 
@@ -402,14 +428,27 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 
 		// Renew 60 seconds before expiry
 		const now = Math.floor(Date.now() / 1000);
-		const delay = (payload.exp - now - 60) * 1000;
+		const delay = Math.max(payload.exp - now - 60) * 1000;
 
 		if (delay <= 0) return;
 
-		// Schedule next renewal
+		// Schedule next renewal or invalidation
 		this.#authRenewal = setTimeout(() => {
-			this.authenticate(provider);
+			if (renew) {
+				this.internalAuth();
+			} else {
+				this.handleAuthInvalidate();
+			}
 		}, delay);
+	}
+
+	private handleAuthInvalidate(): void {
+		if (!this.#state) return;
+		this.#state.accessToken = undefined;
+		this.#state.refreshToken = undefined;
+		this.#authCache = undefined;
+		this.cancelAuthRenewal();
+		this.#eventPublisher.publish("invalidated");
 	}
 
 	private cancelAuthRenewal(): void {
