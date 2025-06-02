@@ -8,6 +8,7 @@ export async function publishJSR(pkg: string, dryrun: boolean): Promise<void> {
 	const task = Bun.spawn(cmd, {
 		stdout: "inherit",
 		stderr: "inherit",
+		env: import.meta.env,
 		cwd: pkg,
 		async onExit(_, exitCode) {
 			if (exitCode !== 0) process.exit(exitCode);
@@ -22,7 +23,7 @@ export async function publishNPM(
 	dryrun: boolean,
 	channel: string,
 ): Promise<void> {
-	const cmd = ["npm", "publish", "--tag", channel];
+	const cmd = ["npm", "publish", "--access", "public", "--tag", channel];
 
 	if (dryrun) {
 		cmd.push("--dry-run");
@@ -33,6 +34,7 @@ export async function publishNPM(
 	const task = Bun.spawn(cmd, {
 		stdout: "inherit",
 		stderr: "inherit",
+		env: import.meta.env,
 		cwd: pkg,
 		async onExit(_, exitCode) {
 			if (exitCode !== 0) process.exit(exitCode);
