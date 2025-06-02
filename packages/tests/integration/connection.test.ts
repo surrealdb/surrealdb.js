@@ -65,4 +65,14 @@ describe("connection", async () => {
 
 		expect(surreal.accessToken).toBeString();
 	});
+
+	test("sequential connects", async () => {
+		const { connect } = createIdleSurreal();
+
+		await connect();
+		await connect();
+		await connect();
+		await connect();
+		await connect();
+	});
 });

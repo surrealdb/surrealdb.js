@@ -94,10 +94,10 @@ export class WebSocketEngine implements SurrealEngine {
 						}
 					}
 
-					this.#publisher.publish("disconnected");
 					this.#state = undefined;
 					this.#active = false;
 					this.#calls.clear();
+					this.#publisher.publish("disconnected");
 
 					break;
 				}
@@ -120,7 +120,7 @@ export class WebSocketEngine implements SurrealEngine {
 		this.#terminated = true;
 		this.#socket?.close();
 
-		if (this.#socket && this.#socket.readyState !== WebSocket.CLOSED) {
+		if (this.#active) {
 			await this.#publisher.subscribeFirst("disconnected");
 		}
 	}
