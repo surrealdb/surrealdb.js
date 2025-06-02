@@ -23,12 +23,10 @@ export async function publishNPM(
 	dryrun: boolean,
 	channel: string,
 ): Promise<void> {
-	const cmd = ["npm", "publish", "--access", "public", "--tag", channel];
+	const cmd = ["bun", "publish", "--access", "public", "--tag", channel];
 
 	if (dryrun) {
 		cmd.push("--dry-run");
-	} else {
-		cmd.push("--provenance");
 	}
 
 	const task = Bun.spawn(cmd, {
