@@ -24,6 +24,6 @@
 		}
 	},
 	"files": {
-		"ignore": ["dist/**", "npm/**"]
+		"ignore": ["dist/**", "npm/**", "scripts/**"]
 	}
 }

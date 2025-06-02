@@ -211,7 +211,7 @@ For Deno, no build is needed. For all other environments run
 
 ### Run tests for HTTP
 
-`SURREAL_PROTOCOL=http bun test`
+`SURREAL_DEFAULT_PROTOCOL=http bun test`
 
 ### PRs
 

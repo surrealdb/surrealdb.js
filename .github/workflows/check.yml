@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Checking Code Quality
+        run: bun run qc
+
+  test:
+    name: Check
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        surrealdb: ["v2.0.5", "v2.1.5", "v2.3.1"]
+        engine: ["ws", "http"]
+    steps:
+      - name: Install SurrealDB ${{ matrix.surrealdb }} over ${{ matrix.engine }} engine
+        run: curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --version ${{ matrix.surrealdb }}
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run tests
+        run: bun run test
+        env:
+          SURREAL_DEFAULT_PROTOCOL: ${{ matrix.engine }}
+
+  publish:
+    name: Verify publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Validate publishing
+        run: bun run publish all --dry-run
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

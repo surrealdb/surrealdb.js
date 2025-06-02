@@ -38,3 +38,4 @@ dist
 *.db
 test-db-*
 jsr.json
+.env
