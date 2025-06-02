@@ -1,6 +1,6 @@
 {
 	"name": "@surrealdb/cbor",
-	"version": "2.0.0-beta.1",
+	"version": "2.0.0-alpha.1",
 	"type": "module",
 	"license": "Apache-2.0",
 	"description": "CBOR encoder and decoder for SurrealDB.",

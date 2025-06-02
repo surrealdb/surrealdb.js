@@ -16,11 +16,11 @@
     },
     "packages/cbor": {
       "name": "@surrealdb/cbor",
-      "version": "2.0.0-beta.1",
+      "version": "2.0.0-alpha.1",
     },
     "packages/sdk": {
       "name": "surrealdb",
-      "version": "2.0.0-beta.1",
+      "version": "2.0.0-alpha.1",
       "dependencies": {
         "@surrealdb/cbor": "workspace:*",
         "uuidv7": "^1.0.1",
