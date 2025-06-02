@@ -268,6 +268,15 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 			throw new ConnectionUnavailable();
 		}
 
+		if ("key" in auth) {
+			return {
+				ns: auth.namespace,
+				db: auth.database,
+				ac: auth.access,
+				key: auth.key,
+			};
+		}
+
 		// Record user authentication
 		if ("variables" in auth) {
 			const namespace = auth.namespace ?? this.#state.namespace;

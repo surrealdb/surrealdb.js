@@ -24,6 +24,13 @@ export type AccessSystemAuth = {
 	access: string;
 };
 
+export type AccessBearerAuth = {
+	namespace?: string;
+	database?: string;
+	access: string;
+	key: string;
+};
+
 export type AccessRecordAuth = {
 	namespace?: string;
 	database?: string;
@@ -41,6 +48,7 @@ export type AnyAuth =
 	| NamespaceAuth
 	| DatabaseAuth
 	| AccessSystemAuth
+	| AccessBearerAuth
 	| AccessRecordAuth;
 
 export type Token = string;
