@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeAll, mock } from "bun:test";
+import { beforeAll, describe, expect, mock, test } from "bun:test";
 import { type AnyAuth, RecordId, ResponseError } from "surrealdb";
 import { createAuth, setupServer } from "./__helpers__";
 
