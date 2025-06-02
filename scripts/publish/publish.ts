@@ -1,5 +1,5 @@
 export async function publishJSR(pkg: string, dryrun: boolean): Promise<void> {
-	const cmd = ["bunx", "jsr", "publish"];
+	const cmd = ["bunx", "jsr", "publish", "--allow-dirty"];
 
 	if (dryrun) {
 		cmd.push("--dry-run");
