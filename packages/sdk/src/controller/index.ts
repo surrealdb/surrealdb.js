@@ -1,6 +1,8 @@
 import type {
 	AnyAuth,
+	AuthOrToken,
 	AuthProvider,
+	AuthRenewer,
 	AuthResponse,
 	ConnectOptions,
 	ConnectionState,
@@ -62,9 +64,8 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 	#status: ConnectionStatus = "disconnected";
 	#authProvider: AuthProvider | undefined;
 	#authRenewal: ReturnType<typeof setTimeout> | undefined;
-	#authCache: ConvertedAuth | undefined;
+	#renewAccess: AuthRenewer = false;
 	#checkVersion = true;
-	#renewAccess = true;
 
 	subscribe<K extends keyof ConnectionEvents>(
 		event: K,
@@ -128,10 +129,7 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		Method extends string,
 		Params extends unknown[] | undefined,
 		Result,
-	>(
-		request: RpcRequest<Method, Params>,
-		skipAuthCache?: boolean,
-	): Promise<RpcResponse<Result>> {
+	>(request: RpcRequest<Method, Params>): Promise<RpcResponse<Result>> {
 		if (!this.#state || !this.#engine) {
 			throw new ConnectionUnavailable();
 		}
@@ -179,20 +177,12 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 						this.#state.refreshToken = result.refresh;
 					}
 
-					if (!skipAuthCache) {
-						this.#authCache = request.params?.[0] as ConvertedAuth;
-					}
-
 					this.handleAuthUpdate();
 					break;
 				}
 				case "authenticate": {
 					const [token] = request.params as [string];
 					this.#state.accessToken = token;
-
-					if (!skipAuthCache) {
-						this.#authCache = request.params?.[0] as Token;
-					}
 
 					this.handleAuthUpdate();
 					break;
@@ -324,9 +314,9 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 	}
 
 	private async onConnected(): Promise<void> {
-		// Perform version check
-		if (this.#checkVersion) {
-			try {
+		try {
+			// Perform version check
+			if (this.#checkVersion) {
 				const version: RpcResponse<string> = await this.rpc({
 					method: "version",
 				});
@@ -336,25 +326,26 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 				} else {
 					throw new VersionCheckFailure(undefined, version.error);
 				}
-			} catch (err: unknown) {
-				this.#eventPublisher.publish("error", err as Error);
-				return;
 			}
+
+			// Apply selected namespace and database
+			if (this.#state?.namespace || this.#state?.database) {
+				await this.rpc({
+					method: "use",
+					params: [this.#state.namespace, this.#state.database],
+				});
+			}
+
+			// Apply authentication details
+			await this.applyAuthProvider();
+
+			this.#status = "connected";
+			this.#eventPublisher.publish("connected");
+		} catch (err: unknown) {
+			this.#eventPublisher.publish("error", err as Error);
+			this.#engine?.close();
+			return;
 		}
-
-		// Apply selected namespace and database
-		if (this.#state?.namespace || this.#state?.database) {
-			await this.rpc({
-				method: "use",
-				params: [this.#state.namespace, this.#state.database],
-			});
-		}
-
-		// Apply authentication details
-		await this.internalAuth();
-
-		this.#status = "connected";
-		this.#eventPublisher.publish("connected");
 	}
 
 	private onDisconnected(): void {
@@ -383,43 +374,22 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		}
 	}
 
-	private async computeAuth(): Promise<ConvertedAuth | null> {
-		if (this.#authCache) {
-			return this.#authCache;
-		}
+	private async applyAuthOrToken(auth: AuthOrToken): Promise<void> {
+		const request: RpcRequest =
+			typeof auth === "string"
+				? { method: "authenticate", params: [auth] }
+				: { method: "signin", params: [this.buildAuth(auth)] };
 
-		const provider = this.#authProvider;
-
-		if (!provider) {
-			return null;
-		}
-
-		const auth = typeof provider === "function" ? await provider() : provider;
-
-		if (typeof auth === "string") {
-			return auth;
-		}
-
-		return this.buildAuth(auth);
+		await this.rpc(request);
 	}
 
-	private async internalAuth(): Promise<void> {
-		try {
-			const auth = await this.computeAuth();
+	private async applyAuthProvider(): Promise<void> {
+		const provider = this.#authProvider;
+		if (!provider) return;
 
-			if (auth === null) {
-				return;
-			}
-
-			const request: RpcRequest =
-				typeof auth === "string"
-					? { method: "authenticate", params: [auth] }
-					: { method: "signin", params: [auth] };
-
-			await this.rpc(request, true);
-		} catch (err: unknown) {
-			this.#eventPublisher.publish("error", new AuthenticationFailed(err));
-		}
+		await this.applyAuthOrToken(
+			typeof provider === "function" ? await provider() : provider,
+		);
 	}
 
 	private handleAuthUpdate(): void {
@@ -428,7 +398,6 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 		this.cancelAuthRenewal();
 		this.#eventPublisher.publish("authenticated", this.#state.accessToken);
 
-		const renew = this.#renewAccess;
 		const token = this.#state.accessToken;
 		const payload = fastParseJwt(token);
 
@@ -441,19 +410,32 @@ export class ConnectionController implements EventPublisher<ConnectionEvents> {
 
 		// Schedule next renewal or invalidation
 		this.#authRenewal = setTimeout(() => {
-			if (renew) {
-				this.internalAuth();
-			} else {
-				this.handleAuthInvalidate();
-			}
+			this.renewAuth().catch((err) => {
+				this.#eventPublisher.publish("error", new AuthenticationFailed(err));
+			});
 		}, delay);
+	}
+
+	private async renewAuth(): Promise<void> {
+		if (this.#renewAccess === false) {
+			this.handleAuthInvalidate();
+			return;
+		}
+
+		if (this.#renewAccess === true) {
+			await this.applyAuthProvider();
+			return;
+		}
+
+		const auth = await this.#renewAccess();
+
+		await this.applyAuthOrToken(auth);
 	}
 
 	private handleAuthInvalidate(): void {
 		if (!this.#state) return;
 		this.#state.accessToken = undefined;
 		this.#state.refreshToken = undefined;
-		this.#authCache = undefined;
 		this.cancelAuthRenewal();
 		this.#eventPublisher.publish("invalidated");
 	}

@@ -1,6 +1,6 @@
 import type { decodeCbor, encodeCbor } from "../cbor";
 import type { ReconnectContext } from "../internal/reconnect";
-import type { AuthProvider } from "./auth";
+import type { AuthProvider, AuthRenewer } from "./auth";
 import type { ExportOptions } from "./export";
 import type { LiveMessage } from "./live";
 import type { EventPublisher } from "./publisher";
@@ -50,17 +50,46 @@ export interface DriverOptions {
  * Options used to customize a specific connection to a SurrealDB datastore
  */
 export interface ConnectOptions {
-	/** The namespace to connect to */
+	/**
+	 * The namespace to use for this connection.
+	 */
 	namespace?: string;
-	/** The database to connect to */
+	/**
+	 * The database to use for this connection.
+	 */
 	database?: string;
-	/** Authentication details to use */
+	/**
+	 * Authentication details to use when connecting to the datastore. You can provide a static value,
+	 * or a function which is called to retrieve the authentication details. Authentication details
+	 * may be requested on connect, reconnect, or when the access token expires.
+	 */
 	authentication?: AuthProvider;
-	/** Automatically attempt to renew access tokens @default true */
-	renewAccess?: boolean;
-	/** Automatically check for version compatibility on connect @default true */
+	/**
+	 * Automatically check for version compatibility on connect. When the version is not supported,
+	 * an error will be thrown and the connection will not be established.
+	 *
+	 * @default true
+	 */
 	versionCheck?: boolean;
-	/** Configure reconnect behavior for supported engines @default false */
+	/**
+	 * Configure automatic session renewal.
+	 *
+	 * - When set to `false`, the driver will invalidate the session when the access token expires.
+	 * - When set to `true`, the driver will renew the session using the configured `authentication` details.
+	 * - When set to a function, the function will be called to renew the session.
+	 *
+	 * @default true
+	 */
+	renewAccess?: AuthRenewer;
+	/**
+	 * Configure reconnect behavior for supported engines (WebSocket).
+	 *
+	 * - When set to `false`, the driver will remain disconnected after a connection is lost.
+	 * - When set to `true`, the driver will attempt to reconnect using default options.
+	 * - When set to an object, the driver will attempt to reconnect using the provided options.
+	 *
+	 * @default true
+	 */
 	reconnect?: boolean | Partial<ReconnectOptions>;
 }
 
