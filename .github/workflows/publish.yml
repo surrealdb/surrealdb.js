@@ -53,9 +53,9 @@ jobs:
       - name: Validate publishing
         run: bun run publish all --dry-run
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish to registries
         run: bun run publish all
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

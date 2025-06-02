@@ -48,20 +48,29 @@ async function publishPackage(name: string): Promise<void> {
 	const { version } = await readPackageJson(pkg);
 	const channel = extractVersionChannel(version);
 
-	// Dry run to check if the package can be published
-	await publishJSR(pkg, dryrun);
+	// JSR
+	try {
+		await publishJSR(pkg, dryrun);
 
-	if (dryrun) {
-		logger.success(`Verified JSR publish workflow for ${name}`);
-	} else {
-		logger.success(`Successfully published ${name} to JSR`);
+		if (dryrun) {
+			logger.success(`Verified JSR publish workflow for ${name}`);
+		} else {
+			logger.success(`Successfully published ${name} to JSR`);
+		}
+	} catch (error) {
+		logger.error(`Failed to publish JSR for ${name}: ${error}`);
 	}
 
-	await publishNPM(pkg, dryrun, channel);
+	// NPM
+	try {
+		await publishNPM(pkg, dryrun, channel);
 
-	if (dryrun) {
-		logger.success(`Verified NPM publish workflow for ${name} (${channel})`);
-	} else {
-		logger.success(`Successfully published ${name} to NPM (${channel})`);
+		if (dryrun) {
+			logger.success(`Verified NPM publish workflow for ${name} (${channel})`);
+		} else {
+			logger.success(`Successfully published ${name} to NPM (${channel})`);
+		}
+	} catch (error) {
+		logger.error(`Failed to publish NPM for ${name}: ${error}`);
 	}
 }
