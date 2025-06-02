@@ -207,7 +207,14 @@ describe("live() / liveOf()", async () => {
 
 		await surreal.delete(new RecordId("person", 5));
 
-		expect(await iterator.next()).toEqual({
+		// Order not guaranteed
+		const responses = new Set([
+			await iterator.next(),
+			await iterator.next(),
+			await iterator.next(),
+		]);
+
+		expect(responses).toContainEqual({
 			done: false,
 			value: [
 				"CREATE",
@@ -219,7 +226,8 @@ describe("live() / liveOf()", async () => {
 				new RecordId("person", 5),
 			],
 		});
-		expect(await iterator.next()).toEqual({
+
+		expect(responses).toContainEqual({
 			done: false,
 			value: [
 				"UPDATE",
@@ -231,7 +239,8 @@ describe("live() / liveOf()", async () => {
 				new RecordId("person", 5),
 			],
 		});
-		expect(await iterator.next()).toEqual({
+
+		expect(responses).toContainEqual({
 			done: false,
 			value: [
 				"DELETE",
