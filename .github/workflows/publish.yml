@@ -55,7 +55,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # - name: Publish to registries
-      #   run: bun run publish all
-      #   env:
-      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to registries
+        run: bun run publish all
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
