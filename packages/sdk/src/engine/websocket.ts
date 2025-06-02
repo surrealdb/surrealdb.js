@@ -205,7 +205,7 @@ export class WebSocketEngine implements SurrealEngine {
 				try {
 					onConnected();
 
-					setInterval(() => {
+					this.#pinger = setInterval(() => {
 						try {
 							this.send({ method: "ping" });
 						} catch {
