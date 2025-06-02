@@ -2,7 +2,7 @@ import { describe, expect, test, beforeAll, mock } from "bun:test";
 import { type AnyAuth, RecordId, ResponseError } from "surrealdb";
 import { createAuth, setupServer } from "./__helpers__";
 
-const { createSurreal } = await setupServer();
+const { createSurreal, createIdleSurreal } = await setupServer();
 
 beforeAll(async () => {
 	const surreal = await createSurreal();
@@ -74,15 +74,25 @@ describe("record auth", async () => {
 	});
 });
 
-describe("token refresh", async () => {
-	const surreal = await createSurreal({
-		renewAccess: true,
+describe("session renewal", async () => {
+	const { surreal, connect } = createIdleSurreal({
+		auth: "none",
 	});
 
-	test("renew", async () => {
-		const mockHandler = mock(() => {});
+	surreal.subscribe("error", (error) => {
+		console.error("SurrealDB error:", error);
+	});
 
-		surreal.subscribe("authenticated", mockHandler);
+	test("disabled", async () => {
+		const authenticateHandler = mock(() => {});
+		const invalidateHandler = mock(() => {});
+
+		surreal.subscribe("authenticated", authenticateHandler);
+		surreal.subscribe("invalidated", invalidateHandler);
+
+		await connect({
+			renewAccess: false,
+		});
 
 		await surreal.signup({
 			access: "user",
@@ -92,7 +102,57 @@ describe("token refresh", async () => {
 		// Wait at least 1s for token to renew
 		await Bun.sleep(1500);
 
-		// Once for signup, once for renew
-		expect(mockHandler).toBeCalledTimes(2);
+		// One authentication, one renewal
+		expect(authenticateHandler).toBeCalledTimes(1);
+		expect(invalidateHandler).toBeCalledTimes(1);
+	});
+
+	test("provider", async () => {
+		const authenticateHandler = mock(() => {});
+		const invalidateHandler = mock(() => {});
+
+		surreal.subscribe("authenticated", authenticateHandler);
+		surreal.subscribe("invalidated", invalidateHandler);
+
+		await connect({
+			renewAccess: true,
+			authentication: () => ({
+				access: "user",
+				variables: { id: 456 },
+			}),
+		});
+
+		// Wait at least 1s for token to renew
+		await Bun.sleep(1500);
+
+		// One authentication, one renewal
+		expect(authenticateHandler).toBeCalledTimes(2);
+		expect(invalidateHandler).toBeCalledTimes(0);
+	});
+
+	test("custom", async () => {
+		const authenticateHandler = mock(() => {});
+		const invalidateHandler = mock(() => {});
+
+		surreal.subscribe("authenticated", authenticateHandler);
+		surreal.subscribe("invalidated", invalidateHandler);
+
+		await connect({
+			authentication: () => ({
+				access: "user",
+				variables: { id: 456 },
+			}),
+			renewAccess: () => ({
+				access: "user",
+				variables: { id: 456 },
+			}),
+		});
+
+		// Wait at least 1s for token to renew
+		await Bun.sleep(1500);
+
+		// One authentication, one renewal
+		expect(authenticateHandler).toBeCalledTimes(2);
+		expect(invalidateHandler).toBeCalledTimes(0);
 	});
 });

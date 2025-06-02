@@ -1,5 +1,6 @@
 import {
 	type AnyAuth,
+	type ConnectOptions,
 	type ReconnectOptions,
 	SurrealV1,
 	type SurrealV2,
@@ -20,7 +21,7 @@ export type Protocol = "http" | "ws";
 export type PremadeAuth = "root" | "invalid" | "none";
 export type IdleSurreal = {
 	surreal: SurrealV1;
-	connect: () => Promise<true>;
+	connect: (custom?: ConnectOptions) => Promise<true>;
 };
 
 export const DEFAULT_PROTOCOL: Protocol =
@@ -101,7 +102,7 @@ export async function setupServer(): Promise<{
 		const surreal = new SurrealV1();
 		const port = reachable === false ? SURREAL_PORT_UNREACHABLE : SURREAL_PORT;
 
-		const connect = () => {
+		const connect = (custom?: ConnectOptions) => {
 			return surreal.connect(
 				`${protocol ?? DEFAULT_PROTOCOL}://127.0.0.1:${port}/rpc`,
 				{
@@ -110,6 +111,7 @@ export async function setupServer(): Promise<{
 					authentication: createAuth(auth ?? "root"),
 					renewAccess: renewAccess ?? false,
 					reconnect,
+					...custom,
 				},
 			);
 		};
