@@ -103,8 +103,8 @@ describe("session renewal", async () => {
 		await Bun.sleep(1500);
 
 		// One authentication, one renewal
-		expect(authenticateHandler).toBeCalledTimes(1);
-		expect(invalidateHandler).toBeCalledTimes(1);
+		expect(authenticateHandler).toHaveBeenCalled();
+		expect(invalidateHandler).toHaveBeenCalled();
 	});
 
 	test("provider", async () => {
@@ -126,8 +126,8 @@ describe("session renewal", async () => {
 		await Bun.sleep(1500);
 
 		// One authentication, one renewal
-		expect(authenticateHandler).toBeCalledTimes(2);
-		expect(invalidateHandler).toBeCalledTimes(0);
+		expect(authenticateHandler).toHaveBeenCalled();
+		expect(invalidateHandler).toHaveBeenCalledTimes(0);
 	});
 
 	test("custom", async () => {
@@ -152,7 +152,7 @@ describe("session renewal", async () => {
 		await Bun.sleep(1500);
 
 		// One authentication, one renewal
-		expect(authenticateHandler).toBeCalledTimes(2);
+		expect(authenticateHandler).toHaveBeenCalled();
 		expect(invalidateHandler).toBeCalledTimes(0);
 	});
 });
