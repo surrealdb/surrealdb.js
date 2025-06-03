@@ -1,5 +1,5 @@
 export async function publishJSR(pkg: string, dryrun: boolean): Promise<void> {
-	const cmd = ["bunx", "jsr", "publish"];
+	const cmd = ["bunx", "jsr", "publish", "--allow-dirty"];
 
 	if (dryrun) {
 		cmd.push("--dry-run");
@@ -23,12 +23,10 @@ export async function publishNPM(
 	dryrun: boolean,
 	channel: string,
 ): Promise<void> {
-	const cmd = ["npm", "publish", "--access", "public", "--tag", channel];
+	const cmd = ["bun", "publish", "--access", "public", "--tag", channel];
 
 	if (dryrun) {
 		cmd.push("--dry-run");
-	} else {
-		cmd.push("--provenance");
 	}
 
 	const task = Bun.spawn(cmd, {
