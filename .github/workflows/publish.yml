@@ -35,7 +35,7 @@ jobs:
 
   versions:
     name: Version check
-    needs: [check]
+    needs: [test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
