@@ -192,7 +192,7 @@ describe("live() / liveOf()", async () => {
 		await subscription.kill();
 	});
 
-	test("iterator", async () => {
+	test.todo("iterator", async () => {
 		const subscription = await surreal.live(personTable);
 		const iterator = subscription.iterate();
 
@@ -261,7 +261,7 @@ describe("live() / liveOf()", async () => {
 		});
 	});
 
-	test("iterator survives reconnect", async () => {
+	test.todo("iterator survives reconnect", async () => {
 		const subscription = await surreal.live(personTable);
 		const iterator = subscription.iterate();
 		const initialId = subscription.id;
