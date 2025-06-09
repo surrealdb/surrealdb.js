@@ -68,11 +68,8 @@ body:
   - type: checkboxes
     id: terms
     attributes:
-      label: Code of Conduct
+      label: Code of Conduct (repository /surrealdb.js)
       description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/surrealdb/surrealdb.js/blob/main/CODE_OF_CONDUCT.md)
       options:
         - label: I agree to follow this project's Code of Conduct
           required: true
-  - type: markdown
-    attributes:
-      value: "<!— DO NOT REMOVE: sdk:js —>"
