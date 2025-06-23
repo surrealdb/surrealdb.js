@@ -10,6 +10,6 @@ runs:
     - name: Route namespace to GPR
       shell: 'bash'
       run: |
-        echo '"//npm.pkg.github.com/:_authToken=${{ inputs.githubToken }}' >> .npmrc
-        echo 'always-auth=true' >> .npmrc
-        echo '${{ inputs.namespace }}:registry=https://npm.pkg.github.com' >> .npmrc
+        echo >> $NPM_CONFIG_USERCONFIG
+        echo '"//npm.pkg.github.com/:_authToken=${{ inputs.githubToken }}' >> $NPM_CONFIG_USERCONFIG
+        echo '${{ inputs.namespace }}:registry=https://npm.pkg.github.com' >> $NPM_CONFIG_USERCONFIG
