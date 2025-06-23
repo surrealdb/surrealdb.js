@@ -13,3 +13,6 @@ runs:
         echo '"//npm.pkg.github.com/:_authToken=${{ inputs.githubToken }}' >> .npmrc
         echo 'always-auth=true' >> .npmrc
         echo '${{ inputs.namespace }}:registry=https://npm.pkg.github.com' >> .npmrc
+        echo PWD=$PWD
+        cat .npmrc
+        cat $NPM_CONFIG_USERCONFIG
