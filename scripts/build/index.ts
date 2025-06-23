@@ -1,8 +1,8 @@
-import { createLogger } from "scripts/utils/logger";
-import { PACKAGES, resolvePackage } from "scripts/utils/package";
 import { generateJSR } from "./jsr";
 import { compileDist } from "./esbuild";
 import { generateDeclarations } from "./declarations";
+import { createLogger } from "../utils/logger";
+import { PACKAGES, resolvePackage } from "../utils/package";
 
 const logger = createLogger("build");
 const target = Bun.argv[2];

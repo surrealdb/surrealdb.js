@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { readPackageJson } from "scripts/utils/package";
+import { readPackageJson } from "../utils/package";
 
 const NS = "@surrealdb";
 

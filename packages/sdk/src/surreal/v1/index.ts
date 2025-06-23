@@ -22,24 +22,40 @@ import {
 	UnmanagedLiveSubscription,
 } from "../../utils/live";
 
-import {
-	type RecordId,
-	type RecordIdRange,
-	Table,
-	type Uuid,
-} from "../../value";
+import type { RecordId, RecordIdRange, Table, Uuid } from "../../value";
 
 import { type Fill, partiallyEncodeObject } from "@surrealdb/cbor";
 import { decodeCbor, encodeCbor } from "../../cbor";
 import { REPLACER } from "../../cbor/replacer";
 import { ConnectionController } from "../../controller";
-import { NoTokenReturned, ResponseError, SurrealError } from "../../errors";
+import { ResponseError } from "../../errors";
 import { parseEndpoint } from "../../internal/http";
-import { output } from "../../internal/output";
 import type { MapQueryResult } from "../../types/query";
 import { PreparedQuery } from "../../utils";
 import { Publisher } from "../../utils/publisher";
-import { PingFuture } from "./rpc";
+import { PingPromise } from "./rpc";
+import { AuthenticatePromise } from "./rpc/authenticate";
+import { CreatePromise } from "./rpc/create";
+import { DeletePromise } from "./rpc/delete";
+import { InfoPromise } from "./rpc/info";
+import { InsertPromise } from "./rpc/insert";
+import { InsertRelationPromise } from "./rpc/insert-relation";
+import { InvalidatePromise } from "./rpc/invalidate";
+import { LetPromise } from "./rpc/let";
+import { MergePromise } from "./rpc/merge";
+import { PatchPromise } from "./rpc/patch";
+import { RelatePromise } from "./rpc/relate";
+import { RunPromise } from "./rpc/run";
+import { SelectPromise } from "./rpc/select";
+import { SigninPromise } from "./rpc/signin";
+import { SignupPromise } from "./rpc/signup";
+import { UnsetPromise } from "./rpc/unset";
+import { UpdatePromise } from "./rpc/update";
+import { UpsertPromise } from "./rpc/upsert";
+import { UsePromise } from "./rpc/use";
+import { VersionPromise } from "./rpc/version";
+
+export type * from "./rpc";
 
 export type SurrealV1Events = {
 	connecting: [];
@@ -175,12 +191,14 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	}
 
 	/**
-	 * Send a raw RPC message to the SurrealDB instance
+	 * Send a raw RPC message to the SurrealDB instance. Unlike most other methods
+	 * offered by this class, this method does not automatically wait for the
+	 * connection to be ready.
 	 *
 	 * @param method Type of message to send
 	 * @param params Optional parameters for the message
 	 */
-	public rpc<Result>(
+	public async rpc<Result>(
 		method: string,
 		params?: unknown[],
 	): Promise<RpcResponse<Result>> {
@@ -191,10 +209,36 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	}
 
 	/**
+	 * Export the database and return the result as a string
+	 *
+	 * @param options Optional export options
+	 */
+	public async export(options?: Partial<ExportOptions>): Promise<string> {
+		await this.ready;
+		return this.#connection.export(options);
+	}
+
+	/**
+	 * Import an existing export into the database
+	 *
+	 * @param input The data to import
+	 */
+	public async import(input: string): Promise<void> {
+		await this.ready;
+		return this.#connection.import(input);
+	}
+
+	// =========================================================== //
+	//                                                             //
+	//                         RPC Methods                         //
+	//                                                             //
+	// =========================================================== //
+
+	/**
 	 * Ping the connected SurrealDB instance
 	 */
-	ping(): PingFuture {
-		return new PingFuture(this.#connection);
+	ping(): PingPromise {
+		return new PingPromise(this.#connection);
 	}
 
 	/**
@@ -204,23 +248,14 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param database Switches to a specific namespace
 	 * @param db Switches to a specific database
 	 */
-	async use({
+	use({
 		namespace,
 		database,
 	}: {
 		namespace?: string | null;
 		database?: string | null;
-	}): Promise<true> {
-		await this.ready;
-
-		if (namespace === null && database !== null)
-			throw new SurrealError(
-				"Cannot unset namespace without unsetting database",
-			);
-
-		const { error } = await this.rpc("use", [namespace, database]);
-		if (error) throw new ResponseError(error.message);
-		return true;
+	}): UsePromise {
+		return new UsePromise(this.#connection, namespace, database);
 	}
 
 	/**
@@ -230,16 +265,8 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param auth The authentication details to use.
 	 * @return The authentication token.
 	 */
-	async signup(auth: AccessRecordAuth): Promise<Token> {
-		await this.ready;
-
-		const converted = this.#connection.buildAuth(auth);
-		const res = await this.rpc<Token>("signup", [converted]);
-
-		if (res.error) throw new ResponseError(res.error.message);
-		if (!res.result) throw new NoTokenReturned();
-
-		return res.result;
+	signup(auth: AccessRecordAuth): SignupPromise {
+		return new SignupPromise(this.#connection, auth);
 	}
 
 	/**
@@ -248,16 +275,8 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param auth The authentication details to use.
 	 * @return The authentication token.
 	 */
-	async signin(auth: AnyAuth): Promise<Token> {
-		await this.ready;
-
-		const converted = this.#connection.buildAuth(auth);
-		const res = await this.rpc<Token>("signin", [converted]);
-
-		if (res.error) throw new ResponseError(res.error.message);
-		if (!res.result) throw new NoTokenReturned();
-
-		return res.result;
+	signin(auth: AnyAuth): SigninPromise {
+		return new SigninPromise(this.#connection, auth);
 	}
 
 	/**
@@ -265,21 +284,15 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 *
 	 * @param token The JWT authentication token.
 	 */
-	async authenticate(token: Token): Promise<true> {
-		await this.ready;
-		const res = await this.rpc<string>("authenticate", [token]);
-		if (res.error) throw new ResponseError(res.error.message);
-		return true;
+	authenticate(token: Token): AuthenticatePromise {
+		return new AuthenticatePromise(this.#connection, token);
 	}
 
 	/**
 	 * Invalidates the authentication for the current connection.
 	 */
-	async invalidate(): Promise<true> {
-		await this.ready;
-		const res = await this.rpc("invalidate");
-		if (res.error) throw new ResponseError(res.error.message);
-		return true;
+	invalidate(): InvalidatePromise {
+		return new InvalidatePromise(this.#connection);
 	}
 
 	/**
@@ -293,11 +306,8 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 *
 	 * @return The record linked to the record ID used for authentication
 	 */
-	async info<T extends Doc>(): Promise<ActionResult<T> | undefined> {
-		await this.ready;
-		const res = await this.rpc<ActionResult<T> | undefined>("info");
-		if (res.error) throw new ResponseError(res.error.message);
-		return res.result ?? undefined;
+	info<T extends Doc>(): InfoPromise<T> {
+		return new InfoPromise<T>(this.#connection);
 	}
 
 	/**
@@ -306,11 +316,8 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param key Specifies the name of the variable
 	 * @param val Assigns the value to the variable name
 	 */
-	async let(variable: string, value: unknown): Promise<true> {
-		await this.ready;
-		const res = await this.rpc("let", [variable, value]);
-		if (res.error) throw new ResponseError(res.error.message);
-		return true;
+	let(variable: string, value: unknown): LetPromise {
+		return new LetPromise(this.#connection, variable, value);
 	}
 
 	/**
@@ -318,11 +325,8 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 *
 	 * @param key Specifies the name of the variable.
 	 */
-	async unset(variable: string): Promise<true> {
-		await this.ready;
-		const res = await this.rpc("unset", [variable]);
-		if (res.error) throw new ResponseError(res.error.message);
-		return true;
+	unset(variable: string): UnsetPromise {
+		return new UnsetPromise(this.#connection, variable);
 	}
 
 	/**
@@ -452,28 +456,25 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 *
 	 * @param recordId The record ID to select
 	 */
-	async select<T extends Doc>(recordId: RecordId): Promise<ActionResult<T>>;
+	select<T extends Doc>(recordId: RecordId): SelectPromise<ActionResult<T>>;
 
 	/**
 	 * Select all records based on the provided Record ID range
 	 *
 	 * @param range The range of record IDs to select
 	 */
-	async select<T extends Doc>(range: RecordIdRange): Promise<ActionResult<T>[]>;
+	select<T extends Doc>(range: RecordIdRange): SelectPromise<ActionResult<T>[]>;
 
 	/**
 	 * Select all records present in the specified table
 	 *
 	 * @param recordId The record ID to select
 	 */
-	async select<T extends Doc>(table: Table): Promise<ActionResult<T>[]>;
+	select<T extends Doc>(table: Table): SelectPromise<ActionResult<T>[]>;
 
 	// Shadow implementation
-	async select<T extends Doc>(what: RecordId | RecordIdRange | Table) {
-		await this.ready;
-		const res = await this.rpc<ActionResult<T>>("select", [what]);
-		if (res.error) throw new ResponseError(res.error.message);
-		return output(what, res.result);
+	select(what: RecordId | RecordIdRange | Table): unknown {
+		return new SelectPromise(this.#connection, what);
 	}
 
 	/**
@@ -482,10 +483,10 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param recordId The record id of the record to create
 	 * @param data The record data to insert
 	 */
-	async create<T extends Doc, U extends Doc = T>(
+	create<T extends Doc, U extends Doc = T>(
 		recordId: RecordId,
 		data?: U,
-	): Promise<ActionResult<T>>;
+	): CreatePromise<ActionResult<T>, U>;
 
 	/**
 	 * Create a new record in the specified table
@@ -493,20 +494,17 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param table The table to create a record in
 	 * @param data The record data to insert
 	 */
-	async create<T extends Doc, U extends Doc = T>(
+	create<T extends Doc, U extends Doc = T>(
 		table: Table,
 		data?: U,
-	): Promise<ActionResult<T>[]>;
+	): CreatePromise<ActionResult<T>[], U>;
 
 	// Shadow implementation
-	async create<T extends Doc, U extends Doc = T>(
+	create<T extends Doc, U extends Doc = T>(
 		what: RecordId | Table,
 		data?: U,
-	) {
-		await this.ready;
-		const res = await this.rpc<ActionResult<T>>("create", [what, data]);
-		if (res.error) throw new ResponseError(res.error.message);
-		return output(what, res.result);
+	): unknown {
+		return new CreatePromise(this.#connection, what, data);
 	}
 
 	/**
@@ -517,12 +515,12 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param to  The out property on the edge record
 	 * @param data The optional record data to store on the edge
 	 */
-	async relate<T extends Doc, U extends Doc = T>(
+	relate<T extends Doc, U extends Doc = T>(
 		from: RelateInOut,
 		edge: RecordId,
 		to: RelateInOut,
 		data?: U,
-	): Promise<T>;
+	): RelatePromise<T, U>;
 
 	/**
 	 * Create a graph edge between the from record(s) and the to record(s) on the specified edge table
@@ -532,24 +530,21 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param to  The out property on the edge record
 	 * @param data The optional record data to store on the edge
 	 */
-	async relate<T extends Doc, U extends Doc = T>(
+	relate<T extends Doc, U extends Doc = T>(
 		from: RelateInOut,
 		edge: Table,
 		to: RelateInOut,
 		data?: U,
-	): Promise<T[]>;
+	): RelatePromise<T[], U>;
 
 	// Shadow implementation
-	async relate<T extends Doc, U extends Doc = T>(
+	relate<T extends Doc, U extends Doc = T>(
 		from: RelateInOut,
 		thing: Table | RecordId,
 		to: RelateInOut,
 		data?: U,
-	) {
-		await this.ready;
-		const res = await this.rpc("relate", [from, thing, to, data]);
-		if (res.error) throw new ResponseError(res.error.message);
-		return output(thing, res.result);
+	): unknown {
+		return new RelatePromise(this.#connection, from, thing, to, data);
 	}
 
 	/**
@@ -557,9 +552,9 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 *
 	 * @param data One or more records to insert
 	 */
-	async insert<T extends Doc, U extends Doc = T>(
+	insert<T extends Doc, U extends Doc = T>(
 		data?: U | U[],
-	): Promise<ActionResult<T>[]>;
+	): InsertPromise<ActionResult<T>[], U>;
 
 	/**
 	 * Inserts one or multiple records into the database
@@ -567,21 +562,17 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param table The table to insert the record into
 	 * @param data One or more records to insert
 	 */
-	async insert<T extends Doc, U extends Doc = T>(
+	insert<T extends Doc, U extends Doc = T>(
 		table: Table,
 		data?: U | U[],
-	): Promise<ActionResult<T>[]>;
+	): InsertPromise<ActionResult<T>[], U>;
 
 	// Shadow implementation
-	async insert<T extends Doc, U extends Doc = T>(
+	insert<T extends Doc, U extends Doc = T>(
 		arg1: Table | U | U[],
 		arg2?: U | U[],
-	) {
-		await this.ready;
-		const params = arg1 instanceof Table ? [arg1, arg2] : [undefined, arg1];
-		const res = await this.rpc<ActionResult<T>>("insert", params);
-		if (res.error) throw new ResponseError(res.error.message);
-		return res.result;
+	): unknown {
+		return new InsertPromise(this.#connection, arg1, arg2);
 	}
 
 	/**
@@ -589,9 +580,9 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 *
 	 * @param data One or more relations to insert
 	 */
-	async insertRelation<T extends Doc, U extends Doc = T>(
+	insertRelation<T extends Doc, U extends Doc = T>(
 		data?: U | U[],
-	): Promise<ActionResult<T>[]>;
+	): InsertRelationPromise<ActionResult<T>[], U>;
 
 	/**
 	 * Inserts one or multiple relations in the database
@@ -599,21 +590,17 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param table The table to insert the relation into
 	 * @param data One or more relations to insert
 	 */
-	async insertRelation<T extends Doc, U extends Doc = T>(
+	insertRelation<T extends Doc, U extends Doc = T>(
 		table: Table,
 		data?: U | U[],
-	): Promise<ActionResult<T>[]>;
+	): InsertRelationPromise<ActionResult<T>[], U>;
 
 	// Shadow implementation
-	async insertRelation<T extends Doc, U extends Doc = T>(
+	insertRelation<T extends Doc, U extends Doc = T>(
 		arg1: Table | U | U[],
 		arg2?: U | U[],
-	) {
-		await this.ready;
-		const params = arg1 instanceof Table ? [arg1, arg2] : [undefined, arg1];
-		const res = await this.rpc<ActionResult<T>>("insert_relation", params);
-		if (res.error) throw new ResponseError(res.error.message);
-		return res.result;
+	): unknown {
+		return new InsertRelationPromise(this.#connection, arg1, arg2);
 	}
 
 	/**
@@ -624,10 +611,10 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param recordId The record ID to update
 	 * @param data The record data to update
 	 */
-	async update<T extends Doc, U extends Doc = T>(
+	update<T extends Doc, U extends Doc = T>(
 		recordId: RecordId,
 		data?: U,
-	): Promise<ActionResult<T>>;
+	): UpdatePromise<ActionResult<T>, U>;
 
 	/**
 	 * Updates all records based on the provided Record ID range
@@ -637,10 +624,10 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param range The range of record IDs to update
 	 * @param data The record data to update
 	 */
-	async update<T extends Doc, U extends Doc = T>(
+	update<T extends Doc, U extends Doc = T>(
 		range: RecordIdRange,
 		data?: U,
-	): Promise<ActionResult<T>[]>;
+	): UpdatePromise<ActionResult<T>[], U>;
 
 	/**
 	 * Updates all records present in the specified table
@@ -650,20 +637,17 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param table The table to update
 	 * @param data The record data to update
 	 */
-	async update<T extends Doc, U extends Doc = T>(
+	update<T extends Doc, U extends Doc = T>(
 		range: Table,
 		data?: U,
-	): Promise<ActionResult<T>[]>;
+	): UpdatePromise<ActionResult<T>[], U>;
 
 	// Shadow implementation
-	async update<T extends Doc, U extends Doc = T>(
+	update<T extends Doc, U extends Doc = T>(
 		thing: RecordId | RecordIdRange | Table,
 		data?: U,
-	) {
-		await this.ready;
-		const res = await this.rpc<ActionResult<T>>("update", [thing, data]);
-		if (res.error) throw new ResponseError(res.error.message);
-		return output(thing, res.result);
+	): unknown {
+		return new UpdatePromise(this.#connection, thing, data);
 	}
 
 	/**
@@ -674,10 +658,10 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param recordId The record ID to upsert
 	 * @param data The record data to upsert
 	 */
-	async upsert<T extends Doc, U extends Doc = T>(
+	upsert<T extends Doc, U extends Doc = T>(
 		recordId: RecordId,
 		data?: U,
-	): Promise<ActionResult<T>>;
+	): UpsertPromise<ActionResult<T>, U>;
 
 	/**
 	 * Upserts all records based on the provided Record ID range
@@ -687,10 +671,10 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param range The range of record IDs to upsert
 	 * @param data The record data to upsert
 	 */
-	async upsert<T extends Doc, U extends Doc = T>(
+	upsert<T extends Doc, U extends Doc = T>(
 		thing: RecordIdRange,
 		data?: U,
-	): Promise<ActionResult<T>[]>;
+	): UpsertPromise<ActionResult<T>[], U>;
 
 	/**
 	 * Upserts all records present in the specified table
@@ -700,20 +684,17 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param table The table to upsert
 	 * @param data The record data to upsert
 	 */
-	async upsert<T extends Doc, U extends Doc = T>(
+	upsert<T extends Doc, U extends Doc = T>(
 		thing: Table,
 		data?: U,
-	): Promise<ActionResult<T>[]>;
+	): UpsertPromise<ActionResult<T>[], U>;
 
 	// Shadow implementation
-	async upsert<T extends Doc, U extends Doc = T>(
+	upsert<T extends Doc, U extends Doc = T>(
 		thing: RecordId | RecordIdRange | Table,
 		data?: U,
-	) {
-		await this.ready;
-		const res = await this.rpc<ActionResult<T>>("upsert", [thing, data]);
-		if (res.error) throw new ResponseError(res.error.message);
-		return output(thing, res.result);
+	): unknown {
+		return new UpsertPromise(this.#connection, thing, data);
 	}
 
 	/**
@@ -722,10 +703,10 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param recordId The record ID to merge
 	 * @param data The record data to merge
 	 */
-	async merge<T extends Doc, U extends Doc = Partial<T>>(
+	merge<T extends Doc, U extends Doc = Partial<T>>(
 		thing: RecordId,
 		data?: U,
-	): Promise<ActionResult<T>>;
+	): MergePromise<ActionResult<T>, U>;
 
 	/**
 	 * Merges all records based on the provided Record ID range
@@ -733,10 +714,10 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param range The range of record IDs to merge
 	 * @param data The record data to merge
 	 */
-	async merge<T extends Doc, U extends Doc = Partial<T>>(
+	merge<T extends Doc, U extends Doc = Partial<T>>(
 		thing: RecordIdRange,
 		data?: U,
-	): Promise<ActionResult<T>[]>;
+	): MergePromise<ActionResult<T>[], U>;
 
 	/**
 	 * Merges all records present in the specified table
@@ -744,20 +725,17 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param table The table to merge
 	 * @param data The record data to merge
 	 */
-	async merge<T extends Doc, U extends Doc = Partial<T>>(
+	merge<T extends Doc, U extends Doc = Partial<T>>(
 		thing: Table,
 		data?: U,
-	): Promise<ActionResult<T>[]>;
+	): MergePromise<ActionResult<T>[], U>;
 
 	// Shadow implementation
-	async merge<T extends Doc, U extends Doc = Partial<T>>(
+	merge<T extends Doc, U extends Doc = Partial<T>>(
 		thing: RecordId | RecordIdRange | Table,
 		data?: U,
-	) {
-		await this.ready;
-		const res = await this.rpc<ActionResult<T>>("merge", [thing, data]);
-		if (res.error) throw new ResponseError(res.error.message);
-		return output(thing, res.result);
+	): unknown {
+		return new MergePromise(this.#connection, thing, data);
 	}
 
 	/**
@@ -768,35 +746,34 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param what The table name, record ID range, or specifc record ID to patch
 	 * @param data The JSON Patch operations to apply
 	 */
-	async patch<T extends Doc>(
+	patch<T extends Doc>(
 		what: RecordId,
 		data?: Patch[],
 		diff?: false,
-	): Promise<ActionResult<T>>;
-	async patch<T extends Doc>(
+	): PatchPromise<ActionResult<T>>;
+	patch<T extends Doc>(
 		what: RecordIdRange | Table,
 		data?: Patch[],
 		diff?: false,
-	): Promise<ActionResult<T>[]>;
-	async patch<T extends Doc>(
+	): PatchPromise<ActionResult<T>[]>;
+	patch(
 		what: RecordId,
 		data: undefined | Patch[],
 		diff: true,
-	): Promise<Patch[]>;
-	async patch<T extends Doc>(
+	): PatchPromise<Patch[]>;
+	patch(
 		what: RecordIdRange | Table,
 		data: undefined | Patch[],
 		diff: true,
-	): Promise<Patch[][]>;
-	async patch(
+	): PatchPromise<Patch[][]>;
+
+	// Shadow implementation
+	patch(
 		what: RecordId | RecordIdRange | Table,
 		data?: Patch[],
 		diff?: boolean,
-	) {
-		await this.ready;
-		const res = await this.rpc<unknown>("patch", [what, data, diff]);
-		if (res.error) throw new ResponseError(res.error.message);
-		return diff ? res.result : output(what, res.result);
+	): unknown {
+		return new PatchPromise(this.#connection, what, data, diff);
 	}
 
 	/**
@@ -804,28 +781,25 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 *
 	 * @param recordId The record ID to delete
 	 */
-	async delete<T extends Doc>(recordId: RecordId): Promise<ActionResult<T>>;
+	delete<T extends Doc>(recordId: RecordId): DeletePromise<ActionResult<T>>;
 
 	/**
 	 * Deletes all records based on the provided Record ID range
 	 *
 	 * @param range The range of record IDs to delete
 	 */
-	async delete<T extends Doc>(thing: RecordIdRange): Promise<ActionResult<T>[]>;
+	delete<T extends Doc>(thing: RecordIdRange): DeletePromise<ActionResult<T>[]>;
 
 	/**
 	 * Deletes all records present in the specified table
 	 *
 	 * @param table The table to delete
 	 */
-	async delete<T extends Doc>(table: Table): Promise<ActionResult<T>[]>;
+	delete<T extends Doc>(table: Table): DeletePromise<ActionResult<T>[]>;
 
 	// Shadow implementation
-	async delete<T extends Doc>(thing: RecordId | RecordIdRange | Table) {
-		await this.ready;
-		const res = await this.rpc<ActionResult<T>>("delete", [thing]);
-		if (res.error) throw new ResponseError(res.error.message);
-		return output(thing, res.result);
+	delete(thing: RecordId | RecordIdRange | Table): unknown {
+		return new DeletePromise(this.#connection, thing);
 	}
 
 	/**
@@ -833,11 +807,8 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 *
 	 * @example `surrealdb-2.1.0`
 	 */
-	async version(): Promise<string> {
-		await this.ready;
-		const res = await this.rpc<string>("version");
-		if (res.error) throw new ResponseError(res.error.message);
-		return res.result;
+	version(): VersionPromise {
+		return new VersionPromise(this.#connection);
 	}
 
 	/**
@@ -846,7 +817,7 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param name The full name of the function to run
 	 * @param args The arguments supplied to the function
 	 */
-	async run<T>(name: string, args?: unknown[]): Promise<T>;
+	run<T>(name: string, args?: unknown[]): RunPromise<T>;
 
 	/**
 	 * Run a SurrealML function with the specified version and return the result
@@ -855,37 +826,10 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param version The version of the function to use
 	 * @param args The arguments supplied to the function
 	 */
-	async run<T>(name: string, version: string, args?: unknown[]): Promise<T>;
+	run<T>(name: string, version: string, args?: unknown[]): RunPromise<T>;
 
 	// Shadow implementation
-	async run(name: string, arg2?: string | unknown[], arg3?: unknown[]) {
-		await this.ready;
-		const [version, args] = Array.isArray(arg2)
-			? [undefined, arg2]
-			: [arg2, arg3];
-
-		const res = await this.rpc("run", [name, version, args]);
-		if (res.error) throw new ResponseError(res.error.message);
-		return res.result;
-	}
-
-	/**
-	 * Export the database and return the result as a string
-	 *
-	 * @param options Optional export options
-	 */
-	public async export(options?: Partial<ExportOptions>): Promise<string> {
-		await this.ready;
-		return this.#connection.export(options);
-	}
-
-	/**
-	 * Import an existing export into the database
-	 *
-	 * @param input The data to import
-	 */
-	public async import(input: string): Promise<void> {
-		await this.ready;
-		return this.#connection.import(input);
+	run<T>(name: string, arg2?: string | unknown[], arg3?: unknown[]): unknown {
+		return new RunPromise(this.#connection, name, arg2, arg3);
 	}
 }

@@ -28,7 +28,7 @@ describe("system auth", async () => {
 
 	test("invalid credentials", async () => {
 		const req = surreal.signin(createAuth("invalid") as AnyAuth);
-		expect(req).rejects.toBeInstanceOf(ResponseError);
+		expect(req.then()).rejects.toBeInstanceOf(ResponseError);
 	});
 });
 

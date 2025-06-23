@@ -1,8 +1,8 @@
 import { ConnectionPromise } from "../../../internal/promise";
 
-export class PingPromise extends ConnectionPromise<true> {
+export class InvalidatePromise extends ConnectionPromise<true> {
 	protected async dispatch(): Promise<true> {
-		await this.rpc<true>("ping");
+		await this.rpc("invalidate");
 		return true;
 	}
 }
