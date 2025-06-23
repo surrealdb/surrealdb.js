@@ -10,6 +10,9 @@
 		"url": "git+https://github.com/surrealdb/surrealdb.js.git"
 	},
 	"homepage": "https://github.com/surrealdb/surrealdb.js",
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com"
+	},
 	"packageManager": "^bun@1.1.17",
 	"devDependencies": {
 		"@biomejs/biome": "1.8.3",
