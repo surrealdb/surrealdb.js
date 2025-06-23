@@ -1,0 +1,15 @@
+name: 'Setup NPM for GitHub Package registry'
+inputs:
+  namespace:
+    description: 'NPM namespace'
+  githubToken:
+    description: 'GitHub Token'
+runs:
+  using: "composite"
+  steps:
+    - name: Route namespace to GPR
+      shell: 'bash'
+      run: |
+        echo '"//registry.npmjs.org/:_authToken=${{ inputs.githubToken }}' >> .npmrc
+        echo 'always-auth=true' >> .npmrc
+        echo '${{ inputs.namespace }}:registry=https://npm.pkg.github.com' >> .npmrc
