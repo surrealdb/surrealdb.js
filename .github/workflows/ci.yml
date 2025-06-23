@@ -59,26 +59,22 @@ jobs:
           packages: write
 
         steps:
+            - name: Code Checkout
+              uses: actions/checkout@v4
+
             - name: Install Bun
               uses: oven-sh/setup-bun@v2
 
             - uses: actions/setup-node@v4
               with:
                 node-version: '18.x'
-                registry-url: 'https://registry.npmjs.org'
-
-            - name: Code Checkout
-              uses: actions/checkout@v4
+                registry-url: 'https://npm.pkg.github.com'
 
             - name: Install dependencies
               run: bun install
 
             - name: Build library
               run: bun run build
-
-            - uses: ./.github/actions/configure-gpr-scope
-              with:
-                namespace: '@c0va23'
 
             - name: Dry run publish to NPM
               run: npm publish --dry-run
