@@ -10,6 +10,6 @@ runs:
     - name: Route namespace to GPR
       shell: 'bash'
       run: |
-        echo '"//registry.npmjs.org/:_authToken=${{ inputs.githubToken }}' >> .npmrc
+        echo '"//npm.pkg.github.com/:_authToken=${{ inputs.githubToken }}' >> .npmrc
         echo 'always-auth=true' >> .npmrc
         echo '${{ inputs.namespace }}:registry=https://npm.pkg.github.com' >> .npmrc
