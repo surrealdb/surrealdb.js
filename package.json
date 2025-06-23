@@ -1,6 +1,6 @@
 {
 	"name": "@c0va23/surrealdb",
-	"version": "1.3.2",
+	"version": "1.3.3",
 	"type": "module",
 	"license": "Apache-2.0",
 	"description": "The official SurrealDB SDK for JavaScript.",
