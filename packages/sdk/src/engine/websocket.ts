@@ -194,6 +194,7 @@ export class WebSocketEngine implements SurrealEngine {
 			// Open a new connection
 			const WebSocketImpl = this.#context.options.websocketImpl ?? WebSocket;
 			const socket = new WebSocketImpl(this.#state.url.toString(), "cbor");
+			if (socket.binaryType === "blob") socket.binaryType = "arraybuffer";
 
 			this.#socket = socket;
 
@@ -240,9 +241,9 @@ export class WebSocketEngine implements SurrealEngine {
 			});
 
 			// Handle any messages
-			socket.addEventListener("message", async ({ data }) => {
+			socket.addEventListener("message", ({ data }) => {
 				try {
-					const buffer = await this.parseBuffer(data);
+					const buffer = this.parseBuffer(data);
 					const decoded = this.#context.decode<Response>(buffer);
 
 					if (
@@ -261,17 +262,13 @@ export class WebSocketEngine implements SurrealEngine {
 		});
 	}
 
-	private async parseBuffer(data: unknown) {
+	private parseBuffer(data: unknown) {
 		if (data instanceof Uint8Array) {
 			return data;
 		}
 
 		if (data instanceof ArrayBuffer) {
 			return new Uint8Array(data);
-		}
-
-		if (data instanceof Blob) {
-			return await data.bytes();
 		}
 
 		throw new UnexpectedServerResponse(data);
