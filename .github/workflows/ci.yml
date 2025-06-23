@@ -79,10 +79,11 @@ jobs:
             - uses: ./.github/actions/configure-gpr-scope
               with:
                 namespace: '@c0va23'
-                githubToken: '${{ secrets.GITHUB_TOKEN }}'
 
             - name: Dry run publish to NPM
               run: npm publish --dry-run
+              env:
+                NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     build:
         name: Build
