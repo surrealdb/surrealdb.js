@@ -3,7 +3,7 @@ name: CI
 on:
     push:
         branches:
-            - main
+            - v1.3
     pull_request:
     workflow_call:
 
@@ -30,7 +30,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                surrealdb: ["v1.4.2", "v1.5.3", "v2.0.4", "v2.1.0"]
+                surrealdb: ["v1.5.6", "v2.1.7", "v2.3.5"]
                 engine: ["ws", "http"]
         steps:
             - name: Install SurrealDB ${{ matrix.surrealdb }} over ${{ matrix.engine }} engine
@@ -50,28 +50,14 @@ jobs:
               env:
                 SURREAL_PROTOCOL: ${{ matrix.engine }}
 
-    dry-run-jsr-publish:
-        name: JSR Publish Dry Run
-        runs-on: ubuntu-latest
-        steps:
-            - name: Install Bun
-              uses: oven-sh/setup-bun@v2
-
-            - name: Code Checkout
-              uses: actions/checkout@v4
-
-            - name: Install dependencies
-              run: bun install
-
-            - name: Generate JSR config
-              run: bun run jsr
-
-            - name: Dry run publish to JSR
-              run: bunx jsr publish --dry-run
-
-    dry-run-npm-publish:
+    dry-run-gpr-publish:
         name: NPM Publish Dry Run
         runs-on: ubuntu-latest
+
+        permissions:
+          contents: read
+          packages: write
+
         steps:
             - name: Install Bun
               uses: oven-sh/setup-bun@v2
@@ -90,10 +76,13 @@ jobs:
             - name: Build library
               run: bun run build
 
+            - uses: ./.github/actions/configure-gpr-scope
+              with:
+                namespace: '@c0va23'
+                githubToken: '${{ secrets.GITHUB_TOKEN }}'
+
             - name: Dry run publish to NPM
               run: npm publish --dry-run
-              env:
-                NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     build:
         name: Build
