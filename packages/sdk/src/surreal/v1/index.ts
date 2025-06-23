@@ -2,7 +2,6 @@ import type {
 	AccessRecordAuth,
 	ActionResult,
 	AnyAuth,
-	AuthResponse,
 	ConnectOptions,
 	ConnectionStatus,
 	Doc,
@@ -15,27 +14,34 @@ import type {
 	RelateInOut,
 	RpcResponse,
 	Token,
-} from "../types";
+} from "../../types";
 
 import {
 	type LiveSubscription,
 	ManagedLiveSubscription,
 	UnmanagedLiveSubscription,
-} from "../utils/live";
+} from "../../utils/live";
+
+import {
+	type RecordId,
+	type RecordIdRange,
+	Table,
+	type Uuid,
+} from "../../value";
 
 import { type Fill, partiallyEncodeObject } from "@surrealdb/cbor";
-import { decodeCbor, encodeCbor } from "../cbor";
-import { REPLACER } from "../cbor/replacer";
-import { ConnectionController } from "../controller";
-import { NoTokenReturned, ResponseError, SurrealError } from "../errors";
-import { parseEndpoint } from "../internal/http";
-import { output } from "../internal/output";
-import type { MapQueryResult } from "../types/query";
-import { PreparedQuery } from "../utils";
-import { Publisher } from "../utils/publisher";
-import { type RecordId, type RecordIdRange, Table, type Uuid } from "../value";
+import { decodeCbor, encodeCbor } from "../../cbor";
+import { REPLACER } from "../../cbor/replacer";
+import { ConnectionController } from "../../controller";
+import { NoTokenReturned, ResponseError, SurrealError } from "../../errors";
+import { parseEndpoint } from "../../internal/http";
+import { output } from "../../internal/output";
+import type { MapQueryResult } from "../../types/query";
+import { PreparedQuery } from "../../utils";
+import { Publisher } from "../../utils/publisher";
+import { PingFuture } from "./rpc";
 
-export type SurrealV2Events = {
+export type SurrealV1Events = {
 	connecting: [];
 	connected: [];
 	reconnecting: [];
@@ -46,15 +52,19 @@ export type SurrealV2Events = {
 };
 
 /**
- * An interface for communicating to SurrealDB over the v2 RPC protocol
+ * An interface for communicating to SurrealDB over the v1 RPC protocol.
+ *
+ * Note that most methods in this class are dispatched once you subscribe to the
+ * returned Promise and offer various chainable configuration methods before
+ * making the actual request.
  */
-export class SurrealV2 implements EventPublisher<SurrealV2Events> {
-	readonly #publisher = new Publisher<SurrealV2Events>();
+export class SurrealV1 implements EventPublisher<SurrealV1Events> {
+	readonly #publisher = new Publisher<SurrealV1Events>();
 	readonly #connection: ConnectionController;
 
-	subscribe<K extends keyof SurrealV2Events>(
+	subscribe<K extends keyof SurrealV1Events>(
 		event: K,
-		listener: (...payload: SurrealV2Events[K]) => void,
+		listener: (...payload: SurrealV1Events[K]) => void,
 	): () => void {
 		return this.#publisher.subscribe(event, listener);
 	}
@@ -183,10 +193,8 @@ export class SurrealV2 implements EventPublisher<SurrealV2Events> {
 	/**
 	 * Ping the connected SurrealDB instance
 	 */
-	async ping(): Promise<true> {
-		const { error } = await this.rpc("ping");
-		if (error) throw new ResponseError(error.message);
-		return true;
+	ping(): PingFuture {
+		return new PingFuture(this.#connection);
 	}
 
 	/**
@@ -222,14 +230,14 @@ export class SurrealV2 implements EventPublisher<SurrealV2Events> {
 	 * @param auth The authentication details to use.
 	 * @return The authentication token.
 	 */
-	async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
+	async signup(auth: AccessRecordAuth): Promise<Token> {
 		await this.ready;
 
 		const converted = this.#connection.buildAuth(auth);
-		const res = await this.rpc<AuthResponse>("signup", [converted]);
+		const res = await this.rpc<Token>("signup", [converted]);
 
 		if (res.error) throw new ResponseError(res.error.message);
-		if (!res.result.token) throw new NoTokenReturned();
+		if (!res.result) throw new NoTokenReturned();
 
 		return res.result;
 	}
@@ -240,14 +248,14 @@ export class SurrealV2 implements EventPublisher<SurrealV2Events> {
 	 * @param auth The authentication details to use.
 	 * @return The authentication token.
 	 */
-	async signin(auth: AnyAuth): Promise<AuthResponse> {
+	async signin(auth: AnyAuth): Promise<Token> {
 		await this.ready;
 
 		const converted = this.#connection.buildAuth(auth);
-		const res = await this.rpc<AuthResponse>("signin", [converted]);
+		const res = await this.rpc<Token>("signin", [converted]);
 
 		if (res.error) throw new ResponseError(res.error.message);
-		if (!res.result.token) throw new NoTokenReturned();
+		if (!res.result) throw new NoTokenReturned();
 
 		return res.result;
 	}

@@ -2,6 +2,7 @@ import type {
 	AccessRecordAuth,
 	ActionResult,
 	AnyAuth,
+	AuthResponse,
 	ConnectOptions,
 	ConnectionStatus,
 	Doc,
@@ -14,27 +15,33 @@ import type {
 	RelateInOut,
 	RpcResponse,
 	Token,
-} from "../types";
+} from "../../types";
 
 import {
 	type LiveSubscription,
 	ManagedLiveSubscription,
 	UnmanagedLiveSubscription,
-} from "../utils/live";
+} from "../../utils/live";
+
+import {
+	type RecordId,
+	type RecordIdRange,
+	Table,
+	type Uuid,
+} from "../../value";
 
 import { type Fill, partiallyEncodeObject } from "@surrealdb/cbor";
-import { decodeCbor, encodeCbor } from "../cbor";
-import { REPLACER } from "../cbor/replacer";
-import { ConnectionController } from "../controller";
-import { NoTokenReturned, ResponseError, SurrealError } from "../errors";
-import { parseEndpoint } from "../internal/http";
-import { output } from "../internal/output";
-import type { MapQueryResult } from "../types/query";
-import { PreparedQuery } from "../utils";
-import { Publisher } from "../utils/publisher";
-import { type RecordId, type RecordIdRange, Table, type Uuid } from "../value";
+import { decodeCbor, encodeCbor } from "../../cbor";
+import { REPLACER } from "../../cbor/replacer";
+import { ConnectionController } from "../../controller";
+import { NoTokenReturned, ResponseError, SurrealError } from "../../errors";
+import { parseEndpoint } from "../../internal/http";
+import { output } from "../../internal/output";
+import type { MapQueryResult } from "../../types/query";
+import { PreparedQuery } from "../../utils";
+import { Publisher } from "../../utils/publisher";
 
-export type SurrealV1Events = {
+export type SurrealV2Events = {
 	connecting: [];
 	connected: [];
 	reconnecting: [];
@@ -45,15 +52,15 @@ export type SurrealV1Events = {
 };
 
 /**
- * An interface for communicating to SurrealDB over the v1 RPC protocol
+ * An interface for communicating to SurrealDB over the v2 RPC protocol
  */
-export class SurrealV1 implements EventPublisher<SurrealV1Events> {
-	readonly #publisher = new Publisher<SurrealV1Events>();
+export class SurrealV2 implements EventPublisher<SurrealV2Events> {
+	readonly #publisher = new Publisher<SurrealV2Events>();
 	readonly #connection: ConnectionController;
 
-	subscribe<K extends keyof SurrealV1Events>(
+	subscribe<K extends keyof SurrealV2Events>(
 		event: K,
-		listener: (...payload: SurrealV1Events[K]) => void,
+		listener: (...payload: SurrealV2Events[K]) => void,
 	): () => void {
 		return this.#publisher.subscribe(event, listener);
 	}
@@ -221,14 +228,14 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param auth The authentication details to use.
 	 * @return The authentication token.
 	 */
-	async signup(auth: AccessRecordAuth): Promise<Token> {
+	async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
 		await this.ready;
 
 		const converted = this.#connection.buildAuth(auth);
-		const res = await this.rpc<Token>("signup", [converted]);
+		const res = await this.rpc<AuthResponse>("signup", [converted]);
 
 		if (res.error) throw new ResponseError(res.error.message);
-		if (!res.result) throw new NoTokenReturned();
+		if (!res.result.token) throw new NoTokenReturned();
 
 		return res.result;
 	}
@@ -239,14 +246,14 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param auth The authentication details to use.
 	 * @return The authentication token.
 	 */
-	async signin(auth: AnyAuth): Promise<Token> {
+	async signin(auth: AnyAuth): Promise<AuthResponse> {
 		await this.ready;
 
 		const converted = this.#connection.buildAuth(auth);
-		const res = await this.rpc<Token>("signin", [converted]);
+		const res = await this.rpc<AuthResponse>("signin", [converted]);
 
 		if (res.error) throw new ResponseError(res.error.message);
-		if (!res.result) throw new NoTokenReturned();
+		if (!res.result.token) throw new NoTokenReturned();
 
 		return res.result;
 	}

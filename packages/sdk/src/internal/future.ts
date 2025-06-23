@@ -1,3 +1,7 @@
+import type { ConnectionController } from "../controller";
+import { FutureDispatchedError, ResponseError } from "../errors";
+import type { RpcResponse } from "../types";
+
 type OnFulfilled<T, TResult> =
 	| ((value: T) => TResult | PromiseLike<TResult>)
 	| null
@@ -17,30 +21,74 @@ type OnFinally = (() => void) | null | undefined;
 export abstract class Future<T, S extends Record<string, unknown>>
 	implements PromiseLike<T>, Promise<T>
 {
-	#executor: (state: S) => Promise<T>;
+	#dispatched = false;
 
 	protected _state: S = {} as S;
 
-	constructor(execute: (state: S) => Promise<T>) {
-		this.#executor = execute;
-	}
+	abstract dispatch(): Promise<T>;
 
 	then<TResult1 = T, TResult2 = never>(
 		onfulfilled?: OnFulfilled<T, TResult1>,
 		onrejected?: OnRejected<TResult2>,
 	): Promise<TResult1 | TResult2> {
-		return this.#executor(this._state).then(onfulfilled, onrejected);
+		if (this.#dispatched) {
+			throw new FutureDispatchedError();
+		}
+		this.#dispatched = true;
+		return this.dispatch().then(onfulfilled, onrejected);
 	}
 
 	catch<TResult = never>(
 		onrejected?: OnRejected<TResult>,
 	): Promise<T | TResult> {
-		return this.#executor(this._state).catch(onrejected);
+		if (this.#dispatched) {
+			throw new FutureDispatchedError();
+		}
+		this.#dispatched = true;
+		return this.dispatch().catch(onrejected);
 	}
 
 	finally(onfinally?: OnFinally): Promise<T> {
-		return this.#executor(this._state).finally(onfinally);
+		if (this.#dispatched) {
+			throw new FutureDispatchedError();
+		}
+		this.#dispatched = true;
+		return this.dispatch().finally(onfinally);
 	}
 
 	[Symbol.toStringTag] = "Future";
+}
+
+/**
+ * A `Future` that is bound to a specific connection.
+ * It can be used to execute tasks that require a connection context.
+ */
+export abstract class ConnectionFuture<
+	T,
+	S extends Record<string, unknown> = Record<string, unknown>,
+> extends Future<T, S> {
+	protected _connection: ConnectionController;
+
+	constructor(connection: ConnectionController) {
+		super();
+		this._connection = connection;
+	}
+
+	protected async rpc<Result>(
+		method: string,
+		params?: unknown[],
+	): Promise<Result> {
+		const { result, error } = (await this._connection.rpc({
+			method,
+			params,
+		})) as RpcResponse<Result>;
+
+		if (error) {
+			throw new ResponseError(error.message);
+		}
+
+		return result;
+	}
+
+	[Symbol.toStringTag] = "ConnectionFuture";
 }
