@@ -36,7 +36,8 @@ jobs:
             - uses: ./.github/actions/configure-gpr-scope
               with:
                 namespace: '@c0va23'
-                githubToken: '${{ secrets.GITHUB_TOKEN }}'
 
             - name: Publish to NPM
               run: npm publish --provenance
+              env:
+                NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

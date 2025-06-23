@@ -2,8 +2,6 @@ name: 'Setup NPM for GitHub Package registry'
 inputs:
   namespace:
     description: 'NPM namespace'
-  githubToken:
-    description: 'GitHub Token'
 runs:
   using: "composite"
   steps:
@@ -11,5 +9,4 @@ runs:
       shell: 'bash'
       run: |
         echo >> $NPM_CONFIG_USERCONFIG
-        echo '"//npm.pkg.github.com/:_authToken=${{ inputs.githubToken }}' >> $NPM_CONFIG_USERCONFIG
         echo '${{ inputs.namespace }}:registry=https://npm.pkg.github.com' >> $NPM_CONFIG_USERCONFIG
