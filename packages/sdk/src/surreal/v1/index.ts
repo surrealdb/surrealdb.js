@@ -10,50 +10,45 @@ import type {
 	ExportOptions,
 	LiveResource,
 	Patch,
-	Prettify,
 	RelateInOut,
 	RpcResponse,
 	Token,
 } from "../../types";
 
 import {
-	type LiveSubscription,
-	ManagedLiveSubscription,
-	UnmanagedLiveSubscription,
-} from "../../utils/live";
+	AuthenticatePromise,
+	CreatePromise,
+	DeletePromise,
+	InfoPromise,
+	InsertPromise,
+	InsertRelationPromise,
+	InvalidatePromise,
+	LetPromise,
+	ManagedLivePromise,
+	MergePromise,
+	PatchPromise,
+	PingPromise,
+	QueryPromise,
+	RelatePromise,
+	RunPromise,
+	SelectPromise,
+	SigninPromise,
+	SignupPromise,
+	UnmanagedLivePromise,
+	UnsetPromise,
+	UpdatePromise,
+	UpsertPromise,
+	UsePromise,
+	VersionPromise,
+} from "./rpc";
 
-import type { RecordId, RecordIdRange, Table, Uuid } from "../../value";
-
-import { type Fill, partiallyEncodeObject } from "@surrealdb/cbor";
+import type { Fill } from "@surrealdb/cbor";
 import { decodeCbor, encodeCbor } from "../../cbor";
-import { REPLACER } from "../../cbor/replacer";
 import { ConnectionController } from "../../controller";
-import { ResponseError } from "../../errors";
 import { parseEndpoint } from "../../internal/http";
-import type { MapQueryResult } from "../../types/query";
-import { PreparedQuery } from "../../utils";
+import type { PreparedQuery } from "../../utils";
 import { Publisher } from "../../utils/publisher";
-import { PingPromise } from "./rpc";
-import { AuthenticatePromise } from "./rpc/authenticate";
-import { CreatePromise } from "./rpc/create";
-import { DeletePromise } from "./rpc/delete";
-import { InfoPromise } from "./rpc/info";
-import { InsertPromise } from "./rpc/insert";
-import { InsertRelationPromise } from "./rpc/insert-relation";
-import { InvalidatePromise } from "./rpc/invalidate";
-import { LetPromise } from "./rpc/let";
-import { MergePromise } from "./rpc/merge";
-import { PatchPromise } from "./rpc/patch";
-import { RelatePromise } from "./rpc/relate";
-import { RunPromise } from "./rpc/run";
-import { SelectPromise } from "./rpc/select";
-import { SigninPromise } from "./rpc/signin";
-import { SignupPromise } from "./rpc/signup";
-import { UnsetPromise } from "./rpc/unset";
-import { UpdatePromise } from "./rpc/update";
-import { UpsertPromise } from "./rpc/upsert";
-import { UsePromise } from "./rpc/use";
-import { VersionPromise } from "./rpc/version";
+import type { RecordId, RecordIdRange, Table, Uuid } from "../../value";
 
 export type * from "./rpc";
 
@@ -335,14 +330,8 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param what The table, record id, or record id range to subscribe to
 	 * @returns A new live subscription object
 	 */
-	async live(what: LiveResource, diff?: boolean): Promise<LiveSubscription> {
-		await this.ready;
-		return new ManagedLiveSubscription(
-			this.#publisher,
-			this.#connection,
-			what,
-			diff ?? false,
-		);
+	live(what: LiveResource): ManagedLivePromise {
+		return new ManagedLivePromise(this.#connection, this.#publisher, what);
 	}
 
 	/**
@@ -353,9 +342,8 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param id The ID of the live subscription to subscribe to
 	 * @returns A new unmanaged live subscription object
 	 */
-	async liveOf(id: Uuid): Promise<LiveSubscription> {
-		await this.ready;
-		return new UnmanagedLiveSubscription(this.#connection, id);
+	liveOf(id: Uuid): UnmanagedLivePromise {
+		return new UnmanagedLivePromise(this.#connection, id);
 	}
 
 	/**
@@ -365,10 +353,10 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param query Specifies the SurrealQL statements
 	 * @param bindings Assigns variables which can be used in the query
 	 */
-	async query<T extends unknown[]>(
+	query<T extends unknown[]>(
 		query: string,
 		bindings?: Record<string, unknown>,
-	): Promise<Prettify<T>>;
+	): QueryPromise<T>;
 
 	/**
 	 * Runs a set of SurrealQL statements against the database, returning the first error
@@ -377,78 +365,17 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 * @param prepared Specifies the prepared query to run
 	 * @param gaps Assigns values to gaps present in the prepared query
 	 */
-	async query<T extends unknown[]>(
+	query<T extends unknown[]>(
 		prepared: PreparedQuery,
 		gaps?: Fill[],
-	): Promise<Prettify<T>>;
+	): QueryPromise<T>;
 
 	// Shadow implementation
-	async query<T extends unknown[]>(
+	query<T extends unknown[]>(
 		preparedOrQuery: string | PreparedQuery,
 		gapsOrBinds?: Record<string, unknown> | Fill[],
-	): Promise<Prettify<T>> {
-		const response = await this.#queryImpl<T>(preparedOrQuery, gapsOrBinds);
-
-		return response.map(({ status, result }) => {
-			if (status === "ERR") throw new ResponseError(result);
-			return result;
-		}) as T;
-	}
-
-	/**
-	 * Runs a set of SurrealQL statements against the database
-	 *
-	 * @param query Specifies the SurrealQL statements
-	 * @param bindings Assigns variables which can be used in the query
-	 */
-	async queryRaw<T extends unknown[]>(
-		query: string,
-		bindings?: Record<string, unknown>,
-	): Promise<Prettify<MapQueryResult<T>>>;
-
-	/**
-	 * Runs a set of SurrealQL statements against the database
-	 *
-	 * @param prepared Specifies the prepared query to run
-	 * @param gaps Assigns values to gaps present in the prepared query
-	 */
-	async queryRaw<T extends unknown[]>(
-		prepared: PreparedQuery,
-		gaps?: Fill[],
-	): Promise<Prettify<MapQueryResult<T>>>;
-
-	// Shadow implementation
-	async queryRaw<T extends unknown[]>(
-		preparedOrQuery: string | PreparedQuery,
-		gapsOrBinds?: Record<string, unknown> | Fill[],
-	): Promise<Prettify<MapQueryResult<T>>> {
-		return this.#queryImpl(preparedOrQuery, gapsOrBinds);
-	}
-
-	// Internal implementation
-	async #queryImpl<T extends unknown[]>(
-		preparedOrQuery: string | PreparedQuery,
-		gapsOrBinds?: Record<string, unknown> | Fill[],
-	) {
-		await this.ready;
-
-		let params: unknown[];
-
-		if (preparedOrQuery instanceof PreparedQuery) {
-			params = [
-				preparedOrQuery.query,
-				partiallyEncodeObject(preparedOrQuery.bindings, {
-					fills: gapsOrBinds as Fill[],
-					replacer: REPLACER.encode,
-				}),
-			];
-		} else {
-			params = [preparedOrQuery, gapsOrBinds];
-		}
-
-		const res = await this.rpc<MapQueryResult<T>>("query", params);
-		if (res.error) throw new ResponseError(res.error.message);
-		return res.result;
+	): QueryPromise<T> {
+		return new QueryPromise(this.#connection, preparedOrQuery, gapsOrBinds);
 	}
 
 	/**

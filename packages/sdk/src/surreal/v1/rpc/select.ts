@@ -3,6 +3,9 @@ import { output } from "../../../internal/output";
 import { ConnectionPromise } from "../../../internal/promise";
 import type { RecordId, RecordIdRange, Table } from "../../../value";
 
+/**
+ * A promise representing a `select` RPC call to the server.
+ */
 export class SelectPromise<T> extends ConnectionPromise<T> {
 	#what: RecordId | RecordIdRange | Table;
 

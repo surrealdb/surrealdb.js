@@ -3,6 +3,9 @@ import { SurrealError } from "../../../errors";
 import { ConnectionPromise } from "../../../internal/promise";
 import type { Nullish } from "../../../types";
 
+/**
+ * A promise representing a `use` RPC call to the server.
+ */
 export class UsePromise extends ConnectionPromise<true> {
 	#namespace: Nullish<string>;
 	#database: Nullish<string>;

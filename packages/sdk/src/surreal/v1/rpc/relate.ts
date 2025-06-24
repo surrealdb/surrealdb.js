@@ -4,6 +4,9 @@ import { ConnectionPromise } from "../../../internal/promise";
 import type { Doc, RelateInOut } from "../../../types";
 import type { RecordId, Table } from "../../../value";
 
+/**
+ * A promise representing a `relate` RPC call to the server.
+ */
 export class RelatePromise<T, U extends Doc> extends ConnectionPromise<T> {
 	#from: RelateInOut;
 	#thing: Table | RecordId;

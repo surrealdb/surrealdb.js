@@ -4,6 +4,9 @@ import { ConnectionPromise } from "../../../internal/promise";
 import type { Doc } from "../../../types";
 import type { RecordId, RecordIdRange, Table } from "../../../value";
 
+/**
+ * A promise representing an `update` RPC call to the server.
+ */
 export class UpdatePromise<T, U extends Doc> extends ConnectionPromise<T> {
 	#thing: RecordId | RecordIdRange | Table;
 	#data?: U;

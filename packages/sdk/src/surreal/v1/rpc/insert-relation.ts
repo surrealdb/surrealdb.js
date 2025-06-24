@@ -3,6 +3,9 @@ import { ConnectionPromise } from "../../../internal/promise";
 import type { Doc } from "../../../types";
 import type { Table } from "../../../value";
 
+/**
+ * A promise representing an `insert_relation` RPC call to the server.
+ */
 export class InsertRelationPromise<
 	T,
 	U extends Doc,

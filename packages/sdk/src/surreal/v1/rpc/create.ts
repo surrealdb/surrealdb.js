@@ -4,6 +4,9 @@ import { ConnectionPromise } from "../../../internal/promise";
 import type { Doc } from "../../../types";
 import type { RecordId, Table } from "../../../value";
 
+/**
+ * A promise representing a `create` RPC call to the server.
+ */
 export class CreatePromise<T, U extends Doc> extends ConnectionPromise<T> {
 	#what: RecordId | Table;
 	#data?: U;

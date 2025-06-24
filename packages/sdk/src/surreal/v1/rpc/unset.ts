@@ -1,6 +1,9 @@
 import type { ConnectionController } from "../../../controller";
 import { ConnectionPromise } from "../../../internal/promise";
 
+/**
+ * A promise representing an `unset` RPC call to the server.
+ */
 export class UnsetPromise extends ConnectionPromise<true> {
 	#variable: string;
 

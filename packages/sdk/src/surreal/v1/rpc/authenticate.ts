@@ -2,6 +2,9 @@ import type { ConnectionController } from "../../../controller";
 import { ConnectionPromise } from "../../../internal/promise";
 import type { Token } from "../../../types";
 
+/**
+ * A promise representing an `authenticate` RPC call to the server.
+ */
 export class AuthenticatePromise extends ConnectionPromise<true> {
 	#token: Token;
 

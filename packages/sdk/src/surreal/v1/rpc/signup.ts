@@ -3,6 +3,9 @@ import { NoTokenReturned } from "../../../errors";
 import { ConnectionPromise } from "../../../internal/promise";
 import type { AccessRecordAuth, Token } from "../../../types";
 
+/**
+ * A promise representing a `signup` RPC call to the server.
+ */
 export class SignupPromise extends ConnectionPromise<Token> {
 	#auth: AccessRecordAuth;
 

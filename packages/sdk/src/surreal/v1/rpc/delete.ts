@@ -3,6 +3,9 @@ import { output } from "../../../internal/output";
 import { ConnectionPromise } from "../../../internal/promise";
 import type { RecordId, RecordIdRange, Table } from "../../../value";
 
+/**
+ * A promise representing a `delete` RPC call to the server.
+ */
 export class DeletePromise<T> extends ConnectionPromise<T> {
 	#thing: RecordId | RecordIdRange | Table;
 

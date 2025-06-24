@@ -1,6 +1,9 @@
 import type { ConnectionController } from "../../../controller";
 import { ConnectionPromise } from "../../../internal/promise";
 
+/**
+ * A promise representing a `let` RPC call to the server.
+ */
 export class LetPromise extends ConnectionPromise<true> {
 	#variable: string;
 	#value: unknown;

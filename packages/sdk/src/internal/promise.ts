@@ -25,10 +25,20 @@ export abstract class DispatchedPromise<T> extends Promise<T> {
 	protected abstract dispatch(): Promise<T>;
 
 	constructor() {
+		let _resolve: undefined | ((value: T | PromiseLike<T>) => void);
+		let _reject: undefined | ((reason?: unknown) => void);
+
 		super((resolve, reject) => {
-			this.#resolve = resolve;
-			this.#reject = reject;
+			_resolve = resolve;
+			_reject = reject;
 		});
+
+		if (!_resolve || !_reject) {
+			throw new Error("resolve and reject required");
+		}
+
+		this.#resolve = _resolve;
+		this.#reject = _reject;
 	}
 
 	#ensureDispatched(): Promise<T> {

@@ -3,6 +3,9 @@ import { NoTokenReturned } from "../../../errors";
 import { ConnectionPromise } from "../../../internal/promise";
 import type { AnyAuth, Token } from "../../../types";
 
+/**
+ * A promise representing a `signin` RPC call to the server.
+ */
 export class SigninPromise extends ConnectionPromise<Token> {
 	#auth: AnyAuth;
 

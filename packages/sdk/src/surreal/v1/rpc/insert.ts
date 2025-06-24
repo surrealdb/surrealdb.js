@@ -3,6 +3,9 @@ import { ConnectionPromise } from "../../../internal/promise";
 import type { Doc } from "../../../types";
 import type { Table } from "../../../value";
 
+/**
+ * A promise representing an `insert` RPC call to the server.
+ */
 export class InsertPromise<T, U extends Doc> extends ConnectionPromise<T> {
 	#arg1: Table | U | U[];
 	#arg2?: U | U[];

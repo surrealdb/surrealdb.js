@@ -4,6 +4,9 @@ import { ConnectionPromise } from "../../../internal/promise";
 import type { Patch } from "../../../types";
 import type { RecordId, RecordIdRange, Table } from "../../../value";
 
+/**
+ * A promise representing a `patch` RPC call to the server.
+ */
 export class PatchPromise<T> extends ConnectionPromise<T> {
 	#what: RecordId | RecordIdRange | Table;
 	#data?: Patch[];

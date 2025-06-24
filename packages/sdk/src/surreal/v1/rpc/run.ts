@@ -1,6 +1,9 @@
 import type { ConnectionController } from "../../../controller";
 import { ConnectionPromise } from "../../../internal/promise";
 
+/**
+ * A promise representing a `run` RPC call to the server.
+ */
 export class RunPromise<T> extends ConnectionPromise<T> {
 	#name: string;
 	#version?: string;
