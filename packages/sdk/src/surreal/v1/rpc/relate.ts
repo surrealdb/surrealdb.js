@@ -1,7 +1,8 @@
 import type { ConnectionController } from "../../../controller";
-import { output } from "../../../internal/output";
+import { collect } from "../../../internal/collect";
 import { ConnectionPromise } from "../../../internal/promise";
 import type { Doc, RelateInOut } from "../../../types";
+import type { Jsonify } from "../../../utils";
 import type { RecordId, Table } from "../../../value";
 
 /**
@@ -9,32 +10,45 @@ import type { RecordId, Table } from "../../../value";
  */
 export class RelatePromise<T, U extends Doc> extends ConnectionPromise<T> {
 	#from: RelateInOut;
-	#thing: Table | RecordId;
+	#what: Table | RecordId;
 	#to: RelateInOut;
 	#data?: U;
+	#json = false;
 
 	constructor(
 		connection: ConnectionController,
 		from: RelateInOut,
-		thing: Table | RecordId,
+		what: Table | RecordId,
 		to: RelateInOut,
 		data?: U,
 	) {
 		super(connection);
 		this.#from = from;
-		this.#thing = thing;
+		this.#what = what;
 		this.#to = to;
 		this.#data = data;
+	}
+
+	/**
+	 * Convert the response to a JSON compatible format, ensuring that
+	 * the response is serializable as a valid JSON structure.
+	 */
+	jsonify(): RelatePromise<Jsonify<T>, U> {
+		this.#json = true;
+		return this as RelatePromise<Jsonify<T>, U>;
 	}
 
 	protected async dispatch(): Promise<T> {
 		const result = await this.rpc("relate", [
 			this.#from,
-			this.#thing,
+			this.#what,
 			this.#to,
 			this.#data,
 		]);
 
-		return output(this.#thing, result) as T;
+		return collect<T>(result, {
+			subject: this.#what,
+			json: this.#json,
+		});
 	}
 }

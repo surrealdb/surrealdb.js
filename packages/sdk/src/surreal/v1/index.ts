@@ -301,8 +301,8 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	 *
 	 * @return The record linked to the record ID used for authentication
 	 */
-	info<T extends Doc>(): InfoPromise<T> {
-		return new InfoPromise<T>(this.#connection);
+	info<T extends Doc>(): InfoPromise<ActionResult<T> | undefined> {
+		return new InfoPromise(this.#connection);
 	}
 
 	/**
@@ -725,8 +725,8 @@ export class SurrealV1 implements EventPublisher<SurrealV1Events> {
 	delete<T extends Doc>(table: Table): DeletePromise<ActionResult<T>[]>;
 
 	// Shadow implementation
-	delete(thing: RecordId | RecordIdRange | Table): unknown {
-		return new DeletePromise(this.#connection, thing);
+	delete(what: RecordId | RecordIdRange | Table): unknown {
+		return new DeletePromise(this.#connection, what);
 	}
 
 	/**
