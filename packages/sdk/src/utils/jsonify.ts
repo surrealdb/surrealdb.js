@@ -23,7 +23,7 @@ export type Jsonify<T> = T extends
 	| StringRecordId
 	? string
 	: T extends undefined
-		? never
+		? undefined
 		: T extends Record<string | number | symbol, unknown> | Array<unknown>
 			? { [K in keyof T]: Jsonify<T[K]> }
 			: T extends Map<infer K, infer V>

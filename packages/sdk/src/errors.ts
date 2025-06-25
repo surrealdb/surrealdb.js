@@ -54,6 +54,14 @@ export class ReconnectIterationError extends SurrealError {
 }
 
 /**
+ * Thrown when a future is dispatched more than once
+ */
+export class FutureDispatchedError extends SurrealError {
+	name = "FutureDispatchedError";
+	message = "The future has already been dispatched and cannot be reused";
+}
+
+/**
  * Thriwn when an unexpected response is received from the server
  */
 export class UnexpectedServerResponse extends SurrealError {

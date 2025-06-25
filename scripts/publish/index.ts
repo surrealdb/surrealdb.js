@@ -1,10 +1,10 @@
 import { parseArgs } from "node:util";
-import { createLogger } from "scripts/utils/logger";
+import { createLogger } from "../utils/logger";
 import {
 	PACKAGES,
 	readPackageJson,
 	resolvePackage,
-} from "scripts/utils/package";
+} from "../utils/package";
 import { publishJSR, publishNPM } from "./publish";
 import { extractVersionChannel } from "./channel";
 

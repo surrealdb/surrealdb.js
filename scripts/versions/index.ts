@@ -1,5 +1,5 @@
-import { createLogger } from "scripts/utils/logger";
-import { PACKAGES, readPackageJson, resolvePackage } from "scripts/utils/package";
+import { createLogger } from "../utils/logger";
+import { PACKAGES, readPackageJson, resolvePackage } from "../utils/package";
 
 const logger = createLogger("versions");
 const validate = Bun.argv[2]?.replace(/^v/, "");

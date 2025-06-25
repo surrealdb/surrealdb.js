@@ -1,5 +1,5 @@
 import type { Fill } from "@surrealdb/cbor";
-import type { PreparedQuery } from "../utils";
+import type { Jsonify, PreparedQuery } from "../utils";
 
 export type QueryParameters =
 	| [query: string, bindings?: Record<string, unknown>]
@@ -20,4 +20,8 @@ export type QueryResultErr = {
 
 export type MapQueryResult<T> = {
 	[K in keyof T]: QueryResult<T[K]>;
+};
+
+export type MapJsonify<T> = {
+	[K in keyof T]: Jsonify<T[K]>;
 };
