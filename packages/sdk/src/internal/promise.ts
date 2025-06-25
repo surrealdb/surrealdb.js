@@ -70,7 +70,7 @@ export abstract class DispatchedPromise<T> extends Promise<T> {
 		return super.finally(onfinally);
 	}
 
-	static get [Symbol.species]() {
+	static get [Symbol.species](): PromiseConstructor {
 		return Promise;
 	}
 
