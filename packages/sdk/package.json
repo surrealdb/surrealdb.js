@@ -4,13 +4,20 @@
 	"type": "module",
 	"license": "Apache-2.0",
 	"description": "The official SurrealDB SDK for JavaScript.",
-	"keywords": ["surrealdb", "surrealdb.js", "javascript", "typescript"],
+	"homepage": "https://github.com/surrealdb/surrealdb.js",
+	"keywords": [
+		"surrealdb",
+		"surrealdb.js",
+		"query builder",
+		"orm"
+	],
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/surrealdb/surrealdb.js.git"
+		"url": "https://github.com/surrealdb/surrealdb.js.git"
 	},
-	"homepage": "https://github.com/surrealdb/surrealdb.js",
-	"packageManager": "^bun@1.1.17",
+	"scripts": {
+		"build": "bun run build.ts"
+	},
 	"devDependencies": {
 		"@types/bun": "latest",
 		"compare-versions": "^6.1.1"
@@ -23,27 +30,18 @@
 		"@surrealdb/cbor": "workspace:*",
 		"uuidv7": "^1.0.1"
 	},
-	"scripts": {
-		"ts": "tsc --watch --noEmit true --emitDeclarationOnly false",
-		"qc": "biome check .",
-		"qa": "biome check . --write",
-		"qau": "biome check . --write --unsafe",
-		"build": "bun run scripts/build.ts",
-		"jsr": "bun run scripts/jsr.ts"
-	},
-	"engines": {
-		"node": ">=18.0.0"
-	},
-	"browser": "./dist/index.bundled.mjs",
-	"types": "./dist/index.d.ts",
-	"main": "./dist/index.mjs",
 	"exports": {
 		".": {
-			"require": "./dist/index.cjs",
-			"import": "./dist/index.mjs",
-			"types": "./dist/index.d.ts",
-			"browser": "./dist/index.bundled.mjs"
+			"require": "./dist/surrealdb.cjs",
+			"import": "./dist/surrealdb.mjs",
+			"types": "./dist/surrealdb.d.ts"
 		}
 	},
-	"files": ["dist", "README.md", "LICENCE", "SECURITY.md"]
+	"files": [
+		"dist",
+		"README.md",
+		"LICENCE",
+		"SECURITY.md"
+	],
+	"packageManager": "^bun@1.1.17"
 }

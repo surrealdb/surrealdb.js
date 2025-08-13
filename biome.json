@@ -1,30 +1,45 @@
 {
-	"$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
-	"organizeImports": {
-		"enabled": true
+	"$schema": "https://biomejs.dev/schemas/2.1.2/schema.json",
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
 	},
 	"linter": {
 		"enabled": true,
 		"rules": {
 			"recommended": true,
 			"suspicious": {
-				"noConsoleLog": "error",
-				"noThenProperty": "off"
+				"noThenProperty": "off",
+				"noArrayIndexKey": "off"
 			},
 			"correctness": {
-				"noUnusedImports": "error"
-			},
-			"style": {
-				"useFilenamingConvention": {
-					"level": "error",
-					"options": {
-						"filenameCases": ["kebab-case"]
-					}
-				}
+				"noUnusedImports": "warn"
 			}
 		}
 	},
+	"formatter": {
+		"enabled": true,
+		"indentWidth": 4,
+		"indentStyle": "space",
+		"lineWidth": 100,
+		"attributePosition": "multiline",
+		"includes": [
+			"**"
+		]
+	},
 	"files": {
-		"ignore": ["dist/**", "npm/**", "scripts/**"]
+		"includes": [
+			"**",
+			"!**/.vscode",
+			"!**/.github",
+			"!**/node_modules",
+			"!**/npm/*",
+			"!**/dist/*",
+			"!**/scripts/*",
+			"!**/*.js"
+		]
 	}
 }

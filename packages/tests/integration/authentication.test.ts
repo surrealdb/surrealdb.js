@@ -45,7 +45,7 @@ describe("record auth", async () => {
 	});
 
 	test("record signin", async () => {
-		const mockHandler = mock(() => {});
+		const mockHandler = mock(() => { });
 
 		surreal.subscribe("authenticated", mockHandler);
 
@@ -64,7 +64,7 @@ describe("record auth", async () => {
 	});
 
 	test("invalidate", async () => {
-		const mockHandler = mock(() => {});
+		const mockHandler = mock(() => { });
 
 		surreal.subscribe("invalidated", mockHandler);
 
@@ -84,8 +84,8 @@ describe("session renewal", async () => {
 	});
 
 	test("disabled", async () => {
-		const authenticateHandler = mock(() => {});
-		const invalidateHandler = mock(() => {});
+		const authenticateHandler = mock(() => { });
+		const invalidateHandler = mock(() => { });
 
 		surreal.subscribe("authenticated", authenticateHandler);
 		surreal.subscribe("invalidated", invalidateHandler);
@@ -108,8 +108,8 @@ describe("session renewal", async () => {
 	});
 
 	test("provider", async () => {
-		const authenticateHandler = mock(() => {});
-		const invalidateHandler = mock(() => {});
+		const authenticateHandler = mock(() => { });
+		const invalidateHandler = mock(() => { });
 
 		surreal.subscribe("authenticated", authenticateHandler);
 		surreal.subscribe("invalidated", invalidateHandler);
@@ -131,8 +131,8 @@ describe("session renewal", async () => {
 	});
 
 	test("custom", async () => {
-		const authenticateHandler = mock(() => {});
-		const invalidateHandler = mock(() => {});
+		const authenticateHandler = mock(() => { });
+		const invalidateHandler = mock(() => { });
 
 		surreal.subscribe("authenticated", authenticateHandler);
 		surreal.subscribe("invalidated", invalidateHandler);
