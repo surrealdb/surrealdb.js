@@ -5,15 +5,15 @@ import { ConnectionPromise } from "../../../internal/promise";
  * A promise representing an `unset` RPC call to the server.
  */
 export class UnsetPromise extends ConnectionPromise<true> {
-	#variable: string;
+    #variable: string;
 
-	constructor(connection: ConnectionController, variable: string) {
-		super(connection);
-		this.#variable = variable;
-	}
+    constructor(connection: ConnectionController, variable: string) {
+        super(connection);
+        this.#variable = variable;
+    }
 
-	protected async dispatch(): Promise<true> {
-		await this.rpc("unset", [this.#variable]);
-		return true;
-	}
+    protected async dispatch(): Promise<true> {
+        await this.rpc("unset", [this.#variable]);
+        return true;
+    }
 }

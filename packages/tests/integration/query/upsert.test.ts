@@ -5,21 +5,18 @@ import { type Person, setupServer } from "../__helpers__";
 const { createSurreal } = await setupServer();
 
 describe("upsert()", async () => {
-	const surreal = await createSurreal();
+    const surreal = await createSurreal();
 
-	test("single", async () => {
-		const single = await surreal.upsert<Person, Omit<Person, "id">>(
-			new RecordId("person", 1),
-			{
-				firstname: "John",
-				lastname: "Doe",
-			},
-		);
+    test("single", async () => {
+        const single = await surreal.upsert<Person, Omit<Person, "id">>(new RecordId("person", 1), {
+            firstname: "John",
+            lastname: "Doe",
+        });
 
-		expect(single).toStrictEqual({
-			id: new RecordId("person", 1),
-			firstname: "John",
-			lastname: "Doe",
-		});
-	});
+        expect(single).toStrictEqual({
+            id: new RecordId("person", 1),
+            firstname: "John",
+            lastname: "Doe",
+        });
+    });
 });

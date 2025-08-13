@@ -4,6 +4,6 @@ export * from "./helpers";
 export * from "./live";
 export * from "./patch";
 export * from "./publisher";
+export * from "./query";
 export * from "./rpc";
 export * from "./surreal";
-export * from "./query";

@@ -4,29 +4,29 @@ import { setupServer } from "../__helpers__";
 const { createSurreal } = await setupServer();
 
 describe("let() / unset()", async () => {
-	const surreal = await createSurreal();
+    const surreal = await createSurreal();
 
-	test("define param", async () => {
-		await surreal.let("hello", "world");
+    test("define param", async () => {
+        await surreal.let("hello", "world");
 
-		const [result] = await surreal.query<[string]>("RETURN $hello");
+        const [result] = await surreal.query<[string]>("RETURN $hello");
 
-		expect(result).toBe("world");
-	});
+        expect(result).toBe("world");
+    });
 
-	test("unset param", async () => {
-		await surreal.unset("hello");
+    test("unset param", async () => {
+        await surreal.unset("hello");
 
-		const [result] = await surreal.query<[string]>("RETURN $hello");
+        const [result] = await surreal.query<[string]>("RETURN $hello");
 
-		expect(result).toBeUndefined();
-	});
+        expect(result).toBeUndefined();
+    });
 
-	test("retrieve state", async () => {
-		await surreal.let("foo", "bar");
+    test("retrieve state", async () => {
+        await surreal.let("foo", "bar");
 
-		expect(surreal.parameters).toMatchObject({
-			foo: "bar",
-		});
-	});
+        expect(surreal.parameters).toMatchObject({
+            foo: "bar",
+        });
+    });
 });

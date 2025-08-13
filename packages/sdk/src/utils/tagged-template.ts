@@ -10,41 +10,38 @@ import { PreparedQuery } from "./prepared-query.ts";
  * @returns A PreparedQuery instance
  */
 export function surrealql(
-	rawQuery: string[] | TemplateStringsArray,
-	...values: unknown[]
+    rawQuery: string[] | TemplateStringsArray,
+    ...values: unknown[]
 ): PreparedQuery {
-	let reused = 0;
-	const gaps = new Map<Gap, number>();
-	const mapped_bindings = values.map((v, i) => {
-		if (v instanceof Gap) {
-			const index = gaps.get(v);
-			if (index !== undefined) {
-				reused++;
-				return [`bind___${index}`, v] as const;
-			}
+    let reused = 0;
+    const gaps = new Map<Gap, number>();
+    const mapped_bindings = values.map((v, i) => {
+        if (v instanceof Gap) {
+            const index = gaps.get(v);
+            if (index !== undefined) {
+                reused++;
+                return [`bind___${index}`, v] as const;
+            }
 
-			gaps.set(v, i - reused);
-		}
+            gaps.set(v, i - reused);
+        }
 
-		return [`bind___${i - reused}`, v] as const;
-	});
+        return [`bind___${i - reused}`, v] as const;
+    });
 
-	const bindings = mapped_bindings.reduce<Record<`bind___${number}`, unknown>>(
-		(prev, [k, v]) => {
-			prev[k] = v;
-			return prev;
-		},
-		{},
-	);
+    const bindings = mapped_bindings.reduce<Record<`bind___${number}`, unknown>>((prev, [k, v]) => {
+        prev[k] = v;
+        return prev;
+    }, {});
 
-	const query = rawQuery
-		.flatMap((segment, i) => {
-			const variable = mapped_bindings[i]?.[0];
-			return [segment, ...(variable ? [`$${variable}`] : [])];
-		})
-		.join("");
+    const query = rawQuery
+        .flatMap((segment, i) => {
+            const variable = mapped_bindings[i]?.[0];
+            return [segment, ...(variable ? [`$${variable}`] : [])];
+        })
+        .join("");
 
-	return new PreparedQuery(query, bindings);
+    return new PreparedQuery(query, bindings);
 }
 
 export { surrealql as surql };

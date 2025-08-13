@@ -6,15 +6,15 @@ import type { Token } from "../../../types";
  * A promise representing an `authenticate` RPC call to the server.
  */
 export class AuthenticatePromise extends ConnectionPromise<true> {
-	#token: Token;
+    #token: Token;
 
-	constructor(connection: ConnectionController, token: Token) {
-		super(connection);
-		this.#token = token;
-	}
+    constructor(connection: ConnectionController, token: Token) {
+        super(connection);
+        this.#token = token;
+    }
 
-	protected async dispatch(): Promise<true> {
-		await this.rpc<string>("authenticate", [this.#token]);
-		return true;
-	}
+    protected async dispatch(): Promise<true> {
+        await this.rpc<string>("authenticate", [this.#token]);
+        return true;
+    }
 }

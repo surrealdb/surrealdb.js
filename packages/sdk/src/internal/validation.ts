@@ -1,38 +1,32 @@
 import type { AnyRecordId } from "../types";
 import { type Bound, BoundExcluded, BoundIncluded } from "../utils/range";
-import {
-	RecordId,
-	type RecordIdValue,
-	StringRecordId,
-	Table,
-	Uuid,
-} from "../value";
+import { RecordId, type RecordIdValue, StringRecordId, Table, Uuid } from "../value";
 
 export function isValidIdPart(v: unknown): v is RecordIdValue {
-	if (v instanceof Uuid) return true;
+    if (v instanceof Uuid) return true;
 
-	switch (typeof v) {
-		case "string":
-		case "number":
-		case "bigint":
-			return true;
-		case "object":
-			return Array.isArray(v) || v !== null;
-		default:
-			return false;
-	}
+    switch (typeof v) {
+        case "string":
+        case "number":
+        case "bigint":
+            return true;
+        case "object":
+            return Array.isArray(v) || v !== null;
+        default:
+            return false;
+    }
 }
 
 export function isValidIdBound(bound: unknown): bound is Bound<RecordIdValue> {
-	return bound instanceof BoundIncluded || bound instanceof BoundExcluded
-		? isValidIdPart(bound.value)
-		: true;
+    return bound instanceof BoundIncluded || bound instanceof BoundExcluded
+        ? isValidIdPart(bound.value)
+        : true;
 }
 
 export function isValidTable(tb: unknown): tb is string | Table {
-	return tb instanceof Table || typeof tb === "string";
+    return tb instanceof Table || typeof tb === "string";
 }
 
 export function isAnyRecordId(value: unknown): value is AnyRecordId {
-	return value instanceof RecordId || value instanceof StringRecordId;
+    return value instanceof RecordId || value instanceof StringRecordId;
 }

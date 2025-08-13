@@ -1,53 +1,50 @@
 import type { EventPayload, EventPublisher } from "../types/publisher";
 
 export class Publisher<T extends EventPayload> implements EventPublisher<T> {
-	#subscriptions: Partial<{
-		[K in keyof T]: Set<(...event: T[K]) => void>;
-	}> = {};
+    #subscriptions: Partial<{
+        [K in keyof T]: Set<(...event: T[K]) => void>;
+    }> = {};
 
-	subscribe<K extends keyof T>(
-		event: K,
-		listener: (...event: T[K]) => void,
-	): () => void {
-		this.#subscriptions[event] ??= new Set();
-		this.#subscriptions[event]?.add(listener);
+    subscribe<K extends keyof T>(event: K, listener: (...event: T[K]) => void): () => void {
+        this.#subscriptions[event] ??= new Set();
+        this.#subscriptions[event]?.add(listener);
 
-		return () => {
-			const subscriptions = this.#subscriptions[event];
+        return () => {
+            const subscriptions = this.#subscriptions[event];
 
-			if (subscriptions?.delete(listener) && subscriptions.size === 0) {
-				delete this.#subscriptions[event];
-			}
-		};
-	}
+            if (subscriptions?.delete(listener) && subscriptions.size === 0) {
+                delete this.#subscriptions[event];
+            }
+        };
+    }
 
-	subscribeFirst<K extends keyof T>(...events: K[]): Promise<T[K]> {
-		const subscriptions: (() => void)[] = [];
+    subscribeFirst<K extends keyof T>(...events: K[]): Promise<T[K]> {
+        const subscriptions: (() => void)[] = [];
 
-		return new Promise((resolve) => {
-			for (const event of events) {
-				const unsubscribe = this.subscribe(event, (...payload: T[K]) => {
-					for (const subscription of subscriptions) {
-						subscription();
-					}
+        return new Promise((resolve) => {
+            for (const event of events) {
+                const unsubscribe = this.subscribe(event, (...payload: T[K]) => {
+                    for (const subscription of subscriptions) {
+                        subscription();
+                    }
 
-					resolve(payload);
-				});
+                    resolve(payload);
+                });
 
-				subscriptions.push(unsubscribe);
-			}
-		});
-	}
+                subscriptions.push(unsubscribe);
+            }
+        });
+    }
 
-	publish<K extends keyof T>(event: K, ...payload: T[K]): void {
-		const subscriptions = this.#subscriptions[event];
+    publish<K extends keyof T>(event: K, ...payload: T[K]): void {
+        const subscriptions = this.#subscriptions[event];
 
-		if (!subscriptions) {
-			return;
-		}
+        if (!subscriptions) {
+            return;
+        }
 
-		for (const subscription of subscriptions) {
-			subscription(...payload);
-		}
-	}
+        for (const subscription of subscriptions) {
+            subscription(...payload);
+        }
+    }
 }

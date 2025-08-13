@@ -2,15 +2,9 @@ import type { ConnectionController } from "../controller";
 import { ResponseError } from "../errors";
 import type { RpcResponse } from "../types";
 
-type OnFulfilled<T, TResult> =
-	| ((value: T) => TResult | PromiseLike<TResult>)
-	| null
-	| undefined;
+type OnFulfilled<T, TResult> = ((value: T) => TResult | PromiseLike<TResult>) | null | undefined;
 
-type OnRejected<TResult> =
-	| ((reason: unknown) => TResult | PromiseLike<TResult>)
-	| null
-	| undefined;
+type OnRejected<TResult> = ((reason: unknown) => TResult | PromiseLike<TResult>) | null | undefined;
 
 /**
  * A form of `Promise` that defers the computation of a Promise until it is
@@ -18,63 +12,61 @@ type OnRejected<TResult> =
  * before it is dispatched.
  */
 export abstract class DispatchedPromise<T> extends Promise<T> {
-	#resolve!: (value: T | PromiseLike<T>) => void;
-	#reject!: (reason?: unknown) => void;
-	#dispatched = false;
+    #resolve!: (value: T | PromiseLike<T>) => void;
+    #reject!: (reason?: unknown) => void;
+    #dispatched = false;
 
-	protected abstract dispatch(): Promise<T>;
+    protected abstract dispatch(): Promise<T>;
 
-	constructor() {
-		let _resolve: undefined | ((value: T | PromiseLike<T>) => void);
-		let _reject: undefined | ((reason?: unknown) => void);
+    constructor() {
+        let _resolve: undefined | ((value: T | PromiseLike<T>) => void);
+        let _reject: undefined | ((reason?: unknown) => void);
 
-		super((resolve, reject) => {
-			_resolve = resolve;
-			_reject = reject;
-		});
+        super((resolve, reject) => {
+            _resolve = resolve;
+            _reject = reject;
+        });
 
-		if (!_resolve || !_reject) {
-			throw new Error("resolve and reject required");
-		}
+        if (!_resolve || !_reject) {
+            throw new Error("resolve and reject required");
+        }
 
-		this.#resolve = _resolve;
-		this.#reject = _reject;
-	}
+        this.#resolve = _resolve;
+        this.#reject = _reject;
+    }
 
-	#ensureDispatched(): Promise<T> {
-		if (!this.#dispatched) {
-			this.#dispatched = true;
-			this.dispatch().then(this.#resolve, this.#reject);
-		}
+    #ensureDispatched(): Promise<T> {
+        if (!this.#dispatched) {
+            this.#dispatched = true;
+            this.dispatch().then(this.#resolve, this.#reject);
+        }
 
-		return this;
-	}
+        return this;
+    }
 
-	override then<TResult1 = T, TResult2 = never>(
-		onfulfilled?: OnFulfilled<T, TResult1>,
-		onrejected?: OnRejected<TResult2>,
-	): Promise<TResult1 | TResult2> {
-		this.#ensureDispatched();
-		return super.then(onfulfilled, onrejected);
-	}
+    override then<TResult1 = T, TResult2 = never>(
+        onfulfilled?: OnFulfilled<T, TResult1>,
+        onrejected?: OnRejected<TResult2>,
+    ): Promise<TResult1 | TResult2> {
+        this.#ensureDispatched();
+        return super.then(onfulfilled, onrejected);
+    }
 
-	override catch<TResult = never>(
-		onrejected?: OnRejected<TResult>,
-	): Promise<T | TResult> {
-		this.#ensureDispatched();
-		return super.catch(onrejected);
-	}
+    override catch<TResult = never>(onrejected?: OnRejected<TResult>): Promise<T | TResult> {
+        this.#ensureDispatched();
+        return super.catch(onrejected);
+    }
 
-	override finally(onfinally?: (() => void) | undefined | null): Promise<T> {
-		this.#ensureDispatched();
-		return super.finally(onfinally);
-	}
+    override finally(onfinally?: (() => void) | undefined | null): Promise<T> {
+        this.#ensureDispatched();
+        return super.finally(onfinally);
+    }
 
-	static get [Symbol.species](): PromiseConstructor {
-		return Promise;
-	}
+    static get [Symbol.species](): PromiseConstructor {
+        return Promise;
+    }
 
-	[Symbol.toStringTag] = "DispatchedPromise";
+    [Symbol.toStringTag] = "DispatchedPromise";
 }
 
 /**
@@ -82,28 +74,25 @@ export abstract class DispatchedPromise<T> extends Promise<T> {
  * allows the execution of RPC calls against that connection.
  */
 export abstract class ConnectionPromise<T> extends DispatchedPromise<T> {
-	protected _connection: ConnectionController;
+    protected _connection: ConnectionController;
 
-	constructor(connection: ConnectionController) {
-		super();
-		this._connection = connection;
-	}
+    constructor(connection: ConnectionController) {
+        super();
+        this._connection = connection;
+    }
 
-	protected async rpc<Result>(
-		method: string,
-		params?: unknown[],
-	): Promise<Result> {
-		await this._connection.ready();
+    protected async rpc<Result>(method: string, params?: unknown[]): Promise<Result> {
+        await this._connection.ready();
 
-		const response: RpcResponse<Result> = await this._connection.rpc({
-			method,
-			params,
-		});
+        const response: RpcResponse<Result> = await this._connection.rpc({
+            method,
+            params,
+        });
 
-		if (response.error) {
-			throw new ResponseError(response.error.message);
-		}
+        if (response.error) {
+            throw new ResponseError(response.error.message);
+        }
 
-		return response.result;
-	}
+        return response.result;
+    }
 }

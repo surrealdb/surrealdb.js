@@ -14,7 +14,7 @@ export * from "./v2";
  * Compatible with the SurrealDB RPC v2 protocol
  */
 export class Surreal extends SurrealV2 {
-	constructor(options: DriverOptions = {}) {
-		super(options);
-	}
+    constructor(options: DriverOptions = {}) {
+        super(options);
+    }
 }

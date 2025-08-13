@@ -6,9 +6,9 @@ import { fetchVersion, setupServer } from "./__helpers__";
 const { createSurreal } = await setupServer();
 
 beforeAll(async () => {
-	const surreal = await createSurreal();
+    const surreal = await createSurreal();
 
-	await surreal.query(surql`
+    await surreal.query(surql`
 		CREATE foo:1 CONTENT { hello: "world" };
 		CREATE bar:1 CONTENT { hello: "world" };
 		DEFINE FUNCTION fn::foo() { RETURN "bar"; };
@@ -16,30 +16,30 @@ beforeAll(async () => {
 });
 
 describe("export", async () => {
-	const surreal = await createSurreal();
-	const version = await fetchVersion(surreal);
-	const hasPostExport = compareVersions(version, "2.1.0") >= 0;
+    const surreal = await createSurreal();
+    const version = await fetchVersion(surreal);
+    const hasPostExport = compareVersions(version, "2.1.0") >= 0;
 
-	test.if(hasPostExport)("basic", async () => {
-		const res = await surreal.export();
+    test.if(hasPostExport)("basic", async () => {
+        const res = await surreal.export();
 
-		expect(res).toMatchSnapshot();
-	});
+        expect(res).toMatchSnapshot();
+    });
 
-	test.if(hasPostExport)("filter tables", async () => {
-		const res = await surreal.export({
-			tables: ["foo"],
-		});
+    test.if(hasPostExport)("filter tables", async () => {
+        const res = await surreal.export({
+            tables: ["foo"],
+        });
 
-		expect(res).toMatchSnapshot();
-	});
+        expect(res).toMatchSnapshot();
+    });
 
-	test.if(hasPostExport)("filter functions", async () => {
-		const res = await surreal.export({
-			functions: true,
-			tables: false,
-		});
+    test.if(hasPostExport)("filter functions", async () => {
+        const res = await surreal.export({
+            functions: true,
+            tables: false,
+        });
 
-		expect(res).toMatchSnapshot();
-	});
+        expect(res).toMatchSnapshot();
+    });
 });

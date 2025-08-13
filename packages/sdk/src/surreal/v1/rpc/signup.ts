@@ -7,19 +7,19 @@ import type { AccessRecordAuth, Token } from "../../../types";
  * A promise representing a `signup` RPC call to the server.
  */
 export class SignupPromise extends ConnectionPromise<Token> {
-	#auth: AccessRecordAuth;
+    #auth: AccessRecordAuth;
 
-	constructor(connection: ConnectionController, auth: AccessRecordAuth) {
-		super(connection);
-		this.#auth = auth;
-	}
+    constructor(connection: ConnectionController, auth: AccessRecordAuth) {
+        super(connection);
+        this.#auth = auth;
+    }
 
-	protected async dispatch(): Promise<Token> {
-		const converted = this._connection.buildAuth(this.#auth);
-		const result = await this.rpc<Token>("signup", [converted]);
+    protected async dispatch(): Promise<Token> {
+        const converted = this._connection.buildAuth(this.#auth);
+        const result = await this.rpc<Token>("signup", [converted]);
 
-		if (!result) throw new NoTokenReturned();
+        if (!result) throw new NoTokenReturned();
 
-		return result;
-	}
+        return result;
+    }
 }

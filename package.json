@@ -1,28 +1,28 @@
 {
-	"name": "surrealdb.js",
-	"version": "2.0.0-alpha.4",
-	"private": true,
-	"workspaces": [
-		"packages/*"
-	],
-	"scripts": {
-		"build": "turbo build",
-		"test": "turbo run-test-suite",
-		"qc": "biome check .",
-		"qa": "biome check . --write",
-		"qau": "biome check . --write --unsafe"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "2.1.2",
-		"@types/signale": "^1.4.7",
-		"bun-types": "^1.2.12",
-		"fast-check": "^4.1.1",
-		"signale": "^1.4.0",
-		"dts-bundle-generator": "^9.5.1",
-		"esbuild": "^0.21.5",
-		"esbuild-plugin-tsc": "^0.4.0",
-		"rolldown": "^1.0.0-beta.31",
-		"turbo": "^2.5.5"
-	},
-	"packageManager": "^bun@1.1.17"
+    "name": "surrealdb.js",
+    "version": "2.0.0-alpha.4",
+    "private": true,
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "build": "turbo build",
+        "test": "turbo run-test-suite",
+        "qc": "biome check .",
+        "qa": "biome check . --write",
+        "qau": "biome check . --write --unsafe"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "2.1.2",
+        "@types/signale": "^1.4.7",
+        "bun-types": "^1.2.12",
+        "fast-check": "^4.1.1",
+        "signale": "^1.4.0",
+        "dts-bundle-generator": "^9.5.1",
+        "esbuild": "^0.21.5",
+        "esbuild-plugin-tsc": "^0.4.0",
+        "rolldown": "^1.0.0-beta.31",
+        "turbo": "^2.5.5"
+    },
+    "packageManager": "^bun@1.1.17"
 }

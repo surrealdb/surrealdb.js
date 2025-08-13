@@ -6,34 +6,34 @@ import { Value } from "./value";
  * A SurrealQL string-represented record ID value.
  */
 export class StringRecordId extends Value {
-	public readonly rid: string;
+    public readonly rid: string;
 
-	constructor(rid: string | StringRecordId | RecordId) {
-		super();
+    constructor(rid: string | StringRecordId | RecordId) {
+        super();
 
-		// In some cases the same method may be used with different data sources
-		// this can cause this method to be called with an already instanced class object.
-		if (rid instanceof StringRecordId) {
-			this.rid = rid.rid;
-		} else if (rid instanceof RecordId) {
-			this.rid = rid.toString();
-		} else if (typeof rid === "string") {
-			this.rid = rid;
-		} else {
-			throw new SurrealError("String Record ID must be a string");
-		}
-	}
+        // In some cases the same method may be used with different data sources
+        // this can cause this method to be called with an already instanced class object.
+        if (rid instanceof StringRecordId) {
+            this.rid = rid.rid;
+        } else if (rid instanceof RecordId) {
+            this.rid = rid.toString();
+        } else if (typeof rid === "string") {
+            this.rid = rid;
+        } else {
+            throw new SurrealError("String Record ID must be a string");
+        }
+    }
 
-	equals(other: unknown): boolean {
-		if (!(other instanceof StringRecordId)) return false;
-		return this.rid === other.rid;
-	}
+    equals(other: unknown): boolean {
+        if (!(other instanceof StringRecordId)) return false;
+        return this.rid === other.rid;
+    }
 
-	toJSON(): string {
-		return this.rid;
-	}
+    toJSON(): string {
+        return this.rid;
+    }
 
-	toString(): string {
-		return this.rid;
-	}
+    toString(): string {
+        return this.rid;
+    }
 }

@@ -7,19 +7,19 @@ import type { AnyAuth, Token } from "../../../types";
  * A promise representing a `signin` RPC call to the server.
  */
 export class SigninPromise extends ConnectionPromise<Token> {
-	#auth: AnyAuth;
+    #auth: AnyAuth;
 
-	constructor(connection: ConnectionController, auth: AnyAuth) {
-		super(connection);
-		this.#auth = auth;
-	}
+    constructor(connection: ConnectionController, auth: AnyAuth) {
+        super(connection);
+        this.#auth = auth;
+    }
 
-	protected async dispatch(): Promise<Token> {
-		const converted = this._connection.buildAuth(this.#auth);
-		const result = await this.rpc<Token>("signin", [converted]);
+    protected async dispatch(): Promise<Token> {
+        const converted = this._connection.buildAuth(this.#auth);
+        const result = await this.rpc<Token>("signin", [converted]);
 
-		if (!result) throw new NoTokenReturned();
+        if (!result) throw new NoTokenReturned();
 
-		return result;
-	}
+        return result;
+    }
 }

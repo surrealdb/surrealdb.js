@@ -3,20 +3,20 @@
 
 export type Fill<T = unknown> = [Gap<T>, T];
 export class Gap<T = unknown> {
-	readonly args: [T?] = [];
-	constructor(...args: [T?]) {
-		this.args = args;
-	}
+    readonly args: [T?] = [];
+    constructor(...args: [T?]) {
+        this.args = args;
+    }
 
-	fill(value: T): Fill<T> {
-		return [this, value];
-	}
+    fill(value: T): Fill<T> {
+        return [this, value];
+    }
 
-	hasDefault(): boolean {
-		return this.args.length === 1;
-	}
+    hasDefault(): boolean {
+        return this.args.length === 1;
+    }
 
-	get default(): T | undefined {
-		return this.args[0];
-	}
+    get default(): T | undefined {
+        return this.args[0];
+    }
 }

@@ -6,7 +6,7 @@ import { toSurrealqlString } from "./to-surql-string";
 const MAX_i64 = 9223372036854775807n;
 
 function isOnlyNumbers(str: string): boolean {
-	return /^[\d_]+$/.test(str);
+    return /^[\d_]+$/.test(str);
 }
 
 /**
@@ -16,33 +16,33 @@ function isOnlyNumbers(str: string): boolean {
  * @returns Optionally escaped string
  */
 export function escapeIdent(str: string): string {
-	// String which looks like a number should always be escaped, to prevent it from being parsed as a number
-	if (isOnlyNumbers(str)) {
-		return `⟨${str}⟩`;
-	}
+    // String which looks like a number should always be escaped, to prevent it from being parsed as a number
+    if (isOnlyNumbers(str)) {
+        return `⟨${str}⟩`;
+    }
 
-	// Empty string should always be escaped
-	if (str === "") {
-		return "⟨⟩";
-	}
+    // Empty string should always be escaped
+    if (str === "") {
+        return "⟨⟩";
+    }
 
-	let code: number;
-	let i: number;
-	let len: number;
+    let code: number;
+    let i: number;
+    let len: number;
 
-	for (i = 0, len = str.length; i < len; i++) {
-		code = str.charCodeAt(i);
-		if (
-			!(code > 47 && code < 58) && // numeric (0-9)
-			!(code > 64 && code < 91) && // upper alpha (A-Z)
-			!(code > 96 && code < 123) && // lower alpha (a-z)
-			!(code === 95) // underscore (_)
-		) {
-			return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
-		}
-	}
+    for (i = 0, len = str.length; i < len; i++) {
+        code = str.charCodeAt(i);
+        if (
+            !(code > 47 && code < 58) && // numeric (0-9)
+            !(code > 64 && code < 91) && // upper alpha (A-Z)
+            !(code > 96 && code < 123) && // lower alpha (a-z)
+            !(code === 95) // underscore (_)
+        ) {
+            return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
+        }
+    }
 
-	return str;
+    return str;
 }
 
 /**
@@ -52,7 +52,7 @@ export function escapeIdent(str: string): string {
  * @returns Optionally escaped number
  */
 export function escapeNumber(num: number | bigint): string {
-	return num <= MAX_i64 ? num.toString() : `⟨${num}⟩`;
+    return num <= MAX_i64 ? num.toString() : `⟨${num}⟩`;
 }
 
 /**
@@ -62,13 +62,13 @@ export function escapeNumber(num: number | bigint): string {
  * @returns The escaped record id value part
  */
 export function escapeIdPart(id: RecordIdValue): string {
-	return id instanceof Uuid
-		? `u"${id}"`
-		: typeof id === "string"
-			? escapeIdent(id)
-			: typeof id === "bigint" || typeof id === "number"
-				? escapeNumber(id)
-				: toSurrealqlString(id);
+    return id instanceof Uuid
+        ? `u"${id}"`
+        : typeof id === "string"
+          ? escapeIdent(id)
+          : typeof id === "bigint" || typeof id === "number"
+            ? escapeNumber(id)
+            : toSurrealqlString(id);
 }
 
 /**
@@ -78,10 +78,10 @@ export function escapeIdPart(id: RecordIdValue): string {
  * @returns The escaped range bound
  */
 export function escapeRangeBound<T>(bound: Bound<T>): string {
-	if (bound === undefined) return "";
-	const value = bound.value;
+    if (bound === undefined) return "";
+    const value = bound.value;
 
-	if (isValidIdPart(value)) return escapeIdPart(value);
-	if (value instanceof Range) return `(${toSurrealqlString(value)})`;
-	return toSurrealqlString(value);
+    if (isValidIdPart(value)) return escapeIdPart(value);
+    if (value instanceof Range) return `(${toSurrealqlString(value)})`;
+    return toSurrealqlString(value);
 }

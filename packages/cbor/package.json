@@ -1,37 +1,37 @@
 {
-	"name": "@surrealdb/cbor",
-	"version": "2.0.0-alpha.4",
-	"type": "module",
-	"license": "Apache-2.0",
-	"description": "CBOR encoder and decoder for SurrealDB.",
-	"homepage": "https://github.com/surrealdb/surrealdb.js",
-	"keywords": [
-		"surrealdb",
-		"cbor",
-		"binary"
-	],
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/surrealdb/surrealdb.js.git"
-	},
-	"scripts": {
-		"build": "bun run build.ts"
-	},
-	"engines": {
-		"node": ">=18.0.0"
-	},
-	"exports": {
-		".": {
-			"require": "./dist/surrealdb-cbor.cjs",
-			"import": "./dist/surrealdb-cbor.mjs",
-			"types": "./dist/surrealdb-cbor.d.ts"
-		}
-	},
-	"files": [
-		"dist",
-		"README.md",
-		"LICENCE",
-		"SECURITY.md"
-	],
-	"packageManager": "^bun@1.1.17"
+    "name": "@surrealdb/cbor",
+    "version": "2.0.0-alpha.4",
+    "type": "module",
+    "license": "Apache-2.0",
+    "description": "CBOR encoder and decoder for SurrealDB.",
+    "homepage": "https://github.com/surrealdb/surrealdb.js",
+    "keywords": [
+        "surrealdb",
+        "cbor",
+        "binary"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/surrealdb/surrealdb.js.git"
+    },
+    "scripts": {
+        "build": "bun run build.ts"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "exports": {
+        ".": {
+            "require": "./dist/surrealdb-cbor.cjs",
+            "import": "./dist/surrealdb-cbor.mjs",
+            "types": "./dist/surrealdb-cbor.d.ts"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENCE",
+        "SECURITY.md"
+    ],
+    "packageManager": "^bun@1.1.17"
 }

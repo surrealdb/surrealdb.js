@@ -1,45 +1,43 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.1.2/schema.json",
-	"assist": {
-		"actions": {
-			"source": {
-				"organizeImports": "on"
-			}
-		}
-	},
-	"linter": {
-		"enabled": true,
-		"rules": {
-			"recommended": true,
-			"suspicious": {
-				"noThenProperty": "off",
-				"noArrayIndexKey": "off"
-			},
-			"correctness": {
-				"noUnusedImports": "warn"
-			}
-		}
-	},
-	"formatter": {
-		"enabled": true,
-		"indentWidth": 4,
-		"indentStyle": "space",
-		"lineWidth": 100,
-		"attributePosition": "multiline",
-		"includes": [
-			"**"
-		]
-	},
-	"files": {
-		"includes": [
-			"**",
-			"!**/.vscode",
-			"!**/.github",
-			"!**/node_modules",
-			"!**/npm/*",
-			"!**/dist/*",
-			"!**/scripts/*",
-			"!**/*.js"
-		]
-	}
+    "$schema": "https://biomejs.dev/schemas/2.1.2/schema.json",
+    "assist": {
+        "actions": {
+            "source": {
+                "organizeImports": "on"
+            }
+        }
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "recommended": true,
+            "suspicious": {
+                "noThenProperty": "off",
+                "noArrayIndexKey": "off"
+            },
+            "correctness": {
+                "noUnusedImports": "warn"
+            }
+        }
+    },
+    "formatter": {
+        "enabled": true,
+        "indentWidth": 4,
+        "indentStyle": "space",
+        "lineWidth": 100,
+        "attributePosition": "multiline",
+        "includes": ["**"]
+    },
+    "files": {
+        "includes": [
+            "**",
+            "!**/.vscode",
+            "!**/.github",
+            "!**/node_modules",
+            "!**/npm/*",
+            "!**/dist/*",
+            "!**/scripts/*",
+            "!**/*.js"
+        ]
+    }
 }
