@@ -1,10 +1,10 @@
 import { type Fill, partiallyEncodeObject } from "@surrealdb/cbor";
-import { REPLACER } from "../../../cbor/replacer";
-import type { ConnectionController } from "../../../controller";
-import { ResponseError } from "../../../errors";
-import { ConnectionPromise } from "../../../internal/promise";
-import type { MapJsonify, MapQueryResult, Prettify, QueryResult } from "../../../types";
-import { jsonify, PreparedQuery } from "../../../utils";
+import { REPLACER } from "../cbor/replacer";
+import type { ConnectionController } from "../controller";
+import { SurrealError } from "../errors";
+import { ConnectionPromise } from "../internal/promise";
+import type { MapJsonify, MapQueryResult, Prettify, QueryResult } from "../types";
+import { jsonify, PreparedQuery } from "../utils";
 
 /**
  * A promise representing a `query` RPC call to the server.
@@ -73,9 +73,9 @@ export class QueryPromise<T extends unknown[]> extends ConnectionPromise<Prettif
             return results as T;
         }
 
-        return results.map(({ status, result }) => {
-            if (status === "ERR") throw new ResponseError(result);
-            return result;
+        return results.map((res) => {
+            if (res.status === "ERR") throw new SurrealError(res.result);
+            return res.result;
         }) as T;
     }
 }

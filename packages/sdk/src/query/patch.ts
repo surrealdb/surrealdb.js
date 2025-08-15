@@ -1,9 +1,9 @@
-import type { ConnectionController } from "../../../controller";
-import { collect } from "../../../internal/collect";
-import { ConnectionPromise } from "../../../internal/promise";
-import type { Patch } from "../../../types";
-import type { Jsonify } from "../../../utils";
-import type { RecordId, RecordIdRange, Table } from "../../../value";
+import type { ConnectionController } from "../controller";
+import { collect } from "../internal/collect";
+import { ConnectionPromise } from "../internal/promise";
+import type { Patch } from "../types";
+import type { Jsonify } from "../utils";
+import type { RecordId, RecordIdRange, Table } from "../value";
 
 /**
  * A promise representing a `patch` RPC call to the server.

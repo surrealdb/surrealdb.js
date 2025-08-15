@@ -1,6 +1,4 @@
 import type { ConnectionController } from "../controller";
-import { ResponseError } from "../errors";
-import type { RpcResponse } from "../types";
 
 type OnFulfilled<T, TResult> = ((value: T) => TResult | PromiseLike<TResult>) | null | undefined;
 
@@ -81,18 +79,19 @@ export abstract class ConnectionPromise<T> extends DispatchedPromise<T> {
         this._connection = connection;
     }
 
-    protected async rpc<Result>(method: string, params?: unknown[]): Promise<Result> {
-        await this._connection.ready();
+    protected async rpc<Result>(_method: string, _params?: unknown[]): Promise<Result> {
+        throw new Error("Removed");
+        // await this._connection.ready();
 
-        const response: RpcResponse<Result> = await this._connection.rpc({
-            method,
-            params,
-        });
+        // const response: RpcResponse<Result> = await this._connection.rpc({
+        //     method,
+        //     params,
+        // });
 
-        if (response.error) {
-            throw new ResponseError(response.error.message);
-        }
+        // if (response.error) {
+        //     throw new ResponseError(response.error.message);
+        // }
 
-        return response.result;
+        // return response.result;
     }
 }

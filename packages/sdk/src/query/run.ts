@@ -1,5 +1,5 @@
-import type { ConnectionController } from "../../../controller";
-import { ConnectionPromise } from "../../../internal/promise";
+import type { ConnectionController } from "../controller";
+import { ConnectionPromise } from "../internal/promise";
 
 /**
  * A promise representing a `run` RPC call to the server.

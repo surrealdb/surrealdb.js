@@ -1,6 +1,6 @@
-import { collect } from "../../../internal/collect";
-import { ConnectionPromise } from "../../../internal/promise";
-import type { Jsonify } from "../../../utils";
+import { collect } from "../internal/collect";
+import { ConnectionPromise } from "../internal/promise";
+import type { Jsonify } from "../utils";
 
 /**
  * A promise representing an `info` RPC call to the server.

@@ -1,9 +1,9 @@
-import type { ConnectionController } from "../../../controller";
-import { collect } from "../../../internal/collect";
-import { ConnectionPromise } from "../../../internal/promise";
-import type { Doc, RelateInOut } from "../../../types";
-import type { Jsonify } from "../../../utils";
-import type { RecordId, Table } from "../../../value";
+import type { ConnectionController } from "../controller";
+import { collect } from "../internal/collect";
+import { ConnectionPromise } from "../internal/promise";
+import type { Doc, RelateInOut } from "../types";
+import type { Jsonify } from "../utils";
+import type { RecordId, Table } from "../value";
 
 /**
  * A promise representing a `relate` RPC call to the server.

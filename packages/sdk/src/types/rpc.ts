@@ -2,49 +2,49 @@ import type { Fill } from "@surrealdb/cbor";
 import type { Jsonify, PreparedQuery } from "../utils";
 
 export type QueryParameters =
-	| [query: string, bindings?: Record<string, unknown>]
-	| [prepared: PreparedQuery, gaps?: Fill[]];
+    | [query: string, bindings?: Record<string, unknown>]
+    | [prepared: PreparedQuery, gaps?: Fill[]];
 
 export type QueryResult<T = unknown> = QueryResultOk<T> | QueryResultErr;
 export type QueryResultOk<T> = {
-	status: "OK";
-	time: string;
-	result: T;
+    status: "OK";
+    time: string;
+    result: T;
 };
 
 export type QueryResultErr = {
-	status: "ERR";
-	time: string;
-	result: string;
+    status: "ERR";
+    time: string;
+    result: string;
 };
 
 export type MapQueryResult<T> = {
-	[K in keyof T]: QueryResult<T[K]>;
+    [K in keyof T]: QueryResult<T[K]>;
 };
 
 export type MapJsonify<T> = {
-	[K in keyof T]: Jsonify<T[K]>;
+    [K in keyof T]: Jsonify<T[K]>;
 };
 
 export type RpcRequest<
-	Method extends string = string,
-	Params extends unknown[] | undefined = unknown[],
+    Method extends string = string,
+    Params extends unknown[] | undefined = unknown[],
 > = {
-	method: Method;
-	params?: Params;
+    method: Method;
+    params?: Params;
 };
 
 export type RpcResponse<Result = unknown> = RpcSuccessResponse<Result> | RpcErrorResponse;
 
 export type RpcSuccessResponse<Result = unknown> = {
-	result: Result;
-	error?: never;
+    result: Result;
+    error?: never;
 };
 
 export type RpcErrorResponse = {
-	result?: never;
-	error: {
-		code: number;
-		message: string;
-	};
+    result?: never;
+    error: {
+        code: number;
+        message: string;
+    };
 };

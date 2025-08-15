@@ -1,9 +1,9 @@
-import type { ConnectionController } from "../../../controller";
-import { collect } from "../../../internal/collect";
-import { ConnectionPromise } from "../../../internal/promise";
-import type { Doc } from "../../../types";
-import type { Jsonify } from "../../../utils";
-import type { Table } from "../../../value";
+import type { ConnectionController } from "../controller";
+import { collect } from "../internal/collect";
+import { ConnectionPromise } from "../internal/promise";
+import type { Doc } from "../types";
+import type { Jsonify } from "../utils";
+import type { Table } from "../value";
 
 /**
  * A promise representing an `insert_relation` RPC call to the server.
