@@ -1,8 +1,10 @@
 {
-	"editor.defaultFormatter": "biomejs.biome",
-	"editor.formatOnSave": true,
-	"[yaml]": {
-		"editor.defaultFormatter": "redhat.vscode-yaml"
-	},
-	"typescript.tsdk": "node_modules/typescript/lib"
+    "typescript.tsdk": "./node_modules/typescript/lib",
+    "javascript.preferences.quoteStyle": "double",
+    "npm.packageManager": "bun",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports.biome": "explicit",
+        "source.fixAll.biome": "explicit"
+    }
 }
