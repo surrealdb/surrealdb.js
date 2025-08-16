@@ -1,4 +1,3 @@
-import type { Fill } from "@surrealdb/cbor";
 import { decodeCbor, encodeCbor } from "./cbor";
 import { ConnectionController } from "./controller";
 import { parseEndpoint } from "./internal/http";
@@ -37,7 +36,7 @@ import type {
 	Token,
 	VersionInfo,
 } from "./types";
-import type { PreparedQuery } from "./utils";
+import type { BoundQuery } from "./utils";
 import { Publisher } from "./utils/publisher";
 import type { RecordId, RecordIdRange, Table, Uuid } from "./value";
 
@@ -309,17 +308,16 @@ export class Surreal implements EventPublisher<SurrealEvents> {
 	 * Runs a set of SurrealQL statements against the database, returning the first error
 	 * if any of the statements result in an error
 	 *
-	 * @param prepared Specifies the prepared query to run
-	 * @param gaps Assigns values to gaps present in the prepared query
+	 * @param query The BoundQuery instance
 	 */
-	query<T extends unknown[]>(prepared: PreparedQuery, gaps?: Fill[]): QueryPromise<T>;
+	query<T extends unknown[]>(query: BoundQuery): QueryPromise<T>;
 
 	// Shadow implementation
 	query<T extends unknown[]>(
-		preparedOrQuery: string | PreparedQuery,
-		gapsOrBinds?: Record<string, unknown> | Fill[],
+		query: string | BoundQuery,
+		bindings?: Record<string, unknown>,
 	): QueryPromise<T> {
-		return new QueryPromise(this.#connection, preparedOrQuery, gapsOrBinds);
+		return new QueryPromise(this.#connection, query, bindings);
 	}
 
 	/**
