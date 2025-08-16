@@ -1,13 +1,13 @@
 import type { ConnectionController } from "../controller";
 import { SurrealError } from "../errors";
-import { ConnectionPromise } from "../internal/promise";
+import { QueriablePromise } from "../internal/queriable-promise";
 import type { MapJsonify, MapQueryResult, Prettify, QueryResult } from "../types";
 import { BoundQuery, jsonify } from "../utils";
 
 /**
  * A promise representing a `query` RPC call to the server.
  */
-export class QueryPromise<T extends unknown[]> extends ConnectionPromise<Prettify<T>> {
+export class QueryPromise<T extends unknown[]> extends QueriablePromise<Prettify<T>> {
 	#query: string;
 	#bindings: Record<string, unknown> | undefined;
 	#raw = false;

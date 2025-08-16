@@ -1,22 +1,24 @@
+import { from, type Observable } from "rxjs";
 import { ConnectionUnavailable } from "../errors";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { fetchSurreal } from "../internal/http";
 import type {
-    AccessRecordAuth,
-    AnyAuth,
-    AuthResponse,
-    ConnectionState,
-    DriverContext,
-    LiveMessage,
-    MlExportOptions,
-    NamespaceDatabase,
-    QueryResponse,
-    QueryResult,
-    RpcRequest,
-    SqlExportOptions,
-    SurrealProtocol,
-    Token,
-    VersionInfo,
+	AccessRecordAuth,
+	AnyAuth,
+	AuthResponse,
+	ConnectionState,
+	DriverContext,
+	LiveMessage,
+	MlExportOptions,
+	NamespaceDatabase,
+	QueryChunk,
+	QueryResponse,
+	QueryResult,
+	RpcRequest,
+	SqlExportOptions,
+	SurrealProtocol,
+	Token,
+	VersionInfo,
 } from "../types";
 
 /**
@@ -24,211 +26,197 @@ import type {
  * JSON objects to communicate with the server.
  */
 export abstract class JsonEngine implements SurrealProtocol {
-    protected _context: DriverContext;
-    protected _state: ConnectionState | undefined;
+	protected _context: DriverContext;
+	protected _state: ConnectionState | undefined;
 
-    constructor(context: DriverContext) {
-        this._context = context;
-    }
+	constructor(context: DriverContext) {
+		this._context = context;
+	}
 
-    async health(): Promise<void> {
-        await this.send({ method: "health" });
-    }
+	async health(): Promise<void> {
+		await this.send({ method: "health" });
+	}
 
-    async version(): Promise<VersionInfo> {
-        const version: string = await this.send({ method: "version" });
+	async version(): Promise<VersionInfo> {
+		const version: string = await this.send({ method: "version" });
 
-        return {
-            version,
-        };
-    }
+		return {
+			version,
+		};
+	}
 
-    async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
-        if (!this._state) {
-            throw new ConnectionUnavailable();
-        }
+	async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
+		if (!this._state) {
+			throw new ConnectionUnavailable();
+		}
 
-        const token: string = await this.send({
-            method: "signup",
-            params: [buildRpcAuth(this._state, auth)],
-        });
+		const token: string = await this.send({
+			method: "signup",
+			params: [buildRpcAuth(this._state, auth)],
+		});
 
-        return {
-            token,
-        };
-    }
+		return {
+			token,
+		};
+	}
 
-    async signin(auth: AnyAuth): Promise<AuthResponse> {
-        if (!this._state) {
-            throw new ConnectionUnavailable();
-        }
+	async signin(auth: AnyAuth): Promise<AuthResponse> {
+		if (!this._state) {
+			throw new ConnectionUnavailable();
+		}
 
-        const token: string = await this.send({
-            method: "signin",
-            params: [buildRpcAuth(this._state, auth)],
-        });
+		const token: string = await this.send({
+			method: "signin",
+			params: [buildRpcAuth(this._state, auth)],
+		});
 
-        return {
-            token,
-        };
-    }
+		return {
+			token,
+		};
+	}
 
-    async authenticate(token: Token): Promise<void> {
-        await this.send({
-            method: "authenticate",
-            params: [token],
-        });
-    }
+	async authenticate(token: Token): Promise<void> {
+		await this.send({
+			method: "authenticate",
+			params: [token],
+		});
+	}
 
-    async use(what: Partial<NamespaceDatabase>): Promise<NamespaceDatabase> {
-        await this.send({
-            method: "use",
-            params: [what],
-        });
+	async use(what: Partial<NamespaceDatabase>): Promise<NamespaceDatabase> {
+		await this.send({
+			method: "use",
+			params: [what],
+		});
 
-        return {
-            namespace: what.namespace ?? null,
-            database: what.database ?? null,
-        };
-    }
+		return {
+			namespace: what.namespace ?? null,
+			database: what.database ?? null,
+		};
+	}
 
-    async set(name: string, value: unknown): Promise<void> {
-        await this.send({
-            method: "let",
-            params: [name, value],
-        });
-    }
+	async set(name: string, value: unknown): Promise<void> {
+		await this.send({
+			method: "let",
+			params: [name, value],
+		});
+	}
 
-    async unset(name: string): Promise<void> {
-        await this.send({
-            method: "unset",
-            params: [name],
-        });
-    }
+	async unset(name: string): Promise<void> {
+		await this.send({
+			method: "unset",
+			params: [name],
+		});
+	}
 
-    async invalidate(): Promise<void> {
-        await this.send({
-            method: "invalidate",
-        });
-    }
+	async invalidate(): Promise<void> {
+		await this.send({
+			method: "invalidate",
+		});
+	}
 
-    async reset(): Promise<void> {
-        await this.send({
-            method: "reset",
-        });
-    }
+	async reset(): Promise<void> {
+		await this.send({
+			method: "reset",
+		});
+	}
 
-    async importSql(data: string): Promise<void> {
-        if (!this._state) {
-            throw new ConnectionUnavailable();
-        }
+	async importSql(data: string): Promise<void> {
+		if (!this._state) {
+			throw new ConnectionUnavailable();
+		}
 
-        const endpoint = new URL(this._state.url);
-        const basepath = endpoint.pathname.slice(0, -4);
+		const endpoint = new URL(this._state.url);
+		const basepath = endpoint.pathname.slice(0, -4);
 
-        endpoint.pathname = `${basepath}/import`;
+		endpoint.pathname = `${basepath}/import`;
 
-        await fetchSurreal(this._context, this._state, {
-            body: data,
-            url: endpoint,
-            headers: {
-                Accept: "application/json",
-            },
-        });
-    }
+		await fetchSurreal(this._context, this._state, {
+			body: data,
+			url: endpoint,
+			headers: {
+				Accept: "application/json",
+			},
+		});
+	}
 
-    async exportSql(options: SqlExportOptions): Promise<string> {
-        if (!this._state) {
-            throw new ConnectionUnavailable();
-        }
+	async exportSql(options: SqlExportOptions): Promise<string> {
+		if (!this._state) {
+			throw new ConnectionUnavailable();
+		}
 
-        const endpoint = new URL(this._state.url);
-        const basepath = endpoint.pathname.slice(0, -4);
+		const endpoint = new URL(this._state.url);
+		const basepath = endpoint.pathname.slice(0, -4);
 
-        endpoint.pathname = `${basepath}/export`;
+		endpoint.pathname = `${basepath}/export`;
 
-        const buffer = await fetchSurreal(this._context, this._state, {
-            body: options ?? {},
-            url: endpoint,
-            headers: {
-                Accept: "plain/text",
-            },
-        });
+		const buffer = await fetchSurreal(this._context, this._state, {
+			body: options ?? {},
+			url: endpoint,
+			headers: {
+				Accept: "plain/text",
+			},
+		});
 
-        return new TextDecoder("utf-8").decode(buffer);
-    }
+		return new TextDecoder("utf-8").decode(buffer);
+	}
 
-    async exportMlModel(options: MlExportOptions): Promise<Uint8Array> {
-        if (!this._state) {
-            throw new ConnectionUnavailable();
-        }
+	async exportMlModel(options: MlExportOptions): Promise<Uint8Array> {
+		if (!this._state) {
+			throw new ConnectionUnavailable();
+		}
 
-        const endpoint = new URL(this._state.url);
-        const basepath = endpoint.pathname.slice(0, -4);
+		const endpoint = new URL(this._state.url);
+		const basepath = endpoint.pathname.slice(0, -4);
 
-        endpoint.pathname = `${basepath}/ml/export/${options.name}/${options.version}`;
+		endpoint.pathname = `${basepath}/ml/export/${options.name}/${options.version}`;
 
-        return await fetchSurreal(this._context, this._state, {
-            url: endpoint,
-            method: "GET",
-        });
-    }
+		return await fetchSurreal(this._context, this._state, {
+			url: endpoint,
+			method: "GET",
+		});
+	}
 
-    async query(
-        query: string,
-        bindings?: Record<string, unknown>,
-    ): Promise<ReadableStream<QueryResponse>> {
-        const response: QueryResult[] = await this.send({
-            method: "query",
-            params: [query, bindings],
-        });
+	async query<T>(
+		query: string,
+		bindings?: Record<string, unknown>,
+	): Promise<Observable<QueryChunk<T>>> {
+		const response: QueryResult[] = await this.send({
+			method: "query",
+			params: [query, bindings],
+		});
 
-        const results = response.map<QueryResponse>((result) => {
-            if (result.status === "OK") {
-                return {
-                    query: 0,
-                    batch: 0,
-                    result: result.result,
-                    stats: {
-                        records: -1,
-                        bytes: -1,
-                        recordsScanned: -1,
-                        bytesScanned: -1,
-                        startAt: new Date(),
-                        endAt: new Date(),
-                    },
-                };
-            } else {
-                return {
-                    query: 0,
-                    batch: 0,
-                    error: {
-                        code: Number(result.result) || 0,
-                        message: String(result.result),
-                    },
-                };
-            }
-        });
+		const chunks = response.map(({ status, result }) => {
+			const response: QueryResponse<T> = status === "OK" ? {
+				success: true,
+				result: result as T,
+			} : {
+				success: false,
+				error: {
+					code: Number(result) || 0,
+					message: String(result),
+				},
+			};
 
-        return new ReadableStream({
-            start(controller) {
-                for (const result of results) {
-                    controller.enqueue(result);
-                }
-            },
-        });
-    }
+			return {
+				query: 0,
+				batch: 0,
+				response,
+			} as QueryChunk<T>;
+		});
 
-    liveQuery(
-        _query: string,
-        _bindings?: Record<string, unknown>,
-    ): Promise<ReadableStream<LiveMessage>> {
-        // This function will be implemented at a later date. For now, live
-        // queries will continue to use the query function.
-        throw new Error("Not implemented");
-    }
+		return from(chunks);
+	}
 
-    abstract send<Method extends string, Params extends unknown[] | undefined, Result>(
-        request: RpcRequest<Method, Params>,
-    ): Promise<Result>;
+	liveQuery(
+		_query: string,
+		_bindings?: Record<string, unknown>,
+	): Promise<Observable<LiveMessage>> {
+		// This function will be implemented at a later date. For now, live
+		// queries will continue to use the query function.
+		throw new Error("Not implemented");
+	}
+
+	abstract send<Method extends string, Params extends unknown[] | undefined, Result>(
+		request: RpcRequest<Method, Params>,
+	): Promise<Result>;
 }
