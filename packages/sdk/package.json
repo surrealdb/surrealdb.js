@@ -28,7 +28,6 @@
     },
     "dependencies": {
         "@surrealdb/cbor": "workspace:*",
-        "rxjs": "^7.8.2",
         "uuidv7": "^1.0.1"
     },
     "exports": {
