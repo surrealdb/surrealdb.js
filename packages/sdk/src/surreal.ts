@@ -2,14 +2,11 @@ import { decodeCbor, encodeCbor } from "./cbor";
 import { ConnectionController } from "./controller";
 import { parseEndpoint } from "./internal/http";
 import {
+    AuthPromise,
     CreatePromise,
     DeletePromise,
-    InfoPromise,
     InsertPromise,
-    InsertRelationPromise,
     ManagedLivePromise,
-    MergePromise,
-    PatchPromise,
     QueryPromise,
     RelatePromise,
     RunPromise,
@@ -29,16 +26,15 @@ import type {
     EventPublisher,
     LiveResource,
     NamespaceDatabase,
-    Patch,
     RecordResult,
     RelateInOut,
     SqlExportOptions,
     Token,
     VersionInfo,
 } from "./types";
-import type { BoundQuery } from "./utils";
+import { BoundQuery } from "./utils";
 import { Publisher } from "./utils/publisher";
-import type { RecordId, RecordIdRange, Table, Uuid } from "./value";
+import { type RecordId, type RecordIdRange, Table, type Uuid } from "./value";
 
 export type SurrealEvents = {
     connecting: [];
@@ -302,7 +298,10 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param query Specifies the SurrealQL statements
      * @param bindings Assigns variables which can be used in the query
      */
-    query<T extends unknown[]>(query: string, bindings?: Record<string, unknown>): QueryPromise<T>;
+    query<T extends unknown[]>(
+        query: string,
+        bindings?: Record<string, unknown>,
+    ): QueryPromise<T, "results", false>;
 
     /**
      * Runs a set of SurrealQL statements against the database, returning the first error
@@ -310,29 +309,29 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      *
      * @param query The BoundQuery instance
      */
-    query<T extends unknown[]>(query: BoundQuery): QueryPromise<T>;
+    query<T extends unknown[]>(query: BoundQuery): QueryPromise<T, "results", false>;
 
     // Shadow implementation
     query<T extends unknown[]>(
         query: string | BoundQuery,
         bindings?: Record<string, unknown>,
     ): QueryPromise<T> {
-        return new QueryPromise(this.#connection, query, bindings);
+        const _query = query instanceof BoundQuery ? query.query : query;
+        const _bindings = query instanceof BoundQuery ? query.bindings : bindings;
+
+        return new QueryPromise(this.#connection, _query, _bindings, undefined, false, "results");
     }
 
     /**
-     * Selects everything from the [$auth](https://surrealdb.com/docs/surrealql/parameters) variable.
+     * Returns the record representing the currently authenticated record user by
+     * selecting the [$auth parameter](https://surrealdb.com/docs/surrealql/parameters#auth).
      *
-     * This is equivalent to running:
-     * ```sql
-     * SELECT * FROM $auth;
-     * ```
      * Make sure the user actually has the permission to select their own record, otherwise you'll get back an empty result
      *
      * @return The record linked to the record ID used for authentication
      */
-    info<T extends Doc>(): InfoPromise<RecordResult<T> | undefined> {
-        return new InfoPromise(this.#connection);
+    auth<T extends Doc>(): AuthPromise<RecordResult<T> | undefined> {
+        return new AuthPromise(this.#connection, undefined, false);
     }
 
     /**
@@ -342,7 +341,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @returns A new live subscription object
      */
     live(what: LiveResource): ManagedLivePromise {
-        return new ManagedLivePromise(this.#connection, this.#publisher, what);
+        return new ManagedLivePromise(this.#connection, this.#publisher, what, false);
     }
 
     /**
@@ -470,35 +469,11 @@ export class Surreal implements EventPublisher<SurrealEvents> {
 
     // Shadow implementation
     insert<T extends Doc, U extends Doc = T>(arg1: Table | U | U[], arg2?: U | U[]): unknown {
-        return new InsertPromise(this.#connection, arg1, arg2);
-    }
+        if (arg1 instanceof Table) {
+            return new InsertPromise(this.#connection, arg1, arg2 ?? []);
+        }
 
-    /**
-     * Inserts one or multiple relations in the database
-     *
-     * @param data One or more relations to insert
-     */
-    insertRelation<T extends Doc, U extends Doc = T>(
-        data?: U | U[],
-    ): InsertRelationPromise<RecordResult<T>[], U>;
-
-    /**
-     * Inserts one or multiple relations in the database
-     *
-     * @param table The table to insert the relation into
-     * @param data One or more relations to insert
-     */
-    insertRelation<T extends Doc, U extends Doc = T>(
-        table: Table,
-        data?: U | U[],
-    ): InsertRelationPromise<RecordResult<T>[], U>;
-
-    // Shadow implementation
-    insertRelation<T extends Doc, U extends Doc = T>(
-        arg1: Table | U | U[],
-        arg2?: U | U[],
-    ): unknown {
-        return new InsertRelationPromise(this.#connection, arg1, arg2);
+        return new InsertPromise(this.#connection, undefined, arg1);
     }
 
     /**
@@ -596,77 +571,6 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     }
 
     /**
-     * Merges a single record based on the provided Record ID
-     *
-     * @param recordId The record ID to merge
-     * @param data The record data to merge
-     */
-    merge<T extends Doc, U extends Doc = Partial<T>>(
-        thing: RecordId,
-        data?: U,
-    ): MergePromise<RecordResult<T>, U>;
-
-    /**
-     * Merges all records based on the provided Record ID range
-     *
-     * @param range The range of record IDs to merge
-     * @param data The record data to merge
-     */
-    merge<T extends Doc, U extends Doc = Partial<T>>(
-        thing: RecordIdRange,
-        data?: U,
-    ): MergePromise<RecordResult<T>[], U>;
-
-    /**
-     * Merges all records present in the specified table
-     *
-     * @param table The table to merge
-     * @param data The record data to merge
-     */
-    merge<T extends Doc, U extends Doc = Partial<T>>(
-        thing: Table,
-        data?: U,
-    ): MergePromise<RecordResult<T>[], U>;
-
-    // Shadow implementation
-    merge<T extends Doc, U extends Doc = Partial<T>>(
-        thing: RecordId | RecordIdRange | Table,
-        data?: U,
-    ): unknown {
-        return new MergePromise(this.#connection, thing, data);
-    }
-
-    /**
-     * Applies JSON Patch changes to all records, or a specific record, in the database
-     *
-     * **NOTE**: This function patches the existing record data with the specified JSON Patch operations***
-     *
-     * @param what The table name, record ID range, or specifc record ID to patch
-     * @param data The JSON Patch operations to apply
-     */
-    patch<T extends Doc>(
-        what: RecordId,
-        data?: Patch[],
-        diff?: false,
-    ): PatchPromise<RecordResult<T>>;
-    patch<T extends Doc>(
-        what: RecordIdRange | Table,
-        data?: Patch[],
-        diff?: false,
-    ): PatchPromise<RecordResult<T>[]>;
-    patch(what: RecordId, data: undefined | Patch[], diff: true): PatchPromise<Patch[]>;
-    patch(
-        what: RecordIdRange | Table,
-        data: undefined | Patch[],
-        diff: true,
-    ): PatchPromise<Patch[][]>;
-
-    // Shadow implementation
-    patch(what: RecordId | RecordIdRange | Table, data?: Patch[], diff?: boolean): unknown {
-        return new PatchPromise(this.#connection, what, data, diff);
-    }
-
-    /**
      * Deletes a single record from the database based on the provided Record ID
      *
      * @param recordId The record ID to delete
@@ -711,6 +615,10 @@ export class Surreal implements EventPublisher<SurrealEvents> {
 
     // Shadow implementation
     run(name: string, arg2?: string | unknown[], arg3?: unknown[]): unknown {
-        return new RunPromise(this.#connection, name, arg2, arg3);
+        if (typeof arg2 === "string") {
+            return new RunPromise(this.#connection, name, arg2, arg3 ?? []);
+        }
+
+        return new RunPromise(this.#connection, name, undefined, arg2 ?? []);
     }
 }

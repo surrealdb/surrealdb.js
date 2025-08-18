@@ -1,6 +1,5 @@
 import type { decodeCbor, encodeCbor } from "../cbor";
 import type { ReconnectContext } from "../internal/reconnect";
-import type { Jsonify } from "../utils";
 import type { RecordId, Uuid } from "../value";
 import type {
     AccessRecordAuth,
@@ -48,7 +47,7 @@ export interface SurrealProtocol {
         params?: Record<string, unknown>,
         txn?: Uuid,
     ): AsyncIterable<QueryChunk<T>>;
-    liveQuery(query: string, params?: Record<string, unknown>): AsyncIterable<LiveMessage>;
+    liveQuery(query: string | Uuid, params?: Record<string, unknown>): AsyncIterable<LiveMessage>;
 }
 
 /**
@@ -241,7 +240,7 @@ export type QueryResponse<T> =
     | {
           success: true;
           stats?: QueryStats;
-          result: T[];
+          result: T;
       }
     | {
           success: false;
@@ -251,10 +250,3 @@ export type QueryResponse<T> =
               message: string;
           };
       };
-
-/**
- * The output of a query based on configured options
- */
-export type QueryOutput<T, S, J> = S extends true
-    ? AsyncIterable<QueryChunk<J extends true ? Jsonify<T> : T>>
-    : QueryResponse<J extends true ? Jsonify<T> : T>[];

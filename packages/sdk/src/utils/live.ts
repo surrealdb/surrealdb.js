@@ -1,8 +1,11 @@
 import type { ConnectionController } from "../controller";
 import { ConnectionUnavailable, LiveSubscriptionFailed } from "../errors";
-import type { LiveHandler, LivePayload, LiveResource, LiveResult, RpcResponse } from "../types";
+import { internalQuery } from "../internal/internal-query";
+import type { LiveHandler, LivePayload, LiveResource, LiveResult } from "../types";
 import type { Uuid } from "../value";
+import { BoundQuery } from "./bound-query";
 import type { Publisher } from "./publisher";
+import { surql } from "./tagged-template";
 
 type ErrorPublisher = Publisher<{
     error: [Error];
@@ -12,7 +15,6 @@ type ErrorPublisher = Publisher<{
  * Represents a subscription to a LIVE SELECT query
  */
 export abstract class LiveSubscription {
-    /*implements AsyncIterable<LivePayload>*/
     /**
      * The ID of the live subscription. Note that this id might change after
      * a live query has been restarted.
@@ -47,7 +49,7 @@ export abstract class LiveSubscription {
     /**
      * Kill the live subscription and stop receiving updates
      */
-    abstract kill(): Promise<RpcResponse<unknown>>;
+    abstract kill(): Promise<void>;
 
     /**
      * Iterate over the live subscription using an async iterator
@@ -163,8 +165,9 @@ export class ManagedLiveSubscription extends LiveSubscription {
         };
     }
 
-    public kill(): Promise<RpcResponse<unknown>> {
+    public kill(): Promise<void> {
         this.#killed = true;
+
         for (const listener of this.#listeners) {
             listener("CLOSED", "KILLED");
         }
@@ -173,37 +176,44 @@ export class ManagedLiveSubscription extends LiveSubscription {
         this.#cleanup?.();
         this.#reconnector();
 
-        return this.#controller.rpc({
-            method: "kill",
-            params: [this.#currentId],
-        });
+        return internalQuery(this.#controller, surql`KILL $id`);
+    }
+
+    #build(): BoundQuery {
+        const query = new BoundQuery("LIVE SELECT");
+
+        if (this.#diff) {
+            query.append(" DIFF");
+        } else {
+            query.append("*");
+        }
+
+        query.append(surql`FROM ${this.#resource}`);
+
+        return query;
     }
 
     async #listen(): Promise<void> {
         this.#cleanup?.();
 
-        const response: RpcResponse<Uuid> = await this.#controller.rpc({
-            method: "live",
-            params: [this.#resource, this.#diff],
-        });
+        try {
+            const [id] = await internalQuery<[Uuid]>(this.#controller, this.#build());
 
-        if (response.error) {
-            this.#publisher.publish("error", new LiveSubscriptionFailed(response));
-            return;
+            this.#currentId = id;
+            this.#cleanup = this.#controller.liveSubscribe(id, (...args) => {
+                for (const listener of this.#listeners) {
+                    listener(...args);
+                }
+            });
+
+            this.#controller.subscribe("disconnected", () => {
+                for (const listener of this.#listeners) {
+                    listener("CLOSED", "DISCONNECTED");
+                }
+            });
+        } catch (err: unknown) {
+            this.#publisher.publish("error", new LiveSubscriptionFailed(err));
         }
-
-        this.#currentId = response.result;
-        this.#cleanup = this.#controller.liveSubscribe(response.result, (...args) => {
-            for (const listener of this.#listeners) {
-                listener(...args);
-            }
-        });
-
-        this.#controller.subscribe("disconnected", () => {
-            for (const listener of this.#listeners) {
-                listener("CLOSED", "DISCONNECTED");
-            }
-        });
     }
 }
 
@@ -265,7 +275,7 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
         };
     }
 
-    public kill(): Promise<RpcResponse<unknown>> {
+    public kill(): Promise<void> {
         this.#killed = true;
         for (const listener of this.#listeners) {
             listener("CLOSED", "KILLED");
@@ -274,9 +284,6 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
         this.#listeners.clear();
         this.#cleanup();
 
-        return this.#controller.rpc({
-            method: "kill",
-            params: [this.#id],
-        });
+        return internalQuery(this.#controller, surql`KILL $id`);
     }
 }

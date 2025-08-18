@@ -1,43 +1,73 @@
 import type { ConnectionController } from "../controller";
-import { collect } from "../internal/collect";
-import { QueriablePromise } from "../internal/queriable-promise";
+import { DispatchedPromise } from "../internal/dispatched-promise";
+import { internalQuery } from "../internal/internal-query";
 import type { Doc } from "../types";
-import type { Jsonify } from "../utils";
-import type { RecordId, RecordIdRange, Table } from "../value";
+import type { MaybeJsonify } from "../types/internal";
+import { surql } from "../utils";
+import { RecordId, type RecordIdRange, type Table, type Uuid } from "../value";
 
 /**
- * A promise representing an `upsert` RPC call to the server.
+ * A configurable `Promise` for an upsert query sent to a SurrealDB instance.
  */
-export class UpsertPromise<T, U extends Doc> extends QueriablePromise<T> {
+export class UpsertPromise<T, U extends Doc, J extends boolean = false> extends DispatchedPromise<
+    MaybeJsonify<T, J>
+> {
+    #connection: ConnectionController;
     #thing: RecordId | RecordIdRange | Table;
     #data?: U;
-    #json = false;
+    #transaction: Uuid | undefined;
+    #json: J;
 
     constructor(
         connection: ConnectionController,
         thing: RecordId | RecordIdRange | Table,
         data?: U,
     ) {
-        super(connection);
+        super();
+        this.#connection = connection;
         this.#thing = thing;
         this.#data = data;
+        this.#transaction = undefined;
+        this.#json = false as J;
     }
 
     /**
-     * Convert the response to a JSON compatible format, ensuring that
-     * the response is serializable as a valid JSON structure.
+     * Configure the query to return the result as a
+     * JSON-compatible structure.
+     *
+     * This is useful when query results need to be serialized. Keep in mind
+     * that your responses will lose SurrealDB type information.
      */
-    jsonify(): UpsertPromise<Jsonify<T>, U> {
-        this.#json = true;
-        return this as UpsertPromise<Jsonify<T>, U>;
+    json(): UpsertPromise<T, U, true> {
+        const promise = new UpsertPromise<T, U, true>(this.#connection, this.#thing, this.#data);
+        promise.#transaction = this.#transaction;
+        return promise;
     }
 
-    protected async dispatch(): Promise<T> {
-        const result = await this.rpc("upsert", [this.#thing, this.#data]);
+    /**
+     * Attach this query to a specific transaction.
+     *
+     * @param transactionId The ID of the transaction to attach this query to
+     */
+    txn(transactionId: Uuid): UpsertPromise<T, U, J> {
+        const promise = new UpsertPromise<T, U, J>(this.#connection, this.#thing, this.#data);
+        promise.#transaction = transactionId;
+        promise.#json = this.#json;
+        return promise;
+    }
 
-        return collect<T>(result, {
-            subject: this.#thing,
-            json: this.#json,
-        });
+    protected async dispatch(): Promise<MaybeJsonify<T, J>> {
+        await this.#connection.ready();
+
+        const query =
+            this.#thing instanceof RecordId
+                ? surql`UPDATE ONLY ${this.#thing}`
+                : surql`UPDATE ${this.#thing}`;
+
+        if (this.#data) {
+            query.append(surql` CONTENT ${this.#data}`);
+        }
+
+        return internalQuery(this.#connection, query, this.#json, this.#transaction);
     }
 }

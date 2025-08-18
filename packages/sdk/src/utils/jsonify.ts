@@ -39,6 +39,7 @@ export type Jsonify<T> = T extends
                   : T extends Table<infer Tb>
                     ? `${Tb}`
                     : T;
+
 /**
  * Recursively convert any supported SurrealQL value into a serializable JSON representation.
  *

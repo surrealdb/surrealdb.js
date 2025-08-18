@@ -1,36 +1,62 @@
 import type { ConnectionController } from "../controller";
-import { collect } from "../internal/collect";
-import { QueriablePromise } from "../internal/queriable-promise";
-import type { Jsonify } from "../utils";
-import type { RecordId, RecordIdRange, Table } from "../value";
+import { DispatchedPromise } from "../internal/dispatched-promise";
+import { internalQuery } from "../internal/internal-query";
+import type { MaybeJsonify } from "../types/internal";
+import { surql } from "../utils";
+import { RecordId, type RecordIdRange, type Table, type Uuid } from "../value";
 
 /**
- * A promise representing a `select` RPC call to the server.
+ * A configurable `Promise` for a select query sent to a SurrealDB instance.
  */
-export class SelectPromise<T> extends QueriablePromise<T> {
+export class SelectPromise<T, J extends boolean = false> extends DispatchedPromise<
+    MaybeJsonify<T, J>
+> {
+    #connection: ConnectionController;
     #what: RecordId | RecordIdRange | Table;
-    #json = false;
+    #transaction: Uuid | undefined;
+    #json: J;
 
     constructor(connection: ConnectionController, what: RecordId | RecordIdRange | Table) {
-        super(connection);
+        super();
+        this.#connection = connection;
         this.#what = what;
+        this.#transaction = undefined;
+        this.#json = false as J;
     }
 
     /**
-     * Convert the response to a JSON compatible format, ensuring that
-     * the response is serializable as a valid JSON structure.
+     * Configure the query to return the result as a
+     * JSON-compatible structure.
+     *
+     * This is useful when query results need to be serialized. Keep in mind
+     * that your responses will lose SurrealDB type information.
      */
-    jsonify(): SelectPromise<Jsonify<T>> {
-        this.#json = true;
-        return this as SelectPromise<Jsonify<T>>;
+    json(): SelectPromise<T, true> {
+        const promise = new SelectPromise<T, true>(this.#connection, this.#what);
+        promise.#transaction = this.#transaction;
+        return promise;
     }
 
-    protected async dispatch(): Promise<T> {
-        const result = await this.rpc("select", [this.#what]);
+    /**
+     * Attach this query to a specific transaction.
+     *
+     * @param transactionId The ID of the transaction to attach this query to
+     */
+    txn(transactionId: Uuid): SelectPromise<T, J> {
+        const promise = new SelectPromise<T, J>(this.#connection, this.#what);
+        promise.#transaction = transactionId;
+        promise.#json = this.#json;
+        return promise;
+    }
 
-        return collect<T>(result, {
-            subject: this.#what,
-            json: this.#json,
-        });
+    protected async dispatch(): Promise<MaybeJsonify<T, J>> {
+        await this.#connection.ready();
+
+        const query =
+            this.#what instanceof RecordId
+                ? surql`SELECT * FROM ONLY ${this.#what}`
+                : surql`SELECT * FROM ${this.#what}`;
+
+        return internalQuery(this.#connection, query, this.#json, this.#transaction);
     }
 }

@@ -197,9 +197,9 @@ export class LiveSubscriptionFailed extends SurrealError {
     name = "LiveSubscriptionFailed";
     message = "Live subscription failed to listen";
 
-    constructor(public readonly response: RpcErrorResponse) {
+    constructor(cause: unknown) {
         super();
-        this.message = response.error.message;
+        this.cause = cause;
     }
 }
 

@@ -189,7 +189,7 @@ export abstract class JsonEngine implements SurrealProtocol {
                 status === "OK"
                     ? {
                           success: true,
-                          result: Array.isArray(result) ? (result as T[]) : [result as T],
+                          result: result as T,
                       }
                     : {
                           success: false,
