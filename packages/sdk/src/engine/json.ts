@@ -12,7 +12,7 @@ import type {
     NamespaceDatabase,
     QueryChunk,
     QueryResponse,
-    QueryResult,
+    RpcQueryResult,
     RpcRequest,
     SqlExportOptions,
     SurrealProtocol,
@@ -179,10 +179,12 @@ export abstract class JsonEngine implements SurrealProtocol {
         query: string,
         bindings?: Record<string, unknown>,
     ): AsyncIterable<QueryChunk<T>> {
-        const response: QueryResult[] = await this.send({
+        const response: RpcQueryResult[] = await this.send({
             method: "query",
             params: [query, bindings],
         });
+
+        let index = 0;
 
         for (const { status, result } of response) {
             const response: QueryResponse<T> =
@@ -200,7 +202,7 @@ export abstract class JsonEngine implements SurrealProtocol {
                       };
 
             yield {
-                query: 0,
+                query: index++,
                 batch: 0,
                 response,
             };

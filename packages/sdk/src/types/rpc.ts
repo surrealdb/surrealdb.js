@@ -1,18 +1,14 @@
-export type QueryResult<T = unknown> = QueryResultOk<T> | QueryResultErr;
-export type QueryResultOk<T> = {
+export type RpcQueryResult<T = unknown> = RpcQueryResultOk<T> | RpcQueryResultErr;
+export type RpcQueryResultOk<T> = {
     status: "OK";
     time: string;
     result: T;
 };
 
-export type QueryResultErr = {
+export type RpcQueryResultErr = {
     status: "ERR";
     time: string;
     result: string;
-};
-
-export type MapQueryResult<T> = {
-    [K in keyof T]: QueryResult<T[K]>;
 };
 
 export type RpcRequest<

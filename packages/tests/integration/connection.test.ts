@@ -7,8 +7,8 @@ describe("connection", async () => {
     test.todoIf(!VERSION_CHECK)("check version", async () => {
         const surreal = await createSurreal();
 
-        const res = await surreal.version();
-        expect(res.startsWith("surrealdb-")).toBe(true);
+        const { version } = await surreal.version();
+        expect(version.startsWith("surrealdb-")).toBe(true);
     });
 
     test("allowed rpcs without namespace or database", async () => {

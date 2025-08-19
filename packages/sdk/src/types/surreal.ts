@@ -1,6 +1,6 @@
 import type { decodeCbor, encodeCbor } from "../cbor";
 import type { ReconnectContext } from "../internal/reconnect";
-import type { RecordId, Uuid } from "../value";
+import type { Duration, RecordId, Uuid } from "../value";
 import type {
     AccessRecordAuth,
     AnyAuth,
@@ -9,7 +9,7 @@ import type {
     AuthResponse,
     Token,
 } from "./auth";
-import type { Prettify } from "./helpers";
+import type { Prettify } from "./internal";
 import type { LiveMessage } from "./live";
 import type { EventPublisher } from "./publisher";
 
@@ -221,7 +221,7 @@ export interface QueryStats {
     recordsScanned: number;
     bytesScanned: number;
     startAt: Date;
-    endAt: Date;
+    duration: Duration;
 }
 
 /**

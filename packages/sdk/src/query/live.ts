@@ -1,4 +1,4 @@
-import type { SurrealV1Events } from "../../dist/surrealdb";
+import type { SurrealEvents } from "../../dist/surrealdb";
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { LiveResource } from "../types";
@@ -15,13 +15,13 @@ import type { Uuid } from "../value";
  */
 export class ManagedLivePromise extends DispatchedPromise<LiveSubscription> {
     #connection: ConnectionController;
-    #publisher: Publisher<SurrealV1Events>;
+    #publisher: Publisher<SurrealEvents>;
     #what: LiveResource;
     #diff: boolean;
 
     constructor(
         connection: ConnectionController,
-        publisher: Publisher<SurrealV1Events>,
+        publisher: Publisher<SurrealEvents>,
         what: LiveResource,
         diff: boolean,
     ) {

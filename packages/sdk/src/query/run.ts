@@ -2,6 +2,7 @@ import type { ConnectionController } from "../controller";
 import { SurrealError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { internalQuery } from "../internal/internal-query";
+import type { Version } from "../types";
 import type { MaybeJsonify } from "../types/internal";
 import { BoundQuery, surql } from "../utils";
 import type { Uuid } from "../value";
@@ -17,7 +18,7 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
 > {
     #connection: ConnectionController;
     #name: string;
-    #version: string | undefined;
+    #version: Version | undefined;
     #args: unknown[];
     #transaction: Uuid | undefined;
     #json: J;
@@ -25,7 +26,7 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
     constructor(
         connection: ConnectionController,
         name: string,
-        version: string | undefined,
+        version: Version | undefined,
         args: unknown[],
     ) {
         super();

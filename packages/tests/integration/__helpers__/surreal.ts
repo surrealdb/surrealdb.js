@@ -1,13 +1,7 @@
 import { afterAll } from "bun:test";
 import { rm } from "node:fs/promises";
 import type { Subprocess } from "bun";
-import {
-    type AnyAuth,
-    type ConnectOptions,
-    type ReconnectOptions,
-    SurrealV1,
-    type SurrealV2,
-} from "surrealdb";
+import { type AnyAuth, type ConnectOptions, type ReconnectOptions, Surreal } from "surrealdb";
 import {
     SURREAL_BIND,
     SURREAL_DB,
@@ -19,11 +13,10 @@ import {
     SURREAL_USER,
 } from "./env.ts";
 
-export type AnySurreal = SurrealV1 | SurrealV2;
 export type Protocol = "http" | "ws";
 export type PremadeAuth = "root" | "invalid" | "none";
 export type IdleSurreal = {
-    surreal: SurrealV1;
+    surreal: Surreal;
     connect: (custom?: ConnectOptions) => Promise<true>;
 };
 
@@ -70,7 +63,7 @@ type CreateSurrealOptions = {
 export async function setupServer(): Promise<{
     spawn: () => Promise<void>;
     kill: () => Promise<void>;
-    createSurreal: (options?: CreateSurrealOptions) => Promise<SurrealV1>;
+    createSurreal: (options?: CreateSurrealOptions) => Promise<Surreal>;
     createIdleSurreal: (options?: CreateSurrealOptions) => IdleSurreal;
 }> {
     const folder = `test.db/${Math.random().toString(36).substring(2, 7)}`;
@@ -101,7 +94,7 @@ export async function setupServer(): Promise<{
         reconnect,
         renewAccess,
     }: CreateSurrealOptions = {}) {
-        const surreal = new SurrealV1();
+        const surreal = new Surreal();
         const port = reachable === false ? SURREAL_PORT_UNREACHABLE : SURREAL_PORT;
 
         const connect = (custom?: ConnectOptions) => {
