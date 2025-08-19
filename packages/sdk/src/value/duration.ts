@@ -1,9 +1,8 @@
-/**
- * SurrealQL Duration class supporting nanosecond precision.
- * Represents a time span, serializable and compatible with arithmetic operations.
- */
 import { SurrealError } from "../errors";
+import { escapeRegex } from "../internal/escape-regex";
 import { Value } from "./value";
+
+export type DurationTuple = [number | bigint, number | bigint] | [number | bigint] | [];
 
 // Time unit definitions in nanoseconds
 const NANOSECOND = 1n;
@@ -16,7 +15,7 @@ const DAY = 24n * HOUR;
 const WEEK = 7n * DAY;
 
 // Unit string to nanosecond mapping
-const units = new Map([
+const UNITS = new Map([
     ["ns", NANOSECOND],
     ["\u00b5s", MICROSECOND], // micro (Greek letter mu)
     ["\u03bcs", MICROSECOND], // micro (Greek letter mu variant)
@@ -29,31 +28,47 @@ const units = new Map([
     ["w", WEEK],
 ]);
 
-// Reverse map: nanoseconds to unit string
-const unitsReverse = Array.from(units).reduce((map, [unit, size]) => {
+// Reversed mapping of nanoseconds to unit string
+const UNITS_REVERSED = Array.from(UNITS).reduce((map, [unit, size]) => {
     map.set(size, unit);
     return map;
 }, new Map<bigint, string>());
 
 // Regex for parsing duration parts like "3h" or "15ms"
-const escapeRegex = (str: string) => str.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
-
-const durationPartRegex = new RegExp(
-    `^(\\d+)(${Array.from(units.keys()).map(escapeRegex).join("|")})`,
+const DURATION_PART_REGEX = new RegExp(
+    `^(\\d+)(${Array.from(UNITS.keys()).map(escapeRegex).join("|")})`,
 );
 
 /**
- * A high-precision duration class supporting parsing, formatting, and arithmetic.
+ * A high-precision duration class supporting parsing, formatting, arithmetic, and nanosecond precision.
  */
 export class Duration extends Value {
     readonly #seconds: bigint;
     readonly #nanoseconds: bigint;
 
     /**
-     * Constructs a new Duration.
-     * @param {Duration | [number|bigint, number|bigint] | string} input - Duration input
+     * Constructs a new Duration by cloning an existing duration.
+     *
+     * @param input Duration input
      */
-    constructor(input: Duration | [number | bigint, number | bigint] | string) {
+    constructor(input: Duration);
+
+    /**
+     * Constructs a new Duration from a tuple representation.
+     *
+     * @param input Second and nanosecond tuple
+     */
+    constructor(input: DurationTuple);
+
+    /**
+     * Constructs a new Duration from a human-readable string, e.g. "1h30m"
+     *
+     * @param input Duration string
+     */
+    constructor(input: string);
+
+    // Shadow implementation
+    constructor(input: Duration | DurationTuple | string) {
         super();
 
         if (input instanceof Duration) {
@@ -68,26 +83,12 @@ export class Duration extends Value {
         } else {
             // Construct from tuple [seconds, nanoseconds]
             const s = typeof input[0] === "bigint" ? input[0] : BigInt(Math.floor(input[0] ?? 0));
-
             const ns = typeof input[1] === "bigint" ? input[1] : BigInt(Math.floor(input[1] ?? 0));
-
             const total = s * SECOND + ns;
             // Normalize total into separate seconds and nanoseconds fields
             this.#seconds = total / SECOND;
             this.#nanoseconds = total % SECOND;
         }
-    }
-
-    /**
-     * Creates a duration from a compact array form.
-     * @param {[number|bigint, number|bigint] | [number|bigint] | []} param0 - Tuple input
-     * @returns {Duration} New duration
-     */
-    static fromCompact([s, ns]:
-        | [number | bigint, number | bigint]
-        | [number | bigint]
-        | []): Duration {
-        return new Duration([s ?? 0n, ns ?? 0n]);
     }
 
     /**
@@ -102,7 +103,6 @@ export class Duration extends Value {
 
     /**
      * Converts the duration to a tuple.
-     * @returns {[bigint, bigint] | [bigint] | []} Compact form
      */
     toCompact(): [bigint, bigint] | [bigint] | [] {
         return this.#nanoseconds > 0n
@@ -121,7 +121,7 @@ export class Duration extends Value {
         let result = "";
 
         // Convert seconds into largest possible whole units (≥ 1s)
-        for (const [size, unit] of Array.from(unitsReverse).reverse()) {
+        for (const [size, unit] of Array.from(UNITS_REVERSED).reverse()) {
             if (size >= SECOND) {
                 const amount = remainingSeconds / (size / SECOND);
                 if (amount > 0n) {
@@ -135,7 +135,7 @@ export class Duration extends Value {
         let remainingNanoseconds = remainingSeconds * SECOND + this.#nanoseconds;
 
         // Convert sub-second nanoseconds to units < 1s
-        for (const [size, unit] of Array.from(unitsReverse).reverse()) {
+        for (const [size, unit] of Array.from(UNITS_REVERSED).reverse()) {
             if (size < SECOND) {
                 const amount = remainingNanoseconds / size;
                 if (amount > 0n) {
@@ -168,11 +168,11 @@ export class Duration extends Value {
 
         // Loop through string and extract valid duration parts
         while (left !== "") {
-            const match = left.match(durationPartRegex);
+            const match = left.match(DURATION_PART_REGEX);
             if (match) {
                 const amount = BigInt(match[1]);
                 const unit = match[2];
-                const factor = units.get(unit);
+                const factor = UNITS.get(unit);
                 if (!factor) throw new SurrealError(`Invalid duration unit: ${unit}`);
 
                 if (factor >= SECOND) {

@@ -19,7 +19,7 @@ import {
     Table,
     Uuid,
 } from "../value";
-import { cborCustomDateToDate, cborToRange, dateToCborCustomDate, rangeToCbor } from "./utils";
+import { cborToRange, rangeToCbor } from "./utils";
 
 // Tags from the spec - https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml
 const TAG_SPEC_DATETIME = 0;
@@ -114,11 +114,11 @@ export const REPLACER = {
         [TAG_SPEC_DATETIME]: (v) => new DateTime(v),
         [TAG_SPEC_UUID]: (v) => new Uuid(v),
         [TAG_STRING_UUID]: (v) => new Uuid(v),
-        [TAG_CUSTOM_DATETIME]: (v) => DateTime.fromCompact(v),
+        [TAG_CUSTOM_DATETIME]: (v) => new DateTime(v),
         [TAG_NONE]: (_v) => undefined,
         [TAG_STRING_DECIMAL]: (v) => new Decimal(v),
         [TAG_STRING_DURATION]: (v) => new Duration(v),
-        [TAG_CUSTOM_DURATION]: (v) => Duration.fromCompact(v),
+        [TAG_CUSTOM_DURATION]: (v) => new Duration(v),
         [TAG_TABLE]: (v) => new Table(v),
         [TAG_FUTURE]: (v) => new Future(v),
         [TAG_RANGE]: (v) => new Range(...cborToRange(v)),

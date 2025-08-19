@@ -23,15 +23,15 @@ export function toSurqlString(input: unknown): string {
     if (input === undefined) return "NONE";
 
     if (typeof input === "object") {
-        if (input instanceof Date) return `d${JSON.stringify(input.toISOString())}`;
         if (input instanceof Uuid) return `u${JSON.stringify(input.toString())}`;
+        if (input instanceof Date || input instanceof DateTime)
+            return `d${JSON.stringify(input.toISOString())}`;
         if (input instanceof RecordId || input instanceof StringRecordId)
             return `r${JSON.stringify(input.toString())}`;
 
         if (input instanceof Geometry) return toSurqlString(input.toJSON());
 
         if (
-            input instanceof DateTime ||
             input instanceof Decimal ||
             input instanceof Duration ||
             input instanceof Future ||
