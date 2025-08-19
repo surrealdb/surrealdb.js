@@ -1,6 +1,7 @@
 import { decode, encode, type Replacer, Tagged } from "@surrealdb/cbor";
 import { BoundExcluded, BoundIncluded } from "../utils/range";
 import {
+    DateTime,
     Decimal,
     Duration,
     Future,
@@ -56,7 +57,10 @@ const TAG_GEOMETRY_COLLECTION = 94;
 export const REPLACER = {
     encode(v: unknown): unknown {
         if (v instanceof Date) {
-            return new Tagged(TAG_CUSTOM_DATETIME, dateToCborCustomDate(v));
+            return new Tagged(TAG_CUSTOM_DATETIME, new DateTime(v).toCompact());
+        }
+        if (v instanceof DateTime) {
+            return new Tagged(TAG_CUSTOM_DATETIME, v.toCompact());
         }
         if (v === undefined) return new Tagged(TAG_NONE, null);
         if (v instanceof Uuid) {
@@ -107,10 +111,10 @@ export const REPLACER = {
         return v;
     },
     decode: {
-        [TAG_SPEC_DATETIME]: (v) => new Date(v),
+        [TAG_SPEC_DATETIME]: (v) => new DateTime(v),
         [TAG_SPEC_UUID]: (v) => new Uuid(v),
         [TAG_STRING_UUID]: (v) => new Uuid(v),
-        [TAG_CUSTOM_DATETIME]: cborCustomDateToDate,
+        [TAG_CUSTOM_DATETIME]: (v) => DateTime.fromCompact(v),
         [TAG_NONE]: (_v) => undefined,
         [TAG_STRING_DECIMAL]: (v) => new Decimal(v),
         [TAG_STRING_DURATION]: (v) => new Duration(v),

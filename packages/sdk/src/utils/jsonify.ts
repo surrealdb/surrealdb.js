@@ -1,4 +1,5 @@
 import type {
+    DateTime,
     Decimal,
     Duration,
     Future,
@@ -15,6 +16,7 @@ import { Value } from "../value/value";
 
 export type Jsonify<T> = T extends
     | Date
+    | DateTime
     | Uuid
     | Decimal
     | Duration

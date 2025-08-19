@@ -1,3 +1,4 @@
+export { DateTime } from "./datetime.ts";
 export { Decimal } from "./decimal.ts";
 export { Duration } from "./duration.ts";
 export { Future } from "./future.ts";

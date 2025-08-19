@@ -1,4 +1,5 @@
 import {
+    DateTime,
     Decimal,
     Duration,
     Future,
@@ -30,6 +31,7 @@ export function toSurqlString(input: unknown): string {
         if (input instanceof Geometry) return toSurqlString(input.toJSON());
 
         if (
+            input instanceof DateTime ||
             input instanceof Decimal ||
             input instanceof Duration ||
             input instanceof Future ||
