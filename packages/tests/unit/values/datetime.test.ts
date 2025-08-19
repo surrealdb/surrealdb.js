@@ -27,6 +27,11 @@ describe("DateTime", () => {
         expect(dt.toISOString()).toBe("2023-12-25T10:30:00.000Z");
     });
 
+    test("constructor with bigint seconds", () => {
+        const dt = new DateTime(1703500200n); // 2023-12-25T10:30:00Z
+        expect(dt.toISOString()).toBe("2023-12-25T10:30:00.000Z");
+    });
+
     test("constructor with milliseconds", () => {
         const dt = DateTime.fromEpochMilliseconds(1703500200123); // 2023-12-25T10:30:00.123Z
         expect(dt.toISOString()).toBe("2023-12-25T10:30:00.000.123Z");

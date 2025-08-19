@@ -26,9 +26,9 @@ export class DateTime extends Value {
 
     /**
      * Constructs a new DateTime.
-     * @param {DateTime | Date | [number|bigint, number|bigint] | string | number} input - DateTime input (optional, defaults to current time)
+     * @param {DateTime | Date | [number|bigint, number|bigint] | string | number | bigint} input - DateTime input (optional, defaults to current time)
      */
-    constructor(input?: DateTime | Date | [number | bigint, number | bigint] | string | number | undefined) {
+    constructor(input?: DateTime | Date | [number | bigint, number | bigint] | string | number | bigint | undefined) {
         super();
 
         if (input === undefined) {
@@ -54,6 +54,10 @@ export class DateTime extends Value {
         } else if (typeof input === "number") {
             // Convert from Unix timestamp (seconds since epoch)
             this.#seconds = BigInt(Math.floor(input));
+            this.#nanoseconds = 0n;
+        } else if (typeof input === "bigint") {
+            // Convert from Unix timestamp (seconds since epoch)
+            this.#seconds = input;
             this.#nanoseconds = 0n;
         } else {
             // Construct from tuple [seconds, nanoseconds]
@@ -321,8 +325,8 @@ export class DateTime extends Value {
     }
 
     /**
-     * Creates a DateTime representing the current time.
-     * @returns {DateTime} Current datetime
+     * Gets the current time with high precision for internal use.
+     * @returns {[bigint, bigint]} Current time in seconds and nanoseconds
      */
     static #now(): [bigint, bigint] {
         // Check if we're in Node.js/Bun with high resolution time
