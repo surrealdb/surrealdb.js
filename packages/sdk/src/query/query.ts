@@ -4,7 +4,7 @@ import { DispatchedPromise } from "../internal/dispatched-promise";
 import { jsonifyStream } from "../internal/jsonify-stream";
 import type { QueryChunk, QueryResponse } from "../types";
 import type { MaybeJsonify } from "../types/internal";
-import { collectChunks } from "../utils/collect-chunks";
+import { collectResponses } from "../utils/collect-chunks";
 import type { Uuid } from "../value";
 
 type OutputMode = "results" | "responses" | "chunks";
@@ -150,7 +150,7 @@ export class QueryPromise<
             return chunks as Output<T, O, J>;
         }
 
-        const responses = await collectChunks(chunks);
+        const responses = await collectResponses(chunks);
 
         if (this.#mode === "responses") {
             return responses as Output<T, O, J>;

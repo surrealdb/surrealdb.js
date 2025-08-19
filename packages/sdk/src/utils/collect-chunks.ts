@@ -6,7 +6,7 @@ import type { QueryChunk, QueryResponse } from "../types";
  * @param stream The chunked response stream
  * @returns Response array
  */
-export async function collectChunks<T>(
+export async function collectResponses<T>(
     stream: AsyncIterable<QueryChunk<T>>,
 ): Promise<QueryResponse<T>[]> {
     const responses: QueryResponse<T>[] = [];

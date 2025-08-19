@@ -1,7 +1,7 @@
 import type { ConnectionController } from "../controller";
 import { ResponseError, SurrealError } from "../errors";
 import type { BoundQuery } from "../utils";
-import { collectChunks } from "../utils/collect-chunks";
+import { collectResponses } from "../utils/collect-chunks";
 import type { Uuid } from "../value";
 import { jsonifyStream } from "./jsonify-stream";
 
@@ -17,7 +17,7 @@ export async function internalQuery<T>(
         chunks = jsonifyStream(chunks);
     }
 
-    const [response] = await collectChunks(chunks);
+    const [response] = await collectResponses(chunks);
 
     if (!response) {
         throw new SurrealError("No response from auxiliary query");
