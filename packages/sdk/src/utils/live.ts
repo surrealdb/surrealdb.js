@@ -185,7 +185,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
         if (this.#diff) {
             query.append(" DIFF");
         } else {
-            query.append("*");
+            query.append(" *");
         }
 
         query.append(surql`FROM ${this.#resource}`);

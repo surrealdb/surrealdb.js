@@ -58,7 +58,7 @@ export class InsertPromise<T, U extends Doc, J extends boolean = false> extends 
         const query = surql`INSERT`;
 
         if (this.#table) {
-            query.append(surql`INTO ${this.#table}`);
+            query.append(surql` INTO ${this.#table}`);
         }
 
         query.append(surql` ${this.#what}`);

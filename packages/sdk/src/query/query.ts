@@ -1,106 +1,52 @@
 import type { ConnectionController } from "../controller";
-import { ResponseError } from "../errors";
+import { QueryError, ResponseError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { jsonifyStream } from "../internal/jsonify-stream";
-import type { QueryChunk, QueryResponse } from "../types";
+import type { QueryResponse } from "../types";
 import type { MaybeJsonify } from "../types/internal";
 import { collectResponses } from "../utils/collect-chunks";
 import type { Uuid } from "../value";
 
-type OutputMode = "results" | "responses" | "chunks";
+type QueryOutput = "result" | "response" | "stream";
 
-type Output<T extends unknown[], O extends OutputMode, J extends boolean> = O extends "results"
-    ? { [K in keyof T]: MaybeJsonify<T[K], J> }
-    : O extends "responses"
-      ? { [K in keyof T]: QueryResponse<MaybeJsonify<T[K], J>> }
-      : AsyncIterable<QueryChunk<{ [K in keyof T]: MaybeJsonify<T[K], J> }[number]>>;
+interface QueryOptions {
+    query: string;
+    bindings: Record<string, unknown> | undefined;
+    transaction: Uuid | undefined;
+    json: boolean;
+    index: number;
+    outputs: QueryOutput[];
+    accepted: Set<number>;
+}
+
+type Result<T> = { _result: T };
+type Response<T> = { _response: T };
+type Stream<T> = { _stream: T };
+
+type Outputs<T extends unknown[] = [], J extends boolean = false> = {
+    [K in keyof T]: T[K] extends Result<infer U>
+        ? Promise<MaybeJsonify<U, J>>
+        : T[K] extends Response<infer U>
+          ? Promise<QueryResponse<MaybeJsonify<U, J>>>
+          : T[K] extends Stream<infer U>
+            ? AsyncIterable<MaybeJsonify<U, J>>
+            : never;
+};
 
 /**
  * A configurable `Promise` for a query sent to a SurrealDB instance.
  */
 export class QueryPromise<
-    T extends unknown[],
-    O extends OutputMode = "results",
+    R extends unknown[] = [],
     J extends boolean = false,
-> extends DispatchedPromise<Output<T, O, J>> {
+> extends DispatchedPromise<Outputs<R, J>> {
     #connection: ConnectionController;
-    #query: string;
-    #bindings: Record<string, unknown> | undefined;
-    #transaction: Uuid | undefined;
-    #json: J;
-    #mode: O;
+    #options: QueryOptions;
 
-    constructor(
-        connection: ConnectionController,
-        query: string,
-        bindings: Record<string, unknown> | undefined,
-        transaction: Uuid | undefined,
-        json: J,
-        mode: O,
-    ) {
+    constructor(connection: ConnectionController, options: QueryOptions) {
         super();
         this.#connection = connection;
-        this.#query = query;
-        this.#bindings = bindings;
-        this.#transaction = transaction;
-        this.#mode = mode;
-        this.#json = json;
-    }
-
-    /**
-     * Configure the query to return the result of each response.
-     *
-     * If any of the responses failed, the query function will throw an
-     * error.
-     *
-     * **This is the default behavior for queries**
-     */
-    results(): QueryPromise<T, "results", J> {
-        return new QueryPromise(
-            this.#connection,
-            this.#query,
-            this.#bindings,
-            this.#transaction,
-            this.#json,
-            "results",
-        );
-    }
-
-    /**
-     * Configure the query to return the full response object for each result,
-     * including stats, result, and error.
-     *
-     * This will prevent the query function from throwing an error if any
-     * of the responses contain an error, instead leaving it to you to handle
-     * the error.
-     */
-    responses(): QueryPromise<T, "responses", J> {
-        return new QueryPromise(
-            this.#connection,
-            this.#query,
-            this.#bindings,
-            this.#transaction,
-            this.#json,
-            "responses",
-        );
-    }
-
-    /**
-     * Configure the query to return a stream of response chunks.
-     *
-     * This will prevent the query function from throwing an error if any
-     * of the responses contain an error, instead leaving it to you to handle
-     * the error.
-     */
-    stream(): QueryPromise<T, "chunks", J> {
-        return new QueryPromise(
-            this.#connection,
-            this.#query,
-            this.#bindings,
-            this.#transaction,
-            this.#json,
-            "chunks",
-        );
+        this.#options = options;
     }
 
     /**
@@ -110,51 +56,128 @@ export class QueryPromise<
      * This is useful when query results need to be serialized. Keep in mind
      * that your responses will lose SurrealDB type information.
      */
-    json(): QueryPromise<T, O, true> {
-        return new QueryPromise(
-            this.#connection,
-            this.#query,
-            this.#bindings,
-            this.#transaction,
-            true,
-            this.#mode,
-        );
+    json(): QueryPromise<R, true> {
+        return new QueryPromise(this.#connection, {
+            ...this.#options,
+            json: true,
+        });
     }
 
     /**
-     * Attach this query to a specific transaction.
+     * Collect and return the results of all responses at once.
      *
-     * @param transactionId The ID of the transaction to attach this query to
+     * If any statement in the query fails, the promise will reject.
+     *
+     * @returns A promise that resolves to the results of all responses at once.
      */
-    txn(transactionId: Uuid): QueryPromise<T, O, J> {
-        return new QueryPromise(
-            this.#connection,
-            this.#query,
-            this.#bindings,
-            transactionId,
-            this.#json,
-            this.#mode,
-        );
+    collect<T extends unknown[]>(): QueryCollectorPromise<T, J> {
+        return new QueryCollectorPromise(this.#connection, this.#options);
     }
 
-    protected async dispatch(): Promise<Output<T, O, J>> {
+    // Accept a response
+    #accept<T>(index: number, output: QueryOutput): QueryPromise<[...R, T], J> {
+        if (this.#options.accepted.has(index)) {
+            throw new QueryError(`Statement index ${index} has already been accepted.`);
+        }
+
+        return new QueryPromise(this.#connection, {
+            ...this.#options,
+            index: index + 1,
+            outputs: [...this.#options.outputs, output],
+            accepted: new Set(this.#options.accepted).add(index),
+        });
+    }
+
+    /**
+     * Accept the result of the specified statement index as the next result in the output tuple.
+     *
+     * This is useful when you want to access the result of a specific statement in the query.
+     *
+     * @param index The index of the statement to return the result of.
+     * @example
+     * ```ts
+     * const [person] = await db.query("LET $id = person:foo; SELECT * FROM $id").result(1);
+     * const record = await person;
+     * ```
+     */
+    result<T = unknown>(index: number): QueryPromise<[...R, Result<T>], J> {
+        return this.#accept(index, "result");
+    }
+
+    /**
+     * Accept the response of the specified statement index as the next result in the output tuple.
+     *
+     * This is useful when you want to access the raw response, including statistics. You will need
+     * to handle errors manually.
+     *
+     * @param index The index of the statement to return the response of.
+     * @example
+     * ```ts
+     * const [person] = await db.query("LET $id = person:foo; SELECT * FROM $id").response(1);
+     * const response = await person;
+     *
+     * if (response.success) {
+     *     console.log(response.result);
+     * } else {
+     *     console.error(response.error);
+     * }
+     *```
+     */
+    response<T = unknown>(index: number): QueryPromise<[...R, Response<T>], J> {
+        return this.#accept(index, "response");
+    }
+
+    /**
+     * Accept the result of the specified statement index as the next result in the output tuple.
+     *
+     * This is useful when you want to access the result of a specific statement in the query.
+     *
+     * @example
+     * ```ts
+     * const [person] = await db.query("LET $id = person:foo; SELECT * FROM $id").result(1);
+     * const record = await person;
+     *
+     * @param index The index of the statement to return the result of.
+     */
+    stream<T = unknown>(index: number): QueryPromise<[...R, Stream<T>], J> {
+        return this.#accept(index, "stream");
+    }
+
+    protected async dispatch(): Promise<Outputs<R, J>> {}
+}
+
+type Collection<T extends unknown[], J extends boolean> = {
+    [K in keyof T]: MaybeJsonify<T[K], J>;
+};
+
+/**
+ * A `Promise` for collecting the results of a query.
+ */
+export class QueryCollectorPromise<
+    T extends unknown[] = [],
+    J extends boolean = false,
+> extends DispatchedPromise<Collection<T, J>> {
+    #connection: ConnectionController;
+    #options: QueryOptions;
+
+    constructor(connection: ConnectionController, options: QueryOptions) {
+        super();
+        this.#connection = connection;
+        this.#options = options;
+    }
+
+    protected async dispatch(): Promise<Collection<T, J>> {
         await this.#connection.ready();
 
-        let chunks = this.#connection.query(this.#query, this.#bindings, this.#transaction);
+        const { query, bindings, transaction, json } = this.#options;
 
-        if (this.#json) {
+        let chunks = this.#connection.query(query, bindings, transaction);
+
+        if (json) {
             chunks = jsonifyStream(chunks);
         }
 
-        if (this.#mode === "chunks") {
-            return chunks as Output<T, O, J>;
-        }
-
         const responses = await collectResponses(chunks);
-
-        if (this.#mode === "responses") {
-            return responses as Output<T, O, J>;
-        }
 
         return responses.map((response) => {
             if (!response.success) {
@@ -162,6 +185,6 @@ export class QueryPromise<
             }
 
             return response.result;
-        }) as Output<T, O, J>;
+        }) as Collection<T, J>;
     }
 }

@@ -137,6 +137,17 @@ export class HttpConnectionError extends SurrealError {
 }
 
 /**
+ * Thrown when a query could not be executed
+ */
+export class QueryError extends SurrealError {
+    name = "QueryError";
+
+    constructor(public readonly message: string) {
+        super();
+    }
+}
+
+/**
  * Thrown when a response from the server is not as expected
  */
 export class ResponseError extends SurrealError {

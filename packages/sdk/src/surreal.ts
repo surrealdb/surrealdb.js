@@ -299,10 +299,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param query Specifies the SurrealQL statements
      * @param bindings Assigns variables which can be used in the query
      */
-    query<T extends unknown[]>(
-        query: string,
-        bindings?: Record<string, unknown>,
-    ): QueryPromise<T, "results", false>;
+    query(query: string, bindings?: Record<string, unknown>): QueryPromise;
 
     /**
      * Runs a set of SurrealQL statements against the database, returning the first error
@@ -310,17 +307,31 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      *
      * @param query The BoundQuery instance
      */
-    query<T extends unknown[]>(query: BoundQuery): QueryPromise<T, "results", false>;
+    query(query: BoundQuery): QueryPromise;
 
     // Shadow implementation
-    query<T extends unknown[]>(
-        query: string | BoundQuery,
-        bindings?: Record<string, unknown>,
-    ): QueryPromise<T> {
-        const _query = query instanceof BoundQuery ? query.query : query;
-        const _bindings = query instanceof BoundQuery ? query.bindings : bindings;
+    query(query: string | BoundQuery, bindings?: Record<string, unknown>): QueryPromise {
+        return new QueryPromise(this.#connection, {
+            query: query instanceof BoundQuery ? query.query : query,
+            bindings: query instanceof BoundQuery ? query.bindings : bindings,
+            transaction: undefined,
+            json: false,
+            index: 0,
+            outputs: ["result"],
+            accepted: new Set(),
+        });
+    }
 
-        return new QueryPromise(this.#connection, _query, _bindings, undefined, false, "results");
+    async test() {
+        type Person = { name: RecordId };
+
+        const output = await this.query("LET $id = person:foo; SELECT * FROM $id")
+            .json()
+            .result<Person>(0)
+            .response<Person>(1)
+            .stream<Person>(2);
+
+        console.log(output);
     }
 
     /**
