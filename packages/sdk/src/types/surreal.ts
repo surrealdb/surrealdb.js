@@ -13,6 +13,7 @@ import type { Prettify } from "./internal";
 import type { LiveMessage } from "./live";
 import type { EventPublisher } from "./publisher";
 
+export type QueryResponseKind = "single" | "batched" | "batched-final";
 export type ConnectionStatus = "disconnected" | "connecting" | "reconnecting" | "connected";
 export type EngineImpl = new (context: DriverContext) => SurrealEngine;
 
@@ -216,11 +217,10 @@ export interface MlExportOptions {
  * Query statistics
  */
 export interface QueryStats {
-    records: number;
-    bytes: number;
+    recordsReceived: number;
+    bytesReceived: number;
     recordsScanned: number;
     bytesScanned: number;
-    startAt: Date;
     duration: Duration;
 }
 
@@ -230,23 +230,11 @@ export interface QueryStats {
 export interface QueryChunk<T> {
     query: number;
     batch: number;
-    response: QueryResponse<T>;
+    kind: QueryResponseKind;
+    stats?: QueryStats;
+    result?: T[];
+    error?: {
+        code: number;
+        message: string;
+    };
 }
-
-/**
- * A single query response
- */
-export type QueryResponse<T> =
-    | {
-          success: true;
-          stats?: QueryStats;
-          result: T;
-      }
-    | {
-          success: false;
-          stats?: QueryStats;
-          error: {
-              code: number;
-              message: string;
-          };
-      };

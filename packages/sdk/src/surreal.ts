@@ -7,7 +7,7 @@ import {
     DeletePromise,
     InsertPromise,
     ManagedLivePromise,
-    QueryPromise,
+    Query,
     RelatePromise,
     RunPromise,
     SelectPromise,
@@ -299,7 +299,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param query Specifies the SurrealQL statements
      * @param bindings Assigns variables which can be used in the query
      */
-    query(query: string, bindings?: Record<string, unknown>): QueryPromise;
+    query(query: string, bindings?: Record<string, unknown>): Query;
 
     /**
      * Runs a set of SurrealQL statements against the database, returning the first error
@@ -307,31 +307,16 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      *
      * @param query The BoundQuery instance
      */
-    query(query: BoundQuery): QueryPromise;
+    query(query: BoundQuery): Query;
 
     // Shadow implementation
-    query(query: string | BoundQuery, bindings?: Record<string, unknown>): QueryPromise {
-        return new QueryPromise(this.#connection, {
+    query(query: string | BoundQuery, bindings?: Record<string, unknown>): Query {
+        return new Query(this.#connection, {
             query: query instanceof BoundQuery ? query.query : query,
             bindings: query instanceof BoundQuery ? query.bindings : bindings,
             transaction: undefined,
             json: false,
-            index: 0,
-            outputs: ["result"],
-            accepted: new Set(),
         });
-    }
-
-    async test() {
-        type Person = { name: RecordId };
-
-        const output = await this.query("LET $id = person:foo; SELECT * FROM $id")
-            .json()
-            .result<Person>(0)
-            .response<Person>(1)
-            .stream<Person>(2);
-
-        console.log(output);
     }
 
     /**

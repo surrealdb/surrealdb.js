@@ -1,50 +1,54 @@
 import type { ConnectionController } from "../controller";
-import { QueryError, ResponseError } from "../errors";
-import { DispatchedPromise } from "../internal/dispatched-promise";
-import { jsonifyStream } from "../internal/jsonify-stream";
-import type { QueryResponse } from "../types";
+import { ResponseError } from "../errors";
+import type { QueryStats } from "../types";
 import type { MaybeJsonify } from "../types/internal";
-import { collectResponses } from "../utils/collect-chunks";
 import type { Uuid } from "../value";
 
-type QueryOutput = "result" | "response" | "stream";
+type Collect<T extends unknown[], J extends boolean> = { [K in keyof T]: MaybeJsonify<T[K], J> };
 
 interface QueryOptions {
     query: string;
     bindings: Record<string, unknown> | undefined;
     transaction: Uuid | undefined;
     json: boolean;
-    index: number;
-    outputs: QueryOutput[];
-    accepted: Set<number>;
 }
 
-type Result<T> = { _result: T };
-type Response<T> = { _response: T };
-type Stream<T> = { _stream: T };
+interface ValueFrame<N, T, J extends boolean> {
+    query: N;
+    type: "value";
+    value: MaybeJsonify<T, J>;
+}
 
-type Outputs<T extends unknown[] = [], J extends boolean = false> = {
-    [K in keyof T]: T[K] extends Result<infer U>
-        ? Promise<MaybeJsonify<U, J>>
-        : T[K] extends Response<infer U>
-          ? Promise<QueryResponse<MaybeJsonify<U, J>>>
-          : T[K] extends Stream<infer U>
-            ? AsyncIterable<MaybeJsonify<U, J>>
-            : never;
-};
+interface ErrorFrame<N> {
+    query: N;
+    type: "error";
+    stats: QueryStats;
+    error: {
+        code: number;
+        message: string;
+    };
+}
+
+interface DoneFrame<N> {
+    query: N;
+    type: "done";
+    stats: QueryStats;
+}
+
+type Frame<N, T, J extends boolean> = ValueFrame<N, T, J> | ErrorFrame<N> | DoneFrame<N>;
+
+type StreamFrame<T extends readonly unknown[], J extends boolean> = {
+    [K in keyof T & `${number}`]: Frame<K extends `${infer N extends number}` ? N : never, T[K], J>;
+}[keyof T & `${number}`];
 
 /**
- * A configurable `Promise` for a query sent to a SurrealDB instance.
+ * A configurable query sent to a SurrealDB instance.
  */
-export class QueryPromise<
-    R extends unknown[] = [],
-    J extends boolean = false,
-> extends DispatchedPromise<Outputs<R, J>> {
+export class Query<J extends boolean = false> {
     #connection: ConnectionController;
     #options: QueryOptions;
 
     constructor(connection: ConnectionController, options: QueryOptions) {
-        super();
         this.#connection = connection;
         this.#options = options;
     }
@@ -56,8 +60,8 @@ export class QueryPromise<
      * This is useful when query results need to be serialized. Keep in mind
      * that your responses will lose SurrealDB type information.
      */
-    json(): QueryPromise<R, true> {
-        return new QueryPromise(this.#connection, {
+    json(): Query<true> {
+        return new Query(this.#connection, {
             ...this.#options,
             json: true,
         });
@@ -68,123 +72,103 @@ export class QueryPromise<
      *
      * If any statement in the query fails, the promise will reject.
      *
+     * @param queries The queries to collect. If no queries are provided, all queries will be collected.
      * @returns A promise that resolves to the results of all responses at once.
      */
-    collect<T extends unknown[]>(): QueryCollectorPromise<T, J> {
-        return new QueryCollectorPromise(this.#connection, this.#options);
-    }
-
-    // Accept a response
-    #accept<T>(index: number, output: QueryOutput): QueryPromise<[...R, T], J> {
-        if (this.#options.accepted.has(index)) {
-            throw new QueryError(`Statement index ${index} has already been accepted.`);
-        }
-
-        return new QueryPromise(this.#connection, {
-            ...this.#options,
-            index: index + 1,
-            outputs: [...this.#options.outputs, output],
-            accepted: new Set(this.#options.accepted).add(index),
-        });
-    }
-
-    /**
-     * Accept the result of the specified statement index as the next result in the output tuple.
-     *
-     * This is useful when you want to access the result of a specific statement in the query.
-     *
-     * @param index The index of the statement to return the result of.
-     * @example
-     * ```ts
-     * const [person] = await db.query("LET $id = person:foo; SELECT * FROM $id").result(1);
-     * const record = await person;
-     * ```
-     */
-    result<T = unknown>(index: number): QueryPromise<[...R, Result<T>], J> {
-        return this.#accept(index, "result");
-    }
-
-    /**
-     * Accept the response of the specified statement index as the next result in the output tuple.
-     *
-     * This is useful when you want to access the raw response, including statistics. You will need
-     * to handle errors manually.
-     *
-     * @param index The index of the statement to return the response of.
-     * @example
-     * ```ts
-     * const [person] = await db.query("LET $id = person:foo; SELECT * FROM $id").response(1);
-     * const response = await person;
-     *
-     * if (response.success) {
-     *     console.log(response.result);
-     * } else {
-     *     console.error(response.error);
-     * }
-     *```
-     */
-    response<T = unknown>(index: number): QueryPromise<[...R, Response<T>], J> {
-        return this.#accept(index, "response");
-    }
-
-    /**
-     * Accept the result of the specified statement index as the next result in the output tuple.
-     *
-     * This is useful when you want to access the result of a specific statement in the query.
-     *
-     * @example
-     * ```ts
-     * const [person] = await db.query("LET $id = person:foo; SELECT * FROM $id").result(1);
-     * const record = await person;
-     *
-     * @param index The index of the statement to return the result of.
-     */
-    stream<T = unknown>(index: number): QueryPromise<[...R, Stream<T>], J> {
-        return this.#accept(index, "stream");
-    }
-
-    protected async dispatch(): Promise<Outputs<R, J>> {}
-}
-
-type Collection<T extends unknown[], J extends boolean> = {
-    [K in keyof T]: MaybeJsonify<T[K], J>;
-};
-
-/**
- * A `Promise` for collecting the results of a query.
- */
-export class QueryCollectorPromise<
-    T extends unknown[] = [],
-    J extends boolean = false,
-> extends DispatchedPromise<Collection<T, J>> {
-    #connection: ConnectionController;
-    #options: QueryOptions;
-
-    constructor(connection: ConnectionController, options: QueryOptions) {
-        super();
-        this.#connection = connection;
-        this.#options = options;
-    }
-
-    protected async dispatch(): Promise<Collection<T, J>> {
+    async collect<T extends unknown[]>(...queries: number[]): Promise<Collect<T, J>> {
         await this.#connection.ready();
 
-        const { query, bindings, transaction, json } = this.#options;
+        const { query, bindings, transaction } = this.#options;
+        const chunks = this.#connection.query(query, bindings, transaction);
+        const responses: unknown[] = [];
+        const accept = queries.length > 0 ? new Set(queries) : undefined;
 
-        let chunks = this.#connection.query(query, bindings, transaction);
-
-        if (json) {
-            chunks = jsonifyStream(chunks);
-        }
-
-        const responses = await collectResponses(chunks);
-
-        return responses.map((response) => {
-            if (!response.success) {
-                throw new ResponseError(response);
+        for await (const chunk of chunks) {
+            if (chunk.error) {
+                throw new ResponseError(chunk.error);
             }
 
-            return response.result;
-        }) as Collection<T, J>;
+            if (accept?.has(chunk.query) === false) {
+                continue;
+            }
+
+            if (chunk.kind === "single") {
+                responses[chunk.query] = chunk.result?.[0] as T;
+                continue;
+            }
+
+            let records = responses[chunk.query] as unknown[];
+
+            if (!records) {
+                records = chunk.result ?? [];
+                responses[chunk.query] = records;
+            } else {
+                records.push(...(chunk.result ?? []));
+            }
+        }
+
+        return responses as Collect<T, J>;
+    }
+
+    /**
+     * Stream the results of the query as they are received.
+     *
+     * Each frame contains a `query` index corresponding to the query that produced the frame.
+     *
+     * @param queries The queries to stream. If no queries are provided, all queries will be streamed.
+     */
+    async *stream<T extends unknown[]>(...queries: number[]): AsyncIterable<StreamFrame<T, J>> {
+        await this.#connection.ready();
+
+        const { query, bindings, transaction } = this.#options;
+        const chunks = this.#connection.query(query, bindings, transaction);
+        const accept = queries.length > 0 ? new Set(queries) : undefined;
+
+        for await (const chunk of chunks) {
+            if (accept?.has(chunk.query) === false) {
+                if (chunk.error) throw new ResponseError(chunk.error);
+                continue;
+            }
+
+            if (chunk.error) {
+                yield {
+                    query: chunk.query,
+                    type: "error",
+                    stats: chunk.stats,
+                    error: {
+                        code: chunk.error.code,
+                        message: chunk.error.message,
+                    },
+                } as StreamFrame<T, J>;
+                continue;
+            }
+
+            if (chunk.kind === "single") {
+                yield {
+                    query: chunk.query,
+                    type: "value",
+                    value: chunk.result?.[0] as T,
+                } as StreamFrame<T, J>;
+                continue;
+            }
+
+            const values = chunk.result as unknown[];
+
+            for (const value of values) {
+                yield {
+                    query: chunk.query,
+                    type: "value",
+                    value: value as T,
+                } as StreamFrame<T, J>;
+            }
+
+            if (chunk.kind === "batched-final") {
+                yield {
+                    query: chunk.query,
+                    type: "done",
+                    stats: chunk.stats,
+                } as StreamFrame<T, J>;
+            }
+        }
     }
 }

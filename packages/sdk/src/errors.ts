@@ -154,9 +154,9 @@ export class ResponseError extends SurrealError {
     name = "ResponseError";
     code: number;
 
-    constructor(response: RpcErrorResponse) {
-        super(response.error.message);
-        this.code = response.error.code;
+    constructor(response: { code: number; message: string }) {
+        super(response.message);
+        this.code = response.code;
     }
 }
 

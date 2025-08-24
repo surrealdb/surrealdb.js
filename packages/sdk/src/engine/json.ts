@@ -11,7 +11,6 @@ import type {
     MlExportOptions,
     NamespaceDatabase,
     QueryChunk,
-    QueryResponse,
     RpcQueryResult,
     RpcRequest,
     SqlExportOptions,
@@ -19,6 +18,7 @@ import type {
     Token,
     VersionInfo,
 } from "../types";
+import { Duration } from "../value";
 
 /**
  * JSON-based engines implement the SurrealDB v1 protocol, which uses
@@ -186,26 +186,35 @@ export abstract class JsonEngine implements SurrealProtocol {
 
         let index = 0;
 
-        for (const { status, result } of response) {
-            const response: QueryResponse<T> =
-                status === "OK"
-                    ? {
-                          success: true,
-                          result: result as T,
-                      }
-                    : {
-                          success: false,
-                          error: {
-                              code: Number(result) || 0,
-                              message: String(result),
-                          },
-                      };
-
-            yield {
+        for (const { status, result, time } of response) {
+            const chunk: QueryChunk<T> = {
                 query: index++,
                 batch: 0,
-                response,
+                kind: "single",
+                stats: {
+                    bytesReceived: -1,
+                    bytesScanned: -1,
+                    recordsReceived: -1,
+                    recordsScanned: -1,
+                    duration: new Duration(time),
+                },
             };
+
+            if (status === "OK") {
+                if (Array.isArray(result)) {
+                    chunk.kind = "batched-final";
+                    chunk.result = result as T[];
+                } else {
+                    chunk.result = result as T[];
+                }
+            } else {
+                chunk.error = {
+                    code: Number(result) || 0,
+                    message: String(result),
+                };
+            }
+
+            yield chunk;
         }
     }
 
