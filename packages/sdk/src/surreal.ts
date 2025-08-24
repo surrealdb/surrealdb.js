@@ -328,7 +328,10 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @return The record linked to the record ID used for authentication
      */
     auth<T extends Doc>(): AuthPromise<RecordResult<T> | undefined> {
-        return new AuthPromise(this.#connection, undefined, false);
+        return new AuthPromise(this.#connection, {
+            transaction: undefined,
+            json: false,
+        });
     }
 
     /**
@@ -338,7 +341,10 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @returns A new live subscription object
      */
     live(what: LiveResource): ManagedLivePromise {
-        return new ManagedLivePromise(this.#connection, this.#publisher, what, false);
+        return new ManagedLivePromise(this.#connection, this.#publisher, {
+            what,
+            diff: false,
+        });
     }
 
     /**
@@ -350,7 +356,9 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @returns A new unmanaged live subscription object
      */
     liveOf(id: Uuid): UnmanagedLivePromise {
-        return new UnmanagedLivePromise(this.#connection, id);
+        return new UnmanagedLivePromise(this.#connection, {
+            id,
+        });
     }
 
     /**
@@ -376,7 +384,11 @@ export class Surreal implements EventPublisher<SurrealEvents> {
 
     // Shadow implementation
     select(what: RecordId | RecordIdRange | Table): unknown {
-        return new SelectPromise(this.#connection, what);
+        return new SelectPromise(this.#connection, {
+            what,
+            transaction: undefined,
+            json: false,
+        });
     }
 
     /**
@@ -403,7 +415,12 @@ export class Surreal implements EventPublisher<SurrealEvents> {
 
     // Shadow implementation
     create<T extends Doc, U extends Doc = T>(what: RecordId | Table, data?: U): unknown {
-        return new CreatePromise(this.#connection, what, data);
+        return new CreatePromise(this.#connection, {
+            what,
+            data,
+            transaction: undefined,
+            json: false,
+        });
     }
 
     /**
@@ -443,7 +460,14 @@ export class Surreal implements EventPublisher<SurrealEvents> {
         to: RelateInOut,
         data?: U,
     ): unknown {
-        return new RelatePromise(this.#connection, from, thing, to, data);
+        return new RelatePromise(this.#connection, {
+            from,
+            what: thing,
+            to,
+            data,
+            transaction: undefined,
+            json: false,
+        });
     }
 
     /**
@@ -467,10 +491,20 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     // Shadow implementation
     insert<T extends Doc, U extends Doc = T>(arg1: Table | U | U[], arg2?: U | U[]): unknown {
         if (arg1 instanceof Table) {
-            return new InsertPromise(this.#connection, arg1, arg2 ?? []);
+            return new InsertPromise(this.#connection, {
+                table: arg1,
+                what: arg2 ?? [],
+                transaction: undefined,
+                json: false,
+            });
         }
 
-        return new InsertPromise(this.#connection, undefined, arg1);
+        return new InsertPromise(this.#connection, {
+            table: undefined,
+            what: arg1,
+            transaction: undefined,
+            json: false,
+        });
     }
 
     /**
@@ -517,7 +551,12 @@ export class Surreal implements EventPublisher<SurrealEvents> {
         thing: RecordId | RecordIdRange | Table,
         data?: U,
     ): unknown {
-        return new UpdatePromise(this.#connection, thing, data);
+        return new UpdatePromise(this.#connection, {
+            thing,
+            data,
+            transaction: undefined,
+            json: false,
+        });
     }
 
     /**
@@ -564,7 +603,12 @@ export class Surreal implements EventPublisher<SurrealEvents> {
         thing: RecordId | RecordIdRange | Table,
         data?: U,
     ): unknown {
-        return new UpsertPromise(this.#connection, thing, data);
+        return new UpsertPromise(this.#connection, {
+            thing,
+            data,
+            transaction: undefined,
+            json: false,
+        });
     }
 
     /**
@@ -590,7 +634,11 @@ export class Surreal implements EventPublisher<SurrealEvents> {
 
     // Shadow implementation
     delete(what: RecordId | RecordIdRange | Table): unknown {
-        return new DeletePromise(this.#connection, what);
+        return new DeletePromise(this.#connection, {
+            what,
+            transaction: undefined,
+            json: false,
+        });
     }
 
     /**
@@ -613,9 +661,21 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     // Shadow implementation
     run(name: string, arg2?: Version | unknown[], arg3?: unknown[]): unknown {
         if (typeof arg2 === "string") {
-            return new RunPromise(this.#connection, name, arg2, arg3 ?? []);
+            return new RunPromise(this.#connection, {
+                name,
+                version: arg2,
+                args: arg3 ?? [],
+                transaction: undefined,
+                json: false,
+            });
         }
 
-        return new RunPromise(this.#connection, name, undefined, arg2 ?? []);
+        return new RunPromise(this.#connection, {
+            name,
+            version: undefined,
+            args: arg2 ?? [],
+            transaction: undefined,
+            json: false,
+        });
     }
 }

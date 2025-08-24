@@ -1,14 +1,22 @@
 import type { ConnectionController } from "../controller";
 import { SurrealError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import { internalQuery } from "../internal/internal-query";
 import type { Version } from "../types";
-import type { MaybeJsonify } from "../types/internal";
-import { BoundQuery, surql } from "../utils";
+import type { Frame, MaybeJsonify } from "../types/internal";
+import { surql } from "../utils";
 import type { Uuid } from "../value";
+import { Query } from "./query";
 
 const NAME_REGEX = /^[a-zA-Z0-9_:]+$/;
 const VERSION_REGEX = /^[0-9.]+$/;
+
+interface RunOptions {
+    name: string;
+    version: Version | undefined;
+    args: unknown[];
+    transaction: Uuid | undefined;
+    json: boolean;
+}
 
 /**
  * A configurable `Promise` for a run query sent to a SurrealDB instance.
@@ -17,25 +25,12 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
     MaybeJsonify<T, J>
 > {
     #connection: ConnectionController;
-    #name: string;
-    #version: Version | undefined;
-    #args: unknown[];
-    #transaction: Uuid | undefined;
-    #json: J;
+    #options: RunOptions;
 
-    constructor(
-        connection: ConnectionController,
-        name: string,
-        version: Version | undefined,
-        args: unknown[],
-    ) {
+    constructor(connection: ConnectionController, options: RunOptions) {
         super();
         this.#connection = connection;
-        this.#name = name;
-        this.#version = version;
-        this.#args = args;
-        this.#transaction = undefined;
-        this.#json = false as J;
+        this.#options = options;
     }
 
     /**
@@ -46,58 +41,62 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
      * that your responses will lose SurrealDB type information.
      */
     json(): RunPromise<T, true> {
-        const promise = new RunPromise<T, true>(
-            this.#connection,
-            this.#name,
-            this.#version,
-            this.#args,
-        );
-        promise.#transaction = this.#transaction;
-        return promise;
+        return new RunPromise<T, true>(this.#connection, {
+            ...this.#options,
+            json: true,
+        });
     }
 
     /**
-     * Attach this query to a specific transaction.
+     * Stream the results of the query as they are received.
      *
-     * @param transactionId The ID of the transaction to attach this query to
+     * @returns An async iterable of query frames.
      */
-    txn(transactionId: Uuid): RunPromise<T, J> {
-        const promise = new RunPromise<T, J>(
-            this.#connection,
-            this.#name,
-            this.#version,
-            this.#args,
-        );
-        promise.#transaction = transactionId;
-        promise.#json = this.#json;
-        return promise;
+    async *stream(): AsyncIterable<Frame<T, J>> {
+        await this.#connection.ready();
+        const query = this.#build().stream(0);
+
+        for await (const frame of query) {
+            yield frame as Frame<T, J>;
+        }
     }
 
     protected async dispatch(): Promise<MaybeJsonify<T, J>> {
         await this.#connection.ready();
+        const [result] = await this.#build().collect(0);
+        return result as MaybeJsonify<T, J>;
+    }
 
-        if (!NAME_REGEX.test(this.#name)) {
+    #build(): Query<J> {
+        const { name, version, args, transaction, json } = this.#options;
+
+        if (!NAME_REGEX.test(name)) {
             throw new SurrealError("Invalid function name");
         }
 
-        const query = new BoundQuery(this.#name);
+        const builder = surql`${name}`;
 
-        if (this.#version) {
-            if (!VERSION_REGEX.test(this.#version)) {
+        if (version) {
+            if (!VERSION_REGEX.test(version)) {
                 throw new SurrealError("Invalid function version");
             }
 
-            query.append(`<${this.#version}>`);
+            builder.append(`<${version}>`);
         }
 
-        query.append("(");
+        builder.append("(");
 
-        for (const arg of this.#args) {
-            query.append(surql`${arg}, `);
+        for (const arg of args) {
+            builder.append(surql`${arg}, `);
         }
 
-        query.append(")");
+        builder.append(")");
 
-        return internalQuery(this.#connection, surql`${query}`, this.#json, this.#transaction);
+        return new Query(this.#connection, {
+            query: builder.query,
+            bindings: builder.bindings,
+            transaction,
+            json,
+        });
     }
 }

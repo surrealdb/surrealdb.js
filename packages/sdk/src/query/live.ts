@@ -10,26 +10,28 @@ import {
 } from "../utils/live";
 import type { Uuid } from "../value";
 
+interface ManagedLiveOptions {
+    what: LiveResource;
+    diff: boolean;
+}
+
 /**
  * A promise representing a managed `live` RPC call to the server.
  */
 export class ManagedLivePromise extends DispatchedPromise<LiveSubscription> {
     #connection: ConnectionController;
     #publisher: Publisher<SurrealEvents>;
-    #what: LiveResource;
-    #diff: boolean;
+    #options: ManagedLiveOptions;
 
     constructor(
         connection: ConnectionController,
         publisher: Publisher<SurrealEvents>,
-        what: LiveResource,
-        diff: boolean,
+        options: ManagedLiveOptions,
     ) {
         super();
         this.#connection = connection;
         this.#publisher = publisher;
-        this.#what = what;
-        this.#diff = diff;
+        this.#options = options;
     }
 
     /**
@@ -37,7 +39,10 @@ export class ManagedLivePromise extends DispatchedPromise<LiveSubscription> {
      * instead of the full resource on each update.
      */
     diff(): ManagedLivePromise {
-        return new ManagedLivePromise(this.#connection, this.#publisher, this.#what, true);
+        return new ManagedLivePromise(this.#connection, this.#publisher, {
+            ...this.#options,
+            diff: true,
+        });
     }
 
     protected async dispatch(): Promise<LiveSubscription> {
@@ -46,10 +51,14 @@ export class ManagedLivePromise extends DispatchedPromise<LiveSubscription> {
         return new ManagedLiveSubscription(
             this.#publisher,
             this.#connection,
-            this.#what,
-            this.#diff,
+            this.#options.what,
+            this.#options.diff,
         );
     }
+}
+
+interface UnmanagedLiveOptions {
+    id: Uuid;
 }
 
 /**
@@ -57,17 +66,17 @@ export class ManagedLivePromise extends DispatchedPromise<LiveSubscription> {
  */
 export class UnmanagedLivePromise extends DispatchedPromise<LiveSubscription> {
     #connection: ConnectionController;
-    #id: Uuid;
+    #options: UnmanagedLiveOptions;
 
-    constructor(connection: ConnectionController, id: Uuid) {
+    constructor(connection: ConnectionController, options: UnmanagedLiveOptions) {
         super();
         this.#connection = connection;
-        this.#id = id;
+        this.#options = options;
     }
 
     protected async dispatch(): Promise<LiveSubscription> {
         await this.#connection.ready();
 
-        return new UnmanagedLiveSubscription(this.#connection, this.#id);
+        return new UnmanagedLiveSubscription(this.#connection, this.#options.id);
     }
 }

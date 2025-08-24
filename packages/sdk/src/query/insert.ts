@@ -1,10 +1,17 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import { internalQuery } from "../internal/internal-query";
 import type { Doc } from "../types";
-import type { MaybeJsonify } from "../types/internal";
+import type { Frame, MaybeJsonify } from "../types/internal";
 import { surql } from "../utils";
 import type { Table, Uuid } from "../value";
+import { Query } from "./query";
+
+interface InsertOptions {
+    table: Table | undefined;
+    what: Doc | Doc[];
+    transaction: Uuid | undefined;
+    json: boolean;
+}
 
 /**
  * A configurable `Promise` for an insert query sent to a SurrealDB instance.
@@ -13,18 +20,12 @@ export class InsertPromise<T, U extends Doc, J extends boolean = false> extends 
     MaybeJsonify<T, J>
 > {
     #connection: ConnectionController;
-    #table: Table | undefined;
-    #what: U | U[];
-    #transaction: Uuid | undefined;
-    #json: J;
+    #options: InsertOptions;
 
-    constructor(connection: ConnectionController, table: Table | undefined, what: U | U[]) {
+    constructor(connection: ConnectionController, options: InsertOptions) {
         super();
         this.#connection = connection;
-        this.#table = table;
-        this.#what = what;
-        this.#transaction = undefined;
-        this.#json = false as J;
+        this.#options = options;
     }
 
     /**
@@ -35,34 +36,48 @@ export class InsertPromise<T, U extends Doc, J extends boolean = false> extends 
      * that your responses will lose SurrealDB type information.
      */
     json(): InsertPromise<T, U, true> {
-        const promise = new InsertPromise<T, U, true>(this.#connection, this.#table, this.#what);
-        promise.#transaction = this.#transaction;
-        return promise;
+        return new InsertPromise<T, U, true>(this.#connection, {
+            ...this.#options,
+            json: true,
+        });
     }
 
     /**
-     * Attach this query to a specific transaction.
+     * Stream the results of the query as they are received.
      *
-     * @param transactionId The ID of the transaction to attach this query to
+     * @returns An async iterable of query frames.
      */
-    txn(transactionId: Uuid): InsertPromise<T, U, J> {
-        const promise = new InsertPromise<T, U, J>(this.#connection, this.#table, this.#what);
-        promise.#transaction = transactionId;
-        promise.#json = this.#json;
-        return promise;
+    async *stream(): AsyncIterable<Frame<T, J>> {
+        await this.#connection.ready();
+        const query = this.#build().stream(0);
+
+        for await (const frame of query) {
+            yield frame as Frame<T, J>;
+        }
     }
 
     protected async dispatch(): Promise<MaybeJsonify<T, J>> {
         await this.#connection.ready();
+        const [result] = await this.#build().collect(0);
+        return result as MaybeJsonify<T, J>;
+    }
 
-        const query = surql`INSERT`;
+    #build(): Query<J> {
+        const { table, what, transaction, json } = this.#options;
 
-        if (this.#table) {
-            query.append(surql` INTO ${this.#table}`);
+        const builder = surql`INSERT`;
+
+        if (table) {
+            builder.append(surql` INTO ${table}`);
         }
 
-        query.append(surql` ${this.#what}`);
+        builder.append(surql` ${what}`);
 
-        return internalQuery(this.#connection, query, this.#json, this.#transaction);
+        return new Query(this.#connection, {
+            query: builder.query,
+            bindings: builder.bindings,
+            transaction,
+            json,
+        });
     }
 }

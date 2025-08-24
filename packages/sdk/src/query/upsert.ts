@@ -1,10 +1,17 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import { internalQuery } from "../internal/internal-query";
 import type { Doc } from "../types";
-import type { MaybeJsonify } from "../types/internal";
+import type { Frame, MaybeJsonify } from "../types/internal";
 import { surql } from "../utils";
 import { RecordId, type RecordIdRange, type Table, type Uuid } from "../value";
+import { Query } from "./query";
+
+interface UpsertOptions {
+    thing: RecordId | RecordIdRange | Table;
+    data?: Doc;
+    transaction: Uuid | undefined;
+    json: boolean;
+}
 
 /**
  * A configurable `Promise` for an upsert query sent to a SurrealDB instance.
@@ -13,22 +20,12 @@ export class UpsertPromise<T, U extends Doc, J extends boolean = false> extends 
     MaybeJsonify<T, J>
 > {
     #connection: ConnectionController;
-    #thing: RecordId | RecordIdRange | Table;
-    #data?: U;
-    #transaction: Uuid | undefined;
-    #json: J;
+    #options: UpsertOptions;
 
-    constructor(
-        connection: ConnectionController,
-        thing: RecordId | RecordIdRange | Table,
-        data?: U,
-    ) {
+    constructor(connection: ConnectionController, options: UpsertOptions) {
         super();
         this.#connection = connection;
-        this.#thing = thing;
-        this.#data = data;
-        this.#transaction = undefined;
-        this.#json = false as J;
+        this.#options = options;
     }
 
     /**
@@ -39,35 +36,47 @@ export class UpsertPromise<T, U extends Doc, J extends boolean = false> extends 
      * that your responses will lose SurrealDB type information.
      */
     json(): UpsertPromise<T, U, true> {
-        const promise = new UpsertPromise<T, U, true>(this.#connection, this.#thing, this.#data);
-        promise.#transaction = this.#transaction;
-        return promise;
+        return new UpsertPromise<T, U, true>(this.#connection, {
+            ...this.#options,
+            json: true,
+        });
     }
 
     /**
-     * Attach this query to a specific transaction.
+     * Stream the results of the query as they are received.
      *
-     * @param transactionId The ID of the transaction to attach this query to
+     * @returns An async iterable of query frames.
      */
-    txn(transactionId: Uuid): UpsertPromise<T, U, J> {
-        const promise = new UpsertPromise<T, U, J>(this.#connection, this.#thing, this.#data);
-        promise.#transaction = transactionId;
-        promise.#json = this.#json;
-        return promise;
+    async *stream(): AsyncIterable<Frame<T, J>> {
+        await this.#connection.ready();
+        const query = this.#build().stream(0);
+
+        for await (const frame of query) {
+            yield frame as Frame<T, J>;
+        }
     }
 
     protected async dispatch(): Promise<MaybeJsonify<T, J>> {
         await this.#connection.ready();
+        const [result] = await this.#build().collect(0);
+        return result as MaybeJsonify<T, J>;
+    }
 
-        const query =
-            this.#thing instanceof RecordId
-                ? surql`UPDATE ONLY ${this.#thing}`
-                : surql`UPDATE ${this.#thing}`;
+    #build(): Query<J> {
+        const { thing, data, transaction, json } = this.#options;
 
-        if (this.#data) {
-            query.append(surql` CONTENT ${this.#data}`);
+        const builder =
+            thing instanceof RecordId ? surql`UPDATE ONLY ${thing}` : surql`UPDATE ${thing}`;
+
+        if (data) {
+            builder.append(surql` CONTENT ${data}`);
         }
 
-        return internalQuery(this.#connection, query, this.#json, this.#transaction);
+        return new Query(this.#connection, {
+            query: builder.query,
+            bindings: builder.bindings,
+            transaction,
+            json,
+        });
     }
 }

@@ -1,10 +1,17 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import { internalQuery } from "../internal/internal-query";
 import type { Doc } from "../types";
-import type { MaybeJsonify } from "../types/internal";
+import type { Frame, MaybeJsonify } from "../types/internal";
 import { surql } from "../utils";
 import { RecordId, type Table, type Uuid } from "../value";
+import { Query } from "./query";
+
+interface CreateOptions {
+    what: RecordId | Table;
+    data?: Doc;
+    transaction: Uuid | undefined;
+    json: boolean;
+}
 
 /**
  * A configurable `Promise` for a create query sent to a SurrealDB instance.
@@ -13,18 +20,12 @@ export class CreatePromise<T, U extends Doc, J extends boolean = false> extends 
     MaybeJsonify<T, J>
 > {
     #connection: ConnectionController;
-    #what: RecordId | Table;
-    #data?: U;
-    #transaction: Uuid | undefined;
-    #json: J;
+    #options: CreateOptions;
 
-    constructor(connection: ConnectionController, what: RecordId | Table, data?: U) {
+    constructor(connection: ConnectionController, options: CreateOptions) {
         super();
         this.#connection = connection;
-        this.#what = what;
-        this.#data = data;
-        this.#transaction = undefined;
-        this.#json = false as J;
+        this.#options = options;
     }
 
     /**
@@ -35,35 +36,47 @@ export class CreatePromise<T, U extends Doc, J extends boolean = false> extends 
      * that your responses will lose SurrealDB type information.
      */
     json(): CreatePromise<T, U, true> {
-        const promise = new CreatePromise<T, U, true>(this.#connection, this.#what, this.#data);
-        promise.#transaction = this.#transaction;
-        return promise;
+        return new CreatePromise<T, U, true>(this.#connection, {
+            ...this.#options,
+            json: true,
+        });
     }
 
     /**
-     * Attach this query to a specific transaction.
+     * Stream the results of the query as they are received.
      *
-     * @param transactionId The ID of the transaction to attach this query to
+     * @returns An async iterable of query frames.
      */
-    txn(transactionId: Uuid): CreatePromise<T, U, J> {
-        const promise = new CreatePromise<T, U, J>(this.#connection, this.#what, this.#data);
-        promise.#transaction = transactionId;
-        promise.#json = this.#json;
-        return promise;
+    async *stream(): AsyncIterable<Frame<T, J>> {
+        await this.#connection.ready();
+        const query = this.#build().stream(0);
+
+        for await (const frame of query) {
+            yield frame as Frame<T, J>;
+        }
     }
 
     protected async dispatch(): Promise<MaybeJsonify<T, J>> {
         await this.#connection.ready();
+        const [result] = await this.#build().collect(0);
+        return result as MaybeJsonify<T, J>;
+    }
 
-        const query =
-            this.#what instanceof RecordId
-                ? surql`CREATE ONLY ${this.#what}`
-                : surql`CREATE ${this.#what}`;
+    #build(): Query<J> {
+        const { what, data, transaction, json } = this.#options;
 
-        if (this.#data) {
-            query.append(surql` CONTENT ${this.#data}`);
+        const builder =
+            what instanceof RecordId ? surql`CREATE ONLY ${what}` : surql`CREATE ${what}`;
+
+        if (data) {
+            builder.append(surql` CONTENT ${data}`);
         }
 
-        return internalQuery(this.#connection, query, this.#json, this.#transaction);
+        return new Query(this.#connection, {
+            query: builder.query,
+            bindings: builder.bindings,
+            transaction,
+            json,
+        });
     }
 }

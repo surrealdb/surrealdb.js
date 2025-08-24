@@ -1,52 +1,71 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import { internalQuery } from "../internal/internal-query";
-import { BoundQuery } from "../utils";
+import type { Frame, MaybeJsonify } from "../types/internal";
 import type { Uuid } from "../value";
+import { Query } from "./query";
+
+interface AuthOptions {
+    transaction: Uuid | undefined;
+    json: boolean;
+}
 
 /**
  * A configurable `Promise` for retrieving auth information from a SurrealDB instance.
  */
-export class AuthPromise<T, J extends boolean = false> extends DispatchedPromise<T> {
+export class AuthPromise<T, J extends boolean = false> extends DispatchedPromise<
+    MaybeJsonify<T, J>
+> {
     #connection: ConnectionController;
-    #transaction: Uuid | undefined;
-    #json: J;
+    #options: AuthOptions;
 
-    constructor(connection: ConnectionController, transaction: Uuid | undefined, json: J) {
+    constructor(connection: ConnectionController, options: AuthOptions) {
         super();
         this.#connection = connection;
-        this.#transaction = transaction;
-        this.#json = json;
+        this.#options = options;
     }
 
     /**
-     * Configure the query to return the result of each response as a
+     * Configure the query to return the result as a
      * JSON-compatible structure.
      *
      * This is useful when query results need to be serialized. Keep in mind
      * that your responses will lose SurrealDB type information.
      */
     json(): AuthPromise<T, true> {
-        return new AuthPromise(this.#connection, this.#transaction, true);
+        return new AuthPromise(this.#connection, {
+            ...this.#options,
+            json: true,
+        });
     }
 
     /**
-     * Attach this query to a specific transaction.
+     * Stream the results of the query as they are received.
      *
-     * @param transactionId The ID of the transaction to attach this query to
+     * @returns An async iterable of query frames.
      */
-    txn(transactionId: Uuid): AuthPromise<T, J> {
-        return new AuthPromise(this.#connection, transactionId, this.#json);
+    async *stream(): AsyncIterable<Frame<T, J>> {
+        await this.#connection.ready();
+        const query = this.#build().stream(0);
+
+        for await (const frame of query) {
+            yield frame as Frame<T, J>;
+        }
     }
 
-    protected async dispatch(): Promise<T> {
+    protected async dispatch(): Promise<MaybeJsonify<T, J>> {
         await this.#connection.ready();
+        const [result] = await this.#build().collect(0);
+        return result as MaybeJsonify<T, J>;
+    }
 
-        return internalQuery(
-            this.#connection,
-            new BoundQuery("SELECT * FROM $auth"),
-            this.#json,
-            this.#transaction,
-        );
+    #build(): Query<J> {
+        const { transaction, json } = this.#options;
+
+        return new Query(this.#connection, {
+            query: "SELECT * FROM $auth",
+            bindings: {},
+            transaction,
+            json,
+        });
     }
 }

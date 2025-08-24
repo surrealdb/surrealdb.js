@@ -1,10 +1,7 @@
 import type { ConnectionController } from "../controller";
 import { ResponseError } from "../errors";
-import type { QueryStats } from "../types";
-import type { MaybeJsonify } from "../types/internal";
+import type { Frame, MaybeJsonify } from "../types/internal";
 import type { Uuid } from "../value";
-
-type Collect<T extends unknown[], J extends boolean> = { [K in keyof T]: MaybeJsonify<T[K], J> };
 
 interface QueryOptions {
     query: string;
@@ -13,33 +10,20 @@ interface QueryOptions {
     json: boolean;
 }
 
-interface ValueFrame<N, T, J extends boolean> {
-    query: N;
-    type: "value";
-    value: MaybeJsonify<T, J>;
-}
-
-interface ErrorFrame<N> {
-    query: N;
-    type: "error";
-    stats: QueryStats;
-    error: {
-        code: number;
-        message: string;
-    };
-}
-
-interface DoneFrame<N> {
-    query: N;
-    type: "done";
-    stats: QueryStats;
-}
-
-type Frame<N, T, J extends boolean> = ValueFrame<N, T, J> | ErrorFrame<N> | DoneFrame<N>;
-
-type StreamFrame<T extends readonly unknown[], J extends boolean> = {
-    [K in keyof T & `${number}`]: Frame<K extends `${infer N extends number}` ? N : never, T[K], J>;
+type UnknownFrame<J extends boolean> = { query: number } & Frame<unknown, J>;
+type MappedFrame<T extends readonly unknown[], J extends boolean> = {
+    [K in keyof T & `${number}`]: {
+        query: K extends `${infer N extends number}` ? N : number;
+    } & Frame<T[K], J>;
 }[keyof T & `${number}`];
+
+type QueryFrame<T extends readonly unknown[], J extends boolean> = T extends []
+    ? UnknownFrame<J>
+    : MappedFrame<T, J>;
+
+type Collect<T extends unknown[], J extends boolean> = T extends []
+    ? unknown[]
+    : { [K in keyof T]: MaybeJsonify<T[K], J> };
 
 /**
  * A configurable query sent to a SurrealDB instance.
@@ -75,7 +59,7 @@ export class Query<J extends boolean = false> {
      * @param queries The queries to collect. If no queries are provided, all queries will be collected.
      * @returns A promise that resolves to the results of all responses at once.
      */
-    async collect<T extends unknown[]>(...queries: number[]): Promise<Collect<T, J>> {
+    async collect<T extends unknown[] = []>(...queries: number[]): Promise<Collect<T, J>> {
         await this.#connection.ready();
 
         const { query, bindings, transaction } = this.#options;
@@ -116,8 +100,9 @@ export class Query<J extends boolean = false> {
      * Each frame contains a `query` index corresponding to the query that produced the frame.
      *
      * @param queries The queries to stream. If no queries are provided, all queries will be streamed.
+     * @returns An async iterable of query frames.
      */
-    async *stream<T extends unknown[]>(...queries: number[]): AsyncIterable<StreamFrame<T, J>> {
+    async *stream<T extends unknown[] = []>(...queries: number[]): AsyncIterable<QueryFrame<T, J>> {
         await this.#connection.ready();
 
         const { query, bindings, transaction } = this.#options;
@@ -139,7 +124,7 @@ export class Query<J extends boolean = false> {
                         code: chunk.error.code,
                         message: chunk.error.message,
                     },
-                } as StreamFrame<T, J>;
+                } as QueryFrame<T, J>;
                 continue;
             }
 
@@ -148,7 +133,7 @@ export class Query<J extends boolean = false> {
                     query: chunk.query,
                     type: "value",
                     value: chunk.result?.[0] as T,
-                } as StreamFrame<T, J>;
+                } as QueryFrame<T, J>;
                 continue;
             }
 
@@ -159,7 +144,7 @@ export class Query<J extends boolean = false> {
                     query: chunk.query,
                     type: "value",
                     value: value as T,
-                } as StreamFrame<T, J>;
+                } as QueryFrame<T, J>;
             }
 
             if (chunk.kind === "batched-final") {
@@ -167,7 +152,7 @@ export class Query<J extends boolean = false> {
                     query: chunk.query,
                     type: "done",
                     stats: chunk.stats,
-                } as StreamFrame<T, J>;
+                } as QueryFrame<T, J>;
             }
         }
     }
