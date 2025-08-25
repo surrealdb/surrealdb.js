@@ -292,6 +292,18 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     //                                                             //
     // =========================================================== //
 
+    async test() {
+        type Person = { name: string };
+
+        const stream = this.query("").stream();
+
+        for await (const frame of stream) {
+            if (frame.isValue<Person>(0)) {
+                // use frame.value
+            }
+        }
+    }
+
     /**
      * Runs a set of SurrealQL statements against the database, returning the first error
      * if any of the statements result in an error

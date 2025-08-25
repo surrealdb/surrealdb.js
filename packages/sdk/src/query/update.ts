@@ -1,7 +1,8 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
+import type { Frame } from "../internal/frame";
+import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { Doc } from "../types";
-import type { Frame, MaybeJsonify } from "../types/internal";
 import { surql } from "../utils";
 import { RecordId, type RecordIdRange, type Table, type Uuid } from "../value";
 import { Query } from "./query";
@@ -49,16 +50,16 @@ export class UpdatePromise<T, U extends Doc, J extends boolean = false> extends 
      */
     async *stream(): AsyncIterable<Frame<T, J>> {
         await this.#connection.ready();
-        const query = this.#build().stream(0);
+        const query = this.#build().stream<T>();
 
         for await (const frame of query) {
-            yield frame as Frame<T, J>;
+            yield frame;
         }
     }
 
     protected async dispatch(): Promise<MaybeJsonify<T, J>> {
         await this.#connection.ready();
-        const [result] = await this.#build().collect(0);
+        const [result] = await this.#build().collect();
         return result as MaybeJsonify<T, J>;
     }
 

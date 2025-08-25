@@ -1,6 +1,7 @@
 import type { ConnectionController } from "../controller";
 import { ResponseError } from "../errors";
-import type { Frame, MaybeJsonify } from "../types/internal";
+import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../internal/frame";
+import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
 import type { Uuid } from "../value";
 
 interface QueryOptions {
@@ -9,17 +10,6 @@ interface QueryOptions {
     transaction: Uuid | undefined;
     json: boolean;
 }
-
-type UnknownFrame<J extends boolean> = { query: number } & Frame<unknown, J>;
-type MappedFrame<T extends readonly unknown[], J extends boolean> = {
-    [K in keyof T & `${number}`]: {
-        query: K extends `${infer N extends number}` ? N : number;
-    } & Frame<T[K], J>;
-}[keyof T & `${number}`];
-
-type QueryFrame<T extends readonly unknown[], J extends boolean> = T extends []
-    ? UnknownFrame<J>
-    : MappedFrame<T, J>;
 
 type Collect<T extends unknown[], J extends boolean> = T extends []
     ? unknown[]
@@ -52,42 +42,52 @@ export class Query<J extends boolean = false> {
     }
 
     /**
-     * Collect and return the results of all responses at once.
+     * Collect and return the results of all queries at once. If any of the queries fail, the promise
+     * will reject.
      *
-     * If any statement in the query fails, the promise will reject.
+     * You can optionally pass a list of query indexes to collect only the results of specific queries.
+     *
+     * @example
+     * ```ts
+     * const [people] = await this.query("SELECT * FROM person").collect<[Person[]]>();
+     * ```
      *
      * @param queries The queries to collect. If no queries are provided, all queries will be collected.
-     * @returns A promise that resolves to the results of all responses at once.
+     * @returns A promise that resolves to the results of all queries at once.
      */
     async collect<T extends unknown[] = []>(...queries: number[]): Promise<Collect<T, J>> {
         await this.#connection.ready();
 
-        const { query, bindings, transaction } = this.#options;
+        const { query, bindings, transaction, json } = this.#options;
         const chunks = this.#connection.query(query, bindings, transaction);
         const responses: unknown[] = [];
-        const accept = queries.length > 0 ? new Set(queries) : undefined;
+        const queryIndexes =
+            queries.length > 0 ? new Map(queries.map((idx, i) => [idx, i])) : undefined;
 
         for await (const chunk of chunks) {
             if (chunk.error) {
                 throw new ResponseError(chunk.error);
             }
 
-            if (accept?.has(chunk.query) === false) {
+            if (queryIndexes?.has(chunk.query) === false) {
                 continue;
             }
+
+            const index = queryIndexes?.get(chunk.query) ?? chunk.query;
 
             if (chunk.kind === "single") {
-                responses[chunk.query] = chunk.result?.[0] as T;
+                responses[index] = maybeJsonify(chunk.result?.[0], json);
                 continue;
             }
 
-            let records = responses[chunk.query] as unknown[];
+            const additions = maybeJsonify(chunk.result ?? [], json);
+            let records = responses[index] as unknown[];
 
             if (!records) {
-                records = chunk.result ?? [];
-                responses[chunk.query] = records;
+                records = additions;
+                responses[index] = records;
             } else {
-                records.push(...(chunk.result ?? []));
+                records.push(...additions);
             }
         }
 
@@ -95,64 +95,54 @@ export class Query<J extends boolean = false> {
     }
 
     /**
-     * Stream the results of the query as they are received.
+     * Stream the response frames of the query as they are received as an AsyncIterable.
      *
-     * Each frame contains a `query` index corresponding to the query that produced the frame.
+     * Each iteration yields a **value**, **error**, or **done** frame. The provided
+     * `isValue`, `isError`, and `isDone` methods can be used to check the type of frame.
+     * You can pass a query index to these functions to check if the frame is associated with a
+     * specific query.
      *
-     * @param queries The queries to stream. If no queries are provided, all queries will be streamed.
+     * @example
+     * ```ts
+     * const stream = this.query("SELECT * FROM person").stream();
+     *
+     * for await (const frame of stream) {
+     *     if (frame.isValue<Person>(0)) {
+     *         // use frame.value
+     *     }
+     * }
+     * ```
+     *
      * @returns An async iterable of query frames.
      */
-    async *stream<T extends unknown[] = []>(...queries: number[]): AsyncIterable<QueryFrame<T, J>> {
+    async *stream<T = unknown>(): AsyncIterable<Frame<T, J>> {
         await this.#connection.ready();
 
-        const { query, bindings, transaction } = this.#options;
+        const { query, bindings, transaction, json } = this.#options;
         const chunks = this.#connection.query(query, bindings, transaction);
-        const accept = queries.length > 0 ? new Set(queries) : undefined;
 
         for await (const chunk of chunks) {
-            if (accept?.has(chunk.query) === false) {
-                if (chunk.error) throw new ResponseError(chunk.error);
-                continue;
-            }
-
             if (chunk.error) {
-                yield {
-                    query: chunk.query,
-                    type: "error",
-                    stats: chunk.stats,
-                    error: {
-                        code: chunk.error.code,
-                        message: chunk.error.message,
-                    },
-                } as QueryFrame<T, J>;
+                yield new ErrorFrame<T, J>(chunk.query, chunk.stats, chunk.error);
                 continue;
             }
 
             if (chunk.kind === "single") {
-                yield {
-                    query: chunk.query,
-                    type: "value",
-                    value: chunk.result?.[0] as T,
-                } as QueryFrame<T, J>;
+                yield new ValueFrame<T, J>(
+                    chunk.query,
+                    maybeJsonify(chunk.result?.[0] as T, json as J),
+                );
                 continue;
             }
 
             const values = chunk.result as unknown[];
 
             for (const value of values) {
-                yield {
-                    query: chunk.query,
-                    type: "value",
-                    value: value as T,
-                } as QueryFrame<T, J>;
+                yield new ValueFrame<T, J>(chunk.query, maybeJsonify(value as T, json as J));
             }
 
             if (chunk.kind === "batched-final") {
-                yield {
-                    query: chunk.query,
-                    type: "done",
-                    stats: chunk.stats,
-                } as QueryFrame<T, J>;
+                yield new DoneFrame<T, J>(chunk.query, chunk.stats);
             }
         }
     }
