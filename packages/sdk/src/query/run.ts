@@ -1,10 +1,10 @@
 import type { ConnectionController } from "../controller";
 import { SurrealError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import type { Frame } from "../internal/frame";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { Version } from "../types";
 import { surql } from "../utils";
+import type { Frame } from "../utils/frame";
 import type { Uuid } from "../value";
 import { Query } from "./query";
 

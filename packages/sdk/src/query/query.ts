@@ -1,7 +1,7 @@
 import type { ConnectionController } from "../controller";
 import { ResponseError } from "../errors";
-import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../internal/frame";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
+import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../utils/frame";
 import type { Uuid } from "../value";
 
 interface QueryOptions {

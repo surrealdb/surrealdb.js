@@ -1,9 +1,9 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import type { Frame } from "../internal/frame";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { Doc } from "../types";
 import { surql } from "../utils";
+import type { Frame } from "../utils/frame";
 import { RecordId, type RecordIdRange, type Table, type Uuid } from "../value";
 import { Query } from "./query";
 
