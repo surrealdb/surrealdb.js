@@ -1,19 +1,46 @@
 import { Value } from "./value";
 
+export type DecimalTuple = [bigint, bigint, number];
+
 /**
- * Represents a high-precision decimal number with an integer and fractional part.
- * Useful for financial and scientific calculations that require precision beyond JavaScript's native number type.
+ * Represents a high-precision decimal number with an integer and fractional part
+ * Useful for financial and scientific calculations that require precision beyond JavaScript's native number type
  */
 export class Decimal extends Value {
-    #int: bigint;
-    #frac: bigint;
-    #scale: number;
+    readonly #int: bigint;
+    readonly #frac: bigint;
+    readonly #scale: number;
 
     /**
-     * Constructs a Decimal from various types.
-     * @param input - The input to construct from: string, number, bigint, Decimal, or a tuple [int, frac, scale].
+     * Constructs a new Decimal by cloning an existing Decimal
+     *
+     * @param input Decimal input
      */
-    constructor(input: string | number | bigint | Decimal | [bigint, bigint, number]) {
+    constructor(input: Decimal);
+
+    /**
+     * Constructs a new Decimal from a scientific notation string
+     *
+     * @param input String input
+     */
+    constructor(input: string);
+
+    /**
+     * Constructs a new Decimal from a number or bigint
+     *
+     * @param input Number or bigint input
+     */
+    constructor(input: number | bigint);
+
+    /**
+     * Constructs a new Decimal from a tuple [int, frac, scale]
+     *
+     * @param input Tuple input
+     */
+    constructor(input: DecimalTuple);
+
+    // Shadow implementation
+    constructor(input: Decimal | string | number | bigint | DecimalTuple) {
         super();
 
         if (input instanceof Decimal) {
@@ -21,18 +48,12 @@ export class Decimal extends Value {
             this.#int = input.#int;
             this.#frac = input.#frac;
             this.#scale = input.#scale;
-            return;
-        }
-
-        if (typeof input === "bigint") {
+        } else if (typeof input === "bigint") {
             // Treat bigint as integer with no fractional part
             this.#int = input;
             this.#frac = 0n;
             this.#scale = 0;
-            return;
-        }
-
-        if (Array.isArray(input)) {
+        } else if (Array.isArray(input)) {
             // Unpack int, frac, and scale and normalize overflow in fractional part
             let [int, frac, scale] = input;
             const maxFrac = 10n ** BigInt(scale);
@@ -43,60 +64,54 @@ export class Decimal extends Value {
             this.#int = int;
             this.#frac = frac;
             this.#scale = scale;
-            return;
-        }
-
-        if (typeof input === "string" && /e/i.test(input)) {
+        } else if (typeof input === "string" && /e/i.test(input)) {
             // Parse scientific notation like "1.23e4"
             const dec = Decimal.fromScientificNotation(input);
             this.#int = dec.#int;
             this.#frac = dec.#frac;
             this.#scale = dec.#scale;
-            return;
+        } else {
+            // Convert string/number to string and trim whitespace
+            const str = input.toString().trim();
+            const isNegative = str.startsWith("-");
+            const clean = isNegative ? str.slice(1) : str;
+            const [intStrRaw, fracStrRaw = ""] = clean.split(".");
+
+            // Sanitize int/frac parts
+            const safeInt = /^\d+$/.test(intStrRaw) ? intStrRaw : "0";
+            const safeFrac = /^\d+$/.test(fracStrRaw) ? fracStrRaw : "0";
+
+            const intStr = safeInt || "0";
+            const fracStr = safeFrac.padEnd(safeFrac.length || 1, "0");
+
+            // Parse parts to bigint
+            const absInt = BigInt(intStr);
+            const absFrac = BigInt(fracStr);
+
+            // Apply sign
+            this.#int = isNegative ? -absInt : absInt;
+            this.#frac = isNegative ? -absFrac : absFrac;
+            this.#scale = safeFrac.length;
         }
-
-        // Convert string/number to string and trim whitespace
-        const str = input.toString().trim();
-        const isNegative = str.startsWith("-");
-        const clean = isNegative ? str.slice(1) : str;
-        const [intStrRaw, fracStrRaw = ""] = clean.split(".");
-
-        // Sanitize int/frac parts
-        const safeInt = /^\d+$/.test(intStrRaw) ? intStrRaw : "0";
-        const safeFrac = /^\d+$/.test(fracStrRaw) ? fracStrRaw : "0";
-
-        const intStr = safeInt || "0";
-        const fracStr = safeFrac.padEnd(safeFrac.length || 1, "0");
-
-        // Parse parts to bigint
-        const absInt = BigInt(intStr);
-        const absFrac = BigInt(fracStr);
-
-        // Apply sign
-        this.#int = isNegative ? -absInt : absInt;
-        this.#frac = isNegative ? -absFrac : absFrac;
-        this.#scale = safeFrac.length;
     }
 
-    /** Returns the integer part of the number. */
-    get int(): bigint {
-        return this.#int;
+    equals(other: unknown): boolean {
+        if (!(other instanceof Decimal)) return false;
+        const a = this.toBigIntWithScale();
+        const b = other.toBigIntWithScale();
+        const scale = Math.max(a.scale, b.scale);
+        const aVal = a.value * 10n ** BigInt(scale - a.scale);
+        const bVal = b.value * 10n ** BigInt(scale - b.scale);
+        return aVal === bVal;
     }
 
-    /** Returns the fractional part of the number. */
-    get frac(): bigint {
-        return this.#frac;
-    }
-
-    /** Returns the scale (number of decimal places). */
-    get scale(): number {
-        return this.#scale;
+    toJSON(): string {
+        return this.toString();
     }
 
     /**
-     * Returns the string representation of the decimal.
-     * Trailing zeros in fractional part are trimmed.
-     * @returns The canonical string format.
+     * @returns The canonical string representation of the decimal with
+     * trailing zeros in fractional part trimmed
      */
     toString(): string {
         const sign = this.#int < 0n || this.#frac < 0n ? "-" : "";
@@ -121,33 +136,26 @@ export class Decimal extends Value {
         return fracStr === "" ? `${sign}${absInt}` : `${sign}${absInt}.${fracStr}`;
     }
 
-    /**
-     * Serializes the Decimal to JSON string format.
-     * @returns String form.
-     */
-    toJSON(): string {
-        return this.toString();
+    /** Returns the integer part of the number */
+    get int(): bigint {
+        return this.#int;
+    }
+
+    /** Returns the fractional part of the number */
+    get frac(): bigint {
+        return this.#frac;
+    }
+
+    /** Returns the scale (number of decimal places) */
+    get scale(): number {
+        return this.#scale;
     }
 
     /**
-     * Checks equality between this and another Decimal.
-     * @param other - Another Decimal to compare against.
-     * @returns True if numerically equal.
-     */
-    equals(other: unknown): boolean {
-        if (!(other instanceof Decimal)) return false;
-        const a = this.toBigIntWithScale();
-        const b = other.toBigIntWithScale();
-        const scale = Math.max(a.scale, b.scale);
-        const aVal = a.value * 10n ** BigInt(scale - a.scale);
-        const bVal = b.value * 10n ** BigInt(scale - b.scale);
-        return aVal === bVal;
-    }
-
-    /**
-     * Adds another Decimal to this one.
-     * @param other - The Decimal to add.
-     * @returns A new Decimal representing the sum.
+     * Adds another Decimal to this one
+     *
+     * @param other The Decimal to add
+     * @returns A new Decimal representing the sum
      */
     add(other: Decimal): Decimal {
         const a = this.toBigIntWithScale();
@@ -164,9 +172,10 @@ export class Decimal extends Value {
     }
 
     /**
-     * Subtracts another Decimal from this one.
-     * @param other - The Decimal to subtract.
-     * @returns A new Decimal representing the difference.
+     * Subtracts another Decimal from this one
+     *
+     * @param other The Decimal to subtract
+     * @returns A new Decimal representing the difference
      */
     sub(other: Decimal): Decimal {
         const a = this.toBigIntWithScale();
@@ -183,9 +192,10 @@ export class Decimal extends Value {
     }
 
     /**
-     * Multiplies this Decimal by another.
-     * @param other - The Decimal to multiply by.
-     * @returns A new Decimal representing the product.
+     * Multiplies this Decimal by another
+     *
+     * @param other The Decimal to multiply by
+     * @returns A new Decimal representing the product
      */
     mul(other: Decimal): Decimal {
         const a = this.toBigIntWithScale();
@@ -198,9 +208,10 @@ export class Decimal extends Value {
     }
 
     /**
-     * Divides this Decimal by another, with fixed precision.
-     * @param other - The Decimal to divide by.
-     * @returns A new Decimal representing the quotient.
+     * Divides this Decimal by another, with fixed precision
+     *
+     * @param other The Decimal to divide by
+     * @returns A new Decimal representing the quotient
      */
     div(other: Decimal): Decimal {
         const a = this.toBigIntWithScale();
@@ -216,9 +227,10 @@ export class Decimal extends Value {
     }
 
     /**
-     * Computes the remainder of this Decimal divided by another.
-     * @param other - The divisor Decimal.
-     * @returns A new Decimal representing the remainder.
+     * Computes the remainder of this Decimal divided by another
+     *
+     * @param other The divisor Decimal
+     * @returns A new Decimal representing the remainder
      */
     mod(other: Decimal): Decimal {
         const a = this.toBigIntWithScale();
@@ -241,8 +253,8 @@ export class Decimal extends Value {
     }
 
     /**
-     * Returns the absolute value of this Decimal.
-     * @returns A new Decimal with non-negative components.
+     * Returns the absolute value of this Decimal
+     * @returns A new Decimal with non-negative components
      */
     abs(): Decimal {
         return this.#int < 0n || this.#frac < 0n
@@ -255,33 +267,34 @@ export class Decimal extends Value {
     }
 
     /**
-     * Returns the negated value of this Decimal.
-     * @returns A new Decimal with inverted sign.
+     * Returns the negated value of this Decimal
+     * @returns A new Decimal with inverted sign
      */
     neg(): Decimal {
         return new Decimal([-this.#int, -this.#frac, this.#scale]);
     }
 
     /**
-     * Checks if the value is exactly zero.
-     * @returns True if both int and frac parts are zero.
+     * Checks if the value is exactly zero
+     * @returns True if both int and frac parts are zero
      */
     isZero(): boolean {
         return this.#int === 0n && this.#frac === 0n;
     }
 
     /**
-     * Checks if the value is negative.
-     * @returns True if negative.
+     * Checks if the value is negative
+     * @returns True if negative
      */
     isNegative(): boolean {
         return this.#int < 0n || (this.#int === 0n && this.#frac < 0n);
     }
 
     /**
-     * Compares this Decimal with another.
-     * @param other - The Decimal to compare with.
-     * @returns -1 if less, 0 if equal, 1 if greater.
+     * Compares this Decimal with another
+     *
+     * @param other The Decimal to compare with
+     * @returns -1 if less, 0 if equal, 1 if greater
      */
     compare(other: Decimal): number {
         const a = this.toBigIntWithScale();
@@ -295,9 +308,10 @@ export class Decimal extends Value {
     }
 
     /**
-     * Rounds the Decimal to a fixed number of decimal places.
-     * @param precision - Number of digits to keep after the decimal point.
-     * @returns A new rounded Decimal.
+     * Rounds the Decimal to a fixed number of decimal places
+     *
+     * @param precision Number of digits to keep after the decimal point
+     * @returns The new decimal instance
      */
     round(precision: number): Decimal {
         if (precision < 0) throw new Error("Precision must be >= 0");
@@ -324,9 +338,9 @@ export class Decimal extends Value {
     }
 
     /**
-     * Converts the number to fixed-point notation string.
-     * @param precision - Number of digits after the decimal point.
-     * @returns A string representation with fixed decimals.
+     * Converts the number to fixed-point notation string
+     *
+     * @param precision Number of digits after the decimal point
      */
     toFixed(precision: number): string {
         const rounded = this.round(precision);
@@ -343,16 +357,16 @@ export class Decimal extends Value {
     }
 
     /**
-     * Converts the Decimal to a native JavaScript number.
-     * @returns A number approximation (may lose precision).
+     * Converts the Decimal to a native JavaScript number
+     * @returns A number approximation (may lose precision)
      */
     toFloat(): number {
         return Number(this.toString());
     }
 
     /**
-     * Converts to bigint by truncating the fractional part.
-     * @returns An integer approximation.
+     * Converts to bigint by truncating the fractional part
+     * @returns An bigint approximation (may lose precision)
      */
     toBigInt(): bigint {
         if (this.#int >= 0n) return this.#int;
@@ -361,8 +375,8 @@ export class Decimal extends Value {
     }
 
     /**
-     * Returns the raw parts of the Decimal.
-     * @returns An object with int, frac, and scale.
+     * Returns the raw parts of the Decimal
+     * @returns An object with int, frac, and scale
      */
     toParts(): { int: bigint; frac: bigint; scale: number } {
         return {
@@ -373,8 +387,7 @@ export class Decimal extends Value {
     }
 
     /**
-     * Converts to scientific notation string (e.g., "1.23e4").
-     * @returns Scientific string representation.
+     * Converts to scientific notation string (e.g., "1.23e4")
      */
     toScientific(): string {
         if (this.isZero()) return "0e0";
@@ -404,9 +417,9 @@ export class Decimal extends Value {
     }
 
     /**
-     * Parses a number in scientific notation into a Decimal.
-     * @param input - The scientific notation string.
-     * @returns A Decimal instance.
+     * Parses a number in scientific notation into a Decimal
+     *
+     * @param input The scientific notation string
      */
     static fromScientificNotation(input: string): Decimal {
         const trimmed = input.trim();

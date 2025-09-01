@@ -12,9 +12,9 @@ import { Value } from "./value";
  * A SurrealQL record ID range value.
  */
 export class RecordIdRange<Tb extends string = string> extends Value {
-    public readonly table: Table<Tb>;
-    public readonly beg: Bound<RecordIdValue>;
-    public readonly end: Bound<RecordIdValue>;
+    readonly #table: Table<Tb>;
+    readonly #beg: Bound<RecordIdValue>;
+    readonly #end: Bound<RecordIdValue>;
 
     constructor(table: Tb | Table<Tb>, beg: Bound<RecordIdValue>, end: Bound<RecordIdValue>) {
         super();
@@ -23,20 +23,20 @@ export class RecordIdRange<Tb extends string = string> extends Value {
         if (!isValidIdBound(beg)) throw new SurrealError("Begin part is not valid");
         if (!isValidIdBound(end)) throw new SurrealError("End part is not valid");
 
-        this.table = table instanceof Table ? table : new Table(table);
-        this.beg = beg;
-        this.end = end;
+        this.#table = table instanceof Table ? table : new Table(table);
+        this.#beg = beg;
+        this.#end = end;
     }
 
     equals(other: unknown): boolean {
         if (!(other instanceof RecordIdRange)) return false;
-        if (this.beg?.constructor !== other.beg?.constructor) return false;
-        if (this.end?.constructor !== other.end?.constructor) return false;
+        if (this.#beg?.constructor !== other.#beg?.constructor) return false;
+        if (this.#end?.constructor !== other.#end?.constructor) return false;
 
         return (
-            this.table.equals(other.table) &&
-            equals(this.beg?.value, other.beg?.value) &&
-            equals(this.end?.value, other.end?.value)
+            this.#table.equals(other.#table) &&
+            equals(this.#beg?.value, other.#beg?.value) &&
+            equals(this.#end?.value, other.#end?.value)
         );
     }
 
@@ -44,10 +44,34 @@ export class RecordIdRange<Tb extends string = string> extends Value {
         return this.toString();
     }
 
+    /**
+     * @returns The escaped record ID range string
+     */
     toString(): string {
-        const tb = escapeIdent(this.table.name);
-        const beg = escapeRangeBound(this.beg);
-        const end = escapeRangeBound(this.end);
-        return `${tb}:${beg}${getRangeJoin(this.beg, this.end)}${end}`;
+        const tb = escapeIdent(this.#table.name);
+        const beg = escapeRangeBound(this.#beg);
+        const end = escapeRangeBound(this.#end);
+        return `${tb}:${beg}${getRangeJoin(this.#beg, this.#end)}${end}`;
+    }
+
+    /**
+     * The table part value
+     */
+    get table(): Table<Tb> {
+        return this.#table;
+    }
+
+    /**
+     * The range bound beginning
+     */
+    get begin(): Bound<RecordIdValue> {
+        return this.#beg;
+    }
+
+    /**
+     * The range bound ending
+     */
+    get end(): Bound<RecordIdValue> {
+        return this.#end;
     }
 }

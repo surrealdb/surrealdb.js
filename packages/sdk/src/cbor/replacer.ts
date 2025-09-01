@@ -76,17 +76,17 @@ export const REPLACER = {
             return new Tagged(TAG_RECORDID, [v.table.name, v.id]);
         }
         if (v instanceof StringRecordId) {
-            return new Tagged(TAG_RECORDID, v.rid);
+            return new Tagged(TAG_RECORDID, v.toString());
         }
         if (v instanceof RecordIdRange) {
             return new Tagged(TAG_RECORDID, [
                 v.table.name,
-                new Tagged(TAG_RANGE, rangeToCbor([v.beg, v.end])),
+                new Tagged(TAG_RANGE, rangeToCbor([v.begin, v.end])),
             ]);
         }
         if (v instanceof Table) return new Tagged(TAG_TABLE, v.name);
-        if (v instanceof Future) return new Tagged(TAG_FUTURE, v.inner);
-        if (v instanceof Range) return new Tagged(TAG_RANGE, rangeToCbor([v.beg, v.end]));
+        if (v instanceof Future) return new Tagged(TAG_FUTURE, v.body);
+        if (v instanceof Range) return new Tagged(TAG_RANGE, rangeToCbor([v.begin, v.end]));
         if (v instanceof GeometryPoint) {
             return new Tagged(TAG_GEOMETRY_POINT, v.point);
         }
@@ -126,7 +126,7 @@ export const REPLACER = {
         [TAG_BOUND_EXCLUDED]: (v) => new BoundExcluded(v),
         [TAG_RECORDID]: (v) => {
             if (v[1] instanceof Range) {
-                return new RecordIdRange(v[0], v[1].beg, v[1].end);
+                return new RecordIdRange(v[0], v[1].begin, v[1].end);
             }
             return new RecordId(v[0], v[1]);
         },

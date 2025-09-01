@@ -12,8 +12,8 @@ export type RecordIdValue = string | number | Uuid | bigint | unknown[] | Record
  * A SurrealQL record ID value.
  */
 export class RecordId<Tb extends string = string> extends Value {
-    public readonly table: Table<Tb>;
-    public readonly id: RecordIdValue;
+    readonly #table: Table<Tb>;
+    readonly #id: RecordIdValue;
 
     constructor(table: Tb | Table<Tb>, id: RecordIdValue) {
         super();
@@ -21,22 +21,39 @@ export class RecordId<Tb extends string = string> extends Value {
         if (!isValidTable(table)) throw new SurrealError("tb part is not valid");
         if (!isValidIdPart(id)) throw new SurrealError("id part is not valid");
 
-        this.table = table instanceof Table ? table : new Table(table);
-        this.id = id;
+        this.#table = table instanceof Table ? table : new Table(table);
+        this.#id = id;
     }
 
     equals(other: unknown): boolean {
         if (!(other instanceof RecordId)) return false;
-        return this.table.equals(other.table) && equals(this.id, other.id);
+        return this.#table.equals(other.#table) && equals(this.#id, other.#id);
     }
 
     toJSON(): string {
         return this.toString();
     }
 
+    /**
+     * @returns The escaped record ID string including the table name
+     */
     toString(): string {
-        const tb = escapeIdent(this.table.name);
-        const id = escapeIdPart(this.id);
+        const tb = escapeIdent(this.#table.name);
+        const id = escapeIdPart(this.#id);
         return `${tb}:${id}`;
+    }
+
+    /**
+     * The table part value
+     */
+    get table(): Table<Tb> {
+        return this.#table;
+    }
+
+    /**
+     * The ID part value
+     */
+    get id(): RecordIdValue {
+        return this.#id;
     }
 }

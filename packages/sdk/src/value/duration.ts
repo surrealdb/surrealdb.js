@@ -40,21 +40,21 @@ const DURATION_PART_REGEX = new RegExp(
 );
 
 /**
- * A high-precision duration class supporting parsing, formatting, arithmetic, and nanosecond precision.
+ * A high-precision duration class supporting parsing, formatting, arithmetic, and nanosecond precision
  */
 export class Duration extends Value {
     readonly #seconds: bigint;
     readonly #nanoseconds: bigint;
 
     /**
-     * Constructs a new Duration by cloning an existing duration.
+     * Constructs a new Duration by cloning an existing duration
      *
      * @param input Duration input
      */
     constructor(input: Duration);
 
     /**
-     * Constructs a new Duration from a tuple representation.
+     * Constructs a new Duration from a tuple representation
      *
      * @param input Second and nanosecond tuple
      */
@@ -91,30 +91,17 @@ export class Duration extends Value {
         }
     }
 
-    /**
-     * Compares two durations.
-     * @param {unknown} other - Another value
-     * @returns {boolean} True if equal
-     */
     equals(other: unknown): boolean {
         if (!(other instanceof Duration)) return false;
         return this.#seconds === other.#seconds && this.#nanoseconds === other.#nanoseconds;
     }
 
-    /**
-     * Converts the duration to a tuple.
-     */
-    toCompact(): [bigint, bigint] | [bigint] | [] {
-        return this.#nanoseconds > 0n
-            ? [this.#seconds, this.#nanoseconds]
-            : this.#seconds > 0n
-              ? [this.#seconds]
-              : [];
+    toJSON(): string {
+        return this.toString();
     }
 
     /**
-     * Formats the duration as a human-readable string.
-     * @returns {string} Duration string
+     * @returns Human readable duration string
      */
     toString(): string {
         let remainingSeconds = this.#seconds;
@@ -149,17 +136,21 @@ export class Duration extends Value {
     }
 
     /**
-     * Serializes duration to a JSON string.
-     * @returns {string}
+     * Converts the duration to a tuple
      */
-    toJSON(): string {
-        return this.toString();
+    toCompact(): [bigint, bigint] | [bigint] | [] {
+        return this.#nanoseconds > 0n
+            ? [this.#seconds, this.#nanoseconds]
+            : this.#seconds > 0n
+              ? [this.#seconds]
+              : [];
     }
 
     /**
-     * Parses a duration string like "1h30m".
-     * @param {string} input - Input string
-     * @returns {[bigint, bigint]} [seconds, nanoseconds]
+     * Parses a duration string like "1h30m"
+     *
+     * @param input Input string
+     * @returns [seconds, nanoseconds]
      */
     static parseString(input: string): [bigint, bigint] {
         let seconds = 0n;
@@ -197,9 +188,10 @@ export class Duration extends Value {
     }
 
     /**
-     * Adds two durations together.
-     * @param {Duration} other - The duration to add
-     * @returns {Duration} The resulting duration
+     * Adds two durations together
+     *
+     * @param other The duration to add
+     * @returns The resulting duration
      */
     add(other: Duration): Duration {
         let sec = this.#seconds + other.#seconds;
@@ -212,9 +204,10 @@ export class Duration extends Value {
     }
 
     /**
-     * Subtracts another duration from this one.
-     * @param {Duration} other - The duration to subtract
-     * @returns {Duration} The resulting duration
+     * Subtracts another duration from this one
+     *
+     * @param other The duration to subtract
+     * @returns The resulting duration
      */
     sub(other: Duration): Duration {
         let sec = this.#seconds - other.#seconds;
@@ -227,9 +220,10 @@ export class Duration extends Value {
     }
 
     /**
-     * Multiplies the duration by a scalar.
-     * @param {number | bigint} factor - The factor to multiply by
-     * @returns {Duration} The resulting duration
+     * Multiplies the duration by a scalar
+     *
+     * @param factor The factor to multiply by
+     * @returns The resulting duration
      */
     mul(factor: number | bigint): Duration {
         const factorBig = typeof factor === "bigint" ? factor : BigInt(Math.floor(factor));
@@ -239,9 +233,10 @@ export class Duration extends Value {
     }
 
     /**
-     * Divides the duration.
-     * @param {Duration | number | bigint} divisor - The duration or scalar to divide by
-     * @returns {Duration | bigint} A new Duration or ratio (unitless bigint)
+     * Divides the duration
+     *
+     * @param divisor The duration or scalar to divide by
+     * @returns A new Duration or ratio (unitless bigint)
      */
     div(divisor: Duration): bigint;
     div(divisor: number | bigint): Duration;
@@ -260,9 +255,10 @@ export class Duration extends Value {
     }
 
     /**
-     * Computes the remainder after division.
-     * @param {Duration} mod - The divisor
-     * @returns {Duration} The remainder duration
+     * Computes the remainder after division
+     *
+     * @param mod The divisor
+     * @returns The remainder duration
      */
     mod(mod: Duration): Duration {
         const a = this.#seconds * SECOND + this.#nanoseconds;
@@ -273,65 +269,66 @@ export class Duration extends Value {
     }
 
     /**
-     * @returns {bigint} Total nanoseconds in this duration
+     * Total nanoseconds in this duration
      */
     get nanoseconds(): bigint {
         return this.#seconds * SECOND + this.#nanoseconds;
     }
 
     /**
-     * @returns {bigint} Total microseconds
+     * Total microseconds
      */
     get microseconds(): bigint {
         return this.nanoseconds / MICROSECOND;
     }
 
     /**
-     * @returns {bigint} Total milliseconds
+     * Total milliseconds
      */
     get milliseconds(): bigint {
         return this.nanoseconds / MILLISECOND;
     }
 
     /**
-     * @returns {bigint} Whole seconds in the duration
+     * Whole seconds in the duration
      */
     get seconds(): bigint {
         return this.#seconds;
     }
 
     /**
-     * @returns {bigint} Total whole minutes in the duration
+     * Total whole minutes in the duration
      */
     get minutes(): bigint {
         return this.#seconds / (MINUTE / SECOND);
     }
 
     /**
-     * @returns {bigint} Total whole hours in the duration
+     * Total whole hours in the duration
      */
     get hours(): bigint {
         return this.#seconds / (HOUR / SECOND);
     }
 
     /**
-     * @returns {bigint} Total whole days in the duration
+     * Total whole days in the duration
      */
     get days(): bigint {
         return this.#seconds / (DAY / SECOND);
     }
 
     /**
-     * @returns {bigint} Total whole weeks in the duration
+     * Total whole weeks in the duration
      */
     get weeks(): bigint {
         return this.#seconds / (WEEK / SECOND);
     }
 
     /**
-     * Creates a Duration from nanoseconds.
-     * @param {number | bigint} ns - Nanoseconds value
-     * @returns {Duration} The resulting duration
+     * Creates a Duration from nanoseconds
+     *
+     * @param ns Nanoseconds value
+     * @returns The resulting duration
      */
     static nanoseconds(ns: number | bigint): Duration {
         const n = typeof ns === "bigint" ? ns : BigInt(Math.floor(ns));
@@ -339,9 +336,10 @@ export class Duration extends Value {
     }
 
     /**
-     * Creates a Duration from microseconds.
-     * @param {number | bigint} µs - Microseconds value
-     * @returns {Duration} The resulting duration
+     * Creates a Duration from microseconds
+     *
+     * @param µs Microseconds value
+     * @returns The resulting duration
      */
     static microseconds(µs: number | bigint): Duration {
         const n = typeof µs === "bigint" ? µs : BigInt(Math.floor(µs));
@@ -349,9 +347,10 @@ export class Duration extends Value {
     }
 
     /**
-     * Creates a Duration from milliseconds.
-     * @param {number | bigint} ms - Milliseconds value
-     * @returns {Duration} The resulting duration
+     * Creates a Duration from milliseconds
+     *
+     * @param ms Milliseconds value
+     * @returns The resulting duration
      */
     static milliseconds(ms: number | bigint): Duration {
         const n = typeof ms === "bigint" ? ms : BigInt(Math.floor(ms));
@@ -359,9 +358,10 @@ export class Duration extends Value {
     }
 
     /**
-     * Creates a Duration from seconds.
-     * @param {number | bigint} s - Seconds value
-     * @returns {Duration} The resulting duration
+     * Creates a Duration from seconds
+     *
+     * @param s Seconds value
+     * @returns The resulting duration
      */
     static seconds(s: number | bigint): Duration {
         const n = typeof s === "bigint" ? s : BigInt(Math.floor(s));
@@ -369,9 +369,10 @@ export class Duration extends Value {
     }
 
     /**
-     * Creates a Duration from minutes.
-     * @param {number | bigint} m - Minutes value
-     * @returns {Duration} The resulting duration
+     * Creates a Duration from minutes
+     *
+     * @param m Minutes value
+     * @returns The resulting duration
      */
     static minutes(m: number | bigint): Duration {
         const n = typeof m === "bigint" ? m : BigInt(Math.floor(m));
@@ -379,9 +380,10 @@ export class Duration extends Value {
     }
 
     /**
-     * Creates a Duration from hours.
-     * @param {number | bigint} h - Hours value
-     * @returns {Duration} The resulting duration
+     * Creates a Duration from hours
+     *
+     * @param h Hours value
+     * @returns The resulting duration
      */
     static hours(h: number | bigint): Duration {
         const n = typeof h === "bigint" ? h : BigInt(Math.floor(h));
@@ -389,9 +391,10 @@ export class Duration extends Value {
     }
 
     /**
-     * Creates a Duration from days.
-     * @param {number | bigint} d - Days value
-     * @returns {Duration} The resulting duration
+     * Creates a Duration from days
+     *
+     * @param d Days value
+     * @returns The resulting duration
      */
     static days(d: number | bigint): Duration {
         const n = typeof d === "bigint" ? d : BigInt(Math.floor(d));
@@ -399,9 +402,10 @@ export class Duration extends Value {
     }
 
     /**
-     * Creates a Duration from weeks.
-     * @param {number | bigint} w - Weeks value
-     * @returns {Duration} The resulting duration
+     * Creates a Duration from weeks
+     *
+     * @param w Weeks value
+     * @returns The resulting duration
      */
     static weeks(w: number | bigint): Duration {
         const n = typeof w === "bigint" ? w : BigInt(Math.floor(w));

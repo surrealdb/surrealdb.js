@@ -2,20 +2,25 @@ import { SurrealError } from "../errors";
 import { Duration } from "./duration";
 import { Value } from "./value";
 
-export type DateTimeTuple = [number | bigint, number | bigint] | [number | bigint] | [];
-
 // Time unit definitions in nanoseconds
 const NANOSECOND = 1n;
 const MICROSECOND = 1000n * NANOSECOND;
 const MILLISECOND = 1000n * MICROSECOND;
 const SECOND = 1000n * MILLISECOND;
 
+export type DateTimeTuple = [number | bigint, number | bigint] | [number | bigint] | [];
+
 /**
- * A high-precision datetime class supporting parsing, formatting, arithmetic, and nanosecond precision.
+ * A high-precision datetime class supporting parsing, formatting, arithmetic, and nanosecond precision
  */
 export class DateTime extends Value {
     readonly #seconds: bigint;
     readonly #nanoseconds: bigint;
+
+    /**
+     * Constructs a new DateTime with the current time, equivalent to `DateTime.now()`
+     */
+    constructor();
 
     /**
      * Constructs a new DateTime by cloning an existing datetime
@@ -53,10 +58,14 @@ export class DateTime extends Value {
     constructor(input: number | bigint);
 
     // Shadow implementation
-    constructor(input: DateTime | Date | DateTimeTuple | string | number | bigint) {
+    constructor(input?: DateTime | Date | DateTimeTuple | string | number | bigint) {
         super();
 
-        if (input instanceof DateTime) {
+        if (input === undefined) {
+            const { seconds, nanoseconds } = DateTime.now();
+            this.#seconds = seconds;
+            this.#nanoseconds = nanoseconds;
+        } else if (input instanceof DateTime) {
             // Clone from existing datetime
             this.#seconds = input.#seconds;
             this.#nanoseconds = input.#nanoseconds;
@@ -91,30 +100,24 @@ export class DateTime extends Value {
         }
     }
 
-    /**
-     * Creates a datetime from a compact array form.
-     * @param {[number|bigint, number|bigint] | [number|bigint] | []} param0 - Tuple input
-     * @returns {DateTime} New datetime
-     */
-    static fromCompact([s, ns]:
-        | [number | bigint, number | bigint]
-        | [number | bigint]
-        | []): DateTime {
-        return new DateTime([s ?? 0n, ns ?? 0n]);
-    }
-
-    /**
-     * Compares two datetimes.
-     * @param {unknown} other - Another value
-     * @returns {boolean} True if equal
-     */
     equals(other: unknown): boolean {
         if (!(other instanceof DateTime)) return false;
         return this.#seconds === other.#seconds && this.#nanoseconds === other.#nanoseconds;
     }
 
+    toJSON(): string {
+        return this.toISOString();
+    }
+
     /**
-     * Converts the datetime to a tuple.
+     * @returns The ISO 8601 string representation of the datetime
+     */
+    toString(): string {
+        return this.toISOString();
+    }
+
+    /**
+     * Converts the datetime to a tuple
      */
     toCompact(): [bigint, bigint] | [bigint] | [] {
         return this.#nanoseconds > 0n
@@ -125,16 +128,7 @@ export class DateTime extends Value {
     }
 
     /**
-     * Formats the datetime as an ISO 8601 string.
-     * @returns {string} ISO datetime string
-     */
-    toString(): string {
-        return this.toISOString();
-    }
-
-    /**
-     * Formats the datetime as an ISO 8601 string.
-     * @returns {string} ISO datetime string
+     * Formats the datetime as an ISO 8601 string
      */
     toISOString(): string {
         const date = new Date(Number(this.#seconds) * 1000);
@@ -152,16 +146,7 @@ export class DateTime extends Value {
     }
 
     /**
-     * Serializes datetime to a JSON string.
-     * @returns {string}
-     */
-    toJSON(): string {
-        return this.toISOString();
-    }
-
-    /**
-     * Converts to JavaScript Date object.
-     * @returns {Date} JavaScript Date
+     * Converts to JavaScript Date object
      */
     toDate(): Date {
         const milliseconds =
@@ -170,9 +155,10 @@ export class DateTime extends Value {
     }
 
     /**
-     * Parses a datetime string.
-     * @param {string} input - Input string (ISO 8601 format)
-     * @returns {[bigint, bigint]} [seconds, nanoseconds]
+     * Parses a datetime string
+     *
+     * @param input Input string (ISO 8601 format)
+     * @returns [seconds, nanoseconds] tuple
      */
     static parseString(input: string): [bigint, bigint] {
         // Handle ISO 8601 format: YYYY-MM-DDTHH:mm:ss.sssZ
@@ -208,9 +194,10 @@ export class DateTime extends Value {
     }
 
     /**
-     * Adds a duration to this datetime.
-     * @param {any} duration - The duration to add
-     * @returns {DateTime} The resulting datetime
+     * Adds a duration to this datetime
+     *
+     * @param duration The duration to add
+     * @returns The new datetime instance
      */
     add(duration: Duration): DateTime {
         const [durSeconds, durNanoseconds] = duration.toCompact();
@@ -226,9 +213,10 @@ export class DateTime extends Value {
     }
 
     /**
-     * Subtracts a duration from this datetime.
-     * @param {any} duration - The duration to subtract
-     * @returns {DateTime} The resulting datetime
+     * Subtracts a duration from this datetime
+     *
+     * @param duration The duration to subtract
+     * @returns The new datetime instance
      */
     sub(duration: Duration): DateTime {
         const [durSeconds, durNanoseconds] = duration.toCompact();
@@ -244,9 +232,9 @@ export class DateTime extends Value {
     }
 
     /**
-     * Calculates the duration between two datetimes.
-     * @param {DateTime} other - The other datetime
-     * @returns {Duration} The duration between datetimes
+     * Calculates the duration between two datetimes
+     *
+     * @param other The other datetime
      */
     diff(other: DateTime): Duration {
         const totalThis = this.#seconds * SECOND + this.#nanoseconds;
@@ -257,37 +245,51 @@ export class DateTime extends Value {
     }
 
     /**
-     * @returns {bigint} Total nanoseconds since Unix epoch
+     * Compares this DateTime with another
+     *
+     * @param other The DateTime to compare with
+     * @returns -1 if other is before, 0 if equal, 1 if other is after
+     */
+    compare(other: DateTime): number {
+        const a = this.nanoseconds;
+        const b = other.nanoseconds;
+        if (a < b) return -1;
+        if (a > b) return 1;
+        return 0;
+    }
+
+    /**
+     * Total nanoseconds since Unix epoch
      */
     get nanoseconds(): bigint {
         return this.#seconds * SECOND + this.#nanoseconds;
     }
 
     /**
-     * @returns {bigint} Total microseconds since Unix epoch
+     * Total microseconds since Unix epoch
      */
     get microseconds(): bigint {
         return this.nanoseconds / MICROSECOND;
     }
 
     /**
-     * @returns {bigint} Total milliseconds since Unix epoch
+     * Total milliseconds since Unix epoch
      */
     get milliseconds(): bigint {
         return this.nanoseconds / MILLISECOND;
     }
 
     /**
-     * @returns {bigint} Seconds since Unix epoch
+     * Seconds since Unix epoch
      */
     get seconds(): bigint {
         return this.#seconds;
     }
 
     /**
-     * Creates a DateTime from nanoseconds since Unix epoch.
-     * @param {number | bigint} ns - Nanoseconds value
-     * @returns {DateTime} The resulting datetime
+     * Creates a DateTime from nanoseconds since Unix epoch
+     *
+     * @param ns Nanoseconds value
      */
     static fromEpochNanoseconds(ns: number | bigint): DateTime {
         const n = typeof ns === "bigint" ? ns : BigInt(Math.floor(ns));
@@ -295,9 +297,9 @@ export class DateTime extends Value {
     }
 
     /**
-     * Creates a DateTime from microseconds since Unix epoch.
-     * @param {number | bigint} µs - Microseconds value
-     * @returns {DateTime} The resulting datetime
+     * Creates a DateTime from microseconds since Unix epoch
+     *
+     * @param µs Microseconds value
      */
     static fromEpochMicroseconds(µs: number | bigint): DateTime {
         const n = typeof µs === "bigint" ? µs : BigInt(Math.floor(µs));
@@ -305,9 +307,9 @@ export class DateTime extends Value {
     }
 
     /**
-     * Creates a DateTime from milliseconds since Unix epoch.
-     * @param {number | bigint} ms - Milliseconds value
-     * @returns {DateTime} The resulting datetime
+     * Creates a DateTime from milliseconds since Unix epoch
+     *
+     * @param ms Milliseconds value
      */
     static fromEpochMilliseconds(ms: number | bigint): DateTime {
         const n = typeof ms === "bigint" ? ms : BigInt(Math.floor(ms));
@@ -315,9 +317,9 @@ export class DateTime extends Value {
     }
 
     /**
-     * Creates a DateTime from seconds since Unix epoch.
-     * @param {number | bigint} s - Seconds value
-     * @returns {DateTime} The resulting datetime
+     * Creates a DateTime from seconds since Unix epoch
+     *
+     * @param s Seconds value
      */
     static fromEpochSeconds(s: number | bigint): DateTime {
         const n = typeof s === "bigint" ? s : BigInt(Math.floor(s));
@@ -325,7 +327,7 @@ export class DateTime extends Value {
     }
 
     /**
-     * Returns a new DateTime representing the current time.
+     * Returns a new DateTime representing the current time
      */
     static now(): DateTime {
         if (typeof process !== "undefined" && process.hrtime) {
@@ -353,7 +355,7 @@ export class DateTime extends Value {
     }
 
     /**
-     * Returns a new DateTime representing the Unix epoch (1970-01-01T00:00:00Z).
+     * Returns a new DateTime representing the Unix epoch (1970-01-01T00:00:00Z)
      */
     static epoch(): DateTime {
         return new DateTime([0n, 0n]);
