@@ -293,19 +293,25 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     // =========================================================== //
 
     /**
-     * Runs a set of SurrealQL statements against the database, returning the first error
-     * if any of the statements result in an error
+     * Runs a set of SurrealQL statements against the database.
+     *
+     * The resulting `Query` instance can be awaited to execute the query, however you will
+     * need to use the `.collect()` or `.stream()` methods to process result values.
      *
      * @param query Specifies the SurrealQL statements
      * @param bindings Assigns variables which can be used in the query
+     * @returns A `Query` instance which can be used to execute or configure the query
      */
     query(query: string, bindings?: Record<string, unknown>): Query;
 
     /**
-     * Runs a set of SurrealQL statements against the database, returning the first error
-     * if any of the statements result in an error
+     * Runs a set of SurrealQL statements against the database.
+     *
+     * The resulting `Query` instance can be awaited to execute the query, however you will
+     * need to use the `.collect()` or `.stream()` methods to process result values.
      *
      * @param query The BoundQuery instance
+     * @returns A `Query` instance which can be used to execute or configure the query
      */
     query(query: BoundQuery): Query;
 

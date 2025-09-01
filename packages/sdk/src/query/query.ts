@@ -1,5 +1,6 @@
 import type { ConnectionController } from "../controller";
 import { ResponseError } from "../errors";
+import { DispatchedPromise } from "../internal/dispatched-promise";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
 import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../utils/frame";
 import type { Uuid } from "../value";
@@ -18,11 +19,12 @@ type Collect<T extends unknown[], J extends boolean> = T extends []
 /**
  * A configurable query sent to a SurrealDB instance.
  */
-export class Query<J extends boolean = false> {
+export class Query<J extends boolean = false> extends DispatchedPromise<void> {
     #connection: ConnectionController;
     #options: QueryOptions;
 
     constructor(connection: ConnectionController, options: QueryOptions) {
+        super();
         this.#connection = connection;
         this.#options = options;
     }
@@ -143,6 +145,19 @@ export class Query<J extends boolean = false> {
 
             if (chunk.kind === "batched-final") {
                 yield new DoneFrame<T, J>(chunk.query, chunk.stats);
+            }
+        }
+    }
+
+    async dispatch(): Promise<void> {
+        await this.#connection.ready();
+
+        const { query, bindings, transaction } = this.#options;
+        const chunks = this.#connection.query(query, bindings, transaction);
+
+        for await (const chunk of chunks) {
+            if (chunk.error) {
+                throw new ResponseError(chunk.error);
             }
         }
     }
