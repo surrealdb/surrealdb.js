@@ -1,5 +1,3 @@
-import type { RpcErrorResponse } from "./types";
-
 export class SurrealError extends Error {}
 
 /**

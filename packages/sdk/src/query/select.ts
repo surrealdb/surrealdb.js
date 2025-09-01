@@ -64,14 +64,13 @@ export class SelectPromise<T, J extends boolean = false> extends DispatchedPromi
     #build(): Query<J> {
         const { what, transaction, json } = this.#options;
 
-        const builder =
+        const query =
             what instanceof RecordId
                 ? surql`SELECT * FROM ONLY ${what}`
                 : surql`SELECT * FROM ${what}`;
 
         return new Query(this.#connection, {
-            query: builder.query,
-            bindings: builder.bindings,
+            query,
             transaction,
             json,
         });

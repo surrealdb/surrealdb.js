@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { compareVersions } from "compare-versions";
-import { surql } from "surrealdb";
 import { fetchVersion, setupServer } from "./__helpers__";
 
 const { createSurreal } = await setupServer();
@@ -8,7 +7,7 @@ const { createSurreal } = await setupServer();
 beforeAll(async () => {
     const surreal = await createSurreal();
 
-    await surreal.query(surql`
+    await surreal.query(/* surql */ `
 		CREATE foo:1 CONTENT { hello: "world" };
 		CREATE bar:1 CONTENT { hello: "world" };
 		DEFINE FUNCTION fn::foo() { RETURN "bar"; };

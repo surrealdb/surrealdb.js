@@ -3,7 +3,7 @@ import { SurrealError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { Version } from "../types";
-import { surql } from "../utils";
+import { BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { Uuid } from "../value";
 import { Query } from "./query";
@@ -75,27 +75,26 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
             throw new SurrealError("Invalid function name");
         }
 
-        const builder = surql`${name}`;
+        const query = new BoundQuery(name);
 
         if (version) {
             if (!VERSION_REGEX.test(version)) {
                 throw new SurrealError("Invalid function version");
             }
 
-            builder.append(`<${version}>`);
+            query.append(`<${version}>`);
         }
 
-        builder.append("(");
+        query.append("(");
 
         for (const arg of args) {
-            builder.append(surql`${arg}, `);
+            query.append(surql`${arg}, `);
         }
 
-        builder.append(")");
+        query.append(")");
 
         return new Query(this.#connection, {
-            query: builder.query,
-            bindings: builder.bindings,
+            query,
             transaction,
             json,
         });

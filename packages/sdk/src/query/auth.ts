@@ -1,6 +1,7 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
+import { BoundQuery } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { Uuid } from "../value";
 import { Query } from "./query";
@@ -63,8 +64,7 @@ export class AuthPromise<T, J extends boolean = false> extends DispatchedPromise
         const { transaction, json } = this.#options;
 
         return new Query(this.#connection, {
-            query: "SELECT * FROM $auth",
-            bindings: {},
+            query: new BoundQuery("SELECT * FROM ONLY $auth"),
             transaction,
             json,
         });

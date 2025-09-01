@@ -6,9 +6,8 @@ describe("DateTime", () => {
     test("constructor with no arguments (current time)", () => {
         const dt = new DateTime();
         const now = new Date();
-        // Should be within 1 second of current time
-        const diff = dt.seconds - BigInt(Math.floor(now.getTime() / 1000));
-        expect(diff < 2n && diff > -2n).toBe(true);
+        const diff = Math.abs(dt.milliseconds - now.valueOf());
+        expect(diff).toBeLessThan(100);
     });
 
     test("constructor with Date object", () => {
@@ -42,26 +41,9 @@ describe("DateTime", () => {
         expect(dt.toISOString()).toBe("2023-12-25T10:30:00.000.000000123Z");
     });
 
-    test("fromDate static method", () => {
-        const date = new Date("2023-12-25T10:30:00.123Z");
-        const dt = DateTime.fromDate(date);
+    test("constructor with tuple notation", () => {
+        const dt = new DateTime([1703500200n, 123000000n]);
         expect(dt.toISOString()).toBe("2023-12-25T10:30:00.000.123Z");
-    });
-
-    test("now static method", () => {
-        const now = DateTime.now();
-        const nowDate = new Date();
-        // Should be within 1 second of current time
-        const diff = now.seconds - BigInt(Math.floor(nowDate.getTime() / 1000));
-        expect(diff < 2n && diff > -2n).toBe(true);
-    });
-
-    test("now static method equals constructor with no args", () => {
-        const now1 = DateTime.now();
-        const now2 = new DateTime();
-        // Should be very close (within a few milliseconds)
-        const diff = now1.nanoseconds - now2.nanoseconds;
-        expect(diff < 1000000000n && diff > -1000000000n).toBe(true); // Within 1 second
     });
 
     test("epoch static method", () => {
@@ -82,16 +64,11 @@ describe("DateTime", () => {
         expect(compact).toEqual([1703500200n, 123000000n]);
     });
 
-    test("fromCompact static method", () => {
-        const dt = DateTime.fromCompact([1703500200n, 123000000n]);
-        expect(dt.toISOString()).toBe("2023-12-25T10:30:00.000.123Z");
-    });
-
     test("equals method", () => {
         const dt1 = new DateTime("2023-12-25T10:30:00.123Z");
         const dt2 = new DateTime("2023-12-25T10:30:00.123Z");
         const dt3 = new DateTime("2023-12-25T10:30:00.456Z");
-        
+
         expect(dt1.equals(dt2)).toBe(true);
         expect(dt1.equals(dt3)).toBe(false);
         expect(dt1.equals("not a datetime")).toBe(false);
@@ -133,13 +110,13 @@ describe("DateTime", () => {
 
     test("milliseconds getter", () => {
         const dt = new DateTime("2023-12-25T10:30:00.123Z");
-        const expected = (1703500200n * 1000000000n + 123000000n) / 1000000n;
+        const expected = (1703500200 * 1000000000 + 123000000) / 1000000;
         expect(dt.milliseconds).toBe(expected);
     });
 
     test("seconds getter", () => {
         const dt = new DateTime("2023-12-25T10:30:00.123Z");
-        expect(dt.seconds).toBe(1703500200n);
+        expect(dt.seconds).toBe(1703500200);
     });
 
     test("nanosecondsPart from toCompact", () => {
@@ -162,19 +139,5 @@ describe("DateTime", () => {
         expect(() => {
             DateTime.parseString("invalid datetime");
         }).toThrow("Invalid datetime format: invalid datetime");
-    });
-
-    test("add with invalid duration", () => {
-        const dt = new DateTime("2023-12-25T10:30:00.000Z");
-        expect(() => {
-            dt.add("not a duration");
-        }).toThrow("Can only add Duration to DateTime");
-    });
-
-    test("sub with invalid duration", () => {
-        const dt = new DateTime("2023-12-25T10:30:00.000Z");
-        expect(() => {
-            dt.sub("not a duration");
-        }).toThrow("Can only subtract Duration from DateTime");
     });
 });

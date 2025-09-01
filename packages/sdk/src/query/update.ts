@@ -66,16 +66,15 @@ export class UpdatePromise<T, U extends Doc, J extends boolean = false> extends 
     #build(): Query<J> {
         const { thing, data, transaction, json } = this.#options;
 
-        const builder =
+        const query =
             thing instanceof RecordId ? surql`UPDATE ONLY ${thing}` : surql`UPDATE ${thing}`;
 
         if (data) {
-            builder.append(surql` CONTENT ${data}`);
+            query.append(surql` CONTENT ${data}`);
         }
 
         return new Query(this.#connection, {
-            query: builder.query,
-            bindings: builder.bindings,
+            query,
             transaction,
             json,
         });

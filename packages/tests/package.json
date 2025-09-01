@@ -1,14 +1,14 @@
 {
-    "name": "@surrealdb/tests",
-    "version": "0.1.0",
-    "type": "module",
-    "private": true,
-    "scripts": {
-        "run-test-suite": "bun test"
-    },
-    "dependencies": {
-        "@surrealdb/cbor": "workspace:*",
-        "surrealdb": "workspace:*",
-        "get-port": "^7.1.0"
-    }
+	"name": "@surrealdb/tests",
+	"version": "0.1.0",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"run-test-suite": "bun test"
+	},
+	"dependencies": {
+		"@surrealdb/cbor": "workspace:*",
+		"surrealdb": "workspace:*",
+		"get-port": "^7.1.0"
+	}
 }

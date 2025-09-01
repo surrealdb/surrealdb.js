@@ -21,9 +21,7 @@ import type {
     DriverContext,
     EngineImpl,
     EventPublisher,
-    LiveHandler,
     LiveMessage,
-    LivePayload,
     MlExportOptions,
     NamespaceDatabase,
     QueryChunk,
@@ -33,7 +31,7 @@ import type {
     Token,
     VersionInfo,
 } from "../types";
-import { versionCheck } from "../utils";
+import { type BoundQuery, versionCheck } from "../utils";
 import { Publisher } from "../utils/publisher";
 import type { Uuid } from "../value";
 
@@ -54,11 +52,8 @@ type ConnectionEvents = {
     invalidated: [];
 };
 
-type LiveChannels = Record<string, LivePayload>;
-
 export class ConnectionController implements SurrealProtocol, EventPublisher<ConnectionEvents> {
     #eventPublisher = new Publisher<ConnectionEvents>();
-    #livePublisher = new Publisher<LiveChannels>();
     #context: DriverContext;
     #state: ConnectionState | undefined;
     #engine: SurrealEngine | undefined;
@@ -109,7 +104,6 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#engine.subscribe("connected", () => this.onConnected());
         this.#engine.subscribe("disconnected", () => this.onDisconnected());
         this.#engine.subscribe("reconnecting", () => this.onReconnecting());
-        this.#engine.subscribe("live", (msg) => this.onLiveMessage(msg));
 
         this.#engine.open(this.#state);
 
@@ -132,10 +126,6 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     public get status(): ConnectionStatus {
         return this.#status;
-    }
-
-    public liveSubscribe(id: Uuid, handler: LiveHandler): () => void {
-        return this.#livePublisher.subscribe(id.toString(), (...payload) => handler(...payload));
     }
 
     public async ready(): Promise<void> {
@@ -274,18 +264,14 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.exportMlModel(options);
     }
 
-    query<T>(
-        query: string,
-        bindings?: Record<string, unknown>,
-        txn?: Uuid,
-    ): AsyncIterable<QueryChunk<T>> {
+    query<T>(query: BoundQuery, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
         if (!this.#engine) throw new ConnectionUnavailable();
-        return this.#engine.query(query, bindings, txn);
+        return this.#engine.query(query, txn);
     }
 
-    liveQuery(query: string, bindings?: Record<string, unknown>): AsyncIterable<LiveMessage> {
+    liveQuery(id: Uuid): AsyncIterable<LiveMessage> {
         if (!this.#engine) throw new ConnectionUnavailable();
-        return this.#engine.liveQuery(query, bindings);
+        return this.#engine.liveQuery(id);
     }
 
     private onConnecting(): void {
@@ -335,19 +321,6 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     private onReconnecting(): void {
         this.#status = "reconnecting";
         this.#eventPublisher.publish("reconnecting");
-    }
-
-    private onLiveMessage(msg: LiveMessage): void {
-        if (msg.action === "KILLED") {
-            this.#livePublisher.publish(msg.queryId.toString(), "CLOSED", "KILLED");
-        } else {
-            this.#livePublisher.publish(
-                msg.queryId.toString(),
-                msg.action,
-                msg.value,
-                msg.recordId,
-            );
-        }
     }
 
     private async applyAuthOrToken(auth: AuthOrToken): Promise<void> {

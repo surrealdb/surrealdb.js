@@ -18,7 +18,8 @@ import type {
     Token,
     VersionInfo,
 } from "../types";
-import { Duration } from "../value";
+import type { BoundQuery } from "../utils";
+import { Duration, type Uuid } from "../value";
 
 /**
  * JSON-based engines implement the SurrealDB v1 protocol, which uses
@@ -84,7 +85,7 @@ export abstract class JsonEngine implements SurrealProtocol {
     async use(what: Partial<NamespaceDatabase>): Promise<NamespaceDatabase> {
         await this.send({
             method: "use",
-            params: [what],
+            params: [what.namespace, what.database],
         });
 
         return {
@@ -175,13 +176,10 @@ export abstract class JsonEngine implements SurrealProtocol {
         });
     }
 
-    async *query<T>(
-        query: string,
-        bindings?: Record<string, unknown>,
-    ): AsyncIterable<QueryChunk<T>> {
+    async *query<T>(query: BoundQuery): AsyncIterable<QueryChunk<T>> {
         const response: RpcQueryResult[] = await this.send({
             method: "query",
-            params: [query, bindings],
+            params: [query.query, query.bindings],
         });
 
         let index = 0;
@@ -205,7 +203,7 @@ export abstract class JsonEngine implements SurrealProtocol {
                     chunk.kind = "batched-final";
                     chunk.result = result as T[];
                 } else {
-                    chunk.result = result as T[];
+                    chunk.result = [result] as T[];
                 }
             } else {
                 chunk.error = {
@@ -218,11 +216,7 @@ export abstract class JsonEngine implements SurrealProtocol {
         }
     }
 
-    liveQuery(_query: string, _bindings?: Record<string, unknown>): AsyncIterable<LiveMessage> {
-        // This function will be implemented at a later date. For now, live
-        // queries will continue to use the query function.
-        throw new Error("Not implemented");
-    }
+    abstract liveQuery(id: Uuid): AsyncIterable<LiveMessage>;
 
     abstract send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,

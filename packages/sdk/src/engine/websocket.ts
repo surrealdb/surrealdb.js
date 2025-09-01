@@ -6,11 +6,13 @@ import {
     UnexpectedConnectionError,
     UnexpectedServerResponse,
 } from "../errors";
+import { ChannelIterator } from "../internal/channel-iterator";
 import { getIncrementalID } from "../internal/get-incremental-id";
-import type { RpcRequest, RpcResponse } from "../types";
-import { isLiveMessage } from "../types/live";
+import type { LiveAction, LiveMessage, RpcRequest, RpcResponse } from "../types";
+import { LIVE_ACTIONS } from "../types/live";
 import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
 import { Publisher } from "../utils/publisher";
+import { RecordId, Uuid } from "../value";
 import { JsonEngine } from "./json";
 
 type Interval = Parameters<typeof clearInterval>[0];
@@ -22,6 +24,15 @@ interface Call<T> {
     reject: (error: Error) => void;
 }
 
+type LiveChannels = Record<string, [LiveMessage]>;
+
+interface LivePayload {
+    id: Uuid;
+    action: LiveAction;
+    result: LiveMessage;
+    record: RecordId;
+}
+
 /**
  * An engine that communicates over WebSocket protocol
  */
@@ -29,6 +40,7 @@ export class WebSocketEngine extends JsonEngine implements SurrealEngine {
     #publisher = new Publisher<EngineEvents>();
     #socket: WebSocket | undefined;
     #calls = new Map<string, Call<unknown>>();
+    #subscriptions = new Publisher<LiveChannels>();
     #pinger: Interval;
     #active = false;
     #terminated = false;
@@ -133,6 +145,22 @@ export class WebSocketEngine extends JsonEngine implements SurrealEngine {
         });
     }
 
+    override liveQuery(id: Uuid): AsyncIterable<LiveMessage> {
+        const channel = new ChannelIterator<LiveMessage>(() => {
+            unsub1();
+            unsub2();
+        });
+
+        const unsub1 = this.#subscriptions.subscribe(id.toString(), (msg) => {
+            channel.submit(msg);
+        });
+        const unsub2 = this.#publisher.subscribe("disconnected", () => {
+            channel.cancel();
+        });
+
+        return channel;
+    }
+
     private async createSocket(onConnected: () => void): Promise<Error | null> {
         return new Promise((resolve, reject) => {
             if (!this._state) {
@@ -230,22 +258,40 @@ export class WebSocketEngine extends JsonEngine implements SurrealEngine {
                 const { resolve, reject } = this.#calls.get(id) ?? {};
 
                 if (response.error) {
-                    reject?.(new ResponseError(response));
+                    reject?.(new ResponseError(response.error));
                 } else {
                     resolve?.(response.result);
                 }
             } finally {
                 this.#calls.delete(id);
             }
-
             return;
         }
 
         if (isLiveMessage(res.result)) {
-            this.#publisher.publish("live", res.result);
+            this.#subscriptions.publish(res.result.id.toString(), {
+                queryId: res.result.id,
+                action: res.result.action,
+                recordId: res.result.record,
+                value: res.result.result,
+            });
             return;
         }
 
         this.#publisher.publish("error", new UnexpectedServerResponse(res));
     }
+}
+
+function isLiveMessage(v: unknown): v is LivePayload {
+    if (typeof v !== "object") return false;
+    if (v === null) return false;
+    if (!("id" in v && "action" in v && "result" in v && "record" in v)) return false;
+
+    if (!(v.id instanceof Uuid)) return false;
+    if (!LIVE_ACTIONS.includes(v.action as LiveAction)) return false;
+    if (typeof v.result !== "object") return false;
+    if (v.result === null) return false;
+    if (!(v.record instanceof RecordId)) return false;
+
+    return true;
 }

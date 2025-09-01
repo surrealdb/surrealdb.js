@@ -6,6 +6,7 @@ import {
 } from "../errors";
 import { getIncrementalID } from "../internal/get-incremental-id";
 import { fetchSurreal } from "../internal/http";
+import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
 import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
 import { Publisher } from "../utils/publisher";
@@ -52,13 +53,14 @@ export class HttpEngine extends JsonEngine implements SurrealEngine {
             throw new ConnectionUnavailable();
         }
 
+        // Unsupported by the HTTP protocol
         switch (request.method) {
             case "use":
             case "let":
             case "unset":
             case "reset":
             case "invalidate": {
-                throw new SurrealError("Method not supported by HTTP engine");
+                return undefined as unknown as Result;
             }
         }
 
@@ -93,9 +95,13 @@ export class HttpEngine extends JsonEngine implements SurrealEngine {
         const response = this._context.decode<RpcResponse<Result>>(new Uint8Array(buffer));
 
         if (response.error) {
-            throw new ResponseError(response);
+            throw new ResponseError(response.error);
         }
 
         return response.result;
+    }
+
+    override liveQuery(): AsyncIterable<LiveMessage> {
+        throw new SurrealError("Live queries are not available over HTTP");
     }
 }

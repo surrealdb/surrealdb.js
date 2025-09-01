@@ -1,7 +1,8 @@
 import type { ConnectionController } from "../controller";
-import { ConnectionUnavailable, LiveSubscriptionFailed } from "../errors";
-import { internalQuery } from "../internal/internal-query";
-import type { LiveHandler, LivePayload, LiveResource, LiveResult } from "../types";
+import { ConnectionUnavailable, LiveSubscriptionFailed, SurrealError } from "../errors";
+import { ChannelIterator } from "../internal/channel-iterator";
+import { Query } from "../query";
+import type { LiveMessage, LiveResource } from "../types";
 import type { Uuid } from "../value";
 import { BoundQuery } from "./bound-query";
 import type { Publisher } from "./publisher";
@@ -11,10 +12,15 @@ type ErrorPublisher = Publisher<{
     error: [Error];
 }>;
 
+// Kill does not compute paramters yet :(
+function newKill(id: Uuid): BoundQuery {
+    return new BoundQuery(`KILL u"${id.toString()}"`);
+}
+
 /**
  * Represents a subscription to a LIVE SELECT query
  */
-export abstract class LiveSubscription {
+export abstract class LiveSubscription implements AsyncIterable<LiveMessage> {
     /**
      * The ID of the live subscription. Note that this id might change after
      * a live query has been restarted.
@@ -39,69 +45,34 @@ export abstract class LiveSubscription {
     abstract get isAlive(): boolean;
 
     /**
-     * Subscribe to live updates and invoke the handler when an update is received
-     *
-     * @param handler The handler to invoke when an update is received
-     * @returns A function to unsubscribe from the live updates
-     */
-    abstract subscribe(handler: LiveHandler): () => void;
-
-    /**
      * Kill the live subscription and stop receiving updates
      */
     abstract kill(): Promise<void>;
 
     /**
-     * Iterate over the live subscription using an async iterator
+     * The async iterator for the live subscription
      */
-    iterate<Result extends LiveResult = Record<string, unknown>>(): AsyncIterator<
-        LivePayload<Result>
-    > {
-        const queue: LivePayload<Result>[] = [];
-        const waiters: (() => void)[] = [];
+    abstract [Symbol.asyncIterator](): AsyncIterator<LiveMessage>;
 
-        const close = this.subscribe((...args) => {
-            if (args[0] === "CLOSED" && this.isAlive) return;
+    /**
+     * Subscribe to the live subscription and return an unsubscribe function
+     */
+    public subscribe(handler: (message: LiveMessage) => void): () => void {
+        let killed = false;
 
-            queue.push(args as LivePayload<Result>);
-            const waiter = waiters.shift();
-            if (waiter) waiter();
-        });
+        (async () => {
+            for await (const message of this) {
+                if (killed) {
+                    return;
+                }
 
-        async function poll(): Promise<LivePayload<Result>> {
-            let value = queue.shift();
-            if (value) return value;
+                handler(message);
+            }
+        })();
 
-            const { promise, resolve } = Promise.withResolvers();
-            waiters.push(resolve);
-            await promise;
-
-            value = queue.shift();
-            if (!value) throw new Error("A notification was promised, but none was received");
-            return value;
-        }
-
-        return {
-            next: async (): Promise<IteratorResult<LivePayload<Result>>> => {
-                const value = await poll();
-                return {
-                    value,
-                    done: value[0] === "CLOSED",
-                };
-            },
-
-            return: async () => {
-                close();
-                while (waiters.length) waiters.shift()?.(); // clean up
-                return { done: true, value: undefined };
-            },
+        return () => {
+            killed = true;
         };
-    }
-
-    [Symbol.asyncIterator]<Result extends LiveResult = Record<string, unknown>>(): AsyncIterator<
-        LivePayload<Result>
-    > {
-        return this.iterate<Result>();
     }
 }
 
@@ -115,10 +86,9 @@ export class ManagedLiveSubscription extends LiveSubscription {
     #resource: LiveResource;
     #diff: boolean;
     #killed = false;
-    #cleanup: (() => void) | undefined;
     #publisher: ErrorPublisher;
-    #reconnector: () => void;
-    #listeners: Set<LiveHandler> = new Set();
+    #channels: Set<ChannelIterator<LiveMessage>> = new Set();
+    #unsubscribe: () => void;
 
     constructor(
         publisher: ErrorPublisher,
@@ -132,7 +102,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
         this.#resource = resource;
         this.#diff = diff;
 
-        this.#reconnector = this.#controller.subscribe("connected", () => {
+        this.#unsubscribe = this.#controller.subscribe("connected", () => {
             this.#listen();
         });
 
@@ -157,35 +127,45 @@ export class ManagedLiveSubscription extends LiveSubscription {
         return !this.#killed;
     }
 
-    public subscribe(handler: LiveHandler): () => void {
-        this.#listeners.add(handler);
-
-        return () => {
-            this.#listeners.delete(handler);
-        };
-    }
-
-    public kill(): Promise<void> {
+    public async kill(): Promise<void> {
         this.#killed = true;
 
-        for (const listener of this.#listeners) {
-            listener("CLOSED", "KILLED");
+        for (const channel of this.#channels) {
+            channel.cancel();
         }
 
-        this.#listeners.clear();
-        this.#cleanup?.();
-        this.#reconnector();
+        this.#unsubscribe();
 
-        return internalQuery(this.#controller, surql`KILL $id`);
+        if (this.id) {
+            await new Query(this.#controller, {
+                query: newKill(this.id),
+                transaction: undefined,
+                json: false,
+            });
+        }
+    }
+
+    public [Symbol.asyncIterator](): AsyncIterator<LiveMessage> {
+        if (this.#killed) {
+            throw new SurrealError("Subscription has been killed");
+        }
+
+        const channel = new ChannelIterator<LiveMessage>(() => {
+            this.#channels.delete(channel);
+        });
+
+        this.#channels.add(channel);
+
+        return channel;
     }
 
     #build(): BoundQuery {
-        const query = new BoundQuery("LIVE SELECT");
+        const query = surql`LIVE SELECT`;
 
         if (this.#diff) {
-            query.append(" DIFF");
+            query.append(surql` DIFF`);
         } else {
-            query.append(" *");
+            query.append(surql` *`);
         }
 
         query.append(surql`FROM ${this.#resource}`);
@@ -194,23 +174,22 @@ export class ManagedLiveSubscription extends LiveSubscription {
     }
 
     async #listen(): Promise<void> {
-        this.#cleanup?.();
-
         try {
-            const [id] = await internalQuery<[Uuid]>(this.#controller, this.#build());
+            const [id] = await new Query(this.#controller, {
+                query: this.#build(),
+                transaction: undefined,
+                json: false,
+            }).collect<[Uuid]>();
 
             this.#currentId = id;
-            this.#cleanup = this.#controller.liveSubscribe(id, (...args) => {
-                for (const listener of this.#listeners) {
-                    listener(...args);
-                }
-            });
 
-            this.#controller.subscribe("disconnected", () => {
-                for (const listener of this.#listeners) {
-                    listener("CLOSED", "DISCONNECTED");
+            const messageStream = this.#controller.liveQuery(id);
+
+            for await (const message of messageStream) {
+                for (const channel of this.#channels) {
+                    channel.submit(message);
                 }
-            });
+            }
         } catch (err: unknown) {
             this.#publisher.publish("error", new LiveSubscriptionFailed(err));
         }
@@ -226,8 +205,7 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
     #id: Uuid;
     #controller: ConnectionController;
     #killed = false;
-    #cleanup: () => void;
-    #listeners: Set<LiveHandler> = new Set();
+    #channels: Set<ChannelIterator<LiveMessage>> = new Set();
 
     constructor(controller: ConnectionController, id: Uuid) {
         super();
@@ -238,17 +216,19 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
             throw new ConnectionUnavailable();
         }
 
-        this.#cleanup = this.#controller.liveSubscribe(id, (...args) => {
-            for (const listener of this.#listeners) {
-                listener(...args);
-            }
-        });
+        (async () => {
+            const messageStream = controller.liveQuery(id);
 
-        this.#controller.subscribe("disconnected", () => {
-            for (const listener of this.#listeners) {
-                listener("CLOSED", "DISCONNECTED");
+            for await (const message of messageStream) {
+                for (const channel of this.#channels) {
+                    channel.submit(message);
+                }
             }
-        });
+
+            for (const channel of this.#channels) {
+                channel.cancel();
+            }
+        })();
     }
 
     public get id(): Uuid {
@@ -267,23 +247,33 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
         return !this.#killed;
     }
 
-    public subscribe(handler: LiveHandler): () => void {
-        this.#listeners.add(handler);
-
-        return () => {
-            this.#listeners.delete(handler);
-        };
-    }
-
-    public kill(): Promise<void> {
+    public async kill(): Promise<void> {
         this.#killed = true;
-        for (const listener of this.#listeners) {
-            listener("CLOSED", "KILLED");
+
+        for (const channel of this.#channels) {
+            channel.cancel();
         }
 
-        this.#listeners.clear();
-        this.#cleanup();
+        if (this.id) {
+            await new Query(this.#controller, {
+                query: newKill(this.id),
+                transaction: undefined,
+                json: false,
+            });
+        }
+    }
 
-        return internalQuery(this.#controller, surql`KILL $id`);
+    public [Symbol.asyncIterator](): AsyncIterator<LiveMessage> {
+        if (this.#killed) {
+            throw new SurrealError("Subscription has been killed");
+        }
+
+        const channel = new ChannelIterator<LiveMessage>(() => {
+            this.#channels.delete(channel);
+        });
+
+        this.#channels.add(channel);
+
+        return channel;
     }
 }

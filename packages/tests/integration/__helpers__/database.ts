@@ -1,5 +1,4 @@
-import { RecordId, Table } from "surrealdb";
-import type { AnySurreal } from "./surreal";
+import { RecordId, type Surreal, Table } from "surrealdb";
 
 export const personTable: Table<"person"> = new Table("person");
 export const graphTable: Table<"graph"> = new Table("graph");
@@ -11,7 +10,7 @@ export type Person = {
     age?: number;
 };
 
-export async function insertMockRecords(surreal: AnySurreal): Promise<void> {
+export async function insertMockRecords(surreal: Surreal): Promise<void> {
     await surreal.insert([
         {
             id: new RecordId("person", 1),

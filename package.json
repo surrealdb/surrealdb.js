@@ -22,7 +22,7 @@
         "esbuild": "^0.21.5",
         "esbuild-plugin-tsc": "^0.4.0",
         "rolldown": "^1.0.0-beta.31",
-        "turbo": "^2.5.5"
+        "turbo": "^2.5.6"
     },
     "packageManager": "^bun@1.1.17"
 }

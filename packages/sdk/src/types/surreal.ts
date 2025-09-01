@@ -1,5 +1,6 @@
 import type { decodeCbor, encodeCbor } from "../cbor";
 import type { ReconnectContext } from "../internal/reconnect";
+import type { BoundQuery } from "../utils";
 import type { Duration, RecordId, Uuid } from "../value";
 import type {
     AccessRecordAuth,
@@ -43,12 +44,8 @@ export interface SurrealProtocol {
     exportMlModel(options: MlExportOptions): Promise<Uint8Array>;
 
     // Query operations
-    query<T>(
-        query: string,
-        params?: Record<string, unknown>,
-        txn?: Uuid,
-    ): AsyncIterable<QueryChunk<T>>;
-    liveQuery(query: string | Uuid, params?: Record<string, unknown>): AsyncIterable<LiveMessage>;
+    query<T>(query: BoundQuery, txn?: Uuid): AsyncIterable<QueryChunk<T>>;
+    liveQuery(id: Uuid): AsyncIterable<LiveMessage>;
 }
 
 /**
@@ -68,7 +65,6 @@ export type EngineEvents = {
     reconnecting: [];
     disconnected: [];
     error: [Error];
-    live: [LiveMessage];
 };
 
 /**

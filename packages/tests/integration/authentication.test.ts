@@ -23,7 +23,7 @@ describe("system auth", async () => {
 
     test("root signin", async () => {
         const res = await surreal.signin(createAuth("root") as AnyAuth);
-        expect(typeof res).toBe("string");
+        expect(typeof res.token).toBe("string");
     });
 
     test("invalid credentials", async () => {
@@ -41,7 +41,7 @@ describe("record auth", async () => {
             variables: { id: 123 },
         });
 
-        expect(typeof signup).toBe("string");
+        expect(typeof signup.token).toBe("string");
     });
 
     test("record signin", async () => {
@@ -54,12 +54,12 @@ describe("record auth", async () => {
             variables: { id: 123 },
         });
 
-        expect(typeof signin).toBe("string");
+        expect(typeof signin.token).toBe("string");
         expect(mockHandler).toBeCalledTimes(1);
     });
 
     test("info", async () => {
-        const info = await surreal.info<{ id: RecordId<"user"> }>();
+        const info = await surreal.auth<{ id: RecordId<"user"> }>();
         expect(info).toMatchObject({ id: new RecordId("user", 123) });
     });
 

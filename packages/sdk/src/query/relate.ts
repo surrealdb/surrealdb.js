@@ -1,16 +1,16 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Doc, RelateInOut } from "../types";
+import type { AnyRecordId, Doc } from "../types";
 import { surql } from "../utils";
 import type { Frame } from "../utils/frame";
-import type { RecordId, Table, Uuid } from "../value";
+import { RecordId, type Table, type Uuid } from "../value";
 import { Query } from "./query";
 
 interface RelateOptions {
-    from: RelateInOut;
+    from: AnyRecordId | AnyRecordId[];
     what: Table | RecordId;
-    to: RelateInOut;
+    to: AnyRecordId | AnyRecordId[];
     data?: Doc;
     transaction: Uuid | undefined;
     json: boolean;
@@ -68,15 +68,26 @@ export class RelatePromise<T, U extends Doc, J extends boolean = false> extends 
     #build(): Query<J> {
         const { from, what, to, data, transaction, json } = this.#options;
 
-        const builder = surql`RELATE ${from}->${what}->${to}`;
+        const isMultiple = Array.isArray(from) || Array.isArray(to);
+
+        if (isMultiple && what instanceof RecordId) {
+            throw new Error("Edge must be a table when creating multiple edges");
+        }
+
+        const query = surql`RELATE `;
+
+        if (!isMultiple) {
+            query.append(surql` ONLY`);
+        }
+
+        query.append(surql` ${from}->${what}->${to}`);
 
         if (data) {
-            builder.append(surql` CONTENT ${data}`);
+            query.append(surql` CONTENT ${data}`);
         }
 
         return new Query(this.#connection, {
-            query: builder.query,
-            bindings: builder.bindings,
+            query,
             transaction,
             json,
         });

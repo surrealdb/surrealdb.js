@@ -18,7 +18,7 @@ describe("HTTP protocol", () => {
             protocol: "http",
         });
 
-        const [result] = await surreal.query("INFO FOR ROOT");
+        const [result] = await surreal.query("INFO FOR ROOT").collect();
 
         expect(result).toBeObject();
     });

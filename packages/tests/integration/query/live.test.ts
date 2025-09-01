@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { RecordId, type Uuid } from "surrealdb";
+import { type LiveMessage, RecordId, type Uuid } from "surrealdb";
 import { insertMockRecords, personTable, setupServer } from "../__helpers__";
 
 const { createSurreal, kill, spawn } = await setupServer();
@@ -41,15 +41,16 @@ describe("live() / liveOf()", async () => {
         await promise;
 
         expect(mockHandler).toBeCalledTimes(1);
-        expect(mockHandler).toBeCalledWith(
-            "CREATE",
-            {
+        expect(mockHandler).toBeCalledWith({
+            action: "CREATE",
+            queryId: subscription.id,
+            recordId: new RecordId("person", 3),
+            value: {
                 id: new RecordId("person", 3),
                 firstname: "John",
                 lastname: "Doe",
             },
-            new RecordId("person", 3),
-        );
+        });
 
         await subscription.kill();
     });
@@ -70,16 +71,17 @@ describe("live() / liveOf()", async () => {
         await promise;
 
         expect(mockHandler).toBeCalledTimes(1);
-        expect(mockHandler).toBeCalledWith(
-            "UPDATE",
-            {
+        expect(mockHandler).toBeCalledWith({
+            action: "UPDATE",
+            queryId: subscription.id,
+            recordId: new RecordId("person", 3),
+            value: {
                 id: new RecordId("person", 3),
                 firstname: "John",
                 lastname: "Doe",
                 age: 20,
             },
-            new RecordId("person", 3),
-        );
+        });
 
         await subscription.kill();
     });
@@ -96,16 +98,17 @@ describe("live() / liveOf()", async () => {
         await promise;
 
         expect(mockHandler).toBeCalledTimes(1);
-        expect(mockHandler).toBeCalledWith(
-            "DELETE",
-            {
+        expect(mockHandler).toBeCalledWith({
+            action: "DELETE",
+            queryId: subscription.id,
+            recordId: new RecordId("person", 3),
+            value: {
                 id: new RecordId("person", 3),
                 firstname: "John",
                 lastname: "Doe",
                 age: 20,
             },
-            new RecordId("person", 3),
-        );
+        });
 
         await subscription.kill();
     });
@@ -135,15 +138,16 @@ describe("live() / liveOf()", async () => {
         await promise;
 
         expect(mockHandler).toBeCalledTimes(1);
-        expect(mockHandler).toBeCalledWith(
-            "CREATE",
-            {
+        expect(mockHandler).toBeCalledWith({
+            action: "CREATE",
+            queryId: subscription.id,
+            recordId: new RecordId("person", 3),
+            value: {
                 id: new RecordId("person", 3),
                 firstname: "John",
                 lastname: "Doe",
             },
-            new RecordId("person", 3),
-        );
+        });
 
         await subscription.kill();
 
@@ -151,7 +155,7 @@ describe("live() / liveOf()", async () => {
     });
 
     test("unmanaged subscription properties", async () => {
-        const [liveId] = await surreal.query<[Uuid]>("LIVE SELECT * FROM person");
+        const [liveId] = await surreal.query("LIVE SELECT * FROM person").collect<[Uuid]>();
         const subscription = await surreal.liveOf(liveId);
 
         expect(subscription.isAlive).toBeTrue();
@@ -164,7 +168,7 @@ describe("live() / liveOf()", async () => {
     });
 
     test("unmanaged create action", async () => {
-        const [liveId] = await surreal.query<[Uuid]>("LIVE SELECT * FROM person");
+        const [liveId] = await surreal.query("LIVE SELECT * FROM person").collect<[Uuid]>();
         const subscription = await surreal.liveOf(liveId);
         const { promise, resolve } = Promise.withResolvers();
         const mockHandler = mock(() => resolve());
@@ -179,126 +183,93 @@ describe("live() / liveOf()", async () => {
         await promise;
 
         expect(mockHandler).toBeCalledTimes(1);
-        expect(mockHandler).toBeCalledWith(
-            "CREATE",
-            {
+        expect(mockHandler).toBeCalledWith({
+            action: "CREATE",
+            queryId: subscription.id,
+            recordId: new RecordId("person", 4),
+            value: {
                 id: new RecordId("person", 4),
                 firstname: "John",
                 lastname: "Doe",
             },
-            new RecordId("person", 4),
-        );
+        });
 
         await subscription.kill();
     });
 
-    test.todo("iterator", async () => {
+    test("iterable", async () => {
         const subscription = await surreal.live(personTable);
-        const iterator = subscription.iterate();
+        const messages: LiveMessage[] = [];
 
-        await surreal.create(new RecordId("person", 5), {
-            firstname: "John",
-            lastname: "Doe",
-        });
+        (async () => {
+            await Bun.sleep(100);
 
-        await surreal.merge(new RecordId("person", 5), {
-            firstname: "Mary",
-        });
+            await surreal.create(new RecordId("person", 5), {
+                firstname: "John",
+                lastname: "Doe",
+            });
 
-        await surreal.delete(new RecordId("person", 5));
+            await surreal.update(new RecordId("person", 5), {
+                firstname: "Mary",
+            });
 
-        // Order not guaranteed
-        const responses = new Set([
-            await iterator.next(),
-            await iterator.next(),
-            await iterator.next(),
-        ]);
+            await surreal.delete(new RecordId("person", 5));
 
-        expect(responses).toContainEqual({
-            done: false,
-            value: [
-                "CREATE",
-                {
-                    id: new RecordId("person", 5),
-                    firstname: "John",
-                    lastname: "Doe",
-                },
-                new RecordId("person", 5),
-            ],
-        });
+            await Bun.sleep(100);
 
-        expect(responses).toContainEqual({
-            done: false,
-            value: [
-                "UPDATE",
-                {
-                    id: new RecordId("person", 5),
-                    firstname: "Mary",
-                    lastname: "Doe",
-                },
-                new RecordId("person", 5),
-            ],
-        });
+            await subscription.kill();
+        })();
 
-        expect(responses).toContainEqual({
-            done: false,
-            value: [
-                "DELETE",
-                {
-                    id: new RecordId("person", 5),
-                    firstname: "Mary",
-                    lastname: "Doe",
-                },
-                new RecordId("person", 5),
-            ],
-        });
+        for await (const message of subscription) {
+            messages.push(message);
+        }
 
-        await subscription.kill();
-
-        expect(await iterator.next()).toEqual({
-            done: true,
-            value: ["CLOSED", "KILLED"],
-        });
+        expect(messages[0].action).toEqual("CREATE");
+        expect(messages[1].action).toEqual("UPDATE");
+        expect(messages[2].action).toEqual("DELETE");
     });
 
-    test.todo("iterator survives reconnect", async () => {
+    test("iterable survives reconnect", async () => {
         const subscription = await surreal.live(personTable);
-        const iterator = subscription.iterate();
         const initialId = subscription.id;
+        const messages: LiveMessage[] = [];
 
-        // Restart server and wait for reconnection
-        await kill();
-        await spawn();
-        await surreal.ready;
+        let latestId: Uuid = initialId;
 
-        // Make sure we obtained a new live id
-        expect(initialId).not.toEqual(subscription.id);
+        (async () => {
+            await Bun.sleep(100);
 
-        await surreal.create(new RecordId("person", 6), {
-            firstname: "John",
-            lastname: "Doe",
-        });
+            // Restart server and wait for reconnection
+            await kill();
+            await spawn();
+            await surreal.ready;
 
-        expect(await iterator.next()).toEqual({
-            done: false,
-            value: [
-                "CREATE",
-                {
-                    id: new RecordId("person", 6),
-                    firstname: "John",
-                    lastname: "Doe",
-                },
-                new RecordId("person", 6),
-            ],
-        });
+            await surreal.create(new RecordId("person", 5), {
+                firstname: "John",
+                lastname: "Doe",
+            });
 
-        subscription.kill();
+            await surreal.update(new RecordId("person", 5), {
+                firstname: "Mary",
+            });
 
-        expect(await iterator.next()).toEqual({
-            done: true,
-            value: ["CLOSED", "KILLED"],
-        });
+            await surreal.delete(new RecordId("person", 5));
 
-        expect(subscription.isAlive).toBeFalse();
+            latestId = subscription.id;
+
+            await Bun.sleep(100);
+
+            await subscription.kill();
+        })();
+
+        for await (const message of subscription) {
+            messages.push(message);
+        }
+
+        expect(latestId).not.toEqual(initialId);
+
+        expect(messages[0].action).toEqual("CREATE");
+        expect(messages[1].action).toEqual("UPDATE");
+        expect(messages[2].action).toEqual("DELETE");
     });
 });

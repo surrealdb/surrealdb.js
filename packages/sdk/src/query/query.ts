@@ -2,12 +2,12 @@ import type { ConnectionController } from "../controller";
 import { ResponseError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
+import type { BoundQuery } from "../utils";
 import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../utils/frame";
 import type { Uuid } from "../value";
 
 interface QueryOptions {
-    query: string;
-    bindings: Record<string, unknown> | undefined;
+    query: BoundQuery;
     transaction: Uuid | undefined;
     json: boolean;
 }
@@ -60,8 +60,8 @@ export class Query<J extends boolean = false> extends DispatchedPromise<void> {
     async collect<T extends unknown[] = []>(...queries: number[]): Promise<Collect<T, J>> {
         await this.#connection.ready();
 
-        const { query, bindings, transaction, json } = this.#options;
-        const chunks = this.#connection.query(query, bindings, transaction);
+        const { query, transaction, json } = this.#options;
+        const chunks = this.#connection.query(query, transaction);
         const responses: unknown[] = [];
         const queryIndexes =
             queries.length > 0 ? new Map(queries.map((idx, i) => [idx, i])) : undefined;
@@ -120,8 +120,8 @@ export class Query<J extends boolean = false> extends DispatchedPromise<void> {
     async *stream<T = unknown>(): AsyncIterable<Frame<T, J>> {
         await this.#connection.ready();
 
-        const { query, bindings, transaction, json } = this.#options;
-        const chunks = this.#connection.query(query, bindings, transaction);
+        const { query, transaction, json } = this.#options;
+        const chunks = this.#connection.query(query, transaction);
 
         for await (const chunk of chunks) {
             if (chunk.error) {
@@ -152,8 +152,8 @@ export class Query<J extends boolean = false> extends DispatchedPromise<void> {
     async dispatch(): Promise<void> {
         await this.#connection.ready();
 
-        const { query, bindings, transaction } = this.#options;
-        const chunks = this.#connection.query(query, bindings, transaction);
+        const { query, transaction } = this.#options;
+        const chunks = this.#connection.query(query, transaction);
 
         for await (const chunk of chunks) {
             if (chunk.error) {

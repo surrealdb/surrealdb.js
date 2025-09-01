@@ -52,11 +52,11 @@ describe("durations", () => {
     test("compact and fromCompact", () => {
         const dur = new Duration("1s");
         expect(dur.toCompact()).toStrictEqual([1n]);
-        expect(Duration.fromCompact([1n])).toMatchObject(dur);
+        expect(new Duration([1n])).toMatchObject(dur);
 
         const dur2 = new Duration("1s500ms");
         expect(dur2.toCompact()).toStrictEqual([1n, 500000000n]);
-        expect(Duration.fromCompact([1n, 500000000n])).toMatchObject(dur2);
+        expect(new Duration([1n, 500000000n])).toMatchObject(dur2);
     });
 
     test("equality", () => {

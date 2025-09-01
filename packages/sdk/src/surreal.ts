@@ -18,6 +18,7 @@ import {
 import type {
     AccessRecordAuth,
     AnyAuth,
+    AnyRecordId,
     AuthResponse,
     ConnectionStatus,
     ConnectOptions,
@@ -27,7 +28,6 @@ import type {
     LiveResource,
     NamespaceDatabase,
     RecordResult,
-    RelateInOut,
     SqlExportOptions,
     Token,
     Version,
@@ -318,8 +318,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     // Shadow implementation
     query(query: string | BoundQuery, bindings?: Record<string, unknown>): Query {
         return new Query(this.#connection, {
-            query: query instanceof BoundQuery ? query.query : query,
-            bindings: query instanceof BoundQuery ? query.bindings : bindings,
+            query: query instanceof BoundQuery ? query : new BoundQuery(query, bindings),
             transaction: undefined,
             json: false,
         });
@@ -430,45 +429,45 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     }
 
     /**
-     * Create a graph edge between the from record(s) and the to record(s) using a specific edge record id
+     * Create a graph edge between the from record and the to record using the specified edge
      *
      * @param from The in property on the edge record
-     * @param edge The id of the edge record
+     * @param edge The id or table of the edge record
      * @param to  The out property on the edge record
      * @param data The optional record data to store on the edge
      */
     relate<T extends Doc, U extends Doc = T>(
-        from: RelateInOut,
-        edge: RecordId,
-        to: RelateInOut,
+        from: AnyRecordId,
+        edge: Table | RecordId,
+        to: AnyRecordId,
         data?: U,
     ): RelatePromise<T, U>;
 
     /**
-     * Create a graph edge between the from record(s) and the to record(s) on the specified edge table
+     * Create multiple graph edges between the from records and the to records using the specified edge
      *
-     * @param from The in property on the edge record
+     * @param from The in properties on the edge records
      * @param edge The edge table to create the relation in
      * @param to  The out property on the edge record
      * @param data The optional record data to store on the edge
      */
     relate<T extends Doc, U extends Doc = T>(
-        from: RelateInOut,
+        from: AnyRecordId[],
         edge: Table,
-        to: RelateInOut,
+        to: AnyRecordId[],
         data?: U,
     ): RelatePromise<T[], U>;
 
     // Shadow implementation
     relate<T extends Doc, U extends Doc = T>(
-        from: RelateInOut,
-        thing: Table | RecordId,
-        to: RelateInOut,
+        from: AnyRecordId | AnyRecordId[],
+        what: Table | RecordId,
+        to: AnyRecordId | AnyRecordId[],
         data?: U,
     ): unknown {
         return new RelatePromise(this.#connection, {
             from,
-            what: thing,
+            what,
             to,
             data,
             transaction: undefined,

@@ -66,16 +66,14 @@ export class CreatePromise<T, U extends Doc, J extends boolean = false> extends 
     #build(): Query<J> {
         const { what, data, transaction, json } = this.#options;
 
-        const builder =
-            what instanceof RecordId ? surql`CREATE ONLY ${what}` : surql`CREATE ${what}`;
+        const query = what instanceof RecordId ? surql`CREATE ONLY ${what}` : surql`CREATE ${what}`;
 
         if (data) {
-            builder.append(surql` CONTENT ${data}`);
+            query.append(surql` CONTENT ${data}`);
         }
 
         return new Query(this.#connection, {
-            query: builder.query,
-            bindings: builder.bindings,
+            query,
             transaction,
             json,
         });

@@ -62,9 +62,9 @@ export class DateTime extends Value {
         super();
 
         if (input === undefined) {
-            const { seconds, nanoseconds } = DateTime.now();
-            this.#seconds = seconds;
-            this.#nanoseconds = nanoseconds;
+            const now = DateTime.now();
+            this.#seconds = now.#seconds;
+            this.#nanoseconds = now.#nanoseconds;
         } else if (input instanceof DateTime) {
             // Clone from existing datetime
             this.#seconds = input.#seconds;
@@ -275,15 +275,15 @@ export class DateTime extends Value {
     /**
      * Total milliseconds since Unix epoch
      */
-    get milliseconds(): bigint {
-        return this.nanoseconds / MILLISECOND;
+    get milliseconds(): number {
+        return Number(this.nanoseconds / MILLISECOND);
     }
 
     /**
      * Seconds since Unix epoch
      */
-    get seconds(): bigint {
-        return this.#seconds;
+    get seconds(): number {
+        return Number(this.#seconds);
     }
 
     /**
@@ -330,21 +330,21 @@ export class DateTime extends Value {
      * Returns a new DateTime representing the current time
      */
     static now(): DateTime {
-        if (typeof process !== "undefined" && process.hrtime) {
-            const now = Date.now();
-            const hrtime = process.hrtime.bigint();
-            const seconds = BigInt(Math.floor(now / 1000));
-            const nanoseconds = hrtime % 1000000000n;
-            return new DateTime([seconds, nanoseconds]);
-        }
+        // if (typeof process !== "undefined" && process.hrtime) {
+        //     const now = Date.now();
+        //     const hrtime = process.hrtime.bigint();
+        //     const seconds = BigInt(Math.floor(now / 1000));
+        //     const nanoseconds = hrtime % 1000000000n;
+        //     return new DateTime([seconds, nanoseconds]);
+        // }
 
-        // Check if we're in a browser with performance.now()
-        if (typeof performance !== "undefined" && performance.now) {
-            const now = performance.now();
-            const seconds = BigInt(Math.floor(now / 1000));
-            const nanoseconds = BigInt((now % 1000) * 1000000);
-            return new DateTime([seconds, nanoseconds]);
-        }
+        // // Check if we're in a browser with performance.now()
+        // if (typeof performance !== "undefined" && performance.now) {
+        //     const now = performance.now();
+        //     const seconds = BigInt(Math.floor(now / 1000));
+        //     const nanoseconds = BigInt((now % 1000) * 1000000);
+        //     return new DateTime([seconds, nanoseconds]);
+        // }
 
         // Fallback to standard Date.now()
         const now = Date.now();

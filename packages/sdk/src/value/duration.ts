@@ -36,7 +36,7 @@ const UNITS_REVERSED = Array.from(UNITS).reduce((map, [unit, size]) => {
 
 // Regex for parsing duration parts like "3h" or "15ms"
 const DURATION_PART_REGEX = new RegExp(
-    `^(\\d+)(${Array.from(UNITS.keys()).map(escapeRegex).join("|")})`,
+    `^(\\d+)\\.?\\d*(${Array.from(UNITS.keys()).map(escapeRegex).join("|")})`,
 );
 
 /**

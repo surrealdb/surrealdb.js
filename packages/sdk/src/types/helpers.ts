@@ -6,6 +6,4 @@ export type Doc = Prettify<Record<string, unknown>>;
 
 export type AnyRecordId<Tb extends string = string> = RecordId<Tb> | StringRecordId;
 
-export type RelateInOut = RecordId | RecordId[] | StringRecordId | StringRecordId[];
-
 export type Nullish<T> = T | null | undefined;

@@ -66,17 +66,16 @@ export class InsertPromise<T, U extends Doc, J extends boolean = false> extends 
     #build(): Query<J> {
         const { table, what, transaction, json } = this.#options;
 
-        const builder = surql`INSERT`;
+        const query = surql`INSERT`;
 
         if (table) {
-            builder.append(surql` INTO ${table}`);
+            query.append(surql` INTO ${table}`);
         }
 
-        builder.append(surql` ${what}`);
+        query.append(surql` ${what}`);
 
         return new Query(this.#connection, {
-            query: builder.query,
-            bindings: builder.bindings,
+            query,
             transaction,
             json,
         });
