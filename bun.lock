@@ -16,15 +16,11 @@
         "turbo": "^2.5.6",
       },
     },
-    "packages/cbor": {
-      "name": "@surrealdb/cbor",
-      "version": "2.0.0-alpha.4",
-    },
     "packages/sdk": {
       "name": "surrealdb",
-      "version": "2.0.0-alpha.4",
+      "version": "2.0.0-alpha.4+2.3.7",
       "dependencies": {
-        "@surrealdb/cbor": "workspace:*",
+        "@surrealdb/cbor": "2.0.0-alpha.4",
         "uuidv7": "^1.0.1",
       },
       "devDependencies": {
@@ -39,9 +35,8 @@
     },
     "packages/tests": {
       "name": "@surrealdb/tests",
-      "version": "0.1.0",
       "dependencies": {
-        "@surrealdb/cbor": "workspace:*",
+        "@surrealdb/cbor": "2.0.0-alpha.4",
         "get-port": "^7.1.0",
         "surrealdb": "workspace:*",
       },
@@ -150,7 +145,7 @@
 
     "@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.0-beta.9-commit.d91dfb5", "", {}, "sha512-8sExkWRK+zVybw3+2/kBkYBFeLnEUWz1fT7BLHplpzmtqkOfTbAQ9gkt4pzwGIIZmg4Qn5US5ACjUBenrhezwQ=="],
 
-    "@surrealdb/cbor": ["@surrealdb/cbor@workspace:packages/cbor"],
+    "@surrealdb/cbor": ["@surrealdb/cbor@2.0.0-alpha.4", "", {}, "sha512-l/hNZ3ZCOJq8rzwx1y5ZV/8b2bYCWdhGqRVY33Pu50NAHyAW5qLsMn3ZBkZow77mAKwNCsbDsRGnyYEuU95mjw=="],
 
     "@surrealdb/tests": ["@surrealdb/tests@workspace:packages/tests"],
 

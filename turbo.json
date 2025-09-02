@@ -5,11 +5,14 @@
             "dependsOn": ["^build"],
             "outputs": ["dist/**"]
         },
-        "run-test-suite": {
-            "dependsOn": ["^build"],
-            "outputs": ["dist/**"]
+        "run-tests": {
+            "dependsOn": ["^build"]
         },
         "dev": {
+            "cache": false
+        },
+        "publish": {
+            "dependsOn": ["^build"],
             "cache": false
         }
     }

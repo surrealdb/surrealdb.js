@@ -1,13 +1,15 @@
 {
     "name": "surrealdb.js",
-    "version": "2.0.0-alpha.4",
     "private": true,
     "workspaces": [
         "packages/*"
     ],
     "scripts": {
         "build": "turbo build",
-        "test": "turbo run-test-suite",
+        "test": "turbo run-tests",
+        "publish": "bun run scripts/validate-versions.ts && bun run scripts/publish.ts",
+        "publish:dry-run": "bun run scripts/publish.ts --dry-run",
+        "validate:versions": "bun run scripts/validate-versions.ts",
         "qc": "biome check .",
         "qa": "biome check . --write",
         "qau": "biome check . --write --unsafe"
