@@ -25,6 +25,15 @@ describe("query()", async () => {
         expect(result).toEqual("world");
     });
 
+    test("collect specific query results", async () => {
+        const [first, third] = await surreal
+            .query(`RETURN 1; RETURN 2; RETURN 3`)
+            .collect<[1, 3]>(0, 2);
+
+        expect(first).toEqual(1);
+        expect(third).toEqual(3);
+    });
+
     test("stream query results", async () => {
         const stream = surreal.query(`SELECT * FROM foo`).stream();
 
