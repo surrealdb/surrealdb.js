@@ -22,6 +22,7 @@
         "noPropertyAccessFromIndexSignature": false,
 
         "paths": {
+            "surrealdb": ["./packages/sdk/src"]
         }
     }
 }

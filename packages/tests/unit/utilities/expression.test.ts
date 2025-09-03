@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { expr } from "surrealdb";
-import { and, between, eq, inside, not, or, raw } from "surrealdb/expr";
+import { and, between, eq, expr, inside, not, or, raw } from "surrealdb";
 import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
 
 beforeEach(() => {

@@ -31,16 +31,13 @@
         "@surrealdb/cbor": "2.0.0-alpha.4",
         "uuidv7": "^1.0.1"
     },
+    "types": "./dist/surrealdb.d.ts",
+    "main": "./dist/surrealdb.mjs",
     "exports": {
         ".": {
             "require": "./dist/surrealdb.cjs",
             "import": "./dist/surrealdb.mjs",
             "types": "./dist/surrealdb.d.ts"
-        },
-        "./expr": {
-            "require": "./dist/surrealdb-expr.cjs",
-            "import": "./dist/surrealdb-expr.mjs",
-            "types": "./dist/surrealdb-expr.d.ts"
         }
     },
     "files": [
