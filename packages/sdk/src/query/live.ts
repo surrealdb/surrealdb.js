@@ -74,7 +74,12 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
     }
 
     /**
-     * Configure the query to fetch the record only if the condition is met
+     * Configure the query to fetch the record only if the condition is met.
+     *
+     * Expressions can be imported from the `surrealdb` package and combined
+     * to compose the desired condition.
+     *
+     * @see {@link https://github.com/surrealdb/surrealdb.js/blob/main/packages/sdk/src/utils/expr.ts}
      */
     where(expr: ExprLike): ManagedLivePromise<T> {
         return new ManagedLivePromise(this.#connection, this.#publisher, {

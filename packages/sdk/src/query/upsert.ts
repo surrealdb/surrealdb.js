@@ -93,7 +93,12 @@ export class UpsertPromise<T, I, J extends boolean = false> extends DispatchedPr
     }
 
     /**
-     * Configure the query to upsert the record only if the condition is met
+     * Configure the query to upsert the record only if the condition is met.
+     *
+     * Expressions can be imported from the `surrealdb` package and combined
+     * to compose the desired condition.
+     *
+     * @see {@link https://github.com/surrealdb/surrealdb.js/blob/main/packages/sdk/src/utils/expr.ts}
      */
     where(expr: ExprLike): UpsertPromise<T, I, J> {
         return new UpsertPromise<T, I, J>(this.#connection, {

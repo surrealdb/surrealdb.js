@@ -95,7 +95,12 @@ export class SelectPromise<T, I, J extends boolean = false> extends DispatchedPr
     }
 
     /**
-     * Configure the query to fetch the record only if the condition is met
+     * Configure the query to fetch only records that match the condition.
+     *
+     * Expressions can be imported from the `surrealdb` package and combined
+     * to compose the desired condition.
+     *
+     * @see {@link https://github.com/surrealdb/surrealdb.js/blob/main/packages/sdk/src/utils/expr.ts}
      */
     where(expr: ExprLike): SelectPromise<T, I, J> {
         return new SelectPromise(this.#connection, {
