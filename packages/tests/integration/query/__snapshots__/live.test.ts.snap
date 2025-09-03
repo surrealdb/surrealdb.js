@@ -1,0 +1,18 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`live() / liveOf() compile 1`] = `"LIVE SELECT type::fields($bind__72) FROM $bind__73 WHERE age = $bind__74 FETCH type::fields($bind__75)"`;
+
+exports[`live() / liveOf() compile 2`] = `
+{
+  "bind__72": [
+    "age",
+    "test",
+    "lastname",
+  ],
+  "bind__73": Table {},
+  "bind__74": 30,
+  "bind__75": [
+    "foo",
+  ],
+}
+`;

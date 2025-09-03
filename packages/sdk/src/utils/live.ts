@@ -6,7 +6,6 @@ import type { LiveMessage, LiveResource } from "../types";
 import type { Uuid } from "../value";
 import { BoundQuery } from "./bound-query";
 import type { Publisher } from "./publisher";
-import { surql } from "./tagged-template";
 
 type ErrorPublisher = Publisher<{
     error: [Error];
@@ -84,7 +83,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
     #currentId!: Uuid;
     #controller: ConnectionController;
     #resource: LiveResource;
-    #diff: boolean;
+    #query: Query;
     #killed = false;
     #publisher: ErrorPublisher;
     #channels: Set<ChannelIterator<LiveMessage>> = new Set();
@@ -94,13 +93,13 @@ export class ManagedLiveSubscription extends LiveSubscription {
         publisher: ErrorPublisher,
         controller: ConnectionController,
         resource: LiveResource,
-        diff: boolean,
+        query: Query,
     ) {
         super();
         this.#publisher = publisher;
         this.#controller = controller;
         this.#resource = resource;
-        this.#diff = diff;
+        this.#query = query;
 
         this.#unsubscribe = this.#controller.subscribe("connected", () => {
             this.#listen();
@@ -159,27 +158,9 @@ export class ManagedLiveSubscription extends LiveSubscription {
         return channel;
     }
 
-    #build(): BoundQuery {
-        const query = surql`LIVE SELECT`;
-
-        if (this.#diff) {
-            query.append(surql` DIFF`);
-        } else {
-            query.append(surql` *`);
-        }
-
-        query.append(surql`FROM ${this.#resource}`);
-
-        return query;
-    }
-
     async #listen(): Promise<void> {
         try {
-            const [id] = await new Query(this.#controller, {
-                query: this.#build(),
-                transaction: undefined,
-                json: false,
-            }).collect<[Uuid]>();
+            const [id] = await this.#query.collect<[Uuid]>();
 
             this.#currentId = id;
 

@@ -1,24 +1,29 @@
-import type { SurrealEvents } from "../../dist/surrealdb";
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import type { LiveResource } from "../types";
-import type { Publisher } from "../utils";
+import type { SurrealEvents } from "../surreal";
+import type { Expr, ExprLike, LiveResource } from "../types";
+import type { Field, Selection } from "../types/internal";
+import { type BoundQuery, type Publisher, surql } from "../utils";
 import {
     type LiveSubscription,
     ManagedLiveSubscription,
     UnmanagedLiveSubscription,
 } from "../utils/live";
 import type { Uuid } from "../value";
+import { Query } from "./query";
 
 interface ManagedLiveOptions {
     what: LiveResource;
-    diff: boolean;
+    fields?: string[];
+    selection?: Selection;
+    cond?: Expr;
+    fetch?: string[];
 }
 
 /**
  * A promise representing a managed `live` RPC call to the server.
  */
-export class ManagedLivePromise extends DispatchedPromise<LiveSubscription> {
+export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
     #connection: ConnectionController;
     #publisher: Publisher<SurrealEvents>;
     #options: ManagedLiveOptions;
@@ -38,11 +43,61 @@ export class ManagedLivePromise extends DispatchedPromise<LiveSubscription> {
      * Configure the live subscription to return only patches (diffs)
      * instead of the full resource on each update.
      */
-    diff(): ManagedLivePromise {
+    diff(): ManagedLivePromise<T> {
         return new ManagedLivePromise(this.#connection, this.#publisher, {
             ...this.#options,
-            diff: true,
+            fields: [],
+            selection: "diff",
         });
+    }
+
+    /**
+     * Configure the query to only select the specified field(s)
+     */
+    fields(...fields: Field<T>[]): ManagedLivePromise<T> {
+        return new ManagedLivePromise(this.#connection, this.#publisher, {
+            ...this.#options,
+            fields: fields as string[],
+            selection: "fields",
+        });
+    }
+
+    /**
+     * Configure the query to retrieve the value of the specified field
+     */
+    value(field: Field<T>): ManagedLivePromise<T> {
+        return new ManagedLivePromise(this.#connection, this.#publisher, {
+            ...this.#options,
+            fields: [field as string],
+            selection: "value",
+        });
+    }
+
+    /**
+     * Configure the query to fetch the record only if the condition is met
+     */
+    where(expr: ExprLike): ManagedLivePromise<T> {
+        return new ManagedLivePromise(this.#connection, this.#publisher, {
+            ...this.#options,
+            cond: expr ? expr : undefined,
+        });
+    }
+
+    /**
+     * Configure the query to fetch record link contents for the specified field(s)
+     */
+    fetch(...fields: Field<T>[]): ManagedLivePromise<T> {
+        return new ManagedLivePromise(this.#connection, this.#publisher, {
+            ...this.#options,
+            fetch: fields as string[],
+        });
+    }
+
+    /**
+     * Compile this qurery into a BoundQuery
+     */
+    compile(): BoundQuery {
+        return this.#build().inner;
     }
 
     protected async dispatch(): Promise<LiveSubscription> {
@@ -52,8 +107,38 @@ export class ManagedLivePromise extends DispatchedPromise<LiveSubscription> {
             this.#publisher,
             this.#connection,
             this.#options.what,
-            this.#options.diff,
+            this.#build(),
         );
+    }
+
+    #build(): Query {
+        const { what, selection, fields, cond, fetch } = this.#options;
+
+        const query = surql`LIVE SELECT`;
+
+        if (selection === "fields") {
+            query.append(surql` type::fields(${fields})`);
+        } else if (selection === "value") {
+            query.append(surql` VALUE type::field(${fields?.[0]})`);
+        } else {
+            query.append(surql` *`);
+        }
+
+        query.append(surql` FROM ${what}`);
+
+        if (cond) {
+            query.append(surql` WHERE ${cond}`);
+        }
+
+        if (fetch) {
+            query.append(surql` FETCH type::fields(${fetch})`);
+        }
+
+        return new Query(this.#connection, {
+            query,
+            transaction: undefined,
+            json: false,
+        });
     }
 }
 

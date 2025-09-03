@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
-import { type LiveMessage, RecordId, type Uuid } from "surrealdb";
-import { insertMockRecords, personTable, setupServer } from "../__helpers__";
+import { eq, type LiveMessage, RecordId, type Uuid } from "surrealdb";
+import { insertMockRecords, type Person, personTable, setupServer } from "../__helpers__";
 
 const { createSurreal, kill, spawn } = await setupServer();
 
@@ -271,5 +271,18 @@ describe("live() / liveOf()", async () => {
         expect(messages[0].action).toEqual("CREATE");
         expect(messages[1].action).toEqual("UPDATE");
         expect(messages[2].action).toEqual("DELETE");
+    });
+
+    test("compile", async () => {
+        const builder = surreal
+            .live<Person>(personTable)
+            .fields("age", "test", "lastname")
+            .where(eq("age", 30))
+            .fetch("foo");
+
+        const { query, bindings } = builder.compile();
+
+        expect(query).toMatchSnapshot();
+        expect(bindings).toMatchSnapshot();
     });
 });

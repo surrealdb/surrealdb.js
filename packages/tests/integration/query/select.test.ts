@@ -67,6 +67,7 @@ describe("select()", async () => {
             .start(1)
             .limit(1)
             .where(eq("age", 30))
+            .fetch("foo")
             .timeout(Duration.seconds(1))
             .version(new DateTime());
 

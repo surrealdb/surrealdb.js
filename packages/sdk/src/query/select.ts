@@ -3,13 +3,11 @@ import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { Expr, ExprLike } from "../types";
+import type { Field, Selection } from "../types/internal";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { DateTime, Duration, RecordId, RecordIdRange, Table, Uuid } from "../value";
 import { Query } from "./query";
-
-type Field<I> = keyof I | (string & {});
-type Selection = "value" | "fields";
 
 interface SelectOptions {
     what: RecordId | RecordIdRange | Table;
@@ -18,6 +16,7 @@ interface SelectOptions {
     start?: number;
     limit?: number;
     cond?: Expr;
+    fetch?: string[];
     timeout?: Duration;
     version?: DateTime;
     transaction: Uuid | undefined;
@@ -106,6 +105,16 @@ export class SelectPromise<T, I, J extends boolean = false> extends DispatchedPr
     }
 
     /**
+     * Configure the query to fetch record link contents for the specified field(s)
+     */
+    fetch(...fields: Field<I>[]): SelectPromise<T, I, J> {
+        return new SelectPromise(this.#connection, {
+            ...this.#options,
+            fetch: fields as string[],
+        });
+    }
+
+    /**
      * Configure the timeout of the query
      */
     timeout(timeout: Duration): SelectPromise<T, I, J> {
@@ -154,8 +163,19 @@ export class SelectPromise<T, I, J extends boolean = false> extends DispatchedPr
     }
 
     #build(): Query<J> {
-        const { what, transaction, json, selection, fields, start, limit, cond, timeout, version } =
-            this.#options;
+        const {
+            what,
+            transaction,
+            json,
+            selection,
+            fields,
+            start,
+            limit,
+            cond,
+            timeout,
+            version,
+            fetch,
+        } = this.#options;
 
         const query = surql`SELECT`;
 
@@ -179,6 +199,10 @@ export class SelectPromise<T, I, J extends boolean = false> extends DispatchedPr
 
         if (limit) {
             query.append(surql` LIMIT ${limit}`);
+        }
+
+        if (fetch) {
+            query.append(surql` FETCH type::fields(${fetch})`);
         }
 
         if (timeout) {

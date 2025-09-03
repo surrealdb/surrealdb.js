@@ -346,10 +346,9 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param what The table, record id, or record id range to subscribe to
      * @returns A new live subscription object
      */
-    live(what: LiveResource): ManagedLivePromise {
+    live<T extends Doc>(what: LiveResource): ManagedLivePromise<T> {
         return new ManagedLivePromise(this.#connection, this.#publisher, {
             what,
-            diff: false,
         });
     }
 
