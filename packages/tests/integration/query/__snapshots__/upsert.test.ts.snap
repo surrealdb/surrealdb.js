@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`upsert() compile 1`] = `"UPSERT ONLY $bind__1 CONTENT $bind__2"`;
+exports[`upsert() compile 1`] = `"UPSERT ONLY $bind__1 CONTENT $bind__2 WHERE age = $bind__3 RETURN DIFF TIMEOUT TIMEOUT 1s"`;
 
 exports[`upsert() compile 2`] = `
 {
@@ -9,5 +9,6 @@ exports[`upsert() compile 2`] = `
     "firstname": "John",
     "lastname": "Doe",
   },
+  "bind__3": 30,
 }
 `;

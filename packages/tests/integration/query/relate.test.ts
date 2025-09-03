@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { RecordId } from "surrealdb";
+import { DateTime, Duration, RecordId } from "surrealdb";
 import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
 import { graphTable, setupServer } from "../__helpers__";
 
@@ -22,7 +22,7 @@ describe("relate()", async () => {
     const skip = version === "surrealdb-1.4.2";
 
     test.skipIf(skip)("single with id", async () => {
-        const single: Edge = await surreal.relate(
+        const single = await surreal.relate<Edge>(
             new RecordId("edge", "in"),
             new RecordId("graph", 1),
             new RecordId("edge", "out"),
@@ -38,7 +38,7 @@ describe("relate()", async () => {
     });
 
     test.skipIf(skip)("single with table", async () => {
-        const single: Edge = await surreal.relate(
+        const single = await surreal.relate<Edge>(
             new RecordId("edge", "in"),
             graphTable,
             new RecordId("edge", "out"),
@@ -57,17 +57,18 @@ describe("relate()", async () => {
         const from = [new RecordId("edge", "in1")];
         const to = [new RecordId("edge", "out1"), new RecordId("edge", "out2")];
 
-        const multiple: Edge[] = await surreal.relate(from, graphTable, to);
+        const multiple = await surreal.relate<Edge>(from, graphTable, to);
 
         expect(multiple).toBeArrayOfSize(2);
     });
 
     test.skipIf(skip)("compile", async () => {
-        const builder = surreal.relate(
-            new RecordId("edge", "in"),
-            graphTable,
-            new RecordId("edge", "out"),
-        );
+        const builder = surreal
+            .relate(new RecordId("edge", "in"), graphTable, new RecordId("edge", "out"))
+            .unique()
+            .output("diff")
+            .timeout(Duration.seconds(1))
+            .version(new DateTime());
 
         const { query, bindings } = builder.compile();
 

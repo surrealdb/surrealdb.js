@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { RecordId } from "surrealdb";
+import { DateTime, Duration, RecordId } from "surrealdb";
 import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
 import { type Person, setupServer } from "../__helpers__";
 
@@ -55,13 +55,19 @@ describe("insert()", async () => {
     });
 
     test("compile", async () => {
-        const builder = surreal.insert<Person>([
-            {
-                id: new RecordId("person", 3),
-                firstname: "John",
-                lastname: "Doe",
-            },
-        ]);
+        const builder = surreal
+            .insert<Person>([
+                {
+                    id: new RecordId("person", 3),
+                    firstname: "John",
+                    lastname: "Doe",
+                },
+            ])
+            .ignore()
+            .output("diff")
+            .relation()
+            .timeout(Duration.seconds(1))
+            .version(new DateTime());
 
         const { query, bindings } = builder.compile();
 

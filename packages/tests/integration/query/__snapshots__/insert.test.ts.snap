@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`insert() compile 1`] = `"INSERT $bind__1"`;
+exports[`insert() compile 1`] = `"INSERT RELATION IGNORE $bind__1 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__2"`;
 
 exports[`insert() compile 2`] = `
 {
@@ -11,5 +11,6 @@ exports[`insert() compile 2`] = `
       "lastname": "Doe",
     },
   ],
+  "bind__2": DateTime {},
 }
 `;

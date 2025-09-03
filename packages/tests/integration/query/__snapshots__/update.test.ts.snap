@@ -1,13 +1,14 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`update() compile 1`] = `"UPDATE $bind__1 CONTENT $bind__2"`;
+exports[`update() compile 1`] = `"UPDATE ONLY $bind__1 CONTENT $bind__2 WHERE age = $bind__3 RETURN DIFF TIMEOUT TIMEOUT 1s"`;
 
 exports[`update() compile 2`] = `
 {
-  "bind__1": Table {},
+  "bind__1": RecordId {},
   "bind__2": {
-    "firstname": "Mary",
+    "firstname": "John",
     "lastname": "Doe",
   },
+  "bind__3": 30,
 }
 `;

@@ -1,16 +1,21 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
+import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { AnyRecordId, Doc } from "../types";
+import type { AnyRecordId, Doc, Output } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
-import { RecordId, type Table, type Uuid } from "../value";
+import { type DateTime, type Duration, RecordId, type Table, type Uuid } from "../value";
 import { Query } from "./query";
 
 interface RelateOptions {
     from: AnyRecordId | AnyRecordId[];
     what: Table | RecordId;
     to: AnyRecordId | AnyRecordId[];
+    unique?: boolean;
+    output?: Output;
+    timeout?: Duration;
+    version?: DateTime;
     data?: Doc;
     transaction: Uuid | undefined;
     json: boolean;
@@ -19,7 +24,7 @@ interface RelateOptions {
 /**
  * A configurable `Promise` for a relate query sent to a SurrealDB instance.
  */
-export class RelatePromise<T, U extends Doc, J extends boolean = false> extends DispatchedPromise<
+export class RelatePromise<T, J extends boolean = false> extends DispatchedPromise<
     MaybeJsonify<T, J>
 > {
     #connection: ConnectionController;
@@ -38,10 +43,51 @@ export class RelatePromise<T, U extends Doc, J extends boolean = false> extends 
      * This is useful when query results need to be serialized. Keep in mind
      * that your responses will lose SurrealDB type information.
      */
-    json(): RelatePromise<T, U, true> {
-        return new RelatePromise<T, U, true>(this.#connection, {
+    json(): RelatePromise<T, true> {
+        return new RelatePromise<T, true>(this.#connection, {
             ...this.#options,
             json: true,
+        });
+    }
+
+    /**
+     * Configure the query to enforce a unique relationship
+     */
+    unique(): RelatePromise<T, J> {
+        return new RelatePromise<T, J>(this.#connection, {
+            ...this.#options,
+            unique: true,
+        });
+    }
+
+    /**
+     * Configure the output of the query
+     */
+    output(output: Output): RelatePromise<T, J> {
+        return new RelatePromise<T, J>(this.#connection, {
+            ...this.#options,
+            output,
+        });
+    }
+
+    /**
+     * Configure the timeout of the query
+     */
+    timeout(timeout: Duration): RelatePromise<T, J> {
+        return new RelatePromise<T, J>(this.#connection, {
+            ...this.#options,
+            timeout,
+        });
+    }
+
+    /**
+     * Configure a custom version of the data being created. This is used
+     * alongside version enabled storage engines such as SurrealKV.
+     */
+    version(version: DateTime): RelatePromise<T, J> {
+        return new RelatePromise<T, J>(this.#connection, {
+            ...this.#options,
+            version,
         });
     }
 
@@ -73,7 +119,7 @@ export class RelatePromise<T, U extends Doc, J extends boolean = false> extends 
     }
 
     #build(): Query<J> {
-        const { from, what, to, data, transaction, json } = this.#options;
+        const { from, what, to, data, transaction, json, output, timeout, version } = this.#options;
 
         const isMultiple = Array.isArray(from) || Array.isArray(to);
 
@@ -91,6 +137,18 @@ export class RelatePromise<T, U extends Doc, J extends boolean = false> extends 
 
         if (data) {
             query.append(surql` CONTENT ${data}`);
+        }
+
+        if (output) {
+            query.append(surql` RETURN ${_output(output)}`);
+        }
+
+        if (timeout) {
+            query.append(surql` TIMEOUT ${_timeout(timeout)}`);
+        }
+
+        if (version) {
+            query.append(surql` VERSION ${version}`);
         }
 
         return new Query(this.#connection, {

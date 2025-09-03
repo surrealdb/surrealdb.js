@@ -62,7 +62,7 @@ describe("live() / liveOf()", async () => {
 
         subscription.subscribe(mockHandler);
 
-        await surreal.update(new RecordId("person", 3), {
+        await surreal.update(new RecordId("person", 3)).content({
             firstname: "John",
             lastname: "Doe",
             age: 20,
@@ -209,7 +209,7 @@ describe("live() / liveOf()", async () => {
                 lastname: "Doe",
             });
 
-            await surreal.update(new RecordId("person", 5), {
+            await surreal.update(new RecordId("person", 5)).content({
                 firstname: "Mary",
             });
 
@@ -249,7 +249,7 @@ describe("live() / liveOf()", async () => {
                 lastname: "Doe",
             });
 
-            await surreal.update(new RecordId("person", 5), {
+            await surreal.update(new RecordId("person", 5)).content({
                 firstname: "Mary",
             });
 

@@ -1,14 +1,18 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import { only } from "../internal/internal-expressions";
+import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
+import type { Output } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
-import type { RecordId, RecordIdRange, Table, Uuid } from "../value";
+import type { DateTime, Duration, RecordId, RecordIdRange, Table, Uuid } from "../value";
 import { Query } from "./query";
 
 interface DeleteOptions {
     what: RecordId | RecordIdRange | Table;
+    output?: Output;
+    timeout?: Duration;
+    version?: DateTime;
     transaction: Uuid | undefined;
     json: boolean;
 }
@@ -43,6 +47,37 @@ export class DeletePromise<T, J extends boolean = false> extends DispatchedPromi
     }
 
     /**
+     * Configure the output of the query
+     */
+    output(output: Output): DeletePromise<T, J> {
+        return new DeletePromise<T, J>(this.#connection, {
+            ...this.#options,
+            output,
+        });
+    }
+
+    /**
+     * Configure the timeout of the query
+     */
+    timeout(timeout: Duration): DeletePromise<T, J> {
+        return new DeletePromise<T, J>(this.#connection, {
+            ...this.#options,
+            timeout,
+        });
+    }
+
+    /**
+     * Configure a custom version of the data being created. This is used
+     * alongside version enabled storage engines such as SurrealKV.
+     */
+    version(version: DateTime): DeletePromise<T, J> {
+        return new DeletePromise<T, J>(this.#connection, {
+            ...this.#options,
+            version,
+        });
+    }
+
+    /**
      * Compile this qurery into a BoundQuery
      */
     compile(): BoundQuery {
@@ -70,9 +105,21 @@ export class DeletePromise<T, J extends boolean = false> extends DispatchedPromi
     }
 
     #build(): Query<J> {
-        const { what, transaction, json } = this.#options;
+        const { what, transaction, json, output, timeout, version } = this.#options;
 
-        const query = surql`DELETE ${only(what)} RETURN BEFORE`;
+        const query = surql`DELETE ${_only(what)}`;
+
+        if (output) {
+            query.append(surql` RETURN ${_output(output)}`);
+        }
+
+        if (timeout) {
+            query.append(surql` TIMEOUT ${_timeout(timeout)}`);
+        }
+
+        if (version) {
+            query.append(surql` VERSION ${version}`);
+        }
 
         return new Query(this.#connection, {
             query,

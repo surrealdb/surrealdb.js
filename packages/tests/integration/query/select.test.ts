@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { BoundIncluded, RecordId, RecordIdRange } from "surrealdb";
+import { BoundIncluded, DateTime, Duration, eq, RecordId, RecordIdRange } from "surrealdb";
 import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
 import { insertMockRecords, type Person, personTable, setupServer } from "../__helpers__";
 
@@ -61,7 +61,15 @@ describe("select()", async () => {
     });
 
     test("compile", async () => {
-        const builder = surreal.select<Person>(new RecordId("person", 1));
+        const builder = surreal
+            .select<Person>(new RecordId("person", 1))
+            .fields("age", "test", "lastname")
+            .start(1)
+            .limit(1)
+            .where(eq("age", 30))
+            .timeout(Duration.seconds(1))
+            .version(new DateTime());
+
         const { query, bindings } = builder.compile();
 
         expect(query).toMatchSnapshot();

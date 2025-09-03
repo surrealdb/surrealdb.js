@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { RecordId } from "surrealdb";
+import { Duration, eq, RecordId } from "surrealdb";
 import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
-import { insertMockRecords, type Person, personTable, setupServer } from "../__helpers__";
+import { insertMockRecords, type Person, setupServer } from "../__helpers__";
 
 const { createSurreal } = await setupServer();
 
@@ -15,10 +15,7 @@ describe("update()", async () => {
     await insertMockRecords(surreal);
 
     test("single", async () => {
-        const single = await surreal.update<Person, Omit<Person, "id">>(new RecordId("person", 1), {
-            firstname: "John",
-            lastname: "Doe",
-        });
+        const single = await surreal.update<Person>(new RecordId("person", 1));
 
         expect(single).toStrictEqual({
             id: new RecordId("person", 1),
@@ -27,31 +24,54 @@ describe("update()", async () => {
         });
     });
 
-    test("multiple", async () => {
-        const multiple = await surreal.update<Person, Omit<Person, "id">>(personTable, {
-            firstname: "Mary",
-            lastname: "Doe",
+    test("content", async () => {
+        const single = await surreal.update<Person>(new RecordId("person", 1)).content({
+            firstname: "Peter",
+            lastname: "Schoenveter",
         });
 
-        expect(multiple).toStrictEqual([
-            {
-                id: new RecordId("person", 1),
-                firstname: "Mary",
-                lastname: "Doe",
-            },
-            {
-                id: new RecordId("person", 2),
-                firstname: "Mary",
-                lastname: "Doe",
-            },
-        ]);
+        expect(single).toStrictEqual({
+            id: new RecordId("person", 1),
+            firstname: "Peter",
+            lastname: "Schoenveter",
+        });
+    });
+
+    test("merge", async () => {
+        const single = await surreal.update<Person>(new RecordId("person", 1)).merge({
+            firstname: "Bob",
+        });
+
+        expect(single).toStrictEqual({
+            id: new RecordId("person", 1),
+            firstname: "Bob",
+            lastname: "Schoenveter",
+        });
+    });
+
+    test("replace", async () => {
+        const single = await surreal.update<Person>(new RecordId("person", 1)).replace({
+            firstname: "Jason",
+            lastname: "Gibson",
+        });
+
+        expect(single).toStrictEqual({
+            id: new RecordId("person", 1),
+            firstname: "Jason",
+            lastname: "Gibson",
+        });
     });
 
     test("compile", async () => {
-        const builder = surreal.update<Person, Omit<Person, "id">>(personTable, {
-            firstname: "Mary",
-            lastname: "Doe",
-        });
+        const builder = surreal
+            .update<Person>(new RecordId("person", 1))
+            .content({
+                firstname: "John",
+                lastname: "Doe",
+            })
+            .where(eq("age", 30))
+            .output("diff")
+            .timeout(Duration.seconds(1));
 
         const { query, bindings } = builder.compile();
 

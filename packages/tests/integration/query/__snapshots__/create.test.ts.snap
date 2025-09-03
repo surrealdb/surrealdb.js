@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`create() compile 1`] = `"CREATE $bind__1 CONTENT $bind__2"`;
+exports[`create() compile 1`] = `"CREATE $bind__1 CONTENT $bind__2 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__3"`;
 
 exports[`create() compile 2`] = `
 {
@@ -10,5 +10,6 @@ exports[`create() compile 2`] = `
     "id": RecordId {},
     "lastname": "Doe",
   },
+  "bind__3": DateTime {},
 }
 `;

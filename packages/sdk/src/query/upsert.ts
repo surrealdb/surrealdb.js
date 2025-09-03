@@ -1,16 +1,20 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import { only } from "../internal/internal-expressions";
+import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Doc } from "../types";
-import { type BoundQuery, surql } from "../utils";
+import type { Doc, Expr, ExprLike, Mutation, Output, Values } from "../types";
+import { type BoundQuery, raw, surql } from "../utils";
 import type { Frame } from "../utils/frame";
-import type { RecordId, RecordIdRange, Table, Uuid } from "../value";
+import type { Duration, RecordId, RecordIdRange, Table, Uuid } from "../value";
 import { Query } from "./query";
 
 interface UpsertOptions {
     thing: RecordId | RecordIdRange | Table;
+    mutation?: Mutation;
     data?: Doc;
+    cond?: Expr;
+    output?: Output;
+    timeout?: Duration;
     transaction: Uuid | undefined;
     json: boolean;
 }
@@ -18,7 +22,7 @@ interface UpsertOptions {
 /**
  * A configurable `Promise` for an upsert query sent to a SurrealDB instance.
  */
-export class UpsertPromise<T, U extends Doc, J extends boolean = false> extends DispatchedPromise<
+export class UpsertPromise<T, I, J extends boolean = false> extends DispatchedPromise<
     MaybeJsonify<T, J>
 > {
     #connection: ConnectionController;
@@ -37,10 +41,84 @@ export class UpsertPromise<T, U extends Doc, J extends boolean = false> extends 
      * This is useful when query results need to be serialized. Keep in mind
      * that your responses will lose SurrealDB type information.
      */
-    json(): UpsertPromise<T, U, true> {
-        return new UpsertPromise<T, U, true>(this.#connection, {
+    json(): UpsertPromise<T, I, true> {
+        return new UpsertPromise<T, I, true>(this.#connection, {
             ...this.#options,
             json: true,
+        });
+    }
+
+    /**
+     * Configure the query to set the record data
+     */
+    content(data: Values<I>): UpsertPromise<T, I, J> {
+        return new UpsertPromise<T, I, J>(this.#connection, {
+            ...this.#options,
+            mutation: "content",
+            data,
+        });
+    }
+
+    /**
+     * Configure the query to merge the record data
+     */
+    merge(data: Values<I>): UpsertPromise<T, I, J> {
+        return new UpsertPromise<T, I, J>(this.#connection, {
+            ...this.#options,
+            mutation: "merge",
+            data,
+        });
+    }
+
+    /**
+     * Configure the query to replace the record data
+     */
+    replace(data: Values<I>): UpsertPromise<T, I, J> {
+        return new UpsertPromise<T, I, J>(this.#connection, {
+            ...this.#options,
+            mutation: "replace",
+            data,
+        });
+    }
+
+    /**
+     * Configure the query to patch the record data
+     */
+    patch(data: Values<I>): UpsertPromise<T, I, J> {
+        return new UpsertPromise<T, I, J>(this.#connection, {
+            ...this.#options,
+            mutation: "patch",
+            data,
+        });
+    }
+
+    /**
+     * Configure the query to upsert the record only if the condition is met
+     */
+    where(expr: ExprLike): UpsertPromise<T, I, J> {
+        return new UpsertPromise<T, I, J>(this.#connection, {
+            ...this.#options,
+            cond: expr ? expr : undefined,
+        });
+    }
+
+    /**
+     * Configure the output of the query
+     */
+    output(output: Output): UpsertPromise<T, I, J> {
+        return new UpsertPromise<T, I, J>(this.#connection, {
+            ...this.#options,
+            output,
+        });
+    }
+
+    /**
+     * Configure the timeout of the query
+     */
+    timeout(timeout: Duration): UpsertPromise<T, I, J> {
+        return new UpsertPromise<T, I, J>(this.#connection, {
+            ...this.#options,
+            timeout,
         });
     }
 
@@ -72,12 +150,24 @@ export class UpsertPromise<T, U extends Doc, J extends boolean = false> extends 
     }
 
     #build(): Query<J> {
-        const { thing, data, transaction, json } = this.#options;
+        const { thing, data, transaction, json, cond, output, timeout, mutation } = this.#options;
 
-        const query = surql`UPSERT ${only(thing)}`;
+        const query = surql`UPSERT ${_only(thing)}`;
 
-        if (data) {
-            query.append(surql` CONTENT ${data}`);
+        if (mutation && data) {
+            query.append(surql` ${raw(mutation.toUpperCase())} ${data}`);
+        }
+
+        if (cond) {
+            query.append(surql` WHERE ${cond}`);
+        }
+
+        if (output) {
+            query.append(surql` RETURN ${_output(output)}`);
+        }
+
+        if (timeout) {
+            query.append(surql` TIMEOUT ${_timeout(timeout)}`);
         }
 
         return new Query(this.#connection, {

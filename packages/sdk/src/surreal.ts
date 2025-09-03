@@ -30,6 +30,7 @@ import type {
     RecordResult,
     SqlExportOptions,
     Token,
+    Values,
     Version,
     VersionInfo,
 } from "./types";
@@ -371,21 +372,21 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      *
      * @param recordId The record ID to select
      */
-    select<T extends Doc>(recordId: RecordId): SelectPromise<RecordResult<T>>;
+    select<T extends Doc>(recordId: RecordId): SelectPromise<RecordResult<T>, T>;
 
     /**
      * Select all records based on the provided Record ID range
      *
      * @param range The range of record IDs to select
      */
-    select<T extends Doc>(range: RecordIdRange): SelectPromise<RecordResult<T>[]>;
+    select<T extends Doc>(range: RecordIdRange): SelectPromise<RecordResult<T>[], T>;
 
     /**
      * Select all records present in the specified table
      *
      * @param recordId The record ID to select
      */
-    select<T extends Doc>(table: Table): SelectPromise<RecordResult<T>[]>;
+    select<T extends Doc>(table: Table): SelectPromise<RecordResult<T>[], T>;
 
     // Shadow implementation
     select(what: RecordId | RecordIdRange | Table): unknown {
@@ -402,10 +403,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param recordId The record id of the record to create
      * @param data The record data to insert
      */
-    create<T extends Doc, U extends Doc = T>(
-        recordId: RecordId,
-        data?: U,
-    ): CreatePromise<RecordResult<T>, U>;
+    create<T extends Doc>(recordId: RecordId, data?: Values<T>): CreatePromise<RecordResult<T>>;
 
     /**
      * Create a new record in the specified table
@@ -413,13 +411,10 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param table The table to create a record in
      * @param data The record data to insert
      */
-    create<T extends Doc, U extends Doc = T>(
-        table: Table,
-        data?: U,
-    ): CreatePromise<RecordResult<T>[], U>;
+    create<T extends Doc>(table: Table, data?: Values<T>): CreatePromise<RecordResult<T>[]>;
 
     // Shadow implementation
-    create<T extends Doc, U extends Doc = T>(what: RecordId | Table, data?: U): unknown {
+    create<T extends Doc>(what: RecordId | Table, data?: Values<T>): unknown {
         return new CreatePromise(this.#connection, {
             what,
             data,
@@ -436,12 +431,12 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param to  The out property on the edge record
      * @param data The optional record data to store on the edge
      */
-    relate<T extends Doc, U extends Doc = T>(
+    relate<T extends Doc>(
         from: AnyRecordId,
         edge: Table | RecordId,
         to: AnyRecordId,
-        data?: U,
-    ): RelatePromise<T, U>;
+        data?: Values<T>,
+    ): RelatePromise<T>;
 
     /**
      * Create multiple graph edges between the from records and the to records using the specified edge
@@ -451,19 +446,19 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param to  The out property on the edge record
      * @param data The optional record data to store on the edge
      */
-    relate<T extends Doc, U extends Doc = T>(
+    relate<T extends Doc>(
         from: AnyRecordId[],
         edge: Table,
         to: AnyRecordId[],
-        data?: U,
-    ): RelatePromise<T[], U>;
+        data?: Partial<T>,
+    ): RelatePromise<T[]>;
 
     // Shadow implementation
-    relate<T extends Doc, U extends Doc = T>(
+    relate<T extends Doc>(
         from: AnyRecordId | AnyRecordId[],
         what: Table | RecordId,
         to: AnyRecordId | AnyRecordId[],
-        data?: U,
+        data?: Partial<T>,
     ): unknown {
         return new RelatePromise(this.#connection, {
             from,
@@ -480,7 +475,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      *
      * @param data One or more records to insert
      */
-    insert<T extends Doc, U extends Doc = T>(data?: U | U[]): InsertPromise<RecordResult<T>[], U>;
+    insert<T extends Doc>(data: Values<T> | Values<T>[]): InsertPromise<RecordResult<T>[]>;
 
     /**
      * Inserts one or multiple records into the database
@@ -488,13 +483,16 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param table The table to insert the record into
      * @param data One or more records to insert
      */
-    insert<T extends Doc, U extends Doc = T>(
+    insert<T extends Doc>(
         table: Table,
-        data?: U | U[],
-    ): InsertPromise<RecordResult<T>[], U>;
+        data: Values<T> | Values<T>[],
+    ): InsertPromise<RecordResult<T>[]>;
 
     // Shadow implementation
-    insert<T extends Doc, U extends Doc = T>(arg1: Table | U | U[], arg2?: U | U[]): unknown {
+    insert<T extends Doc>(
+        arg1: Table | Values<T> | Values<T>[],
+        arg2?: Values<T> | Values<T>[],
+    ): unknown {
         if (arg1 instanceof Table) {
             return new InsertPromise(this.#connection, {
                 table: arg1,
@@ -515,50 +513,28 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     /**
      * Updates a single record based on the provided Record ID
      *
-     * **NOTE**: This function replaces the existing record data with the specified data***
-     *
      * @param recordId The record ID to update
-     * @param data The record data to update
      */
-    update<T extends Doc, U extends Doc = T>(
-        recordId: RecordId,
-        data?: U,
-    ): UpdatePromise<RecordResult<T>, U>;
+    update<T extends Doc>(recordId: RecordId): UpdatePromise<RecordResult<T>, T>;
 
     /**
      * Updates all records based on the provided Record ID range
      *
-     * **NOTE**: This function replaces the existing record data with the specified data***
-     *
      * @param range The range of record IDs to update
-     * @param data The record data to update
      */
-    update<T extends Doc, U extends Doc = T>(
-        range: RecordIdRange,
-        data?: U,
-    ): UpdatePromise<RecordResult<T>[], U>;
+    update<T extends Doc>(range: RecordIdRange): UpdatePromise<RecordResult<T>[], T>;
 
     /**
      * Updates all records present in the specified table
      *
-     * **NOTE**: This function replaces the existing record data with the specified data***
-     *
      * @param table The table to update
-     * @param data The record data to update
      */
-    update<T extends Doc, U extends Doc = T>(
-        range: Table,
-        data?: U,
-    ): UpdatePromise<RecordResult<T>[], U>;
+    update<T extends Doc>(range: Table): UpdatePromise<RecordResult<T>[], T>;
 
     // Shadow implementation
-    update<T extends Doc, U extends Doc = T>(
-        thing: RecordId | RecordIdRange | Table,
-        data?: U,
-    ): unknown {
+    update(thing: RecordId | RecordIdRange | Table): unknown {
         return new UpdatePromise(this.#connection, {
             thing,
-            data,
             transaction: undefined,
             json: false,
         });
@@ -572,10 +548,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param recordId The record ID to upsert
      * @param data The record data to upsert
      */
-    upsert<T extends Doc, U extends Doc = T>(
-        recordId: RecordId,
-        data?: U,
-    ): UpsertPromise<RecordResult<T>, U>;
+    upsert<T extends Doc>(recordId: RecordId): UpsertPromise<RecordResult<T>, T>;
 
     /**
      * Upserts all records based on the provided Record ID range
@@ -585,10 +558,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param range The range of record IDs to upsert
      * @param data The record data to upsert
      */
-    upsert<T extends Doc, U extends Doc = T>(
-        thing: RecordIdRange,
-        data?: U,
-    ): UpsertPromise<RecordResult<T>[], U>;
+    upsert<T extends Doc>(thing: RecordIdRange): UpsertPromise<RecordResult<T>[], T>;
 
     /**
      * Upserts all records present in the specified table
@@ -598,19 +568,12 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param table The table to upsert
      * @param data The record data to upsert
      */
-    upsert<T extends Doc, U extends Doc = T>(
-        thing: Table,
-        data?: U,
-    ): UpsertPromise<RecordResult<T>[], U>;
+    upsert<T extends Doc>(thing: Table): UpsertPromise<RecordResult<T>[], T>;
 
     // Shadow implementation
-    upsert<T extends Doc, U extends Doc = T>(
-        thing: RecordId | RecordIdRange | Table,
-        data?: U,
-    ): unknown {
+    upsert(thing: RecordId | RecordIdRange | Table): unknown {
         return new UpsertPromise(this.#connection, {
             thing,
-            data,
             transaction: undefined,
             json: false,
         });
@@ -641,6 +604,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     delete(what: RecordId | RecordIdRange | Table): unknown {
         return new DeletePromise(this.#connection, {
             what,
+            output: "before",
             transaction: undefined,
             json: false,
         });

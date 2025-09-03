@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { RecordId } from "surrealdb";
+import { DateTime, Duration, RecordId } from "surrealdb";
 import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
 import { insertMockRecords, type Person, personTable, setupServer } from "../__helpers__";
 
@@ -37,7 +37,11 @@ describe("delete()", async () => {
     });
 
     test("compile", async () => {
-        const builder = surreal.delete<Person>(personTable);
+        const builder = surreal
+            .delete<Person>(personTable)
+            .output("diff")
+            .timeout(Duration.seconds(1))
+            .version(new DateTime());
 
         const { query, bindings } = builder.compile();
 

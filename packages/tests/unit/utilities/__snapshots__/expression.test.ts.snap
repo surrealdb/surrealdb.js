@@ -28,12 +28,29 @@ exports[`expression or 2`] = `
 }
 `;
 
+exports[`expression not 1`] = `"(foo = $bind__1 OR NOT(hello = $bind__2))"`;
+
+exports[`expression not 2`] = `
+{
+  "bind__1": "bar",
+  "bind__2": "world",
+}
+`;
+
 exports[`expression conditional 1`] = `"(foo = $bind__1 OR alpha = $bind__2)"`;
 
 exports[`expression conditional 2`] = `
 {
   "bind__1": "bar",
   "bind__2": "beta",
+}
+`;
+
+exports[`expression raw 1`] = `"(foo = $bind__1 AND (SELECT VALUE foo FROM ->has->bar))"`;
+
+exports[`expression raw 2`] = `
+{
+  "bind__1": "bar",
 }
 `;
 
@@ -48,22 +65,5 @@ exports[`expression complex 2`] = `
   ],
   "bind__4": 1,
   "bind__5": 10,
-}
-`;
-
-exports[`expression raw 1`] = `"(foo = $bind__1 AND (SELECT VALUE foo FROM ->has->bar))"`;
-
-exports[`expression raw 2`] = `
-{
-  "bind__1": "bar",
-}
-`;
-
-exports[`expression not 1`] = `"(foo = $bind__1 OR NOT(hello = $bind__2))"`;
-
-exports[`expression not 2`] = `
-{
-  "bind__1": "bar",
-  "bind__2": "world",
 }
 `;
