@@ -36,6 +36,11 @@
             "require": "./dist/surrealdb.cjs",
             "import": "./dist/surrealdb.mjs",
             "types": "./dist/surrealdb.d.ts"
+        },
+        "./expr": {
+            "require": "./dist/surrealdb-expr.cjs",
+            "import": "./dist/surrealdb-expr.mjs",
+            "types": "./dist/surrealdb-expr.d.ts"
         }
     },
     "files": [

@@ -1,0 +1,15 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`insert() compile 1`] = `"INSERT $bind__1"`;
+
+exports[`insert() compile 2`] = `
+{
+  "bind__1": [
+    {
+      "firstname": "John",
+      "id": RecordId {},
+      "lastname": "Doe",
+    },
+  ],
+}
+`;

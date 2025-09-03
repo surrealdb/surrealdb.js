@@ -1,0 +1,14 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`create() compile 1`] = `"CREATE $bind__1 CONTENT $bind__2"`;
+
+exports[`create() compile 2`] = `
+{
+  "bind__1": Table {},
+  "bind__2": {
+    "firstname": "Mary",
+    "id": RecordId {},
+    "lastname": "Doe",
+  },
+}
+`;

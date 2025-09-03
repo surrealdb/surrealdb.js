@@ -2,7 +2,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { AnyRecordId, Doc } from "../types";
-import { surql } from "../utils";
+import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import { RecordId, type Table, type Uuid } from "../value";
 import { Query } from "./query";
@@ -43,6 +43,13 @@ export class RelatePromise<T, U extends Doc, J extends boolean = false> extends 
             ...this.#options,
             json: true,
         });
+    }
+
+    /**
+     * Compile this qurery into a BoundQuery
+     */
+    compile(): BoundQuery {
+        return this.#build().inner;
     }
 
     /**

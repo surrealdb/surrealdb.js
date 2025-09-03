@@ -1,10 +1,11 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
+import { only } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { Doc } from "../types";
-import { surql } from "../utils";
+import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
-import { RecordId, type RecordIdRange, type Table, type Uuid } from "../value";
+import type { RecordId, RecordIdRange, Table, Uuid } from "../value";
 import { Query } from "./query";
 
 interface UpdateOptions {
@@ -44,6 +45,13 @@ export class UpdatePromise<T, U extends Doc, J extends boolean = false> extends 
     }
 
     /**
+     * Compile this qurery into a BoundQuery
+     */
+    compile(): BoundQuery {
+        return this.#build().inner;
+    }
+
+    /**
      * Stream the results of the query as they are received.
      *
      * @returns An async iterable of query frames.
@@ -66,8 +74,7 @@ export class UpdatePromise<T, U extends Doc, J extends boolean = false> extends 
     #build(): Query<J> {
         const { thing, data, transaction, json } = this.#options;
 
-        const query =
-            thing instanceof RecordId ? surql`UPDATE ONLY ${thing}` : surql`UPDATE ${thing}`;
+        const query = surql`UPDATE ${only(thing)}`;
 
         if (data) {
             query.append(surql` CONTENT ${data}`);

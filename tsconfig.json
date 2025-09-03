@@ -22,8 +22,6 @@
         "noPropertyAccessFromIndexSignature": false,
 
         "paths": {
-            "surrealdb": ["./packages/sdk/src"],
-            "@surrealdb/cbor": ["./packages/cbor/src"]
         }
     }
 }

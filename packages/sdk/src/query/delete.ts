@@ -1,9 +1,10 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
+import { only } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import { surql } from "../utils";
+import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
-import { RecordId, type RecordIdRange, type Table, type Uuid } from "../value";
+import type { RecordId, RecordIdRange, Table, Uuid } from "../value";
 import { Query } from "./query";
 
 interface DeleteOptions {
@@ -42,6 +43,13 @@ export class DeletePromise<T, J extends boolean = false> extends DispatchedPromi
     }
 
     /**
+     * Compile this qurery into a BoundQuery
+     */
+    compile(): BoundQuery {
+        return this.#build().inner;
+    }
+
+    /**
      * Stream the results of the query as they are received.
      *
      * @returns An async iterable of query frames.
@@ -64,9 +72,7 @@ export class DeletePromise<T, J extends boolean = false> extends DispatchedPromi
     #build(): Query<J> {
         const { what, transaction, json } = this.#options;
 
-        const query = what instanceof RecordId ? surql`DELETE ONLY ${what}` : surql`DELETE ${what}`;
-
-        query.append(surql` RETURN BEFORE`);
+        const query = surql`DELETE ${only(what)} RETURN BEFORE`;
 
         return new Query(this.#connection, {
             query,

@@ -1,8 +1,13 @@
-import { beforeAll, describe, expect, test } from "bun:test";
+import { beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { RecordId, surql } from "surrealdb";
+import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
 import { setupServer } from "../__helpers__";
 
 const { createSurreal } = await setupServer();
+
+beforeEach(async () => {
+    resetIncrementalID();
+});
 
 beforeAll(async () => {
     const surreal = await createSurreal();
@@ -66,5 +71,13 @@ describe("query()", async () => {
         const [result] = await surreal.query(query).collect<[RecordId]>();
 
         expect(result.equals(record)).toBeTrue();
+    });
+
+    test("inner query", async () => {
+        const record = new RecordId("hello", "world");
+        const { query, bindings } = surreal.query(surql`RETURN ${record}`).inner;
+
+        expect(query).toMatchSnapshot();
+        expect(bindings).toMatchSnapshot();
     });
 });

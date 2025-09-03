@@ -1,6 +1,7 @@
 export * from "./bound-query";
 export * from "./equals";
 export * from "./escape";
+export * from "./expr";
 export * from "./frame";
 export * from "./jsonify";
 export * from "./live";

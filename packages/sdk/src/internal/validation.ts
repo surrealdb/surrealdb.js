@@ -1,4 +1,4 @@
-import type { AnyRecordId } from "../types";
+import type { AnyRecordId, Expr } from "../types";
 import { type Bound, BoundExcluded, BoundIncluded } from "../utils/range";
 import { RecordId, type RecordIdValue, StringRecordId, Table, Uuid } from "../value";
 
@@ -29,4 +29,8 @@ export function isValidTable(tb: unknown): tb is string | Table {
 
 export function isAnyRecordId(value: unknown): value is AnyRecordId {
     return value instanceof RecordId || value instanceof StringRecordId;
+}
+
+export function isExpression(value: unknown): value is Expr {
+    return !!value && typeof value === "object" && "toSQL" in value;
 }

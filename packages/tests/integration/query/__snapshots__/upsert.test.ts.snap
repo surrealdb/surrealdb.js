@@ -1,0 +1,13 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`upsert() compile 1`] = `"UPSERT ONLY $bind__1 CONTENT $bind__2"`;
+
+exports[`upsert() compile 2`] = `
+{
+  "bind__1": RecordId {},
+  "bind__2": {
+    "firstname": "John",
+    "lastname": "Doe",
+  },
+}
+`;

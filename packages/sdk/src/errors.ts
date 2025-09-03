@@ -245,3 +245,15 @@ export class VersionCheckFailure extends SurrealError {
         super();
     }
 }
+
+/**
+ * Thrown when an expression is invalid
+ */
+export class ExpressionError extends SurrealError {
+    name = "ExpressionError";
+    message = "Failed to parse invalid expression";
+
+    constructor(public readonly cause?: unknown) {
+        super();
+    }
+}

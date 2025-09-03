@@ -1,8 +1,13 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { RecordId } from "surrealdb";
+import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
 import { graphTable, setupServer } from "../__helpers__";
 
 const { createSurreal } = await setupServer();
+
+beforeEach(async () => {
+    resetIncrementalID();
+});
 
 type Edge = {
     id: RecordId<"graph">;
@@ -55,5 +60,18 @@ describe("relate()", async () => {
         const multiple: Edge[] = await surreal.relate(from, graphTable, to);
 
         expect(multiple).toBeArrayOfSize(2);
+    });
+
+    test.skipIf(skip)("compile", async () => {
+        const builder = surreal.relate(
+            new RecordId("edge", "in"),
+            graphTable,
+            new RecordId("edge", "out"),
+        );
+
+        const { query, bindings } = builder.compile();
+
+        expect(query).toMatchSnapshot();
+        expect(bindings).toMatchSnapshot();
     });
 });

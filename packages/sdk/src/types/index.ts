@@ -1,4 +1,5 @@
 export * from "./auth";
+export * from "./expression";
 export * from "./helpers";
 export * from "./live";
 export * from "./patch";

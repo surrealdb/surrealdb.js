@@ -1,0 +1,69 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`expression equality 1`] = `"foo = $bind__1"`;
+
+exports[`expression equality 2`] = `
+{
+  "bind__1": "bar",
+}
+`;
+
+exports[`expression and 1`] = `"(foo = $bind__1 AND hello = $bind__2 AND alpha = $bind__3)"`;
+
+exports[`expression and 2`] = `
+{
+  "bind__1": "bar",
+  "bind__2": "world",
+  "bind__3": "beta",
+}
+`;
+
+exports[`expression or 1`] = `"(foo = $bind__1 OR hello = $bind__2 OR alpha = $bind__3)"`;
+
+exports[`expression or 2`] = `
+{
+  "bind__1": "bar",
+  "bind__2": "world",
+  "bind__3": "beta",
+}
+`;
+
+exports[`expression conditional 1`] = `"(foo = $bind__1 OR alpha = $bind__2)"`;
+
+exports[`expression conditional 2`] = `
+{
+  "bind__1": "bar",
+  "bind__2": "beta",
+}
+`;
+
+exports[`expression complex 1`] = `"(hello = $bind__1 AND foo = $bind__2 AND (hello INSIDE $bind__3 OR (number >= $bind__4 AND number <= $bind__5)))"`;
+
+exports[`expression complex 2`] = `
+{
+  "bind__1": "world",
+  "bind__2": "bar",
+  "bind__3": [
+    "hello",
+  ],
+  "bind__4": 1,
+  "bind__5": 10,
+}
+`;
+
+exports[`expression raw 1`] = `"(foo = $bind__1 AND (SELECT VALUE foo FROM ->has->bar))"`;
+
+exports[`expression raw 2`] = `
+{
+  "bind__1": "bar",
+}
+`;
+
+exports[`expression not 1`] = `"(foo = $bind__1 OR NOT(hello = $bind__2))"`;
+
+exports[`expression not 2`] = `
+{
+  "bind__1": "bar",
+  "bind__2": "world",
+}
+`;

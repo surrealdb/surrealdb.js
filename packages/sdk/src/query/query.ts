@@ -30,6 +30,13 @@ export class Query<J extends boolean = false> extends DispatchedPromise<void> {
     }
 
     /**
+     * Retrieve the inner query that will be sent to the database.
+     */
+    get inner(): BoundQuery {
+        return this.#options.query;
+    }
+
+    /**
      * Configure the query to return the result of each response as a
      * JSON-compatible structure.
      *

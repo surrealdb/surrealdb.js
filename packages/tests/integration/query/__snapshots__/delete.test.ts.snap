@@ -1,0 +1,9 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`delete() compile 1`] = `"DELETE $bind__1 RETURN BEFORE"`;
+
+exports[`delete() compile 2`] = `
+{
+  "bind__1": Table {},
+}
+`;

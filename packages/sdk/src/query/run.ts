@@ -49,6 +49,13 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
     }
 
     /**
+     * Compile this qurery into a BoundQuery
+     */
+    compile(): BoundQuery {
+        return this.#build().inner;
+    }
+
+    /**
      * Stream the results of the query as they are received.
      *
      * @returns An async iterable of query frames.

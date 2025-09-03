@@ -1,0 +1,9 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`select() compile 1`] = `"SELECT * FROM ONLY $bind__1"`;
+
+exports[`select() compile 2`] = `
+{
+  "bind__1": RecordId {},
+}
+`;

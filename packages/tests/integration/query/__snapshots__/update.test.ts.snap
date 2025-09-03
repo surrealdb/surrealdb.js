@@ -1,0 +1,13 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`update() compile 1`] = `"UPDATE $bind__1 CONTENT $bind__2"`;
+
+exports[`update() compile 2`] = `
+{
+  "bind__1": Table {},
+  "bind__2": {
+    "firstname": "Mary",
+    "lastname": "Doe",
+  },
+}
+`;
