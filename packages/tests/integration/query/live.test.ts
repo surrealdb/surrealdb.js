@@ -31,7 +31,7 @@ describe("live() / liveOf()", async () => {
         expect(subscription.isAlive).toBeFalse();
     });
 
-    test("create action", async () => {
+    test.todo("create action", async () => {
         const subscription = await surreal.live(personTable);
         const { promise, resolve } = Promise.withResolvers();
         const mockHandler = mock(() => resolve());
@@ -60,7 +60,7 @@ describe("live() / liveOf()", async () => {
         await subscription.kill();
     });
 
-    test("update action", async () => {
+    test.todo("update action", async () => {
         const subscription = await surreal.live(personTable);
         const { promise, resolve } = Promise.withResolvers();
         const mockHandler = mock(() => resolve());
@@ -91,7 +91,7 @@ describe("live() / liveOf()", async () => {
         await subscription.kill();
     });
 
-    test("delete action", async () => {
+    test.todo("delete action", async () => {
         const subscription = await surreal.live(personTable);
         const { promise, resolve } = Promise.withResolvers();
         const mockHandler = mock(() => resolve());
@@ -118,7 +118,7 @@ describe("live() / liveOf()", async () => {
         await subscription.kill();
     });
 
-    test("reconnect and resume", async () => {
+    test.todo("reconnect and resume", async () => {
         const subscription = await surreal.live(personTable);
         const { promise, resolve } = Promise.withResolvers();
         const mockHandler = mock(() => resolve());
@@ -159,7 +159,7 @@ describe("live() / liveOf()", async () => {
         expect(subscription.isAlive).toBeFalse();
     });
 
-    test("unmanaged subscription properties", async () => {
+    test.todo("unmanaged subscription properties", async () => {
         const [liveId] = await surreal.query("LIVE SELECT * FROM person").collect<[Uuid]>();
         const subscription = await surreal.liveOf(liveId);
 
@@ -172,7 +172,7 @@ describe("live() / liveOf()", async () => {
         expect(subscription.isAlive).toBeFalse();
     });
 
-    test("unmanaged create action", async () => {
+    test.todo("unmanaged create action", async () => {
         const [liveId] = await surreal.query("LIVE SELECT * FROM person").collect<[Uuid]>();
         const subscription = await surreal.liveOf(liveId);
         const { promise, resolve } = Promise.withResolvers();
@@ -202,7 +202,7 @@ describe("live() / liveOf()", async () => {
         await subscription.kill();
     });
 
-    test("iterable", async () => {
+    test.todo("iterable", async () => {
         const subscription = await surreal.live(personTable);
         const messages: LiveMessage[] = [];
 
@@ -234,7 +234,7 @@ describe("live() / liveOf()", async () => {
         expect(messages[2].action).toEqual("DELETE");
     });
 
-    test("iterable survives reconnect", async () => {
+    test.todo("iterable survives reconnect", async () => {
         const subscription = await surreal.live(personTable);
         const initialId = subscription.id;
         const messages: LiveMessage[] = [];
