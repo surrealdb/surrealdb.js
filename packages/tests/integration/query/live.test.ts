@@ -1,8 +1,13 @@
-import { describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { eq, type LiveMessage, RecordId, type Uuid } from "surrealdb";
+import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
 import { insertMockRecords, type Person, personTable, setupServer } from "../__helpers__";
 
 const { createSurreal, kill, spawn } = await setupServer();
+
+beforeEach(async () => {
+    resetIncrementalID();
+});
 
 describe("live() / liveOf()", async () => {
     const surreal = await createSurreal({
