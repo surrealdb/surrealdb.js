@@ -29,7 +29,8 @@ Temporary Items
 npm
 node_modules
 dist
-
+target
+build
 
 # -----------------------------------
 # Files
