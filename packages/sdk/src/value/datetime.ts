@@ -17,6 +17,14 @@ export class DateTime extends Value {
     readonly #seconds: bigint;
     readonly #nanoseconds: bigint;
 
+    private static loadHr =
+        typeof process !== "undefined" && process.hrtime
+            ? {
+                  ns: process.hrtime.bigint(),
+                  ms: BigInt(Date.now()),
+              }
+            : undefined;
+
     /**
      * Constructs a new DateTime with the current time, equivalent to `DateTime.now()`
      */
@@ -351,10 +359,20 @@ export class DateTime extends Value {
      * Returns a new DateTime representing the current time
      */
     static now(): DateTime {
+        // Use process.hrtime() for nanosecond precision if available (Node.js)
+        if (DateTime.loadHr) {
+            const diffNs = process.hrtime.bigint() - DateTime.loadHr.ns;
+            const totalNanoseconds = DateTime.loadHr.ms * 1000000n + diffNs;
+            const seconds = totalNanoseconds / 1000000000n;
+            const nanoseconds = totalNanoseconds % 1000000000n;
+            return new DateTime([seconds, nanoseconds]);
+        }
+
         // Use high-precision timing if the Performance API is available
         if (typeof performance !== "undefined" && performance.now && performance.timeOrigin) {
             const totalMilliseconds = performance.timeOrigin + performance.now();
             const seconds = BigInt(Math.floor(totalMilliseconds / 1000));
+            // performance.now() returns microseconds as float, so multiply by 1000 to get nanoseconds
             const nanoseconds = BigInt(Math.floor((totalMilliseconds % 1000) * 1000000));
             return new DateTime([seconds, nanoseconds]);
         }
