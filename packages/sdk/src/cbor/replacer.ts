@@ -19,6 +19,7 @@ import {
     Table,
     Uuid,
 } from "../value";
+import { FileRef } from "../value/file";
 import { cborToRange, rangeToCbor } from "./utils";
 
 // Tags from the spec - https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml
@@ -41,6 +42,9 @@ const TAG_FUTURE = 15;
 export const TAG_RANGE = 49;
 export const TAG_BOUND_INCLUDED = 50;
 export const TAG_BOUND_EXCLUDED = 51;
+
+// File Pointer
+const TAG_FILE_POINTER = 55;
 
 // Custom Geometries
 const TAG_GEOMETRY_POINT = 88;
@@ -87,6 +91,9 @@ export const REPLACER = {
         if (v instanceof Table) return new Tagged(TAG_TABLE, v.name);
         if (v instanceof Future) return new Tagged(TAG_FUTURE, v.body);
         if (v instanceof Range) return new Tagged(TAG_RANGE, rangeToCbor([v.begin, v.end]));
+        if (v instanceof FileRef) {
+            return new Tagged(TAG_FILE_POINTER, [v.bucket, v.key]);
+        }
         if (v instanceof GeometryPoint) {
             return new Tagged(TAG_GEOMETRY_POINT, v.point);
         }
@@ -130,6 +137,7 @@ export const REPLACER = {
             }
             return new RecordId(v[0], v[1]);
         },
+        [TAG_FILE_POINTER]: (v) => new FileRef(v[0], v[1]),
         [TAG_GEOMETRY_POINT]: (v) => new GeometryPoint(v),
         [TAG_GEOMETRY_LINE]: (v) => new GeometryLine(v),
         [TAG_GEOMETRY_POLYGON]: (v) => new GeometryPolygon(v),
