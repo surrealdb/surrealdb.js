@@ -1,4 +1,4 @@
-import { StringRecordId, Uuid } from "../value";
+import { DateTime, StringRecordId, Uuid } from "../value";
 
 /**
  * A template literal tag function for parsing a string type.
@@ -18,8 +18,8 @@ export function s(string: string[] | TemplateStringsArray, ...values: unknown[])
  * @param values The interpolated values
  * @returns The parsed Date
  */
-export function d(string: string[] | TemplateStringsArray, ...values: unknown[]): Date {
-    return new Date(s(string, values));
+export function d(string: string[] | TemplateStringsArray, ...values: unknown[]): DateTime {
+    return new DateTime(s(string, values));
 }
 
 /**
