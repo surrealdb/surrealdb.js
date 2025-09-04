@@ -132,7 +132,8 @@ export class DateTime extends Value {
      */
     toISOString(): string {
         // Calculate total milliseconds including nanosecond precision
-        const totalMilliseconds = Number(this.#seconds) * 1000 + Number(this.#nanoseconds) / 1000000;
+        const totalMilliseconds =
+            Number(this.#seconds) * 1000 + Number(this.#nanoseconds) / 1000000;
         const date = new Date(totalMilliseconds);
         const isoString = date.toISOString();
 
@@ -144,7 +145,7 @@ export class DateTime extends Value {
         const nanoseconds = this.#nanoseconds.toString().padStart(9, "0");
         // Remove trailing zeros
         const trimmed = nanoseconds.replace(/0+$/, "");
-        
+
         // Replace the milliseconds part with the full nanosecond precision
         return isoString.replace(/\.\d{3}Z$/, `.${trimmed}Z`);
     }
@@ -171,7 +172,7 @@ export class DateTime extends Value {
 
         if (match) {
             const [, year, month, day, hour, minute, second, fraction] = match;
-            
+
             // Parse the base time without fraction first
             const baseIsoString = `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
             const baseTimestamp = Date.parse(baseIsoString);
@@ -182,7 +183,7 @@ export class DateTime extends Value {
 
             const seconds = BigInt(Math.floor(baseTimestamp / 1000));
             let nanoseconds = 0n;
-            
+
             if (fraction) {
                 // Convert fraction to nanoseconds based on its length
                 const fractionLength = fraction.length;
