@@ -40,7 +40,7 @@ const DURATION_PART_REGEX = new RegExp(
 );
 
 /**
- * A high-precision duration class supporting parsing, formatting, arithmetic, and nanosecond precision
+ * A SurrealQL duration value with support for parsing, formatting, arithmetic, and nanosecond precision.
  */
 export class Duration extends Value {
     readonly #seconds: bigint;

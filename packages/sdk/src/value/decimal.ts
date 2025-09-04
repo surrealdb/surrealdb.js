@@ -3,8 +3,7 @@ import { Value } from "./value";
 export type DecimalTuple = [bigint, bigint, number];
 
 /**
- * Represents a high-precision decimal number with an integer and fractional part
- * Useful for financial and scientific calculations that require precision beyond JavaScript's native number type
+ * A SurrealQL decimal number value with support for parsing, formatting, arithmetic, and high precision.
  */
 export class Decimal extends Value {
     readonly #int: bigint;

@@ -11,7 +11,7 @@ const SECOND = 1000n * MILLISECOND;
 export type DateTimeTuple = [number | bigint, number | bigint] | [number | bigint] | [];
 
 /**
- * A high-precision datetime class supporting parsing, formatting, arithmetic, and nanosecond precision
+ * A SurrealQL datetime value with support for parsing, formatting, arithmetic, and nanosecond precision.
  */
 export class DateTime extends Value {
     readonly #seconds: bigint;

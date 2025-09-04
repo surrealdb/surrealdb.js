@@ -1,5 +1,8 @@
 import { Value } from "./value";
 
+/**
+ * A SurrealQL file reference value.
+ */
 export class FileRef extends Value {
     readonly #bucket: string;
     readonly #key: string;
