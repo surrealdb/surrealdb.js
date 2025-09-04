@@ -42,6 +42,21 @@ export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
         });
     }
 
+    throw(error?: any): Promise<IteratorResult<T>> {
+        // Cancel the iterator immediately - protocol errors should terminate the stream
+        this.#cancelled = true;
+        this.#cleanup?.();
+        
+        // If there's a waiter, resolve it with the error
+        if (this.#waiter) {
+            this.#waiter({ value: undefined, done: true });
+            this.#waiter = undefined;
+        }
+
+        // Propagate the error to the consumer
+        return Promise.reject(error);
+    }
+
     [Symbol.asyncIterator]() {
         return this;
     }
