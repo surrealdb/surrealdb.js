@@ -125,6 +125,8 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
             query.append(surql` type::fields(${fields})`);
         } else if (selection === "value") {
             query.append(surql` VALUE type::field(${fields?.[0]})`);
+        } else if (selection === "diff") {
+            query.append(surql` DIFF`);
         } else {
             query.append(surql` *`);
         }
