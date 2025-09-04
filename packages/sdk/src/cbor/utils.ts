@@ -5,19 +5,6 @@ import { TAG_BOUND_EXCLUDED, TAG_BOUND_INCLUDED } from "./replacer";
 
 type DecodedBound = BoundIncluded<unknown> | BoundExcluded<unknown> | null;
 
-export function dateToCborCustomDate(date: Date): [number, number] {
-    const s = Math.floor(date.getTime() / 1000);
-    const ms = date.getTime() - s * 1000;
-    return [s, ms * 1000000];
-}
-
-export function cborCustomDateToDate([s, ns]: [number, number]): Date {
-    const date = new Date(0);
-    date.setUTCSeconds(Number(s));
-    date.setMilliseconds(Math.floor(Number(ns) / 1000000));
-    return date;
-}
-
 export function rangeToCbor([beg, end]: [Bound<unknown>, Bound<unknown>]): [
     Tagged | null,
     Tagged | null,
