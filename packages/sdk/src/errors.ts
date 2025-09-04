@@ -22,7 +22,8 @@ export class UnexpectedResponse extends SurrealError {
  */
 export class InvalidURLProvided extends SurrealError {
     override name = "InvalidURLProvided";
-    override message = "The provided string is either not a URL or is a URL but with an invalid protocol!";
+    override message =
+        "The provided string is either not a URL or is a URL but with an invalid protocol!";
 }
 
 /**
