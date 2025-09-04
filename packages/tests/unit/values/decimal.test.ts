@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { Decimal } from "surrealdb"; // adjust the import path as needed
 
-describe("decimal", () => {
+describe("Decimal", () => {
     test("parses and returns high-precision values", () => {
         const input =
             "12345678901234567890123456789012345678.87654321098765432109876543210987654321";
@@ -197,57 +197,57 @@ describe("decimal", () => {
             expect(d.toString()).toBe(expected);
         }
     });
-});
 
-describe("fuzzing decimal", () => {
-    const decimalStrArb = fc
-        .stringMatching(/^-?\d+(\.\d+)?$/)
-        .filter((s) => s.length > 0 && s.length < 80);
+    describe("fuzzing", () => {
+        const decimalStrArb = fc
+            .stringMatching(/^-?\d+(\.\d+)?$/)
+            .filter((s) => s.length > 0 && s.length < 80);
 
-    const decimalArb = decimalStrArb.map((str) => new Decimal(str));
+        const decimalArb = decimalStrArb.map((str) => new Decimal(str));
 
-    test("add identity", () => {
-        fc.assert(fc.property(decimalArb, (d) => d.add(new Decimal("0")).equals(d)));
-    });
+        test("add identity", () => {
+            fc.assert(fc.property(decimalArb, (d) => d.add(new Decimal("0")).equals(d)));
+        });
 
-    test("sub self is zero", () => {
-        fc.assert(fc.property(decimalArb, (d) => d.sub(d).isZero()));
-    });
+        test("sub self is zero", () => {
+            fc.assert(fc.property(decimalArb, (d) => d.sub(d).isZero()));
+        });
 
-    test("mul by one", () => {
-        fc.assert(fc.property(decimalArb, (d) => d.mul(new Decimal("1")).equals(d)));
-    });
+        test("mul by one", () => {
+            fc.assert(fc.property(decimalArb, (d) => d.mul(new Decimal("1")).equals(d)));
+        });
 
-    test("div by self is one (nonzero)", () => {
-        fc.assert(
-            fc.property(
-                decimalArb.filter((d) => !d.isZero()),
-                (d) => d.div(d).toString() === "1",
-            ),
-        );
-    });
+        test("div by self is one (nonzero)", () => {
+            fc.assert(
+                fc.property(
+                    decimalArb.filter((d) => !d.isZero()),
+                    (d) => d.div(d).toString() === "1",
+                ),
+            );
+        });
 
-    test("mul commutativity", () => {
-        fc.assert(
-            fc.property(
-                decimalArb,
-                decimalArb,
-                (a, b) => a.mul(b).toString() === b.mul(a).toString(),
-            ),
-        );
-    });
+        test("mul commutativity", () => {
+            fc.assert(
+                fc.property(
+                    decimalArb,
+                    decimalArb,
+                    (a, b) => a.mul(b).toString() === b.mul(a).toString(),
+                ),
+            );
+        });
 
-    test("add associativity (approx)", () => {
-        fc.assert(
-            fc.property(decimalArb, decimalArb, decimalArb, (a, b, c) => {
-                const left = a.add(b).add(c);
-                const right = a.add(b.add(c));
-                return left.equals(right);
-            }),
-        );
-    });
+        test("add associativity (approx)", () => {
+            fc.assert(
+                fc.property(decimalArb, decimalArb, decimalArb, (a, b, c) => {
+                    const left = a.add(b).add(c);
+                    const right = a.add(b.add(c));
+                    return left.equals(right);
+                }),
+            );
+        });
 
-    test("mul by zero is zero", () => {
-        fc.assert(fc.property(decimalArb, (d) => d.mul(new Decimal("0")).isZero()));
+        test("mul by zero is zero", () => {
+            fc.assert(fc.property(decimalArb, (d) => d.mul(new Decimal("0")).isZero()));
+        });
     });
 });

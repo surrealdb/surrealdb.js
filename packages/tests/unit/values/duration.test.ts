@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { Duration } from "surrealdb";
 
-describe("durations", () => {
+describe("Duration", () => {
     test("string equality", () => {
         expect(new Duration("1ns").toString()).toBe("1ns");
         expect(new Duration("1us").toString()).toBe("1us");
@@ -123,88 +123,89 @@ describe("durations", () => {
         const elapsed = stop();
         expect(Number(elapsed.milliseconds)).toBeWithin(48, 52);
     });
-});
 
-describe("fuzzing durations", () => {
-    const nsArb = fc.bigInt({ min: 0n, max: 999_999_999n });
-    const durArb = fc
-        .record({
-            seconds: fc.bigInt({ min: 0n, max: 2n ** 63n - 1n }),
-            nanoseconds: nsArb,
-        })
-        .map(({ seconds, nanoseconds }) => new Duration([seconds, nanoseconds]));
+    describe("fuzzing", () => {
+        const nsArb = fc.bigInt({ min: 0n, max: 999_999_999n });
+        const durArb = fc
+            .record({
+                seconds: fc.bigInt({ min: 0n, max: 2n ** 63n - 1n }),
+                nanoseconds: nsArb,
+            })
+            .map(({ seconds, nanoseconds }) => new Duration([seconds, nanoseconds]));
 
-    test("add identity", () => {
-        fc.assert(
-            fc.property(durArb, (d) => {
-                const zero = new Duration([0n, 0n]);
-                return d.add(zero).toCompact().toString() === d.toCompact().toString();
-            }),
-        );
-    });
+        test("add identity", () => {
+            fc.assert(
+                fc.property(durArb, (d) => {
+                    const zero = new Duration([0n, 0n]);
+                    return d.add(zero).toCompact().toString() === d.toCompact().toString();
+                }),
+            );
+        });
 
-    test("sub self equals zero", () => {
-        fc.assert(
-            fc.property(durArb, (d) => {
-                const result = d.sub(d).toCompact();
-                return result.length === 0 || (result[0] === 0n && (result[1] ?? 0n) === 0n);
-            }),
-        );
-    });
+        test("sub self equals zero", () => {
+            fc.assert(
+                fc.property(durArb, (d) => {
+                    const result = d.sub(d).toCompact();
+                    return result.length === 0 || (result[0] === 0n && (result[1] ?? 0n) === 0n);
+                }),
+            );
+        });
 
-    test("multiply by one", () => {
-        fc.assert(
-            fc.property(durArb, (d) => {
-                return d.mul(1).toCompact().toString() === d.toCompact().toString();
-            }),
-        );
-    });
+        test("multiply by one", () => {
+            fc.assert(
+                fc.property(durArb, (d) => {
+                    return d.mul(1).toCompact().toString() === d.toCompact().toString();
+                }),
+            );
+        });
 
-    test("div by self is one (only if exact)", () => {
-        fc.assert(
-            fc.property(
-                durArb.filter((d) => d.toCompact().length > 0),
-                (d) => {
-                    const [, ns = 0n] = d.toCompact();
-                    if (ns === 0n) {
-                        return d.div(d) === 1n;
-                    }
-                    return true;
-                },
-            ),
-        );
-    });
+        test("div by self is one (only if exact)", () => {
+            fc.assert(
+                fc.property(
+                    durArb.filter((d) => d.toCompact().length > 0),
+                    (d) => {
+                        const [, ns = 0n] = d.toCompact();
+                        if (ns === 0n) {
+                            return d.div(d) === 1n;
+                        }
+                        return true;
+                    },
+                ),
+            );
+        });
 
-    test("mod by self is zero (only if exact)", () => {
-        fc.assert(
-            fc.property(
-                durArb.filter((d) => d.toCompact().length > 0),
-                (d) => {
-                    const [, ns = 0n] = d.toCompact();
-                    const result = d.mod(d).toCompact();
-                    if (ns === 0n) {
-                        return (
-                            result.length === 0 || (result[0] === 0n && (result[1] ?? 0n) === 0n)
-                        );
-                    }
-                    return true;
-                },
-            ),
-        );
-    });
+        test("mod by self is zero (only if exact)", () => {
+            fc.assert(
+                fc.property(
+                    durArb.filter((d) => d.toCompact().length > 0),
+                    (d) => {
+                        const [, ns = 0n] = d.toCompact();
+                        const result = d.mod(d).toCompact();
+                        if (ns === 0n) {
+                            return (
+                                result.length === 0 ||
+                                (result[0] === 0n && (result[1] ?? 0n) === 0n)
+                            );
+                        }
+                        return true;
+                    },
+                ),
+            );
+        });
 
-    test("division and remainder reconstruct original (only if clean)", () => {
-        fc.assert(
-            fc.property(
-                durArb.filter((d) => d.toCompact().length > 0),
-                durArb.filter((d) => d.toCompact().length > 0),
-                (a, b) => {
-                    const q = a.div(b);
-                    const r = a.mod(b);
-                    const recon = b.mul(q).add(r);
-                    return recon.toCompact().toString() === a.toCompact().toString();
-                },
-            ),
-        );
+        test("division and remainder reconstruct original (only if clean)", () => {
+            fc.assert(
+                fc.property(
+                    durArb.filter((d) => d.toCompact().length > 0),
+                    durArb.filter((d) => d.toCompact().length > 0),
+                    (a, b) => {
+                        const q = a.div(b);
+                        const r = a.mod(b);
+                        const recon = b.mul(q).add(r);
+                        return recon.toCompact().toString() === a.toCompact().toString();
+                    },
+                ),
+            );
+        });
     });
 });
