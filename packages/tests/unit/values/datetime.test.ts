@@ -7,18 +7,18 @@ describe("DateTime", () => {
         const dt = new DateTime();
         const now = new Date();
         const diff = Math.abs(dt.milliseconds - now.valueOf());
-        expect(diff).toBeLessThan(100);
+        expect(diff).toBeLessThan(5);
     });
 
     test("constructor with Date object", () => {
         const date = new Date("2023-12-25T10:30:00.123Z");
         const dt = new DateTime(date);
-        expect(dt.toISOString()).toBe("2023-12-25T10:30:00.000.123Z");
+        expect(dt.toISOString()).toBe("2023-12-25T10:30:00.123Z");
     });
 
     test("constructor with ISO string", () => {
         const dt = new DateTime("2023-12-25T10:30:00.456Z");
-        expect(dt.toISOString()).toBe("2023-12-25T10:30:00.000.456Z");
+        expect(dt.toISOString()).toBe("2023-12-25T10:30:00.456Z");
     });
 
     test("constructor with seconds", () => {
@@ -33,17 +33,17 @@ describe("DateTime", () => {
 
     test("constructor with milliseconds", () => {
         const dt = DateTime.fromEpochMilliseconds(1703500200123); // 2023-12-25T10:30:00.123Z
-        expect(dt.toISOString()).toBe("2023-12-25T10:30:00.000.123Z");
+        expect(dt.toISOString()).toBe("2023-12-25T10:30:00.123Z");
     });
 
     test("constructor with nanoseconds", () => {
         const dt = DateTime.fromEpochNanoseconds(1703500200000000123n); // 2023-12-25T10:30:00.000000123Z
-        expect(dt.toISOString()).toBe("2023-12-25T10:30:00.000.000000123Z");
+        expect(dt.toISOString()).toBe("2023-12-25T10:30:00.000000123Z");
     });
 
     test("constructor with tuple notation", () => {
         const dt = new DateTime([1703500200n, 123000000n]);
-        expect(dt.toISOString()).toBe("2023-12-25T10:30:00.000.123Z");
+        expect(dt.toISOString()).toBe("2023-12-25T10:30:00.123Z");
     });
 
     test("epoch static method", () => {
@@ -127,12 +127,12 @@ describe("DateTime", () => {
 
     test("toJSON method", () => {
         const dt = new DateTime("2023-12-25T10:30:00.123Z");
-        expect(dt.toJSON()).toBe("2023-12-25T10:30:00.000.123Z");
+        expect(dt.toJSON()).toBe("2023-12-25T10:30:00.123Z");
     });
 
     test("toString method", () => {
         const dt = new DateTime("2023-12-25T10:30:00.123Z");
-        expect(dt.toString()).toBe("2023-12-25T10:30:00.000.123Z");
+        expect(dt.toString()).toBe("2023-12-25T10:30:00.123Z");
     });
 
     test("parseString with invalid format", () => {

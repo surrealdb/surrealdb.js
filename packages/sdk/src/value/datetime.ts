@@ -17,6 +17,12 @@ export class DateTime extends Value {
     readonly #seconds: bigint;
     readonly #nanoseconds: bigint;
 
+    private static load = typeof process !== "undefined" && process.hrtime 
+        ? {
+            nanoseconds: process.hrtime(),
+            milliseconds: Date.now(),
+        } : undefined;
+
     /**
      * Constructs a new DateTime with the current time, equivalent to `DateTime.now()`
      */
@@ -131,18 +137,22 @@ export class DateTime extends Value {
      * Formats the datetime as an ISO 8601 string
      */
     toISOString(): string {
-        const date = new Date(Number(this.#seconds) * 1000);
+        // Calculate total milliseconds including nanosecond precision
+        const totalMilliseconds = Number(this.#seconds) * 1000 + Number(this.#nanoseconds) / 1000000;
+        const date = new Date(totalMilliseconds);
         const isoString = date.toISOString();
 
         if (this.#nanoseconds === 0n) {
             return isoString;
         }
 
-        // Add nanoseconds to the ISO string, but only show significant digits
+        // Format nanoseconds as a single fractional part (up to 9 digits)
         const nanoseconds = this.#nanoseconds.toString().padStart(9, "0");
         // Remove trailing zeros
         const trimmed = nanoseconds.replace(/0+$/, "");
-        return isoString.replace("Z", `.${trimmed}Z`);
+        
+        // Replace the milliseconds part with the full nanosecond precision
+        return isoString.replace(/\.\d{3}Z$/, `.${trimmed}Z`);
     }
 
     /**
@@ -167,16 +177,32 @@ export class DateTime extends Value {
 
         if (match) {
             const [, year, month, day, hour, minute, second, fraction] = match;
-            // Create ISO string and parse it to handle timezone correctly
-            const isoString = `${year}-${month}-${day}T${hour}:${minute}:${second}${fraction ? `.${fraction}` : ""}Z`;
-            const timestamp = Date.parse(isoString);
+            
+            // Parse the base time without fraction first
+            const baseIsoString = `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
+            const baseTimestamp = Date.parse(baseIsoString);
 
-            if (Number.isNaN(timestamp)) {
+            if (Number.isNaN(baseTimestamp)) {
                 throw new SurrealError(`Invalid datetime format: ${input}`);
             }
 
-            const seconds = BigInt(Math.floor(timestamp / 1000));
-            const nanoseconds = fraction ? BigInt(fraction.padEnd(9, "0")) : 0n;
+            const seconds = BigInt(Math.floor(baseTimestamp / 1000));
+            let nanoseconds = 0n;
+            
+            if (fraction) {
+                // Convert fraction to nanoseconds based on its length
+                const fractionLength = fraction.length;
+                if (fractionLength <= 3) {
+                    // Milliseconds: convert to nanoseconds
+                    nanoseconds = BigInt(fraction.padEnd(3, "0")) * 1000000n;
+                } else if (fractionLength <= 6) {
+                    // Microseconds: convert to nanoseconds
+                    nanoseconds = BigInt(fraction.padEnd(6, "0")) * 1000n;
+                } else {
+                    // Already nanoseconds: pad to 9 digits
+                    nanoseconds = BigInt(fraction.padEnd(9, "0"));
+                }
+            }
 
             return [seconds, nanoseconds];
         }
@@ -335,6 +361,19 @@ export class DateTime extends Value {
             const now = performance.timeOrigin + performance.now();
             const seconds = BigInt(Math.floor(now / 1000));
             const nanoseconds = BigInt(Math.floor((now % 1000) * 1000000));
+            return new DateTime([seconds, nanoseconds]);
+        }
+
+        // Check if we have hrtime reference point (Node.js/Bun with process.hrtime)
+        if (DateTime.load) {
+            const diffNs = process.hrtime(DateTime.load.nanoseconds);
+            const totalNanoseconds = BigInt(DateTime.load.milliseconds) * 1000000n + 
+                BigInt(diffNs[0]) * 1000000000n + 
+                BigInt(diffNs[1]);
+            
+            const seconds = totalNanoseconds / 1000000000n;
+            const nanoseconds = totalNanoseconds % 1000000000n;
+            
             return new DateTime([seconds, nanoseconds]);
         }
 
