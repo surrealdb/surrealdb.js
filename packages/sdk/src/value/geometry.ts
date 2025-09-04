@@ -5,7 +5,7 @@ import { Value } from "./value.ts";
  * A SurrealQL geometry value.
  */
 export abstract class Geometry extends Value {
-    abstract toJSON(): GeoJson;
+    abstract override toJSON(): GeoJson;
     abstract is(geometry: Geometry): boolean;
     abstract clone(): Geometry;
 

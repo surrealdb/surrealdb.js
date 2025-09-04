@@ -20,6 +20,7 @@
         "noUnusedLocals": false,
         "noUnusedParameters": false,
         "noPropertyAccessFromIndexSignature": false,
+        "noImplicitOverride": true,
 
         "paths": {
             "surrealdb": ["./packages/sdk/src"]

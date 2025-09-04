@@ -16,9 +16,16 @@
         "turbo": "^2.5.6",
       },
     },
+    "packages/node": {
+      "name": "@surrealdb/node",
+      "version": "2.0.0-alpha.4+2.3.7",
+      "devDependencies": {
+        "surrealdb": "workspace:*",
+      },
+    },
     "packages/sdk": {
       "name": "surrealdb",
-      "version": "2.0.0-alpha.4+2.3.7",
+      "version": "2.0.0-alpha.4",
       "dependencies": {
         "@surrealdb/cbor": "2.0.0-alpha.4",
         "uuidv7": "^1.0.1",
@@ -37,7 +44,16 @@
       "name": "@surrealdb/tests",
       "dependencies": {
         "@surrealdb/cbor": "2.0.0-alpha.4",
+        "@surrealdb/node": "workspace:*",
+        "@surrealdb/wasm": "workspace:*",
         "get-port": "^7.1.0",
+        "surrealdb": "workspace:*",
+      },
+    },
+    "packages/wasm": {
+      "name": "@surrealdb/wasm",
+      "version": "2.0.0-alpha.4+2.3.7",
+      "devDependencies": {
         "surrealdb": "workspace:*",
       },
     },
@@ -147,7 +163,11 @@
 
     "@surrealdb/cbor": ["@surrealdb/cbor@2.0.0-alpha.4", "", {}, "sha512-l/hNZ3ZCOJq8rzwx1y5ZV/8b2bYCWdhGqRVY33Pu50NAHyAW5qLsMn3ZBkZow77mAKwNCsbDsRGnyYEuU95mjw=="],
 
+    "@surrealdb/node": ["@surrealdb/node@workspace:packages/node"],
+
     "@surrealdb/tests": ["@surrealdb/tests@workspace:packages/tests"],
+
+    "@surrealdb/wasm": ["@surrealdb/wasm@workspace:packages/wasm"],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.0", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-VyyPYFlOMNylG45GoAe0xDoLwWuowvf92F9kySqzYh8vmYm7D2u4iUJKa1tOUpS70Ku13ASrOkS4ScXFsTaCNQ=="],
 
