@@ -91,6 +91,28 @@ export class Duration extends Value {
         }
     }
 
+    /**
+     * Measures the elapsed time since the function was called
+     * If the Performance API is available, it uses it to measure the elapsed time in nanoseconds
+     *
+     * @returns A function that returns the elapsed time as a Duration
+     */
+    static measure(): () => Duration {
+        if (typeof performance !== "undefined") {
+            const start = performance.now();
+            return () => {
+                const end = performance.now();
+                return Duration.nanoseconds((end - start) * 1000000);
+            };
+        }
+
+        const start = Date.now();
+        return () => {
+            const end = Date.now();
+            return Duration.nanoseconds((end - start) * 1000000);
+        };
+    }
+
     equals(other: unknown): boolean {
         if (!(other instanceof Duration)) return false;
         return this.#seconds === other.#seconds && this.#nanoseconds === other.#nanoseconds;

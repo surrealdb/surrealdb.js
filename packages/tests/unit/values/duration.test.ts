@@ -116,6 +116,13 @@ describe("durations", () => {
         const dur = new Duration([1n, 1_500_000_000n]);
         expect(dur.toCompact()).toStrictEqual([2n, 500_000_000n]);
     });
+
+    test("measure", async () => {
+        const stop = Duration.measure();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const elapsed = stop();
+        expect(Number(elapsed.milliseconds)).toBeWithin(48, 52);
+    });
 });
 
 describe("fuzzing durations", () => {
