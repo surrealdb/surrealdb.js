@@ -330,21 +330,13 @@ export class DateTime extends Value {
      * Returns a new DateTime representing the current time
      */
     static now(): DateTime {
-        // if (typeof process !== "undefined" && process.hrtime) {
-        //     const now = Date.now();
-        //     const hrtime = process.hrtime.bigint();
-        //     const seconds = BigInt(Math.floor(now / 1000));
-        //     const nanoseconds = hrtime % 1000000000n;
-        //     return new DateTime([seconds, nanoseconds]);
-        // }
-
-        // // Check if we're in a browser with performance.now()
-        // if (typeof performance !== "undefined" && performance.now) {
-        //     const now = performance.now();
-        //     const seconds = BigInt(Math.floor(now / 1000));
-        //     const nanoseconds = BigInt((now % 1000) * 1000000);
-        //     return new DateTime([seconds, nanoseconds]);
-        // }
+        // Use nanosecond precision if the Performance API is available
+        if (typeof performance !== "undefined" && performance.now && performance.timeOrigin) {
+            const now = performance.timeOrigin + performance.now();
+            const seconds = BigInt(Math.floor(now / 1000));
+            const nanoseconds = BigInt(Math.floor((now % 1000) * 1000000));
+            return new DateTime([seconds, nanoseconds]);
+        }
 
         // Fallback to standard Date.now()
         const now = Date.now();
