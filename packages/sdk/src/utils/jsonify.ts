@@ -2,6 +2,7 @@ import type {
     DateTime,
     Decimal,
     Duration,
+    FileRef,
     Future,
     Geometry,
     Range,
@@ -21,6 +22,7 @@ export type Jsonify<T> = T extends
     | Decimal
     | Duration
     | Future
+    | FileRef
     | Range<unknown, unknown>
     | StringRecordId
     ? string

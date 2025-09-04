@@ -2,6 +2,7 @@ import {
     DateTime,
     Decimal,
     Duration,
+    FileRef,
     Future,
     Geometry,
     Range,
@@ -36,7 +37,8 @@ export function toSurqlString(input: unknown): string {
             input instanceof Duration ||
             input instanceof Future ||
             input instanceof Range ||
-            input instanceof Table
+            input instanceof Table ||
+            input instanceof FileRef
         ) {
             return input.toJSON();
         }
