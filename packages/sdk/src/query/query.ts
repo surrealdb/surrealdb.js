@@ -19,7 +19,10 @@ type Collect<T extends unknown[], J extends boolean> = T extends []
 /**
  * A configurable query sent to a SurrealDB instance.
  */
-export class Query<J extends boolean = false> extends DispatchedPromise<void> {
+export class Query<
+    R extends unknown[] = unknown[],
+    J extends boolean = false,
+> extends DispatchedPromise<void> {
     #connection: ConnectionController;
     #options: QueryOptions;
 
@@ -43,7 +46,7 @@ export class Query<J extends boolean = false> extends DispatchedPromise<void> {
      * This is useful when query results need to be serialized. Keep in mind
      * that your responses will lose SurrealDB type information.
      */
-    json(): Query<true> {
+    json(): Query<R, true> {
         return new Query(this.#connection, {
             ...this.#options,
             json: true,
@@ -64,7 +67,7 @@ export class Query<J extends boolean = false> extends DispatchedPromise<void> {
      * @param queries The queries to collect. If no queries are provided, all queries will be collected.
      * @returns A promise that resolves to the results of all queries at once.
      */
-    async collect<T extends unknown[] = []>(...queries: number[]): Promise<Collect<T, J>> {
+    async collect<T extends unknown[] = R>(...queries: number[]): Promise<Collect<T, J>> {
         await this.#connection.ready();
 
         const { query, transaction, json } = this.#options;

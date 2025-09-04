@@ -143,7 +143,7 @@ export class SelectPromise<T, I, J extends boolean = false> extends DispatchedPr
     /**
      * Compile this qurery into a BoundQuery
      */
-    compile(): BoundQuery {
+    compile(): BoundQuery<[T]> {
         return this.#build().inner;
     }
 
@@ -164,10 +164,10 @@ export class SelectPromise<T, I, J extends boolean = false> extends DispatchedPr
     protected async dispatch(): Promise<MaybeJsonify<T, J>> {
         await this.#connection.ready();
         const [result] = await this.#build().collect();
-        return result as MaybeJsonify<T, J>;
+        return result;
     }
 
-    #build(): Query<J> {
+    #build(): Query<[T], J> {
         const {
             what,
             transaction,

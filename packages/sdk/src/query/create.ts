@@ -81,7 +81,7 @@ export class CreatePromise<T, J extends boolean = false> extends DispatchedPromi
     /**
      * Compile this qurery into a BoundQuery
      */
-    compile(): BoundQuery {
+    compile(): BoundQuery<[T]> {
         return this.#build().inner;
     }
 
@@ -102,10 +102,10 @@ export class CreatePromise<T, J extends boolean = false> extends DispatchedPromi
     protected async dispatch(): Promise<MaybeJsonify<T, J>> {
         await this.#connection.ready();
         const [result] = await this.#build().collect();
-        return result as MaybeJsonify<T, J>;
+        return result;
     }
 
-    #build(): Query<J> {
+    #build(): Query<[T], J> {
         const { what, data, transaction, json, output, timeout, version } = this.#options;
 
         const query = surql`CREATE ${_only(what)}`;

@@ -314,7 +314,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param query The BoundQuery instance
      * @returns A `Query` instance which can be used to execute or configure the query
      */
-    query(query: BoundQuery): Query;
+    query<R extends unknown[] = unknown[]>(query: BoundQuery<R>): Query<R>;
 
     // Shadow implementation
     query(query: string | BoundQuery, bindings?: Record<string, unknown>): Query {

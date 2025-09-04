@@ -1,21 +1,21 @@
 /**
  * A bound query represents a query string combined with bindings.
  */
-export class BoundQuery {
+export class BoundQuery<R extends unknown[] = unknown[]> {
     #query: string;
     #bindings: Record<string, unknown>;
 
     /**
      * Creates a new empty BoundQuery instance.
      */
-    constructor(origin: BoundQuery);
+    constructor();
 
     /**
      * Creates a new BoundQuery instance by cloning an existing instance.
      *
      * @param origin The BoundQuery to clone
      */
-    constructor(origin: BoundQuery);
+    constructor(origin: BoundQuery<R>);
 
     /**
      * Creates a new BoundQuery instance.
@@ -26,13 +26,16 @@ export class BoundQuery {
     constructor(query: string, bindings?: Record<string, unknown>);
 
     // Shadow implementation
-    constructor(query: string | BoundQuery, bindings?: Record<string, unknown>) {
+    constructor(query?: string | BoundQuery<R>, bindings?: Record<string, unknown>) {
         if (query instanceof BoundQuery) {
             this.#query = query.query;
             this.#bindings = { ...query.bindings };
-        } else {
+        } else if (query) {
             this.#query = query;
             this.#bindings = { ...bindings };
+        } else {
+            this.#query = "";
+            this.#bindings = {};
         }
     }
 
@@ -56,7 +59,7 @@ export class BoundQuery {
      * @param other The BoundQuery to append
      * @returns The current BoundQuery instance
      */
-    append(other: BoundQuery): this;
+    append(other: BoundQuery<R>): this;
 
     /**
      * Append a query string and bindings to this one, ensuring no duplicate parameters.
@@ -68,7 +71,7 @@ export class BoundQuery {
     append(query: string, bindings?: Record<string, unknown>): this;
 
     // Shadow implementation
-    append(other: BoundQuery | string, bindings?: Record<string, unknown>): this {
+    append(other: BoundQuery<R> | string, bindings?: Record<string, unknown>): this {
         const _query = other instanceof BoundQuery ? other.query : other;
         const _bindings = other instanceof BoundQuery ? other.bindings : bindings;
 
@@ -96,7 +99,7 @@ export class BoundQuery {
      * @param other The BoundQuery to combine with
      * @returns A new BoundQuery instance
      */
-    combine(other: BoundQuery): BoundQuery {
+    combine(other: BoundQuery<R>): BoundQuery<R> {
         const combined = new BoundQuery(this.query, this.bindings);
         return combined.append(other);
     }

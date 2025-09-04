@@ -51,7 +51,7 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
     /**
      * Compile this qurery into a BoundQuery
      */
-    compile(): BoundQuery {
+    compile(): BoundQuery<[T]> {
         return this.#build().inner;
     }
 
@@ -72,10 +72,10 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
     protected async dispatch(): Promise<MaybeJsonify<T, J>> {
         await this.#connection.ready();
         const [result] = await this.#build().collect();
-        return result as MaybeJsonify<T, J>;
+        return result;
     }
 
-    #build(): Query<J> {
+    #build(): Query<[T], J> {
         const { name, version, args, transaction, json } = this.#options;
 
         if (!NAME_REGEX.test(name)) {

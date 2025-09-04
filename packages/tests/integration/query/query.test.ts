@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { RecordId, surql } from "surrealdb";
 import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
-import { setupServer } from "../__helpers__";
+import { type Person, setupServer } from "../__helpers__";
 
 const { createSurreal } = await setupServer();
 
@@ -79,5 +79,21 @@ describe("query()", async () => {
 
         expect(query).toMatchSnapshot();
         expect(bindings).toMatchSnapshot();
+    });
+
+    test("pre compiled", async () => {
+        const compiled = surreal
+            .create<Person>(new RecordId("person", 2), {
+                firstname: "Mary",
+                lastname: "Doe",
+            })
+            .compile();
+
+        const [result] = await surreal.query(compiled).collect();
+
+        expect(result).toMatchObject({
+            firstname: "Mary",
+            lastname: "Doe",
+        });
     });
 });

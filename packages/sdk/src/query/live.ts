@@ -101,7 +101,7 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
     /**
      * Compile this qurery into a BoundQuery
      */
-    compile(): BoundQuery {
+    compile(): BoundQuery<[T]> {
         return this.#build().inner;
     }
 
