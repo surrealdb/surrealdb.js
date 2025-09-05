@@ -4,7 +4,7 @@ import { name, version } from "./package.json";
 // Build the WASM module
 console.log("🔨 Building the WASM module");
 
-await Bun.spawn(["cargo", "build", "--release"]).exited;
+await Bun.spawn(["cargo", "build", "--release", "--features", "kv-indxdb,kv-mem"]).exited;
 
 // Generate the bindings
 console.log("🔨 Generating the bindings");
@@ -73,6 +73,7 @@ const task = Bun.spawn(
         "--no-check",
         "--export-referenced-types",
         "false",
+        "--disable-symlinks-following",
     ],
     {
         stdout: "inherit",
