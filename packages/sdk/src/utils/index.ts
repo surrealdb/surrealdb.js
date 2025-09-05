@@ -1,4 +1,5 @@
 export * from "./bound-query";
+export * from "./channel-iterator";
 export * from "./equals";
 export * from "./escape";
 export * from "./expr";

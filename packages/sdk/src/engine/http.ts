@@ -4,7 +4,6 @@ import {
     ResponseError,
     SurrealError,
 } from "../errors";
-import { getIncrementalID } from "../internal/get-incremental-id";
 import { fetchSurreal } from "../internal/http";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
@@ -84,7 +83,7 @@ export class HttpEngine extends JsonEngine implements SurrealEngine {
             }
         }
 
-        const id = getIncrementalID();
+        const id = this._context.uniqueId();
         const buffer = await fetchSurreal(this._context, this._state, {
             body: {
                 id,
@@ -92,7 +91,7 @@ export class HttpEngine extends JsonEngine implements SurrealEngine {
             },
         });
 
-        const response = this._context.decode<RpcResponse<Result>>(new Uint8Array(buffer));
+        const response = this._context.cborDecode<RpcResponse<Result>>(new Uint8Array(buffer));
 
         if (response.error) {
             throw new ResponseError(response.error);

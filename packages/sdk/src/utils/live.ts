@@ -1,10 +1,10 @@
 import type { ConnectionController } from "../controller";
 import { ConnectionUnavailable, LiveSubscriptionFailed, SurrealError } from "../errors";
-import { ChannelIterator } from "../internal/channel-iterator";
 import { Query } from "../query";
 import type { LiveMessage, LiveResource } from "../types";
 import type { Uuid } from "../value";
 import { BoundQuery } from "./bound-query";
+import { ChannelIterator } from "./channel-iterator";
 import type { Publisher } from "./publisher";
 
 type ErrorPublisher = Publisher<{

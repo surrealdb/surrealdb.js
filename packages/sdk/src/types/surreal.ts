@@ -161,8 +161,9 @@ export interface ConnectionState {
  */
 export interface DriverContext {
     options: DriverOptions;
-    encode: typeof encodeCbor;
-    decode: typeof decodeCbor;
+    cborEncode: typeof encodeCbor;
+    cborDecode: typeof decodeCbor;
+    uniqueId: () => string;
 }
 
 /**
