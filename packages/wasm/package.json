@@ -19,7 +19,7 @@
     "scripts": {
         "build": "bun run build.ts"
     },
-    "peerDependencies": {
+    "dependencies": {
         "surrealdb": "workspace:*"
     },
     "exports": {

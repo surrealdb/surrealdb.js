@@ -1,36 +1,23 @@
 import {
     type ConnectionState,
+    ConnectionUnavailable,
     type DriverContext,
     type EngineEvents,
     JsonEngine,
-    type LiveAction,
     type LiveMessage,
     Publisher,
-    type RecordId,
     type RpcRequest,
     type SurrealEngine,
     UnexpectedConnectionError,
     type Uuid,
 } from "surrealdb";
-
+import { getIncrementalID } from "../../sdk/src/internal/get-incremental-id";
 import { type ConnectionOptions, SurrealWasmEngine } from "../wasm/surrealdb";
-
-type LiveChannels = Record<string, [LiveMessage]>;
-
-interface LivePayload {
-    id: Uuid;
-    action: LiveAction;
-    result: LiveMessage;
-    record: RecordId;
-}
 
 export class WebAssemblyEngine extends JsonEngine implements SurrealEngine {
     #engine: SurrealWasmEngine | undefined;
     #publisher = new Publisher<EngineEvents>();
-    #reader?: Promise<void>;
-    #subscriptions = new Publisher<LiveChannels>();
     #active = false;
-    #terminated = false;
     #options: ConnectionOptions | undefined;
 
     constructor(context: DriverContext, options?: ConnectionOptions) {
@@ -40,48 +27,50 @@ export class WebAssemblyEngine extends JsonEngine implements SurrealEngine {
 
     open(state: ConnectionState): void {
         this.#publisher.publish("connecting");
-        this.#terminated = false;
+        this.#active = true;
         this._state = state;
         this.#initialize(state);
     }
 
-    close(): Promise<void> {
-        throw new Error("Method not implemented.");
+    async close(): Promise<void> {
+        this._state = undefined;
+        this.#active = false;
+        this.#engine?.free();
+        this.#engine = undefined;
+        this.#publisher.publish("disconnected");
     }
 
     subscribe<K extends keyof EngineEvents>(
-        _event: K,
-        _listener: (...payload: EngineEvents[K]) => void,
+        event: K,
+        listener: (...payload: EngineEvents[K]) => void,
     ): () => void {
-        throw new Error("Method not implemented.");
+        return this.#publisher.subscribe(event, listener);
     }
 
+    // TODO Implement live queries
     override liveQuery(_id: Uuid): AsyncIterable<LiveMessage> {
         throw new Error("Method not implemented.");
     }
 
-    override send<Method extends string, Params extends unknown[] | undefined, Result>(
-        _request: RpcRequest<Method, Params>,
+    override async send<Method extends string, Params extends unknown[] | undefined, Result>(
+        request: RpcRequest<Method, Params>,
     ): Promise<Result> {
-        throw new Error("Method not implemented.");
+        if (!this.#active || !this.#engine) {
+            throw new ConnectionUnavailable();
+        }
+
+        const id = getIncrementalID();
+        const payload = this._context.encode({ id, ...request });
+
+        const response = await this.#engine.execute(payload);
+        const result = this._context.decode<Result>(response);
+
+        return result;
     }
 
     async #initialize(state: ConnectionState) {
         try {
-            const engine = await SurrealWasmEngine.connect(state.url.toString(), this.#options);
-
-            this.#engine = engine;
-            this.#reader = (async () => {
-                // const reader = engine.notifications().getReader();
-                // while (this.#active) {
-                //     const { done, value } = await reader.read();
-                //     if (done) break;
-                //     const raw = value as Uint8Array;
-                //     const { id, action, result } = this._context.decode(raw.buffer);
-                //     if (id) this.emitter.emit(`live-${id.toString()}`, [action, result], true);
-                // }
-            })();
-
+            this.#engine = await SurrealWasmEngine.connect(state.url.toString(), this.#options);
             this.#publisher.publish("connected");
         } catch (err) {
             this.#publisher.publish("error", new UnexpectedConnectionError(err));
