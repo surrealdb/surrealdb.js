@@ -37,7 +37,7 @@ export async function fetchSurreal(
     const raw = await fetch(endpoint, {
         method: options.method ?? "POST",
         headers: headerMap,
-        body: options.body ? context.encode(options.body) : undefined,
+        body: options.body ? context.cborEncode(options.body) : undefined,
     });
 
     const buffer = await raw.arrayBuffer();

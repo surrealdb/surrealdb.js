@@ -1,3 +1,6 @@
+/**
+ * The channel iterator is a utility class that allows you to submit values to an async iterator.
+ */
 export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
     #cancelled = false;
     #queue: T[] = [];

@@ -1,5 +1,6 @@
 import { decodeCbor, encodeCbor } from "./cbor";
 import { ConnectionController } from "./controller";
+import { getIncrementalID } from "./internal/get-incremental-id";
 import { parseEndpoint } from "./internal/http";
 import {
     AuthPromise,
@@ -70,8 +71,9 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     constructor(options: DriverOptions = {}) {
         this.#connection = new ConnectionController({
             options,
-            encode: encodeCbor,
-            decode: decodeCbor,
+            cborEncode: encodeCbor,
+            cborDecode: decodeCbor,
+            uniqueId: getIncrementalID,
         });
 
         this.#connection.subscribe("connecting", () => this.#publisher.publish("connecting"));
