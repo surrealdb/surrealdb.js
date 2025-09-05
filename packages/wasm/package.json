@@ -1,0 +1,35 @@
+{
+    "name": "@surrealdb/wasm",
+    "version": "2.0.0-alpha.4+2.3.7",
+    "type": "module",
+    "license": "Apache-2.0",
+    "description": "Emeddable WebAssembly browser engine for SurrealDB",
+    "homepage": "https://github.com/surrealdb/surrealdb.js",
+    "keywords": [
+        "surrealdb",
+        "surrealdb.js",
+        "wasm",
+        "browser",
+        "embedded"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/surrealdb/surrealdb.js.git"
+    },
+    "scripts": {
+        "build": "exit 0"
+    },
+    "devDependencies": {
+        "surrealdb": "workspace:*"
+    },
+    "exports": {
+        ".": {
+            "require": "./dist/surrealdb-wasm.cjs",
+            "import": "./dist/surrealdb-wasm.mjs",
+            "types": "./dist/surrealdb-wasm.d.ts"
+        }
+    },
+    "files": [
+        "dist"
+    ]
+}

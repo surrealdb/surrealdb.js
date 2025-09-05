@@ -1,0 +1,36 @@
+{
+    "name": "@surrealdb/node",
+    "version": "2.0.0-alpha.4+2.3.7",
+    "type": "module",
+    "license": "Apache-2.0",
+    "description": "Emeddable Node.js, Bun, and Deno engine for SurrealDB",
+    "homepage": "https://github.com/surrealdb/surrealdb.js",
+    "keywords": [
+        "surrealdb",
+        "surrealdb.js",
+        "nodejs",
+        "bun",
+        "deno",
+        "embedded"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/surrealdb/surrealdb.js.git"
+    },
+    "scripts": {
+        "build": "exit 0"
+    },
+    "devDependencies": {
+        "surrealdb": "workspace:*"
+    },
+    "exports": {
+        ".": {
+            "require": "./dist/surrealdb-node.cjs",
+            "import": "./dist/surrealdb-node.mjs",
+            "types": "./dist/surrealdb-node.d.ts"
+        }
+    },
+    "files": [
+        "dist"
+    ]
+}

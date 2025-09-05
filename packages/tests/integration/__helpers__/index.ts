@@ -1,4 +1,4 @@
-export * from "./surreal";
+export * from "./database";
 export * from "./env";
 export * from "./helpers";
-export * from "./database";
+export * from "./surreal";

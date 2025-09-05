@@ -1,0 +1,10 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`delete() compile 1`] = `"DELETE $bind__1 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__2"`;
+
+exports[`delete() compile 2`] = `
+{
+  "bind__1": Table {},
+  "bind__2": DateTime {},
+}
+`;

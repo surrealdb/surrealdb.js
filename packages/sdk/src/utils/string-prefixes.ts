@@ -1,4 +1,4 @@
-import { StringRecordId, Uuid } from "../value";
+import { DateTime, StringRecordId, Uuid } from "../value";
 
 /**
  * A template literal tag function for parsing a string type.
@@ -7,14 +7,8 @@ import { StringRecordId, Uuid } from "../value";
  * @param values The interpolated values
  * @returns The parsed string
  */
-export function s(
-	string: string[] | TemplateStringsArray,
-	...values: unknown[]
-): string {
-	return string.reduce(
-		(prev, curr, i) => `${prev}${curr}${values[i] ?? ""}`,
-		"",
-	);
+export function s(string: string[] | TemplateStringsArray, ...values: unknown[]): string {
+    return string.reduce((prev, curr, i) => `${prev}${curr}${values[i] ?? ""}`, "");
 }
 
 /**
@@ -24,11 +18,8 @@ export function s(
  * @param values The interpolated values
  * @returns The parsed Date
  */
-export function d(
-	string: string[] | TemplateStringsArray,
-	...values: unknown[]
-): Date {
-	return new Date(s(string, values));
+export function d(string: string[] | TemplateStringsArray, ...values: unknown[]): DateTime {
+    return new DateTime(s(string, values));
 }
 
 /**
@@ -38,11 +29,8 @@ export function d(
  * @param values The interpolated values
  * @returns The parsed StringRecordId
  */
-export function r(
-	string: string[] | TemplateStringsArray,
-	...values: unknown[]
-): StringRecordId {
-	return new StringRecordId(s(string, values));
+export function r(string: string[] | TemplateStringsArray, ...values: unknown[]): StringRecordId {
+    return new StringRecordId(s(string, values));
 }
 
 /**
@@ -52,9 +40,6 @@ export function r(
  * @param values The interpolated values
  * @returns The parsed Uuid
  */
-export function u(
-	string: string[] | TemplateStringsArray,
-	...values: unknown[]
-): Uuid {
-	return new Uuid(s(string, values));
+export function u(string: string[] | TemplateStringsArray, ...values: unknown[]): Uuid {
+    return new Uuid(s(string, values));
 }

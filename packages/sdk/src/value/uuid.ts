@@ -5,50 +5,87 @@ import { Value } from "./value";
  * A SurrealQL UUID value.
  */
 export class Uuid extends Value {
-	private readonly inner: UUID;
+    readonly #inner: UUID;
 
-	constructor(uuid: string | ArrayBuffer | Uint8Array | Uuid | UUID) {
-		super();
+    /**
+     * Constructs a new Uuid by cloning an existing uuid
+     *
+     * @param input Uuid input
+     */
+    constructor(uuid: Uuid | UUID);
 
-		if (uuid instanceof ArrayBuffer) {
-			this.inner = UUID.ofInner(new Uint8Array(uuid));
-		} else if (uuid instanceof Uint8Array) {
-			this.inner = UUID.ofInner(uuid);
-		} else if (uuid instanceof Uuid) {
-			this.inner = uuid.inner;
-		} else if (uuid instanceof UUID) {
-			this.inner = uuid;
-		} else {
-			this.inner = UUID.parse(uuid);
-		}
-	}
+    /**
+     * Constructs a new Uuid from a string representation
+     *
+     * @param uuid String input
+     */
+    constructor(uuid: string);
 
-	equals(other: unknown): boolean {
-		if (!(other instanceof Uuid)) return false;
-		return this.inner.equals(other.inner);
-	}
+    /**
+     * Constructs a new Uuid from a binary representation
+     *
+     * @param uuid ArrayBuffer or Uint8Array input
+     */
+    constructor(uuid: ArrayBuffer | Uint8Array);
 
-	toString(): string {
-		return this.inner.toString();
-	}
+    // Shadow implementation
+    constructor(uuid: Uuid | UUID | string | ArrayBuffer | Uint8Array) {
+        super();
 
-	toJSON(): string {
-		return this.inner.toString();
-	}
+        if (uuid instanceof ArrayBuffer) {
+            this.#inner = UUID.ofInner(new Uint8Array(uuid));
+        } else if (uuid instanceof Uint8Array) {
+            this.#inner = UUID.ofInner(uuid);
+        } else if (uuid instanceof Uuid) {
+            this.#inner = uuid.#inner;
+        } else if (uuid instanceof UUID) {
+            this.#inner = uuid;
+        } else {
+            this.#inner = UUID.parse(uuid);
+        }
+    }
 
-	toUint8Array(): Uint8Array {
-		return this.inner.bytes;
-	}
+    equals(other: unknown): boolean {
+        if (!(other instanceof Uuid)) return false;
+        return this.#inner.equals(other.#inner);
+    }
 
-	toBuffer(): ArrayBufferLike {
-		return this.inner.bytes.buffer;
-	}
+    toJSON(): string {
+        return this.#inner.toString();
+    }
 
-	static v4(): Uuid {
-		return new Uuid(uuidv4obj());
-	}
+    /**
+     * @returns The string representation of the UUID
+     */
+    toString(): string {
+        return this.#inner.toString();
+    }
 
-	static v7(): Uuid {
-		return new Uuid(uuidv7obj());
-	}
+    /**
+     * Converts the UUID to a Uint8Array
+     */
+    toUint8Array(): Uint8Array {
+        return this.#inner.bytes;
+    }
+
+    /**
+     * Converts the UUID to a ArrayBuffer
+     */
+    toBuffer(): ArrayBufferLike {
+        return this.#inner.bytes.buffer;
+    }
+
+    /**
+     * Generate a new UUID v4
+     */
+    static v4(): Uuid {
+        return new Uuid(uuidv4obj());
+    }
+
+    /**
+     * Generate a new UUID v7
+     */
+    static v7(): Uuid {
+        return new Uuid(uuidv7obj());
+    }
 }

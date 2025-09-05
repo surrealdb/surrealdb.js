@@ -1,0 +1,7 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`Tagged template query with interpolation 1`] = `"SELECT * FROM $bind__1"`;
+
+exports[`Tagged template query with expression 1`] = `"SELECT * FROM $bind__1 WHERE foo = $bind__2"`;
+
+exports[`Tagged template query with raw insertion 1`] = `"SELECT (SELECT foo FROM ->has->bar) FROM $bind__1"`;

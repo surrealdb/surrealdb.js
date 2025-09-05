@@ -1,13 +1,8 @@
 {
-	"formatter": {
-		"external": {
-			"command": "bunx",
-			"arguments": [
-				"biome",
-				"format",
-				"--write",
-				"--stdin-file-path={buffer_path}"
-			]
-		}
-	}
+    "formatter": {
+        "external": {
+            "command": "bunx",
+            "arguments": ["biome", "format", "--write", "--stdin-file-path={buffer_path}"]
+        }
+    }
 }

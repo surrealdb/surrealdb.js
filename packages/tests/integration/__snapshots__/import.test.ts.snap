@@ -1,17 +1,10 @@
-// Bun Snapshot v1, https://goo.gl/fbAQLP
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
 exports[`import basic 1`] = `
 [
-  [
-    {
-      "hello": "world",
-      "id": RecordId {
-        "id": 1,
-        "table": Table {
-          "name": "foo",
-        },
-      },
-    },
-  ],
+  {
+    "hello": "world",
+    "id": RecordId {},
+  },
 ]
 `;

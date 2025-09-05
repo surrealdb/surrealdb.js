@@ -1,1 +1,1 @@
-export { encodeCbor, decodeCbor } from "./replacer.ts";
+export { decodeCbor, encodeCbor } from "./replacer.ts";

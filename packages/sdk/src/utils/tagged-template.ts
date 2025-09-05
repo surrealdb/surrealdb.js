@@ -1,50 +1,37 @@
-import { Gap } from "@surrealdb/cbor";
-import { PreparedQuery } from "./prepared-query.ts";
+import { getIncrementalID } from "../internal/get-incremental-id";
+import { isExpression } from "../internal/validation";
+import { BoundQuery } from "./bound-query";
+import { expr } from "./expr";
 
 /**
- * A template literal tag function for creating prepared queries from query strings.
- * Interpolated values are automatically stored as bindings.
- * @param query_raw - The raw query string
- * @param values - The interpolated values
- * @example const query = surrealql`SELECT * FROM ${id}`;
- * @returns A PreparedQuery instance
+ * A template literal tag function for creating BoundQuery instances from query strings.
+ * Interpolated values are automatically stored as bindings with unique names.
+ *
+ * @param strings The template string segments
+ * @param values The interpolated values
+ * @example const query = surql`SELECT * FROM users WHERE name = ${name}`;
+ * @returns A BoundQuery instance
  */
-export function surrealql(
-	rawQuery: string[] | TemplateStringsArray,
-	...values: unknown[]
-): PreparedQuery {
-	let reused = 0;
-	const gaps = new Map<Gap, number>();
-	const mapped_bindings = values.map((v, i) => {
-		if (v instanceof Gap) {
-			const index = gaps.get(v);
-			if (index !== undefined) {
-				reused++;
-				return [`bind___${index}`, v] as const;
-			}
+export function surql(strings: TemplateStringsArray, ...values: unknown[]): BoundQuery {
+    const bindings: Record<string, unknown> = {};
+    let result = "";
 
-			gaps.set(v, i - reused);
-		}
+    for (let i = 0; i < strings.length; i++) {
+        result += strings[i];
+        if (i < values.length) {
+            const value = values[i];
 
-		return [`bind___${i - reused}`, v] as const;
-	});
+            if (isExpression(value)) {
+                const built = expr(value);
+                result += built.query;
+                Object.assign(bindings, built.bindings);
+            } else {
+                const bindingName = `bind__${getIncrementalID()}`;
+                result += `$${bindingName}`;
+                bindings[bindingName] = value;
+            }
+        }
+    }
 
-	const bindings = mapped_bindings.reduce<Record<`bind___${number}`, unknown>>(
-		(prev, [k, v]) => {
-			prev[k] = v;
-			return prev;
-		},
-		{},
-	);
-
-	const query = rawQuery
-		.flatMap((segment, i) => {
-			const variable = mapped_bindings[i]?.[0];
-			return [segment, ...(variable ? [`$${variable}`] : [])];
-		})
-		.join("");
-
-	return new PreparedQuery(query, bindings);
+    return new BoundQuery(result, bindings);
 }
-
-export { surrealql as surql };

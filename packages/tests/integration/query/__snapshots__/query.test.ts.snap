@@ -1,0 +1,9 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`query() inner query 1`] = `"RETURN $bind__1"`;
+
+exports[`query() inner query 2`] = `
+{
+  "bind__1": RecordId {},
+}
+`;

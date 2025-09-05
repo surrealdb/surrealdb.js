@@ -1,17 +1,33 @@
-import { join } from "node:path";
+import { dirname } from "node:path";
+import { Glob } from "bun";
 
-/** Ordered list of packages for the build process  */
-export const PACKAGES: string[] = ["cbor", "sdk"];
-
-export function resolvePackage(pkg: string): string {
-	return join("packages", pkg);
+export interface Package {
+    name: string;
+    path: string;
+    version: string;
 }
 
-export function readPackageJson(pkg: string): Promise<PackageJson> {
-	return Bun.file(join(pkg, "package.json")).json();
+export async function resolvePackages(): Promise<Package[]> {
+    const glob = new Glob("./packages/*/package.json");
+    const packages: Package[] = [];
+
+    for await (const file of glob.scan(".")) {
+        const packageJson = await Bun.file(file).json();
+
+        if (!packageJson.version) {
+            continue;
+        }
+
+        packages.push({
+            name: packageJson.name,
+            path: dirname(file),
+            version: packageJson.version,
+        });
+    }
+
+    return packages;
 }
 
-export interface PackageJson {
-	name: string;
-	version: string;
+export function normalizeVersion(version: string): string {
+    return version.split("+")[0];
 }

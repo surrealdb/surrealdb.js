@@ -1,5 +1,6 @@
-import type { AnySurreal } from "./surreal";
+import type { Surreal } from "surrealdb";
 
-export async function fetchVersion(surreal: AnySurreal): Promise<string> {
-	return (await surreal.version()).replace(/^surrealdb-/, "");
+export async function fetchVersion(surreal: Surreal): Promise<string> {
+    const { version } = await surreal.version();
+    return version.replace(/^surrealdb-/, "");
 }

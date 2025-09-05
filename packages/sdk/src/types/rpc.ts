@@ -1,31 +1,35 @@
-import type { RecordId } from "../value";
-import type { Prettify } from "./helpers";
-
-export type RpcRequest<
-	Method extends string = string,
-	Params extends unknown[] | undefined = unknown[],
-> = {
-	method: Method;
-	params?: Params;
+export type RpcQueryResult<T = unknown> = RpcQueryResultOk<T> | RpcQueryResultErr;
+export type RpcQueryResultOk<T> = {
+    status: "OK";
+    time: string;
+    result: T;
 };
 
-export type RpcResponse<Result = unknown> =
-	| RpcSuccessResponse<Result>
-	| RpcErrorResponse;
+export type RpcQueryResultErr = {
+    status: "ERR";
+    time: string;
+    result: string;
+};
+
+export type RpcRequest<
+    Method extends string = string,
+    Params extends unknown[] | undefined = unknown[],
+> = {
+    method: Method;
+    params?: Params;
+};
+
+export type RpcResponse<Result = unknown> = RpcSuccessResponse<Result> | RpcErrorResponse;
 
 export type RpcSuccessResponse<Result = unknown> = {
-	result: Result;
-	error?: never;
+    result: Result;
+    error?: never;
 };
 
 export type RpcErrorResponse = {
-	result?: never;
-	error: {
-		code: number;
-		message: string;
-	};
+    result?: never;
+    error: {
+        code: number;
+        message: string;
+    };
 };
-
-export type ActionResult<T extends Record<string, unknown>> = Prettify<
-	T["id"] extends RecordId ? T : { id: RecordId } & T
->;

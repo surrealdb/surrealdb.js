@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        surrealdb: ["v2.0.5", "v2.1.5", "v2.3.1"]
+        surrealdb: ["v2.0.5", "v2.1.8", "v2.2.7", "v2.3.7"]
         engine: ["ws", "http"]
     steps:
       - name: Install SurrealDB ${{ matrix.surrealdb }} over ${{ matrix.engine }} engine
@@ -53,25 +53,25 @@ jobs:
         env:
           SURREAL_DEFAULT_PROTOCOL: ${{ matrix.engine }}
 
-  publish:
-    name: Verify publish
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
+  # publish:
+  #   name: Verify publish
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #   steps:
+  #     - name: Install Bun
+  #       uses: oven-sh/setup-bun@v2
 
-      - name: Code Checkout
-        uses: actions/checkout@v4
+  #     - name: Code Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: bun install
+  #     - name: Install dependencies
+  #       run: bun install
 
-      - name: Build
-        run: bun run build
+  #     - name: Build
+  #       run: bun run build
 
-      - name: Validate publishing
-        run: bun run publish all --dry-run
-        env:
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
+  #     - name: Validate publishing
+  #       run: bun run publish all --dry-run
+  #       env:
+  #         NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}

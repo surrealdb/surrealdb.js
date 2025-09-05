@@ -1,14 +1,15 @@
 {
-	"name": "@surrealdb/tests",
-	"version": "0.1.0",
-	"type": "module",
-	"private": true,
-	"scripts": {
-		"test": "bun test"
-	},
-	"dependencies": {
-		"@surrealdb/cbor": "workspace:*",
-		"surrealdb": "workspace:*",
-		"get-port": "^7.1.0"
-	}
+    "name": "@surrealdb/tests",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "run-tests": "bun test"
+    },
+    "dependencies": {
+        "@surrealdb/cbor": "2.0.0-alpha.4",
+        "surrealdb": "workspace:*",
+        "@surrealdb/node": "workspace:*",
+        "@surrealdb/wasm": "workspace:*",
+        "get-port": "^7.1.0"
+    }
 }

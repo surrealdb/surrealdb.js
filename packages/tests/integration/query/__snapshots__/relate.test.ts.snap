@@ -1,0 +1,12 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`relate() compile 1`] = `"RELATE  ONLY $bind__1->$bind__2->$bind__3 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__4"`;
+
+exports[`relate() compile 2`] = `
+{
+  "bind__1": RecordId {},
+  "bind__2": Table {},
+  "bind__3": RecordId {},
+  "bind__4": DateTime {},
+}
+`;
