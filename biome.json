@@ -37,7 +37,8 @@
             "!**/npm/*",
             "!**/dist/*",
             "!**/scripts/*",
-            "!**/*.js"
+            "!**/*.js",
+            "!packages/wasm/wasm/*"
         ]
     }
 }

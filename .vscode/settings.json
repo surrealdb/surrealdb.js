@@ -6,5 +6,6 @@
     "editor.codeActionsOnSave": {
         "source.organizeImports.biome": "explicit",
         "source.fixAll.biome": "explicit"
-    }
+    },
+	"terminal.integrated.profiles.osx": { "zsh": { "path": "/bin/zsh", "args": ["-l", "-i"] } }
 }

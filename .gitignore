@@ -29,8 +29,8 @@ Temporary Items
 npm
 node_modules
 dist
-target
-build
+packages/wasm/wasm
+packages/wasm/target
 
 # -----------------------------------
 # Files
