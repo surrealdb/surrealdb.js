@@ -10,7 +10,7 @@
         "allowImportingTsExtensions": true,
         "verbatimModuleSyntax": true,
         "emitDeclarationOnly": true,
-        "isolatedDeclarations": true,
+        "isolatedDeclarations": false,
         "declaration": true,
 
         "strict": true,

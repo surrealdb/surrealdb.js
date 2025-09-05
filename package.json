@@ -2,7 +2,8 @@
     "name": "surrealdb.js",
     "private": true,
     "workspaces": [
-        "packages/*"
+        "packages/*",
+        "demo/*"
     ],
     "scripts": {
         "build": "turbo build",
@@ -12,7 +13,8 @@
         "validate:versions": "bun run scripts/validate-versions.ts",
         "qc": "biome check .",
         "qa": "biome check . --write",
-        "qau": "biome check . --write --unsafe"
+        "qau": "biome check . --write --unsafe",
+        "demo:wasm": "bun run --cwd demo/wasm dev"
     },
     "devDependencies": {
         "@biomejs/biome": "2.1.2",
