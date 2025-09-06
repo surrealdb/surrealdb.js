@@ -82,6 +82,7 @@ impl SurrealWasmEngine {
 			s if s.starts_with("mem:") => "memory",
 			s => s,
 		};
+
 		let kvs = Datastore::new(endpoint).await?.with_notifications();
 		let kvs = match from_value::<Option<Options>>(JsValue::from(opts))? {
 			None => kvs,
