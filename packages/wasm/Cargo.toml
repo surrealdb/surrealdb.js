@@ -25,7 +25,7 @@ kv-indxdb = ["surrealdb/kv-indxdb"]
 kv-mem = ["surrealdb/kv-mem"]
 
 [dependencies]
-surrealdb = { version = "2.3.7", default-features = false, features = ["http"] }
+surrealdb = { version = "*", default-features = false, features = ["http"] }
 ciborium = "0.2.2"
 futures = "0.3.30"
 serde = { version = "1.0.197", features = ["derive"] }

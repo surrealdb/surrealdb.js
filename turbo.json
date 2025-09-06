@@ -8,6 +8,9 @@
         "run-tests": {
             "dependsOn": ["^build"]
         },
+        "sync": {
+            "cache": false
+        },
         "dev": {
             "cache": false
         },

@@ -8,13 +8,15 @@
     "scripts": {
         "build": "turbo build",
         "test": "turbo run-tests",
+        "sync": "turbo sync",
         "publish": "bun run scripts/validate-versions.ts && bun run scripts/publish.ts",
         "publish:dry-run": "bun run scripts/publish.ts --dry-run",
         "validate:versions": "bun run scripts/validate-versions.ts",
         "qc": "biome check .",
         "qa": "biome check . --write",
         "qau": "biome check . --write --unsafe",
-        "demo:wasm": "bun run --cwd demo/wasm dev"
+        "demo:wasm": "bun run --cwd demo/wasm demo",
+        "demo:node": "bun run --cwd demo/node demo"
     },
     "devDependencies": {
         "@biomejs/biome": "2.1.2",

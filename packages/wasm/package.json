@@ -17,7 +17,8 @@
         "url": "https://github.com/surrealdb/surrealdb.js.git"
     },
     "scripts": {
-        "build": "bun run build.ts"
+        "build": "bun run build.ts",
+        "sync": "bun run ../../scripts/sync-surreal.ts"
     },
     "peerDependencies": {
         "surrealdb": "workspace:*"
