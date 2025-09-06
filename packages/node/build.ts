@@ -43,7 +43,7 @@ await Bun.spawn(
         "--platform",
         "--release",
         "--features",
-        "kv-rocksdb,kv-mem",
+        "kv-rocksdb,kv-mem,kv-surrealkv",
         "-o",
         "napi",
     ],
