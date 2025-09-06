@@ -19,7 +19,7 @@
     "scripts": {
         "build": "bun run build.ts"
     },
-    "dependencies": {
+    "peerDependencies": {
         "surrealdb": "workspace:*"
     },
     "exports": {
@@ -29,6 +29,7 @@
         }
     },
     "files": [
-        "dist"
+        "dist",
+        "wasm"
     ]
 }
