@@ -38,7 +38,8 @@
             "!**/dist/*",
             "!**/scripts/*",
             "!**/*.js",
-            "!packages/wasm/wasm/*"
+            "!packages/wasm/wasm/*",
+            "!packages/node/napi/*"
         ]
     }
 }
