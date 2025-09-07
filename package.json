@@ -7,6 +7,9 @@
     ],
     "scripts": {
         "build": "turbo build",
+        "build:sdk": "turbo build --filter=sdk",
+        "build:wasm": "turbo build --filter=wasm",
+        "build:node": "turbo build --filter=node",
         "test": "turbo run-tests",
         "sync": "turbo sync",
         "publish": "bun run scripts/validate-versions.ts && bun run scripts/publish.ts",

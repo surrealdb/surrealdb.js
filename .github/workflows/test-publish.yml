@@ -1,0 +1,184 @@
+name: Test Publish Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run only (no actual publishing)"
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  test-build-sdk:
+    name: Test Build SDK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build SDK
+        run: bun run build:sdk
+
+      - name: Verify SDK build
+        run: |
+          if [ -d "packages/sdk/dist" ]; then
+            echo "✅ SDK build successful"
+            ls -la packages/sdk/dist/
+          else
+            echo "❌ SDK build failed - no dist directory"
+            exit 1
+          fi
+
+  test-build-wasm:
+    name: Test Build WASM
+    runs-on: ubuntu-latest
+    needs: test-build-sdk
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Download SDK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-artifacts
+          path: packages/sdk/
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli
+
+      - name: Install wasm-opt
+        run: cargo install wasm-opt
+
+      - name: Build WASM
+        run: bun run build:wasm
+
+      - name: Verify WASM build
+        run: |
+          if [ -d "packages/wasm/wasm" ]; then
+            echo "✅ WASM build successful"
+            ls -la packages/wasm/wasm/
+          else
+            echo "❌ WASM build failed - no wasm directory"
+            exit 1
+          fi
+
+  test-build-node:
+    name: Test Build Node
+    runs-on: ubuntu-latest
+    needs: test-build-sdk
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Download SDK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-artifacts
+          path: packages/sdk/
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Build Node
+        run: bun run build:node
+
+      - name: Verify Node build
+        run: |
+          if [ -d "packages/node/napi" ]; then
+            echo "✅ Node build successful"
+            ls -la packages/node/napi/
+          else
+            echo "❌ Node build failed - no napi directory"
+            exit 1
+          fi
+
+  test-publish-process:
+    name: Test Publish Process
+    runs-on: ubuntu-latest
+    needs: [test-build-sdk, test-build-wasm, test-build-node]
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Download SDK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-artifacts
+          path: packages/sdk/
+
+      - name: Download WASM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-artifacts
+          path: packages/wasm/
+
+      - name: Download node binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: bindings-*
+          path: packages/node/napi/
+
+      - name: Validate versions
+        run: bun run validate:versions
+
+      - name: Test dry run publish
+        run: bun run publish:dry-run
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
+
+  test-rust-setup:
+    name: Test Rust Setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli
+
+      - name: Install wasm-opt
+        run: cargo install wasm-opt
+
+      - name: Verify installations
+        run: |
+          rustc --version
+          wasm-bindgen --version
+          wasm-opt --version

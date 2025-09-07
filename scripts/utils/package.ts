@@ -29,5 +29,5 @@ export async function resolvePackages(): Promise<Package[]> {
 }
 
 export function normalizeVersion(version: string): string {
-    return version.split("+")[0];
+    return version.split("+")[0].replace(/^v/, "");
 }

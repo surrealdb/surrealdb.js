@@ -22,16 +22,26 @@ for (const pkg of packages) {
 }
 
 // Check if all packages have the same normalized version
-if (versionGroups.size === 1) {
-	const [version] = versionGroups.keys();
-	const packageList = versionGroups.get(version)!;
-	console.log(`✅ All packages have the same version: ${version}`);
-	console.log(`   Packages: ${packageList.join(", ")}`);
-	process.exit(0);
-} else {
+if (versionGroups.size !== 1) {
 	console.log("❌ Package versions are inconsistent:");
 	for (const [version, packageList] of versionGroups) {
 		console.log(`   Version ${version}: ${packageList.join(", ")}`);
 	}
 	process.exit(1);
 }
+
+const [version] = versionGroups.keys();
+const packageList = versionGroups.get(version)!;
+const [, , match] = Bun.argv;
+
+if (match) {
+	const normalizedMatch = normalizeVersion(match);
+	
+	if (normalizedMatch !== version) {
+		console.log(`❌ Package versions do not match: ${normalizeVersion(match)} !== ${version}`);
+		process.exit(1);
+	}
+}
+
+console.log(`✅ All packages have the same version: ${version}`);
+console.log(`   Packages: ${packageList.join(", ")}`);
