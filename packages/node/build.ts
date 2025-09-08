@@ -1,7 +1,7 @@
 import dedent from "dedent";
 import { rolldown } from "rolldown";
 
-const [, , target] = Bun.argv;
+const [, , ...flags] = Bun.argv;
 
 // Build the NAPI binary
 console.log("🔨 Building the NAPI binary");
@@ -48,9 +48,9 @@ const buildCmd = [
     "napi",
 ];
 
-if (target) {
-    buildCmd.push("--target", target);
-    console.log("🎯 Target platform: ", target);
+if (flags.length > 0) {
+    buildCmd.push(...flags);
+    console.log(`🎯 NAPI flags: ${flags.join(" ")}`);
 }
 
 await Bun.spawn(buildCmd, {

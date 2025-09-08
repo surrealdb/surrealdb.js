@@ -106,60 +106,70 @@ jobs:
   # Build Node package for all platforms (depends on SDK)
   build-node:
     name: Build Node.js - ${{ matrix.settings.target }}
-    runs-on: ${{ matrix.settings.host }}
+    runs-on: ubuntu-latest
     needs: [validate, build-sdk]
     strategy:
       fail-fast: false
       matrix:
         settings:
-          # macOS x86_64
-          - host: macos-13
-            target: x86_64-apple-darwin
-            build: |
-              bun run build:node x86_64-apple-darwin
-              strip -x *.node
-          # Windows x86_64
-          - host: windows-latest
-            build: |
-              bun run build:node
-              bun run test
-            target: x86_64-pc-windows-msvc
-          # Linux x86_64
-          - host: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            build: |-
-              set -e &&
-              bun run build:node x86_64-unknown-linux-gnu
-              strip *.node
-          # Linux x86_64 musl
-          - host: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            build: set -e && bun run build:node && strip *.node
-          # macOS aarch64
-          - host: macos-latest
-            target: aarch64-apple-darwin
-            build: |
-              bun run build:node aarch64-apple-darwin
-              strip -x *.node
-          # Linux aarch64
-          - host: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            build: |-
-              set -e &&
-              bun run build:node aarch64-unknown-linux-gnu
-              aarch64-unknown-linux-gnu-strip *.node
-          # Android aarch64
-          - host: ubuntu-latest
-            target: aarch64-linux-android
-            build: |
-              bun run build:node aarch64-linux-android
-              ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node
+          - target: x86_64-apple-darwin
+            flags: "-x"
+          - target: aarch64-apple-darwin
+            flags: "-x"
+          - target: x86_64-pc-windows-msvc
+            flags: "-x"
+          - target: i686-pc-windows-msvc
+            flags: "-x"
+          - target: aarch64-pc-windows-msvc
+            flags: "-x"
+          - target: x86_64-unknown-linux-gnu
+            flags: "--use-napi-cross"
+          - target: aarch64-unknown-linux-gnu
+            flags: "--use-napi-cross"
+          - target: x86_64-unknown-linux-musl
+            flags: "-x"
+          - target: aarch64-unknown-linux-musl
+            flags: "-x"
+          - target: armv7-unknown-linux-gnueabihf
+            flags: "--use-napi-cross"
+          - target: powerpc64le-unknown-linux-gnu
+            flags: "--use-napi-cross"
+          - target: s390x-unknown-linux-gnu
+            flags: "--use-napi-cross"
     steps:
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo
+            ${{ github.workspace }}/.xwin
+            ~/.napi-rs
+            ./target
+          key: ${{ matrix.settings.target }}-cargo-cache
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.settings.target }}
+
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
 
-      - name: Code Checkout
-        uses: actions/checkout@v4
+      - name: Install ziglang
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.14.1
+
+      - name: Install cargo toolchains
+        uses: taiki-e/install-action@v2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          tool: cargo-zigbuild,cargo-xwin
 
       - name: Install dependencies
         run: bun install
@@ -170,56 +180,10 @@ jobs:
           name: sdk-artifacts
           path: packages/sdk/
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          targets: ${{ matrix.settings.target }}
-
-      - name: Setup cache
-        uses: Swatinem/rust-cache@v2
-
-      # - name: Setup node
-      #   uses: actions/setup-node@v4
-      #   if: ${{ !matrix.settings.docker }}
-      #   with:
-      #     node-version: 22
-      #     check-latest: true
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            .cargo-cache
-            target/
-          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
-
-      - name: Setup node x86
-        if: matrix.settings.target == 'i686-pc-windows-msvc'
-        run: bun config set supportedArchitectures.cpu "ia32"
-        shell: bash
-
-      - name: Download SDK artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: sdk-artifacts
-          path: packages/sdk/
-
-      # - name: Build in docker
-      #   uses: addnab/docker-run-action@v3
-      #   if: ${{ matrix.settings.docker }}
-      #   with:
-      #     image: ${{ matrix.settings.docker }}
-      #     options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build"
-      #     run: ${{ matrix.settings.build }}
-
       - name: Build
-        run: ${{ matrix.settings.build }}
-        # if: ${{ !matrix.settings.docker }}
-        shell: bash
+        run: bun run build:node --target ${{ matrix.settings.target }} ${{ matrix.settings.flags }}
+        env:
+          XWIN_CACHE_DIR: ${{ github.workspace }}/.xwin
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -227,7 +191,7 @@ jobs:
           name: bindings-${{ matrix.settings.target }}
           if-no-files-found: error
           path: |
-            packages/node/napi/
+            packages/node/napi/*.node
             packages/node/dist/
 
   # Dry run publish to verify everything works
