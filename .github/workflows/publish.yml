@@ -105,7 +105,7 @@ jobs:
 
   # Build Node package for all platforms (depends on SDK)
   build-node:
-    name: Build Node.js - ${{ matrix.settings.target }}
+    name: Build Node - ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.host }}
     needs: [validate, build-sdk]
     strategy:
