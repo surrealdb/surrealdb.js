@@ -6,5 +6,10 @@
     "editor.codeActionsOnSave": {
         "source.organizeImports.biome": "explicit",
         "source.fixAll.biome": "explicit"
-    }
+    },
+	"terminal.integrated.profiles.osx": { "zsh": { "path": "/bin/zsh", "args": ["-l", "-i"] } },
+	"rust-analyzer.linkedProjects": [
+		"packages/node/Cargo.toml",
+		"packages/wasm/Cargo.toml"
+	]
 }

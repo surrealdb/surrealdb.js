@@ -6,11 +6,10 @@ import {
     UnexpectedConnectionError,
     UnexpectedServerResponse,
 } from "../errors";
-import { ChannelIterator } from "../internal/channel-iterator";
-import { getIncrementalID } from "../internal/get-incremental-id";
 import type { LiveAction, LiveMessage, RpcRequest, RpcResponse } from "../types";
 import { LIVE_ACTIONS } from "../types/live";
 import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
+import { ChannelIterator } from "../utils/channel-iterator";
 import { Publisher } from "../utils/publisher";
 import { RecordId, Uuid } from "../value";
 import { JsonEngine } from "./json";
@@ -67,7 +66,7 @@ export class WebSocketEngine extends JsonEngine implements SurrealEngine {
                     reconnect.reset();
 
                     for (const { request } of this.#calls.values()) {
-                        this.#socket?.send(this._context.encode(request));
+                        this.#socket?.send(this._context.cborEncode(request));
                     }
 
                     this.#publisher.publish("connected");
@@ -133,7 +132,7 @@ export class WebSocketEngine extends JsonEngine implements SurrealEngine {
                 return;
             }
 
-            const id = getIncrementalID();
+            const id = this._context.uniqueId();
             const call: Call<Result> = {
                 request: { id, ...request },
                 resolve,
@@ -141,7 +140,7 @@ export class WebSocketEngine extends JsonEngine implements SurrealEngine {
             };
 
             this.#calls.set(id, call as Call<unknown>);
-            this.#socket?.send(this._context.encode(call.request));
+            this.#socket?.send(this._context.cborEncode(call.request));
         });
     }
 
@@ -221,7 +220,7 @@ export class WebSocketEngine extends JsonEngine implements SurrealEngine {
             socket.addEventListener("message", ({ data }) => {
                 try {
                     const buffer = this.parseBuffer(data);
-                    const decoded = this._context.decode<Response>(buffer);
+                    const decoded = this._context.cborDecode<Response>(buffer);
 
                     if (
                         typeof decoded === "object" &&

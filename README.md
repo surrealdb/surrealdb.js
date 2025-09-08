@@ -48,14 +48,6 @@ View the SDK documentation [here](https://surrealdb.com/docs/sdk/javascript).
 
 ## How to install
 
-### Install for [JSR/Deno](https://jsr.io/@surrealdb/surrealdb)
-
-Import it with:
-
-```ts
-import Surreal from "@surrealdb/surrealdb";
-```
-
 ### Install for [Node.js](https://www.npmjs.com/package/surrealdb)
 
 Install it with:
@@ -227,7 +219,7 @@ for VSCode are helpful.
 ### Directory structure
 
 - `./biome.json` include settings for code quality.
-- `./scripts` include the build scripts for NPM and JSR.
+- `./scripts` include the build scripts for NPM.
 - `./src` includes all source code. `./src/index.ts` is the main entrypoint.
 - `./dist` is build by `./scripts/build.ts` and includes the compiled and minified bundles for ESM, CJS and bundled ESM targets.
 - `./tests` includes all test files.

@@ -1,0 +1,43 @@
+[package]
+name = "surrealdb-wasm"
+publish = false
+edition = "2021"
+version = "0.0.0"
+authors = ["Tobie Morgan Hitchcock <tobie@surrealdb.com>"]
+description = "WebAssembly driver for SurrealDB"
+repository = "https://github.com/surrealdb/surrealdb.wasm"
+license = "Apache License 2.0"
+
+[profile.release]
+lto = true
+strip = true
+opt-level = 'z'
+panic = 'abort'
+codegen-units = 1
+
+[lib]
+path = "src-rust/lib.rs"
+name = "surrealdb"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+kv-indxdb = ["surrealdb/kv-indxdb"]
+kv-mem = ["surrealdb/kv-mem"]
+
+[dependencies]
+surrealdb = { version = "*", default-features = false, features = ["http"] }
+ciborium = "0.2.2"
+futures = "0.3.30"
+serde = { version = "1.0.197", features = ["derive"] }
+serde-wasm-bindgen = "0.6.5"
+uuid = "1.8.0"
+wasm-bindgen = "0.2.101"
+wasm-bindgen-futures = "0.4.45"
+wasm-streams = "0.4.0"
+web-sys = { version = "0.3.69", features = ["console"] }
+channel = { version = "2.3.1", package = "async-channel" }
+tokio = "1.43.0"
+arc-swap = "1.7.1"
+
+[build-dependencies]
+cargo-lock = "10.0.1"

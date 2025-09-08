@@ -29,7 +29,10 @@ Temporary Items
 npm
 node_modules
 dist
-
+packages/wasm/wasm
+packages/wasm/target
+packages/node/target
+packages/node/napi
 
 # -----------------------------------
 # Files

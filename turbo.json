@@ -3,16 +3,19 @@
     "tasks": {
         "build": {
             "dependsOn": ["^build"],
-            "outputs": ["dist/**"]
+            "outputs": ["dist/**", "target/**", "wasm/**"]
         },
         "run-tests": {
             "dependsOn": ["^build"]
+        },
+        "sync": {
+            "cache": false
         },
         "dev": {
             "cache": false
         },
         "publish": {
-            "dependsOn": ["^build"],
+            "dependsOn": ["^publish"],
             "cache": false
         }
     }

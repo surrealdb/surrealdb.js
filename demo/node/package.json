@@ -1,0 +1,12 @@
+{
+    "name": "@surrealdb/node-demo",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "demo": "bun run demo.ts"
+    },
+    "dependencies": {
+        "@surrealdb/node": "workspace:*",
+        "surrealdb": "workspace:*"
+    }
+}

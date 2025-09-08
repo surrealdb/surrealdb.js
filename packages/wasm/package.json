@@ -17,19 +17,21 @@
         "url": "https://github.com/surrealdb/surrealdb.js.git"
     },
     "scripts": {
-        "build": "exit 0"
+        "build": "bun run build.ts",
+        "sync": "bun run ../../scripts/sync-surreal.ts",
+        "publish": "bun run ../../scripts/publish.ts"
     },
-    "devDependencies": {
+    "dependencies": {
         "surrealdb": "workspace:*"
     },
     "exports": {
         ".": {
-            "require": "./dist/surrealdb-wasm.cjs",
             "import": "./dist/surrealdb-wasm.mjs",
             "types": "./dist/surrealdb-wasm.d.ts"
         }
     },
     "files": [
-        "dist"
+        "dist",
+        "wasm"
     ]
 }

@@ -18,19 +18,28 @@
         "url": "https://github.com/surrealdb/surrealdb.js.git"
     },
     "scripts": {
-        "build": "exit 0"
+        "build": "bun run build.ts",
+        "sync": "bun run ../../scripts/sync-surreal.ts",
+        "publish": "bun run ../../scripts/publish.ts"
+    },
+    "dependencies": {
+        "surrealdb": "workspace:*"
     },
     "devDependencies": {
-        "surrealdb": "workspace:*"
+        "@napi-rs/cli": "^3.1.5",
+        "dedent": "^1.7.0"
     },
     "exports": {
         ".": {
-            "require": "./dist/surrealdb-node.cjs",
             "import": "./dist/surrealdb-node.mjs",
             "types": "./dist/surrealdb-node.d.ts"
         }
     },
     "files": [
-        "dist"
-    ]
+        "dist",
+        "napi"
+    ],
+    "napi": {
+        "binaryName": "surrealdb-node"
+    }
 }

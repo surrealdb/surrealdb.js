@@ -34,10 +34,12 @@
             "!**/.vscode",
             "!**/.github",
             "!**/node_modules",
-            "!**/npm/*",
             "!**/dist/*",
-            "!**/scripts/*",
-            "!**/*.js"
+            "!**/*.js",
+            "!packages/wasm/wasm/*",
+            "!packages/wasm/target/*",
+            "!packages/node/napi/*",
+            "!packages/node/target/*"
         ]
     }
 }

@@ -19,7 +19,7 @@ import type {
     ConnectionStatus,
     ConnectOptions,
     DriverContext,
-    EngineImpl,
+    Engines,
     EventPublisher,
     LiveMessage,
     MlExportOptions,
@@ -35,11 +35,11 @@ import { type BoundQuery, versionCheck } from "../utils";
 import { Publisher } from "../utils/publisher";
 import type { Uuid } from "../value";
 
-const DEFAULT_ENGINES: Record<string, EngineImpl> = {
-    ws: WebSocketEngine,
-    wss: WebSocketEngine,
-    http: HttpEngine,
-    https: HttpEngine,
+const DEFAULT_ENGINES: Engines = {
+    ws: (ctx) => new WebSocketEngine(ctx),
+    wss: (ctx) => new WebSocketEngine(ctx),
+    http: (ctx) => new HttpEngine(ctx),
+    https: (ctx) => new HttpEngine(ctx),
 };
 
 type ConnectionEvents = {
@@ -81,13 +81,13 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         const engineMap = { ...DEFAULT_ENGINES, ...this.#context.options.engines };
         const protocol = url.protocol.slice(0, -1);
-        const Engine = engineMap[protocol];
+        const factory = engineMap[protocol];
 
-        if (!Engine) {
+        if (!factory) {
             throw new UnsupportedEngine(protocol);
         }
 
-        this.#engine = new Engine(this.#context);
+        this.#engine = factory(this.#context);
         this.#authProvider = options.authentication;
         this.#checkVersion = options.versionCheck ?? true;
         this.#renewAccess = options.renewAccess ?? true;

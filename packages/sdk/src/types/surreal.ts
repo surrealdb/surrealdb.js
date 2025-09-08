@@ -16,7 +16,8 @@ import type { EventPublisher } from "./publisher";
 
 export type QueryResponseKind = "single" | "batched" | "batched-final";
 export type ConnectionStatus = "disconnected" | "connecting" | "reconnecting" | "connected";
-export type EngineImpl = new (context: DriverContext) => SurrealEngine;
+export type EngineFactory = (context: DriverContext) => SurrealEngine;
+export type Engines = Record<string, EngineFactory>;
 
 /**
  * The communication contract between the SDK and a SurrealDB datastore.
@@ -71,7 +72,7 @@ export type EngineEvents = {
  * Options used to configure behavior of the SurrealDB driver
  */
 export interface DriverOptions {
-    engines?: Record<string, EngineImpl>;
+    engines?: Engines;
     websocketImpl?: typeof WebSocket;
 }
 
@@ -160,8 +161,9 @@ export interface ConnectionState {
  */
 export interface DriverContext {
     options: DriverOptions;
-    encode: typeof encodeCbor;
-    decode: typeof decodeCbor;
+    cborEncode: typeof encodeCbor;
+    cborDecode: typeof decodeCbor;
+    uniqueId: () => string;
 }
 
 /**

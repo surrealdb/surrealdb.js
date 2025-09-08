@@ -28,7 +28,7 @@ jobs:
         run: bun run qc
 
   test:
-    name: Check
+    name: Test
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -45,6 +45,18 @@ jobs:
       - name: Code Checkout
         uses: actions/checkout@v4
 
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli --version 0.2.101
+
+      - name: Install wasm-opt
+        run: cargo install wasm-opt
+
       - name: Install dependencies
         run: bun install
 
@@ -52,26 +64,3 @@ jobs:
         run: bun run test
         env:
           SURREAL_DEFAULT_PROTOCOL: ${{ matrix.engine }}
-
-  # publish:
-  #   name: Verify publish
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: read
-  #   steps:
-  #     - name: Install Bun
-  #       uses: oven-sh/setup-bun@v2
-
-  #     - name: Code Checkout
-  #       uses: actions/checkout@v4
-
-  #     - name: Install dependencies
-  #       run: bun install
-
-  #     - name: Build
-  #       run: bun run build
-
-  #     - name: Validate publishing
-  #       run: bun run publish all --dry-run
-  #       env:
-  #         NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}

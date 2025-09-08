@@ -1,5 +1,4 @@
 import { rolldown } from "rolldown";
-import { name, version } from "./package.json";
 
 const bundle = await rolldown({
     input: "./src/index.ts",
@@ -16,23 +15,6 @@ await bundle.write({
     format: "cjs",
     file: "./dist/surrealdb.cjs",
 });
-
-// JSR Config
-await Bun.write(
-    "jsr.json",
-    JSON.stringify(
-        {
-            version,
-            name: `@surrealdb/${name}`,
-            exports: "./src/index.ts",
-            publish: {
-                include: ["src/**/*.ts"],
-            },
-        },
-        null,
-        2,
-    ),
-);
 
 // TS Declarations
 const task = Bun.spawn(
