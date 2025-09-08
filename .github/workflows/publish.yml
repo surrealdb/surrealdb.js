@@ -268,11 +268,11 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Wasm tree"
-          tree packages/wasm -I src-ts|src-rust|target
+          tree packages/wasm -I "src-ts|src-rust|target"
           echo "::endgroup::"
 
           echo "::group::Node tree"
-          tree packages/node -I src-ts|src-rust|target
+          tree packages/node -I "src-ts|src-rust|target"
           echo "::endgroup::"
 
       - name: Dry run publish all packages
