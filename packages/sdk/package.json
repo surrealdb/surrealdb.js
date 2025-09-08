@@ -16,7 +16,8 @@
         "url": "https://github.com/surrealdb/surrealdb.js.git"
     },
     "scripts": {
-        "build": "bun run build.ts"
+        "build": "bun run build.ts",
+        "publish": "bun run ../../scripts/publish.ts"
     },
     "devDependencies": {
         "@types/bun": "^1.2.10",

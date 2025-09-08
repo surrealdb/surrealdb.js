@@ -72,8 +72,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sdk-artifacts
-          path: packages/sdk/dist/
           retention-days: 1
+          path: packages/sdk/dist/
 
   # Build WASM package (depends on SDK)
   build-wasm:
@@ -115,8 +115,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wasm-artifacts
-          path: packages/wasm/dist/
           retention-days: 1
+          path: |
+            packages/wasm/wasm/
+            packages/wasm/dist/
 
   # Build Node package for all platforms (depends on SDK)
   build-node:
@@ -228,8 +230,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bindings-${{ matrix.settings.target }}
-          path: "*.node"
           if-no-files-found: error
+          path: |
+            packages/node/napi/
+            packages/node/dist/
 
   # Dry run publish to verify everything works
   dry-run-publish:
@@ -265,7 +269,7 @@ jobs:
           path: packages/node/napi/
 
       - name: Dry run publish all packages
-        run: bun run publish:dry-run
+        run: bun run publish --dry-run
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}

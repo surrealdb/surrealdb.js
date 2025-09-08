@@ -18,7 +18,8 @@
     },
     "scripts": {
         "build": "bun run build.ts",
-        "sync": "bun run ../../scripts/sync-surreal.ts"
+        "sync": "bun run ../../scripts/sync-surreal.ts",
+        "publish": "bun run ../../scripts/publish.ts"
     },
     "peerDependencies": {
         "surrealdb": "workspace:*"
