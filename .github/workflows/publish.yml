@@ -296,13 +296,8 @@ jobs:
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
-      - name: Foo
-        run: bun run foo
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Dry run publish all packages
-        run: bun run publish:dry-run
+        run: bun run deploy:test
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -352,6 +347,6 @@ jobs:
   #         echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
   #     - name: Publish all packages
-  #       run: bun run publish
+  #       run: bun run deploy
   #       env:
   #         NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

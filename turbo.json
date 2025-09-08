@@ -11,14 +11,10 @@
         "sync": {
             "cache": false
         },
-        "foo": {
-            "cache": false
-        },
         "dev": {
             "cache": false
         },
-        "publish": {
-            "dependsOn": ["^publish"],
+        "deploy": {
             "cache": false
         }
     }

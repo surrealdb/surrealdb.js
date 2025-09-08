@@ -1,7 +1,5 @@
 import { parseArgs } from "node:util";
 
-console.log("CWD =", process.cwd());
-
 const { values } = parseArgs({
     args: Bun.argv.slice(2),
     options: {
