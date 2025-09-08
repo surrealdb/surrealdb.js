@@ -7,9 +7,9 @@
     ],
     "scripts": {
         "build": "turbo build",
-        "build:sdk": "turbo build --filter=sdk",
-        "build:wasm": "turbo build --filter=wasm",
-        "build:node": "turbo build --filter=node",
+        "build:sdk": "turbo build --filter=surrealdb",
+        "build:wasm": "turbo build --filter=@surrealdb/wasm",
+        "build:node": "turbo build --filter=@surrealdb/node",
         "test": "turbo run-tests",
         "sync": "turbo sync",
         "publish": "turbo publish",
