@@ -30,6 +30,15 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Setup NPM authentication
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Correct latest (!! TEMPORARY !!)
+        run: npm dist-tag add surrealdb@1.3.2 latest
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Validate package versions
         run: bun run validate:versions ${{ steps.version.outputs.version }}
 
@@ -296,7 +305,7 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
       - name: Dry run publish all packages
-        run: bun run publish --dry-run
+        run: bun run publish:dry-run
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
