@@ -56,7 +56,10 @@ if (flags.length > 0) {
 await Bun.spawn(buildCmd, {
     stdout: "inherit",
     stderr: "inherit",
-    env: process.env,
+    env: {
+        ...process.env,
+        CFLAGS_aarch64_unknown_linux_gnu: "-D__ARM_ARCH=8",
+    },
 }).exited;
 
 // Bundle the engine implementation

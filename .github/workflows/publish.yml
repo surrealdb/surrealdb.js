@@ -207,10 +207,10 @@ jobs:
           path: packages/sdk/
 
       - name: Build
-        run: ${{ matrix.settings.build }}
         shell: bash
-        env:
-          CFLAGS_aarch64_unknown_linux_gnu: "-D__ARM_ARCH=8"
+        run: |
+          export CFLAGS_aarch64_unknown_linux_gnu="-D__ARM_ARCH=8"
+          ${{ matrix.settings.build }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
