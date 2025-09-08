@@ -38,6 +38,7 @@ const buildCmd = [
     "build",
     "-s",
     "--esm",
+    "--strip",
     "--dts-header",
     dtsHeader,
     "--platform",

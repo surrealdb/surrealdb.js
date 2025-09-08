@@ -219,18 +219,24 @@ jobs:
         shell: bash
         run: ${{ matrix.settings.build }}
 
-      - name: Remove duplicate dist
-        if: ${{ matrix.settings.target != 'aarch64-unknown-linux-gnu' }}
-        run: rm -rf packages/wasm/dist
+      - name: Upload artifact (all)
+        if: ${{ matrix.settings.target == 'aarch64-unknown-linux-gnu' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          if-no-files-found: error
+          path: |
+            packages/node/napi/*
+            packages/node/dist/
 
-      - name: Upload artifact
+      - name: Upload artifact (binary)
+        if: ${{ matrix.settings.target != 'aarch64-unknown-linux-gnu' }}
         uses: actions/upload-artifact@v4
         with:
           name: bindings-${{ matrix.settings.target }}
           if-no-files-found: error
           path: |
             packages/node/napi/*.node
-            packages/node/dist/
 
   # Dry run publish to verify everything works
   dry-run-publish:
