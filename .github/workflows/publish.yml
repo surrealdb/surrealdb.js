@@ -261,11 +261,6 @@ jobs:
           pattern: bindings-*
           path: packages/node/napi/
 
-      - name: Dry run publish all packages
-        run: bun run publish --dry-run
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Distribution summary
         run: |
           echo "::group::SDK tree"
@@ -279,6 +274,11 @@ jobs:
           echo "::group::Node tree"
           tree packages/node -I src-ts|src-rust|target
           echo "::endgroup::"
+
+      - name: Dry run publish all packages
+        run: bun run publish --dry-run
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # Actual publish (only if not dry run)
   publish:
