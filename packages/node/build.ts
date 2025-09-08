@@ -1,6 +1,8 @@
 import dedent from "dedent";
 import { rolldown } from "rolldown";
 
+const [, , target] = Bun.argv;
+
 // Build the NAPI binary
 console.log("🔨 Building the NAPI binary");
 
@@ -30,27 +32,31 @@ const DTS_HEADER = dedent`
 	\n
 `;
 
-await Bun.spawn(
-    [
-        "bunx",
-        "napi",
-        "build",
-        "-s",
-        "--esm",
-        "--dts-header",
-        DTS_HEADER,
-        "--platform",
-        "--release",
-        "--features",
-        "kv-rocksdb,kv-mem,kv-surrealkv",
-        "-o",
-        "napi",
-    ],
-    {
-        stdout: "inherit",
-        stderr: "inherit",
-    },
-).exited;
+const buildCmd = [
+    "bunx",
+    "napi",
+    "build",
+    "-s",
+    "--esm",
+    "--dts-header",
+    DTS_HEADER,
+    "--platform",
+    "--release",
+    "--features",
+    "kv-rocksdb,kv-mem,kv-surrealkv",
+    "-o",
+    "napi",
+];
+
+if (target) {
+    buildCmd.push("--target", target);
+    console.log("🎯 Target platform: ", target);
+}
+
+await Bun.spawn(buildCmd, {
+    stdout: "inherit",
+    stderr: "inherit",
+}).exited;
 
 // Bundle the engine implementation
 console.log("🔨 Generating the package bundle");

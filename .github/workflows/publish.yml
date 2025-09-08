@@ -116,7 +116,7 @@ jobs:
           - host: macos-13
             target: x86_64-apple-darwin
             build: |
-              bun run build:node --target x86_64-apple-darwin
+              bun run build:node x86_64-apple-darwin
               strip -x *.node
           # Windows x86_64
           - host: windows-latest
@@ -129,7 +129,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             build: |-
               set -e &&
-              bun run build:node --target x86_64-unknown-linux-gnu
+              bun run build:node x86_64-unknown-linux-gnu
               strip *.node
           # Linux x86_64 musl
           - host: ubuntu-latest
@@ -139,20 +139,20 @@ jobs:
           - host: macos-latest
             target: aarch64-apple-darwin
             build: |
-              bun run build:node --target aarch64-apple-darwin
+              bun run build:node aarch64-apple-darwin
               strip -x *.node
           # Linux aarch64
           - host: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             build: |-
               set -e &&
-              bun run build:node --target aarch64-unknown-linux-gnu
+              bun run build:node aarch64-unknown-linux-gnu
               aarch64-unknown-linux-gnu-strip *.node
           # Android aarch64
           - host: ubuntu-latest
             target: aarch64-linux-android
             build: |
-              bun run build:node --target aarch64-linux-android
+              bun run build:node aarch64-linux-android
               ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node
     steps:
       - name: Install Bun
