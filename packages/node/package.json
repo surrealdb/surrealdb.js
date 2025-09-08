@@ -22,7 +22,7 @@
         "sync": "bun run ../../scripts/sync-surreal.ts",
         "publish": "bun run ../../scripts/publish.ts"
     },
-    "peerDependencies": {
+    "dependencies": {
         "surrealdb": "workspace:*"
     },
     "devDependencies": {

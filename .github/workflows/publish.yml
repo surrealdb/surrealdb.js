@@ -272,7 +272,6 @@ jobs:
         run: bun run publish --dry-run
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
 
   # Actual publish (only if not dry run)
   publish:
@@ -312,15 +311,10 @@ jobs:
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
-      - name: Setup JSR authentication
-        run: |
-          echo "JSR_TOKEN=${{ secrets.JSR_TOKEN }}" >> $GITHUB_ENV
-
       - name: Publish all packages
         run: bun run publish
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
 
   # Summary job
   summary:

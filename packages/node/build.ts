@@ -1,6 +1,5 @@
 import dedent from "dedent";
 import { rolldown } from "rolldown";
-import { name, version } from "./package.json";
 
 // Build the NAPI binary
 console.log("🔨 Building the NAPI binary");
@@ -66,23 +65,6 @@ await bundle.write({
     format: "esm",
     file: "./dist/surrealdb-node.mjs",
 });
-
-// JSR Configuration
-await Bun.write(
-    "jsr.json",
-    JSON.stringify(
-        {
-            version,
-            name,
-            exports: "./dist/surrealdb-node.mjs",
-            publish: {
-                include: ["dist/**/*", "napi/**/*"],
-            },
-        },
-        null,
-        2,
-    ),
-);
 
 // TS Declaration
 const task = Bun.spawn(

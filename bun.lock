@@ -37,12 +37,12 @@
     "packages/node": {
       "name": "@surrealdb/node",
       "version": "2.0.0-alpha.4+2.3.7",
+      "dependencies": {
+        "surrealdb": "workspace:*",
+      },
       "devDependencies": {
         "@napi-rs/cli": "^3.1.5",
         "dedent": "^1.7.0",
-      },
-      "peerDependencies": {
-        "surrealdb": "workspace:*",
       },
     },
     "packages/sdk": {
@@ -75,7 +75,7 @@
     "packages/wasm": {
       "name": "@surrealdb/wasm",
       "version": "2.0.0-alpha.4+2.3.7",
-      "peerDependencies": {
+      "dependencies": {
         "surrealdb": "workspace:*",
       },
     },

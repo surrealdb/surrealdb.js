@@ -1,5 +1,4 @@
 import { rolldown } from "rolldown";
-import { name, version } from "./package.json";
 
 // Build the WASM module
 console.log("🔨 Building the WASM module");
@@ -44,23 +43,6 @@ await bundle.write({
     format: "esm",
     file: "./dist/surrealdb-wasm.mjs",
 });
-
-// JSR Configuration
-await Bun.write(
-    "jsr.json",
-    JSON.stringify(
-        {
-            version,
-            name,
-            exports: "./dist/surrealdb-wasm.mjs",
-            publish: {
-                include: ["dist/**/*", "wasm/**/*"],
-            },
-        },
-        null,
-        2,
-    ),
-);
 
 // TS Declaration
 const task = Bun.spawn(
