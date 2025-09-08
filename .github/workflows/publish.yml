@@ -58,184 +58,184 @@ jobs:
           retention-days: 1
           path: packages/sdk/dist/
 
-  # Build WASM package (depends on SDK)
-  build-wasm:
-    name: Build WASM
-    runs-on: ubuntu-latest
-    needs: [validate, build-sdk]
-    steps:
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
+  # # Build WASM package (depends on SDK)
+  # build-wasm:
+  #   name: Build WASM
+  #   runs-on: ubuntu-latest
+  #   needs: [validate, build-sdk]
+  #   steps:
+  #     - name: Install Bun
+  #       uses: oven-sh/setup-bun@v2
 
-      - name: Code Checkout
-        uses: actions/checkout@v4
+  #     - name: Code Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: bun install
+  #     - name: Install dependencies
+  #       run: bun install
 
-      - name: Download SDK artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: sdk-artifacts
-          path: packages/sdk/
+  #     - name: Download SDK artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: sdk-artifacts
+  #         path: packages/sdk/
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          targets: wasm32-unknown-unknown
+  #     - name: Install Rust
+  #       uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         toolchain: stable
+  #         targets: wasm32-unknown-unknown
 
-      - name: Install wasm-bindgen-cli
-        run: cargo install -f wasm-bindgen-cli --version 0.2.101
+  #     - name: Install wasm-bindgen-cli
+  #       run: cargo install -f wasm-bindgen-cli --version 0.2.101
 
-      - name: Install wasm-opt
-        run: cargo install wasm-opt
+  #     - name: Install wasm-opt
+  #       run: cargo install wasm-opt
 
-      - name: Build WASM
-        run: bun run build:wasm
+  #     - name: Build WASM
+  #       run: bun run build:wasm
 
-      - name: Upload WASM artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: wasm-artifacts
-          retention-days: 1
-          path: |
-            packages/wasm/wasm/
-            packages/wasm/dist/
+  #     - name: Upload WASM artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: wasm-artifacts
+  #         retention-days: 1
+  #         path: |
+  #           packages/wasm/wasm/
+  #           packages/wasm/dist/
 
-  # Build Node package for all platforms (depends on SDK)
-  build-node:
-    name: Build Node - ${{ matrix.settings.name }}
-    runs-on: ${{ matrix.settings.host }}
-    needs: [validate, build-sdk]
-    strategy:
-      fail-fast: false
-      matrix:
-        settings:
-          - name: macOS x86_64
-            host: macos-latest
-            target: x86_64-apple-darwin
-            build: bun run build:node --target x86_64-apple-darwin
+  # # Build Node package for all platforms (depends on SDK)
+  # build-node:
+  #   name: Build Node - ${{ matrix.settings.name }}
+  #   runs-on: ${{ matrix.settings.host }}
+  #   needs: [validate, build-sdk]
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       settings:
+  #         - name: macOS x86_64
+  #           host: macos-latest
+  #           target: x86_64-apple-darwin
+  #           build: bun run build:node --target x86_64-apple-darwin
 
-          - name: Windows x86_64
-            host: windows-latest
-            build: bun run build:node --target x86_64-pc-windows-msvc
-            target: x86_64-pc-windows-msvc
+  #         - name: Windows x86_64
+  #           host: windows-latest
+  #           build: bun run build:node --target x86_64-pc-windows-msvc
+  #           target: x86_64-pc-windows-msvc
 
-          - name: Linux x86_64 (gnu)
-            host: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            build: bun run build:node --target x86_64-unknown-linux-gnu --use-napi-cross
+  #         - name: Linux x86_64 (gnu)
+  #           host: ubuntu-latest
+  #           target: x86_64-unknown-linux-gnu
+  #           build: bun run build:node --target x86_64-unknown-linux-gnu --use-napi-cross
 
-          - name: Linux x86_64 (musl)
-            host: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            build: bun run build:node --target x86_64-unknown-linux-musl -x
+  #         - name: Linux x86_64 (musl)
+  #           host: ubuntu-latest
+  #           target: x86_64-unknown-linux-musl
+  #           build: bun run build:node --target x86_64-unknown-linux-musl -x
 
-          - name: macOS aarch64
-            host: macos-latest
-            target: aarch64-apple-darwin
-            build: bun run build:node --target aarch64-apple-darwin
+  #         - name: macOS aarch64
+  #           host: macos-latest
+  #           target: aarch64-apple-darwin
+  #           build: bun run build:node --target aarch64-apple-darwin
 
-          - name: Linux aarch64 (gnu)
-            host: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            build: bun run build:node --target aarch64-unknown-linux-gnu --use-napi-cross
+  #         - name: Linux aarch64 (gnu)
+  #           host: ubuntu-latest
+  #           target: aarch64-unknown-linux-gnu
+  #           build: bun run build:node --target aarch64-unknown-linux-gnu --use-napi-cross
 
-          - name: Linux aarch64 (musl)
-            host: ubuntu-latest
-            target: aarch64-unknown-linux-musl
-            build: bun run build:node --target aarch64-unknown-linux-musl -x
+  #         - name: Linux aarch64 (musl)
+  #           host: ubuntu-latest
+  #           target: aarch64-unknown-linux-musl
+  #           build: bun run build:node --target aarch64-unknown-linux-musl -x
 
-          - name: Windows aarch64
-            host: windows-latest
-            target: aarch64-pc-windows-msvc
-            build: bun run build:node --target aarch64-pc-windows-msvc
+  #         - name: Windows aarch64
+  #           host: windows-latest
+  #           target: aarch64-pc-windows-msvc
+  #           build: bun run build:node --target aarch64-pc-windows-msvc
 
-          # - host: ubuntu-latest
-          #   target: aarch64-linux-android
-          #   build: bun run build:node --target aarch64-linux-android
-          # - host: ubuntu-latest
-          #   target: armv7-linux-androideabi
-          #   build: bun run build:node --target armv7-linux-androideabi
-    steps:
-      - name: Code Checkout
-        uses: actions/checkout@v4
+  #         # - host: ubuntu-latest
+  #         #   target: aarch64-linux-android
+  #         #   build: bun run build:node --target aarch64-linux-android
+  #         # - host: ubuntu-latest
+  #         #   target: armv7-linux-androideabi
+  #         #   build: bun run build:node --target armv7-linux-androideabi
+  #   steps:
+  #     - name: Code Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            ~/.napi-rs
-            .cargo-cache
-            target/
-          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
+  #     - name: Cache cargo registry
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: |
+  #           ~/.cargo/registry/index/
+  #           ~/.cargo/registry/cache/
+  #           ~/.cargo/git/db/
+  #           ~/.napi-rs
+  #           .cargo-cache
+  #           target/
+  #         key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          targets: ${{ matrix.settings.target }}
+  #     - name: Install Rust
+  #       uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         toolchain: stable
+  #         targets: ${{ matrix.settings.target }}
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
+  #     - name: Install Bun
+  #       uses: oven-sh/setup-bun@v2
 
-      - name: Install cross-compilation toolchain
-        if: ${{ contains(matrix.settings.target, 'aarch64-unknown-linux-gnu') }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          # Verify the compiler supports C++17
-          aarch64-linux-gnu-g++ --version
-          aarch64-linux-gnu-g++ -std=c++17 -E -x c++ - < /dev/null
+  #     - name: Install cross-compilation toolchain
+  #       if: ${{ contains(matrix.settings.target, 'aarch64-unknown-linux-gnu') }}
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+  #         # Verify the compiler supports C++17
+  #         aarch64-linux-gnu-g++ --version
+  #         aarch64-linux-gnu-g++ -std=c++17 -E -x c++ - < /dev/null
 
-      - name: Install ziglang
-        uses: mlugg/setup-zig@v2
-        if: ${{ contains(matrix.settings.target, 'musl') }}
-        with:
-          version: 0.14.1
+  #     - name: Install ziglang
+  #       uses: mlugg/setup-zig@v2
+  #       if: ${{ contains(matrix.settings.target, 'musl') }}
+  #       with:
+  #         version: 0.14.1
 
-      - name: Install cargo toolchains
-        uses: taiki-e/install-action@v2
-        if: ${{ contains(matrix.settings.target, 'musl') }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          tool: cargo-zigbuild
+  #     - name: Install cargo toolchains
+  #       uses: taiki-e/install-action@v2
+  #       if: ${{ contains(matrix.settings.target, 'musl') }}
+  #       env:
+  #         GITHUB_TOKEN: ${{ github.token }}
+  #       with:
+  #         tool: cargo-zigbuild
 
-      - name: Install dependencies
-        run: bun install
+  #     - name: Install dependencies
+  #       run: bun install
 
-      - name: Download SDK artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: sdk-artifacts
-          path: packages/sdk/dist/
+  #     - name: Download SDK artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: sdk-artifacts
+  #         path: packages/sdk/dist/
 
-      - name: Build
-        shell: bash
-        run: ${{ matrix.settings.build }}
+  #     - name: Build
+  #       shell: bash
+  #       run: ${{ matrix.settings.build }}
 
-      - name: Upload artifact (binary)
-        uses: actions/upload-artifact@v4
-        with:
-          name: bindings-${{ matrix.settings.target }}
-          if-no-files-found: error
-          path: |
-            packages/node/napi/*.node
+  #     - name: Upload artifact (binary)
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: bindings-${{ matrix.settings.target }}
+  #         if-no-files-found: error
+  #         path: |
+  #           packages/node/napi/*.node
 
-      - name: Upload artifact (dist)
-        uses: actions/upload-artifact@v4
-        if: ${{ matrix.settings.target == 'aarch64-unknown-linux-gnu' }}
-        with:
-          name: node-artifacts
-          if-no-files-found: error
-          path: |
-            packages/node/napi/
-            packages/node/dist/
+  #     - name: Upload artifact (dist)
+  #       uses: actions/upload-artifact@v4
+  #       if: ${{ matrix.settings.target == 'aarch64-unknown-linux-gnu' }}
+  #       with:
+  #         name: node-artifacts
+  #         if-no-files-found: error
+  #         path: |
+  #           packages/node/napi/
+  #           packages/node/dist/
 
   # Dry run publish to verify everything works
   dry-run-publish:
@@ -296,56 +296,56 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
       - name: Dry run publish all packages
-        run: bun run publish:dry-run
+        run: pwd && bun run publish:dry-run
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # Actual publish (only if not dry run)
-  publish:
-    name: Publish Packages
-    runs-on: ubuntu-latest
-    needs: [build-sdk, build-wasm, build-node, validate, dry-run-publish]
-    if: ${{ !github.event.inputs.dry_run || github.event.inputs.dry_run == 'false' }}
-    steps:
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
+  # publish:
+  #   name: Publish Packages
+  #   runs-on: ubuntu-latest
+  #   needs: [build-sdk, build-wasm, build-node, validate, dry-run-publish]
+  #   if: ${{ !github.event.inputs.dry_run || github.event.inputs.dry_run == 'false' }}
+  #   steps:
+  #     - name: Install Bun
+  #       uses: oven-sh/setup-bun@v2
 
-      - name: Code Checkout
-        uses: actions/checkout@v4
+  #     - name: Code Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: bun install
+  #     - name: Install dependencies
+  #       run: bun install
 
-      - name: Download SDK artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: sdk-artifacts
-          path: packages/sdk/dist/
+  #     - name: Download SDK artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: sdk-artifacts
+  #         path: packages/sdk/dist/
 
-      - name: Download WASM artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: wasm-artifacts
-          path: packages/wasm/
+  #     - name: Download WASM artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: wasm-artifacts
+  #         path: packages/wasm/
 
-      - name: Download Node artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: node-artifacts
-          path: packages/node/
+  #     - name: Download Node artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: node-artifacts
+  #         path: packages/node/
 
-      - name: Download node binaries
-        uses: actions/download-artifact@v4
-        with:
-          pattern: bindings-*
-          path: packages/node/napi/
-          merge-multiple: true
+  #     - name: Download node binaries
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         pattern: bindings-*
+  #         path: packages/node/napi/
+  #         merge-multiple: true
 
-      - name: Setup NPM authentication
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+  #     - name: Setup NPM authentication
+  #       run: |
+  #         echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
-      - name: Publish all packages
-        run: bun run publish
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+  #     - name: Publish all packages
+  #       run: bun run publish
+  #       env:
+  #         NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
