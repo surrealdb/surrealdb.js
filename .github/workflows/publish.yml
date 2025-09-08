@@ -247,7 +247,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: sdk-artifacts
-          path: packages/sdk/
+          path: packages/sdk/dist/
 
       - name: Download WASM artifacts
         uses: actions/download-artifact@v4
@@ -259,7 +259,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: bindings-*
-          path: packages/node/napi/
+          path: packages/node/
 
       - name: Distribution summary
         run: |
@@ -274,6 +274,10 @@ jobs:
           echo "::group::Node tree"
           tree packages/node -I "src-ts|src-rust|target"
           echo "::endgroup::"
+
+      - name: Setup NPM authentication
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
       - name: Dry run publish all packages
         run: bun run publish --dry-run
@@ -300,7 +304,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: sdk-artifacts
-          path: packages/sdk/
+          path: packages/sdk/dist/
 
       - name: Download WASM artifacts
         uses: actions/download-artifact@v4
@@ -312,7 +316,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: bindings-*
-          path: packages/node/napi/
+          path: packages/node/
 
       - name: Setup NPM authentication
         run: |
