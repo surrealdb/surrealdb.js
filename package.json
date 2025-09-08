@@ -12,6 +12,7 @@
         "build:node": "turbo build --filter=@surrealdb/node --",
         "test": "turbo run-tests",
         "sync": "turbo sync",
+        "foo": "turbo foo --concurrency 1",
         "publish": "turbo publish --concurrency 1",
         "publish:dry-run": "turbo publish --concurrency 1 -- --dry-run",
         "validate:versions": "bun run scripts/validate-versions.ts",

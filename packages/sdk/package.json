@@ -17,7 +17,8 @@
     },
     "scripts": {
         "build": "bun run build.ts",
-        "publish": "pwd && bun run ../../scripts/publish.ts"
+        "publish": "pwd && bun run ../../scripts/publish.ts",
+        "foo": "pwd"
     },
     "devDependencies": {
         "@types/bun": "^1.2.10",

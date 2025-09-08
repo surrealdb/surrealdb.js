@@ -11,6 +11,9 @@
         "sync": {
             "cache": false
         },
+        "foo": {
+            "cache": false
+        },
         "dev": {
             "cache": false
         },

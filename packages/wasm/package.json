@@ -19,7 +19,8 @@
     "scripts": {
         "build": "bun run build.ts",
         "sync": "bun run ../../scripts/sync-surreal.ts",
-        "publish": "pwd && bun run ../../scripts/publish.ts"
+        "publish": "pwd && bun run ../../scripts/publish.ts",
+        "foo": "pwd"
     },
     "dependencies": {
         "surrealdb": "workspace:*"
