@@ -259,6 +259,20 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Distribution summary
+        run: |
+          echo "::group::SDK tree"
+          tree packages/sdk -I src
+          echo "::endgroup::"
+
+          echo "::group::Wasm tree"
+          tree packages/wasm -I src-ts|src-rust|target
+          echo "::endgroup::"
+
+          echo "::group::Node tree"
+          tree packages/node -I src-ts|src-rust|target
+          echo "::endgroup::"
+
   # Actual publish (only if not dry run)
   publish:
     name: Publish Packages
@@ -301,28 +315,3 @@ jobs:
         run: bun run publish
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-  # Summary job
-  summary:
-    name: Publish Summary
-    runs-on: ubuntu-latest
-    needs: [validate, dry-run-publish, publish]
-    if: always()
-    steps:
-      - name: Publish Summary
-        run: |
-          echo "## Publish Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **SDK Build**: ${{ needs.build-sdk.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **WASM Build**: ${{ needs.build-wasm.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Node Build**: ${{ needs.build-node.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Dry Run**: ${{ needs.dry-run-publish.result }}" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            echo "- **Status**: ✅ Dry run completed successfully" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- **Publish**: ${{ needs.publish.result }}" >> $GITHUB_STEP_SUMMARY
-            if [ "${{ needs.publish.result }}" = "success" ]; then
-              echo "- **Status**: ✅ All packages published successfully" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "- **Status**: ❌ Publish failed" >> $GITHUB_STEP_SUMMARY
-            fi
-          fi
