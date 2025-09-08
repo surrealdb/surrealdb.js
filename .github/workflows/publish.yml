@@ -297,7 +297,7 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
       - name: Dry run publish all packages
-        run: pwd && bun run publish:dry-run
+        run: bun run publish:dry-run
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
