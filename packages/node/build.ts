@@ -1,6 +1,7 @@
 import dedent from "dedent";
 import { rolldown } from "rolldown";
 
+const isWindows = process.platform === "win32";
 const [, , ...flags] = Bun.argv;
 
 // Build the NAPI binary
@@ -30,6 +31,7 @@ const DTS_HEADER = dedent`
 	\n
 `;
 
+const dtsHeader = isWindows ? `"${DTS_HEADER}"` : DTS_HEADER; // This makes me weep
 const buildCmd = [
     "bunx",
     "napi",
@@ -37,7 +39,7 @@ const buildCmd = [
     "-s",
     "--esm",
     "--dts-header",
-    DTS_HEADER,
+    dtsHeader,
     "--platform",
     "--release",
     "--features",
