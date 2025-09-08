@@ -270,6 +270,7 @@ jobs:
         with:
           pattern: bindings-*
           path: packages/node/
+          merge-multiple: true
 
       - name: Distribution summary
         run: |
