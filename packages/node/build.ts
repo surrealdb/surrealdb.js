@@ -56,6 +56,7 @@ if (flags.length > 0) {
 await Bun.spawn(buildCmd, {
     stdout: "inherit",
     stderr: "inherit",
+    env: process.env,
 }).exited;
 
 // Bundle the engine implementation
