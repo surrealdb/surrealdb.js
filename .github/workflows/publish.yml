@@ -259,24 +259,24 @@ jobs:
           name: sdk-artifacts
           path: packages/sdk/dist/
 
-      - name: Download WASM artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: wasm-artifacts
-          path: packages/wasm/
+      # - name: Download WASM artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: wasm-artifacts
+      #     path: packages/wasm/
 
-      - name: Download Node artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: node-artifacts
-          path: packages/node/
+      # - name: Download Node artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: node-artifacts
+      #     path: packages/node/
 
-      - name: Download node binaries
-        uses: actions/download-artifact@v4
-        with:
-          pattern: bindings-*
-          path: packages/node/napi/
-          merge-multiple: true
+      # - name: Download node binaries
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     pattern: bindings-*
+      #     path: packages/node/napi/
+      #     merge-multiple: true
 
       - name: Distribution summary
         run: |
