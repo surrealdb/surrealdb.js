@@ -1,6 +1,6 @@
 {
     "name": "surrealdb",
-    "version": "2.0.0-alpha.5",
+    "version": "2.0.0-alpha.6",
     "type": "module",
     "license": "Apache-2.0",
     "description": "The official SurrealDB SDK for JavaScript.",

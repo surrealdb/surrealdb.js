@@ -36,7 +36,7 @@
     },
     "packages/node": {
       "name": "@surrealdb/node",
-      "version": "2.0.0-alpha.5+2.3.7",
+      "version": "2.0.0-alpha.6+2.3.7",
       "dependencies": {
         "surrealdb": "workspace:*",
       },
@@ -47,7 +47,7 @@
     },
     "packages/sdk": {
       "name": "surrealdb",
-      "version": "2.0.0-alpha.5",
+      "version": "2.0.0-alpha.6",
       "dependencies": {
         "@surrealdb/cbor": "2.0.0-alpha.4",
         "uuidv7": "^1.0.1",
@@ -74,7 +74,7 @@
     },
     "packages/wasm": {
       "name": "@surrealdb/wasm",
-      "version": "2.0.0-alpha.5+2.3.7",
+      "version": "2.0.0-alpha.6+2.3.7",
       "dependencies": {
         "surrealdb": "workspace:*",
       },
