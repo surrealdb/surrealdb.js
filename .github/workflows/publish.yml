@@ -115,36 +115,39 @@ jobs:
           - host: macos-latest
             target: x86_64-apple-darwin
             build: bun run build:node --target x86_64-apple-darwin
+
           - host: windows-latest
             build: bun run build:node --target x86_64-pc-windows-msvc
             target: x86_64-pc-windows-msvc
           - host: windows-latest
             build: bun run build:node --target i686-pc-windows-msvc
             target: i686-pc-windows-msvc
+
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             build: bun run build:node --target x86_64-unknown-linux-gnu --use-napi-cross
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
             build: bun run build:node --target x86_64-unknown-linux-musl -x
-          - host: macos-latest
-            target: aarch64-apple-darwin
-            build: bun run build:node --target aarch64-apple-darwin
-          - host: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            build: bun run build:node --target aarch64-unknown-linux-gnu --use-napi-cross
-          - host: ubuntu-latest
-            target: armv7-unknown-linux-gnueabihf
-            build: bun run build:node --target armv7-unknown-linux-gnueabihf --use-napi-cross
-          - host: ubuntu-latest
-            target: aarch64-linux-android
-            build: bun run build:node --target aarch64-linux-android
-          - host: ubuntu-latest
-            target: armv7-linux-androideabi
-            build: bun run build:node --target armv7-linux-androideabi
+          # - host: macos-latest
+          #   target: aarch64-apple-darwin
+          #   build: bun run build:node --target aarch64-apple-darwin
+          # - host: ubuntu-latest
+          #   target: aarch64-unknown-linux-gnu
+          #   build: bun run build:node --target aarch64-unknown-linux-gnu --use-napi-cross
+          # - host: ubuntu-latest
+          #   target: armv7-unknown-linux-gnueabihf
+          #   build: bun run build:node --target armv7-unknown-linux-gnueabihf --use-napi-cross
+          # - host: ubuntu-latest
+          #   target: aarch64-linux-android
+          #   build: bun run build:node --target aarch64-linux-android
+          # - host: ubuntu-latest
+          #   target: armv7-linux-androideabi
+          #   build: bun run build:node --target armv7-linux-androideabi
           - host: ubuntu-latest
             target: aarch64-unknown-linux-musl
             build: bun run build:node --target aarch64-unknown-linux-musl -x
+
           - host: windows-latest
             target: aarch64-pc-windows-msvc
             build: bun run build:node --target aarch64-pc-windows-msvc
