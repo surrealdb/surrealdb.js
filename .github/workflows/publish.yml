@@ -258,7 +258,7 @@ jobs:
       - name: Download node binaries
         uses: actions/download-artifact@v4
         with:
-          name: bindings-*
+          pattern: bindings-*
           path: packages/node/napi/
 
       - name: Dry run publish all packages
@@ -311,7 +311,7 @@ jobs:
       - name: Download node binaries
         uses: actions/download-artifact@v4
         with:
-          name: bindings-*
+          pattern: bindings-*
           path: packages/node/napi/
 
       - name: Setup NPM authentication
