@@ -106,36 +106,48 @@ jobs:
   # Build Node package for all platforms (depends on SDK)
   build-node:
     name: Build Node.js - ${{ matrix.settings.target }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.settings.host }}
     needs: [validate, build-sdk]
     strategy:
       fail-fast: false
       matrix:
         settings:
-          - target: x86_64-apple-darwin
-            flags: "-x"
-          - target: aarch64-apple-darwin
-            flags: "-x"
-          - target: x86_64-pc-windows-msvc
-            flags: "-x"
-          - target: i686-pc-windows-msvc
-            flags: "-x"
-          - target: aarch64-pc-windows-msvc
-            flags: "-x"
-          - target: x86_64-unknown-linux-gnu
-            flags: "--use-napi-cross"
-          - target: aarch64-unknown-linux-gnu
-            flags: "--use-napi-cross"
-          - target: x86_64-unknown-linux-musl
-            flags: "-x"
-          - target: aarch64-unknown-linux-musl
-            flags: "-x"
-          - target: armv7-unknown-linux-gnueabihf
-            flags: "--use-napi-cross"
-          - target: powerpc64le-unknown-linux-gnu
-            flags: "--use-napi-cross"
-          - target: s390x-unknown-linux-gnu
-            flags: "--use-napi-cross"
+          - host: macos-latest
+            target: x86_64-apple-darwin
+            build: bun run build:node --target x86_64-apple-darwin
+          - host: windows-latest
+            build: bun run build:node --target x86_64-pc-windows-msvc
+            target: x86_64-pc-windows-msvc
+          - host: windows-latest
+            build: bun run build:node --target i686-pc-windows-msvc
+            target: i686-pc-windows-msvc
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            build: bun run build:node --target x86_64-unknown-linux-gnu --use-napi-cross
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            build: bun run build:node --target x86_64-unknown-linux-musl -x
+          - host: macos-latest
+            target: aarch64-apple-darwin
+            build: bun run build:node --target aarch64-apple-darwin
+          - host: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            build: bun run build:node --target aarch64-unknown-linux-gnu --use-napi-cross
+          - host: ubuntu-latest
+            target: armv7-unknown-linux-gnueabihf
+            build: bun run build:node --target armv7-unknown-linux-gnueabihf --use-napi-cross
+          - host: ubuntu-latest
+            target: aarch64-linux-android
+            build: bun run build:node --target aarch64-linux-android
+          - host: ubuntu-latest
+            target: armv7-linux-androideabi
+            build: bun run build:node --target armv7-linux-androideabi
+          - host: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            build: bun run build:node --target aarch64-unknown-linux-musl -x
+          - host: windows-latest
+            target: aarch64-pc-windows-msvc
+            build: bun run build:node --target aarch64-pc-windows-msvc
     steps:
       - name: Code Checkout
         uses: actions/checkout@v4
@@ -144,11 +156,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo
-            ${{ github.workspace }}/.xwin
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
             ~/.napi-rs
-            ./target
-          key: ${{ matrix.settings.target }}-cargo-cache
+            .cargo-cache
+            target/
+          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -161,15 +175,17 @@ jobs:
 
       - name: Install ziglang
         uses: mlugg/setup-zig@v2
+        if: ${{ contains(matrix.settings.target, 'musl') }}
         with:
           version: 0.14.1
 
       - name: Install cargo toolchains
         uses: taiki-e/install-action@v2
+        if: ${{ contains(matrix.settings.target, 'musl') }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          tool: cargo-zigbuild,cargo-xwin
+          tool: cargo-zigbuild
 
       - name: Install dependencies
         run: bun install
@@ -181,9 +197,8 @@ jobs:
           path: packages/sdk/
 
       - name: Build
-        run: bun run build:node --target ${{ matrix.settings.target }} ${{ matrix.settings.flags }}
-        env:
-          XWIN_CACHE_DIR: ${{ github.workspace }}/.xwin
+        run: ${{ matrix.settings.build }}
+        shell: bash
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
