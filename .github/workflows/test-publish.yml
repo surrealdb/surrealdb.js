@@ -1,4 +1,6 @@
 name: Test Publish Workflow
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
