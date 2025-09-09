@@ -10,6 +10,11 @@ on:
         required: false
         default: false
         type: boolean
+      continue:
+        description: "Continue publishing even if some packages fail"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -296,7 +301,7 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
       - name: Dry run publish all packages
-        run: bun run deploy:test
+        run: bun run deploy --dry-run ${{ github.event.inputs.continue == 'true' && '--continue' || '' }}
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -346,6 +351,6 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
       - name: Publish all packages
-        run: bun run deploy
+        run: bun run deploy ${{ github.event.inputs.continue == 'true' && '--continue' || '' }}
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

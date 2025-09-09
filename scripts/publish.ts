@@ -5,11 +5,14 @@ const { values } = parseArgs({
     options: {
         "dry-run": {
             type: "boolean",
+            default: false,
+        },
+        continue: {
+            type: "boolean",
+            default: false,
         },
     },
 });
-
-const dryrun = values["dry-run"] ?? false;
 
 // Check required files
 const packageFile = Bun.file("package.json");
@@ -36,7 +39,8 @@ if (version.includes("-beta")) {
 // Prepare command
 const npmCmd = ["bun", "publish", "--access", "public", "--tag", channel];
 
-if (dryrun) {
+if (values["dry-run"]) {
+    console.log("🔍 Preparing dry run release...");
     npmCmd.push("--dry-run");
 }
 
@@ -48,5 +52,10 @@ const code = await Bun.spawn(npmCmd, {
     stderr: "inherit",
     env: import.meta.env,
 }).exited;
+
+if (values.continue && code !== 0) {
+    console.log("❌ Publish failed, but continuing...");
+    process.exit(0);
+}
 
 process.exit(code);
