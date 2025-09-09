@@ -35,6 +35,6 @@
     },
     "files": [
         "dist",
-        "wasm"
+        "wasm/*.wasm"
     ]
 }

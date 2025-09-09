@@ -1,3 +1,6 @@
+import { copyFile } from "node:fs/promises";
+import { basename } from "node:path";
+import { Glob } from "bun";
 import dedent from "dedent";
 import { rolldown } from "rolldown";
 
@@ -104,3 +107,8 @@ const task = Bun.spawn(
 );
 
 await task.exited;
+
+// Copy the NAPI binary
+for await (const file of new Glob("napi/*.node").scan(".")) {
+    await copyFile(file, `dist/${basename(file)}`);
+}

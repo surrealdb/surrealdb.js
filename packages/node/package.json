@@ -37,8 +37,7 @@
         }
     },
     "files": [
-        "dist",
-        "napi"
+        "dist"
     ],
     "napi": {
         "binaryName": "surrealdb-node"
