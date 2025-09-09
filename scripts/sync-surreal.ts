@@ -1,3 +1,5 @@
+import { major, minor, patch, SemVer } from "semver";
+
 // Update the SurrealDB dependency in the Cargo.toml file
 console.log("✨ Updating SurrealDB dependency");
 
@@ -15,13 +17,25 @@ console.log("🔍 Checking package version");
 
 const packageJson = await Bun.file("package.json").json();
 
-if (packageJson.version !== crateVersion) {
-    packageJson.version = crateVersion;
+const majorMatch = major(crateVersion) === major(packageJson.version);
+const minorMatch = minor(crateVersion) === minor(packageJson.version);
+const currentPatch = patch(packageJson.version);
 
-    await Bun.write("package.json", JSON.stringify(packageJson, null, 2));
-    await Bun.spawn(["bunx", "biome", "format", "--write", "package.json"]).exited;
+const newVersion = new SemVer(crateVersion);
 
-    console.log(`👉 SurrealDB version updated to ${crateVersion}`);
+console.log(majorMatch, minorMatch, currentPatch);
+
+if (majorMatch === minorMatch) {
+    newVersion.patch = currentPatch;
 } else {
-    console.log(`👉 SurrealDB version is up to date (${crateVersion})`);
+    newVersion.patch = 0;
 }
+
+packageJson.version = newVersion.format();
+
+await Bun.write("package.json", JSON.stringify(packageJson, null, 2));
+await Bun.spawn(["bunx", "biome", "format", "--write", "package.json"]).exited;
+
+console.log(
+    `👉 SurrealDB version updated to ${major(crateVersion)}.${minor(crateVersion)} rev ${newVersion.patch}`,
+);
