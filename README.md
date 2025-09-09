@@ -186,7 +186,7 @@ let [created] = await db
 	.collect<[Person]>();
 ```
 
-### Subscriving to live queries
+### Subscribing to live queries
 
 You can subscribe to live queries to receive updates when the data in the database changes.
 
