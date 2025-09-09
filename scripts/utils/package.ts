@@ -28,6 +28,17 @@ export async function resolvePackages(): Promise<Package[]> {
     return packages;
 }
 
-export function normalizeVersion(version: string): string {
-    return version.split("+")[0].replace(/^v/, "");
+export function normalizeVersion(version: string): [string, string] {
+    const [packageVersion, surrealVersion] = version.split(/[.-]surreal\./);
+    const trimmed = packageVersion.replace(/^v/, "");
+
+    return [trimmed, surrealVersion];
+}
+
+export function composeVersion(packageVersion: string, surrealVersion: string): string {
+    if (packageVersion.includes("-")) {
+        return `${packageVersion}.surreal.${surrealVersion}`;
+    }
+
+    return `${packageVersion}-surreal.${surrealVersion}`;
 }

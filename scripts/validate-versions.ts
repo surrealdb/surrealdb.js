@@ -15,7 +15,7 @@ if (packages.length === 0) {
 const versionGroups = new Map<string, string[]>();
 
 for (const pkg of packages) {
-    const normalizedVersion = normalizeVersion(pkg.version);
+    const [normalizedVersion] = normalizeVersion(pkg.version);
     const currentPackages = versionGroups.get(normalizedVersion) || [];
     currentPackages.push(`${pkg.name}@${pkg.version}`);
     versionGroups.set(normalizedVersion, currentPackages);
@@ -35,10 +35,10 @@ const packageList = versionGroups.get(version) ?? [];
 const [, , match] = Bun.argv;
 
 if (match) {
-    const normalizedMatch = normalizeVersion(match);
+    const [normalizedMatch] = normalizeVersion(match);
 
     if (normalizedMatch !== version) {
-        console.log(`❌ Package versions do not match: ${normalizeVersion(match)} !== ${version}`);
+        console.log(`❌ Package versions do not match: ${normalizedMatch} !== ${version}`);
         process.exit(1);
     }
 }
