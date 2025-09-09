@@ -2,26 +2,11 @@
 
 <p align="center">
     <img width=120 src="https://raw.githubusercontent.com/surrealdb/icons/main/surreal.svg" />
+    &nbsp;
+    <img width=120 src="https://raw.githubusercontent.com/surrealdb/icons/main/javascript.svg" />
 </p>
 
-<div id="toc">
-    <ul align="center" style="list-style: none;">
-        <summary>
-            <h1 align="center">SurrealDB JavaScript SDK</h1><br/>
-            <p align="center">Connect to remote and embedded SurrealDB instances</p>
-        </summary>
-    </ul>
-</div>
-
-<br>
-
-<p align="center">
-    <img width=74 src="https://raw.githubusercontent.com/surrealdb/icons/main/javascript.svg" />
-	&nbsp;
-	<img width=74 src="https://raw.githubusercontent.com/surrealdb/icons/main/webassembly.svg" />
-	&nbsp;
-	<img width=74 src="https://raw.githubusercontent.com/surrealdb/icons/main/nodejs.svg" />
-<br>
+<h3 align="center">The official SurrealDB SDK for JavaScript.</h3>
 
 <br>
 
@@ -47,8 +32,9 @@
     <a href="https://www.youtube.com/@SurrealDB"><img src="https://img.shields.io/badge/youtube-subscribe-fc1c1c.svg?style=flat-square"></a>
 </p>
 
-> [!WARNING]
-> This readme describes the v2 SDK which is currently not stable and subject to change. For the stable v1 SDK, see [here](https://github.com/surrealdb/surrealdb.js/blob/main/README.md).
+# surrealdb
+
+The official SurrealDB SDK for JavaScript.
 
 ## Documentation
 
@@ -68,16 +54,16 @@ Run the following command to add the SDK to your project:
 
 ```sh
 # using npm
-npm i surrealdb@alpha
+npm i surrealdb
 
 # or using pnpm
-pnpm i surrealdb@alpha
+pnpm i surrealdb
 
 # or using yarn
-yarn add surrealdb@alpha
+yarn add surrealdb
 
 # or using bun
-bun add surrealdb@alpha
+bun add surrealdb
 ```
 
 You can now import the SDK into your project with:
@@ -106,19 +92,14 @@ In the example below you can see how to connect to a remote instance of SurrealD
 
 If you don't already have a SurrealDB instance running, you can easily get started by using Surreal Cloud. Simply [sign up here](https://app.surrealdb.com/signin/deploy) to provision a free SurrealDB instance in the cloud. This will allow you to experiment with SurrealDB without any local setup, and you'll be able to connect to your new instance right away.
 
-### Connecting
-
-The first step in using the SDK is to instantiate the SurrealDB client, after which you can connect to a SurrealDB instance using a connection URI. After that, select a namespace and database, and signin as a namespace, database, root, or record user.
-
-Make sure you have created a user before you signin.
+### Example
 
 ```ts
 import { Surreal, RecordId, Table } from "surrealdb";
 
-// Instantiate the SurrealDB client
 const db = new Surreal();
 
-// Connect to the specified instance
+// Connect to the database
 await db.connect("wss://my-instance.aws-euw1.surreal.cloud");
 
 // Select a specific namespace / database
@@ -127,144 +108,41 @@ await db.use({
     database: "test"
 });
 
-// Signin as a namespace, database, root, or record user
+// Signin as a namespace, database, or root user
 await db.signin({
     username: "root",
     password: "root",
 });
-```
-
-### Sending queries
-
-After you have connected to a SurrealDB instance, you can send queries to the database. Queries can be sent in two ways:
-
-- Type-safe using the query builder methods
-- As a string using the `query` method
-
-#### Type-safe query builders
-```ts
-const personTable = new Table("person");
 
 // Create a new person with a random id
-let created = await db.create<Person>(personTable, {
+const personTable = new Table("person");
+
+let created = await db.create(personTable, {
     title: "Founder & CEO",
     name: {
         first: "Tobie",
         last: "Morgan Hitchcock",
     },
-    marketing: false,
+    marketing: true,
 });
 
 // Update a person record with a specific id
-let updated = await db.update<Person>(created.id).merge({
+const personJaime = new RecordId('person', 'jaime');
+
+let updated = await db.merge(personJaime, {
     marketing: true,
 });
 
 // Select all people records
-let people = await db.select<Person>(personTable);
-```
+let people = await db.select(personTable);
 
-#### String based queries
-```ts
-const personTable = new Table("person");
-
-// Execute a query and collect the results
-let [created] = await db
-	query("CREATE ONLY $table CONTENT $content", {
-		table: personTable,
-		content: {
-			title: "Founder & CEO",
-			name: {
-				first: "Tobie",
-				last: "Morgan Hitchcock",
-			},
-		},
-	})
-	.collect<[Person]>();
-```
-
-### Subscriving to live queries
-
-You can subscribe to live queries to receive updates when the data in the database changes.
-
-```ts
-// Subscribe to all records in the person table
-const subscription = await db.live(personTable);
-
-// Use an async iterator
-for await (const { action, value } of subscription) {
-	if (action === "CREATE") {
-		console.log("A new person was created:", value);
-	}
-}
-```
-
-### Next steps
-
-We have only scratched the surface of what the JavaScript SDK can do. For more information, please refer to the [documentation](https://surrealdb.com/docs/sdk/javascript).
-
-## Embedding SurrealDB in the browser
-
-The SurrealDB JavaScript SDK can be extended with the WebAssembly engine to run an embedded version of SurrealDB directly in the browser. This allows you to run SurrealDB in-memory or persisted to IndexedDB with minimal effort.
-
-```ts
-import { createWasmEngines } from "@surrealdb/wasm";
-import { Surreal } from "surrealdb";
-
-// Register the WebAssembly engine
-const db = new Surreal({
-	engines: createWasmEngines(),
-});
-
-// Connect to an in-memory instance
-await db.connect("mem://");
-
-// Connect to an IndexedDB instance
-await db.connect("indxdb://demo");
-```
-
-### Usage with Vite
-
-When using [Vite](https://vitejs.dev/) the following configuration is recommended to be placed in your `vite.config.ts` to ensure the WebAssembly engine is properly bundled.
-
-```js
-optimizeDeps: {
-    exclude: ["@surrealdb/wasm"],
-    esbuildOptions: {
-        target: "esnext",
+// Perform a custom advanced query
+let groups = await db.query(
+    "SELECT marketing, count() FROM $tb GROUP BY marketing",
+    {
+        tb: new Table("person"),
     },
-},
-esbuild: {
-    supported: {
-        "top-level-await": true
-    },
-}
-```
-
-## Embedding SurrealDB in Node.js, Deno, and Bun
-
-The SurrealDB JavaScript SDK can be extended with the Node.js engine to run an embedded version of SurrealDB directly in your Node.js, Deno, or Bun runtime. This allows you to run SurrealDB in-memory or persisted to disk (RocksDB or SurrealKV) with minimal effort.
-
-```ts
-import { createNodeEngines } from "@surrealdb/node";
-import { Surreal } from "surrealdb";
-
-// Register the Node.js engine
-const db = new Surreal({
-	engines: createNodeEngines(),
-});
-
-// Connect to an in-memory instance
-await db.connect("mem://");
-
-// Connect to an RocksDB instance
-await db.connect("rocksdb://path/to/storage.db");
-
-// Connect to an SurrealKV instance
-await db.connect("surrealkv://path/to/storage.db");
-
-// Connect to an SurrealKV instance with versioning
-await db.connect("surrealkv+versioned://path/to/storage.db");
+);
 ```
 
 ## Contributing
