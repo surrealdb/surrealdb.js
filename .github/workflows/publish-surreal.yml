@@ -193,7 +193,7 @@ jobs:
           name: bindings-${{ matrix.settings.target }}
           if-no-files-found: error
           path: |
-            packages/node/napi/*.node
+            packages/node/dist/*.node
 
       - name: Upload artifact (dist)
         uses: actions/upload-artifact@v4
@@ -202,8 +202,7 @@ jobs:
           name: node-artifacts
           if-no-files-found: error
           path: |
-            packages/node/napi/
-            packages/node/dist/
+            packages/node/dist/*.{ts,js,cjs,mjs}
 
   # Dry run publish to verify everything works
   dry-run-publish:
@@ -233,13 +232,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-artifacts
-          path: packages/node/
+          path: packages/node/dist/
 
       - name: Download node binaries
         uses: actions/download-artifact@v4
         with:
           pattern: bindings-*
-          path: packages/node/napi/
+          path: packages/node/dist/
           merge-multiple: true
 
       - name: Distribution summary
@@ -291,13 +290,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-artifacts
-          path: packages/node/
+          path: packages/node/dist/
 
       - name: Download node binaries
         uses: actions/download-artifact@v4
         with:
           pattern: bindings-*
-          path: packages/node/napi/
+          path: packages/node/dist/
           merge-multiple: true
 
       - name: Setup NPM authentication
