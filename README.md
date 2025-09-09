@@ -186,7 +186,7 @@ let [created] = await db
 	.collect<[Person]>();
 ```
 
-### Subscriving to live queries
+### Subscribing to live queries
 
 You can subscribe to live queries to receive updates when the data in the database changes.
 
@@ -342,7 +342,7 @@ bun add @surrealdb/node@alpha
 
 ### Registering the Node.js engine
 
-You can now configure the SurrealDB client to use the Node.js engine.
+You can now configure the SurrealDB client to use the Node.js engine when running in Node.js, Deno, or Bun.
 
 ```ts
 import { createNodeEngines } from "@surrealdb/node";
