@@ -98,7 +98,7 @@ import Surreal from "https://cdn.jsdelivr.net/npm/surrealdb";
 
 _**NOTE: this bundle is not optimized for production! So don't use it in production!**_
 
-## <img width=28 align="center" src="https://raw.githubusercontent.com/surrealdb/icons/main/javascript.svg" />&nbsp; Getting started
+## Getting started
 
 > [!WARNING]
 > These examples are for the v2 SDK (alpha). For the stable v1 SDK examples, see [here](https://github.com/surrealdb/surrealdb.js/blob/main/README_V1.md).
