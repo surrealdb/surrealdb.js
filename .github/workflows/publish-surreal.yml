@@ -202,7 +202,8 @@ jobs:
           name: node-artifacts
           if-no-files-found: error
           path: |
-            packages/node/dist/*.{ts,js,cjs,mjs}
+            packages/node/dist/
+            !packages/node/dist/*.node
 
   # Dry run publish to verify everything works
   dry-run-publish:
