@@ -1,0 +1,16 @@
+{
+    "name": "@surrealdb/wasm-demo",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "demo": "vite"
+    },
+    "dependencies": {
+        "@surrealdb/wasm": "workspace:*",
+        "surrealdb": "workspace:*"
+    },
+    "devDependencies": {
+        "typescript": "~5.8.3",
+        "vite": "^7.1.2"
+    }
+}

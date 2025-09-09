@@ -2,11 +2,26 @@
 
 <p align="center">
     <img width=120 src="https://raw.githubusercontent.com/surrealdb/icons/main/surreal.svg" />
-    &nbsp;
-    <img width=120 src="https://raw.githubusercontent.com/surrealdb/icons/main/javascript.svg" />
 </p>
 
-<h3 align="center">The official SurrealDB SDK for JavaScript.</h3>
+<div id="toc">
+    <ul align="center" style="list-style: none;">
+        <summary>
+            <h1 align="center">SurrealDB JavaScript SDK</h1><br/>
+            <p align="center">Connect to remote and embedded SurrealDB instances</p>
+        </summary>
+    </ul>
+</div>
+
+<br>
+
+<p align="center">
+    <img width=74 src="https://raw.githubusercontent.com/surrealdb/icons/main/javascript.svg" />
+	&nbsp;
+	<img width=74 src="https://raw.githubusercontent.com/surrealdb/icons/main/webassembly.svg" />
+	&nbsp;
+	<img width=74 src="https://raw.githubusercontent.com/surrealdb/icons/main/nodejs.svg" />
+<br>
 
 <br>
 
@@ -32,9 +47,8 @@
     <a href="https://www.youtube.com/@SurrealDB"><img src="https://img.shields.io/badge/youtube-subscribe-fc1c1c.svg?style=flat-square"></a>
 </p>
 
-# surrealdb
-
-The official SurrealDB SDK for JavaScript.
+> [!WARNING]
+> This readme describes the v2 SDK which is currently not stable and subject to change. For the stable v1 SDK, see [here](https://github.com/surrealdb/surrealdb.js/blob/main/README_V1.md).
 
 ## Documentation
 
@@ -42,68 +56,34 @@ View the SDK documentation [here](https://surrealdb.com/docs/sdk/javascript).
 
 ## Learn SurrealDB
 
-- SurrealDB University: https://surrealdb.com/learn/fundamentals
+- A Tour of SurrealDB: https://surrealdb.com/learn/tour
 - Aeon's Surreal Renaissance (Interative book): https://surrealdb.com/learn/book
 - Documentation: https://surrealdb.com/docs
 
 ## How to install
 
-### Install for [JSR/Deno](https://jsr.io/@surrealdb/surrealdb)
+### Install with a package manager
 
-Import it with:
-
-```ts
-import Surreal from "@surrealdb/surrealdb";
-```
-
-### Install for [Node.js](https://www.npmjs.com/package/surrealdb)
-
-Install it with:
+Run the following command to add the SDK to your project:
 
 ```sh
 # using npm
-npm i surrealdb
+npm i surrealdb@alpha
+
 # or using pnpm
-pnpm i surrealdb
+pnpm i surrealdb@alpha
+
 # or using yarn
-yarn add surrealdb
+yarn add surrealdb@alpha
+
+# or using bun
+bun add surrealdb@alpha
 ```
 
-Next, just import it with:
+You can now import the SDK into your project with:
 
 ```ts
-const { Surreal } = require("surrealdb");
-```
-
-or when you use modules:
-
-```ts
-import Surreal from "surrealdb";
-```
-
-### Install for the browser
-
-For usage in a browser environment, when using a bundler (e.g. [Rollup](https://rollupjs.org/), [Vite](https://vitejs.dev/), or [webpack](https://webpack.js.org/)) you can install it with:
-
-```sh
-# using npm
-npm i surrealdb
-# or using pnpm
-pnpm i surrealdb
-# or using yarn
-yarn add surrealdb
-```
-
-Next, just import it with:
-
-```ts
-import Surreal from "surrealdb";
-```
-
-or when you use CommonJS:
-
-```ts
-const { Surreal } = require("surrealdb");
+import { Surreal } from "surrealdb";
 ```
 
 ### Install for the browser with a CDN
@@ -120,19 +100,29 @@ _**NOTE: this bundle is not optimized for production! So don't use it in product
 
 ## Getting started
 
+> [!WARNING]
+> These examples are for the v2 SDK (alpha). For the stable v1 SDK examples, see [here](https://github.com/surrealdb/surrealdb.js/blob/main/README_V1.md).
+
 In the example below you can see how to connect to a remote instance of SurrealDB, authenticating with the database, and issuing queries for creating, updating, and selecting data from records.
 
-> This example requires SurrealDB to be [installed](https://surrealdb.com/install) and running on port 8000.
+### Don't have a SurrealDB instance yet?
 
-> This example makes use of [top level await](https://v8.dev/features/top-level-await), available in [modern browsers](https://caniuse.com/mdn-javascript_operators_await_top_level), [Deno](https://deno.com/) and [Node.js](https://nodejs.org/) >= 14.8.
+If you don't already have a SurrealDB instance running, you can easily get started by using Surreal Cloud. Simply [sign up here](https://app.surrealdb.com/signin/deploy) to provision a free SurrealDB instance in the cloud. This will allow you to experiment with SurrealDB without any local setup, and you'll be able to connect to your new instance right away.
+
+### Connecting
+
+The first step in using the SDK is to instantiate the SurrealDB client, after which you can connect to a SurrealDB instance using a connection URI. After that, select a namespace and database, and signin as a namespace, database, root, or record user.
+
+Make sure you have created a user before you signin.
 
 ```ts
 import { Surreal, RecordId, Table } from "surrealdb";
 
+// Instantiate the SurrealDB client
 const db = new Surreal();
 
-// Connect to the database
-await db.connect("http://127.0.0.1:8000/rpc");
+// Connect to the specified instance
+await db.connect("wss://my-instance.aws-euw1.surreal.cloud");
 
 // Select a specific namespace / database
 await db.use({
@@ -140,37 +130,184 @@ await db.use({
     database: "test"
 });
 
-// Signin as a namespace, database, or root user
+// Signin as a namespace, database, root, or record user
 await db.signin({
     username: "root",
     password: "root",
 });
+```
+
+### Sending queries
+
+After you have connected to a SurrealDB instance, you can send queries to the database. Queries can be sent in two ways:
+
+- Type-safe using the query builder methods
+- As a string using the `query` method
+
+#### Type-safe query builders
+```ts
+const personTable = new Table("person");
 
 // Create a new person with a random id
-let created = await db.create("person", {
+let created = await db.create<Person>(personTable, {
     title: "Founder & CEO",
     name: {
         first: "Tobie",
         last: "Morgan Hitchcock",
     },
-    marketing: true,
+    marketing: false,
 });
 
 // Update a person record with a specific id
-let updated = await db.merge(new RecordId('person', 'jaime'), {
+let updated = await db.update<Person>(created.id).merge({
     marketing: true,
 });
 
 // Select all people records
-let people = await db.select("person");
+let people = await db.select<Person>(personTable);
+```
 
-// Perform a custom advanced query
-let groups = await db.query(
-    "SELECT marketing, count() FROM $tb GROUP BY marketing",
-    {
-        tb: new Table("person"),
+#### String based queries
+```ts
+const personTable = new Table("person");
+
+// Execute a query and collect the results
+let [created] = await db
+	query("CREATE ONLY $table CONTENT $content", {
+		table: personTable,
+		content: {
+			title: "Founder & CEO",
+			name: {
+				first: "Tobie",
+				last: "Morgan Hitchcock",
+			},
+		},
+	})
+	.collect<[Person]>();
+```
+
+### Subscribing to live queries
+
+You can subscribe to live queries to receive updates when the data in the database changes.
+
+```ts
+// Subscribe to all records in the person table
+const subscription = await db.live(personTable);
+
+// Use an async iterator
+for await (const { action, value } of subscription) {
+	if (action === "CREATE") {
+		console.log("A new person was created:", value);
+	}
+}
+```
+
+### Next steps
+
+We have only scratched the surface of what the JavaScript SDK can do. For more information, please refer to the [documentation](https://surrealdb.com/docs/sdk/javascript).
+
+## Embedding SurrealDB in the browser
+
+<img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/webassembly.svg" />
+
+The **WebAssembly engine** for the JavaScript SDK provides a powerful way to extend your SurrealDB client with support for running embedded databases. The engine allows you to run SurrealDB in-memory or persisted to the browsers IndexedDB storage with minimal effort.
+
+### Install with a package manager
+
+Run the following command to add the WebAssembly engine to your project:
+
+```sh
+npm i @surrealdb/wasm@alpha
+# or
+pnpm i @surrealdb/wasm@alpha
+# or
+yarn add @surrealdb/wasm@alpha
+# or
+bun add @surrealdb/wasm@alpha
+```
+
+### Registering the WebAssembly engine
+
+You can now configure the SurrealDB client to use the WebAssembly engine.
+
+```ts
+import { createWasmEngines } from "@surrealdb/wasm";
+import { Surreal } from "surrealdb";
+
+// Register the WebAssembly engine
+const db = new Surreal({
+	engines: createWasmEngines(),
+});
+
+// Connect to an in-memory instance
+await db.connect("mem://");
+
+// Connect to an IndexedDB instance
+await db.connect("indxdb://demo");
+```
+
+### Usage with Vite
+
+When using [Vite](https://vitejs.dev/) the following configuration is recommended to be placed in your `vite.config.ts` to ensure the WebAssembly engine is properly bundled.
+
+```js
+optimizeDeps: {
+    exclude: ["@surrealdb/wasm"],
+    esbuildOptions: {
+        target: "esnext",
     },
-);
+},
+esbuild: {
+    supported: {
+        "top-level-await": true
+    },
+}
+```
+
+##  Embedding SurrealDB in Node.js, Deno, and Bun
+
+<img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/nodejs.svg" />
+
+The **Node.js engine** for the JavaScript SDK provides a powerful way to extend your SurrealDB client with support for running embedded databases. The engine allows you to run SurrealDB in-memory or persisted to disk (RocksDB or SurrealKV) with minimal effort.
+
+### Install with a package manager
+
+Run the following command to add the Node.js engine to your project:
+
+```sh
+npm i @surrealdb/node@alpha
+# or
+pnpm i @surrealdb/node@alpha
+# or
+yarn add @surrealdb/node@alpha
+# or
+bun add @surrealdb/node@alpha
+```
+
+### Registering the Node.js engine
+
+You can now configure the SurrealDB client to use the Node.js engine when running in Node.js, Deno, or Bun.
+
+```ts
+import { createNodeEngines } from "@surrealdb/node";
+import { Surreal } from "surrealdb";
+
+// Register the Node.js engine
+const db = new Surreal({
+	engines: createNodeEngines(),
+});
+
+// Connect to an in-memory instance
+await db.connect("mem://");
+
+// Connect to an RocksDB instance
+await db.connect("rocksdb://path/to/storage.db");
+
+// Connect to an SurrealKV instance
+await db.connect("surrealkv://path/to/storage.db");
+
+// Connect to an SurrealKV instance with versioning
+await db.connect("surrealkv+versioned://path/to/storage.db");
 ```
 
 ## Contributing
@@ -199,19 +336,19 @@ For Deno, no build is needed. For all other environments run
 
 ### Code Quality Fixes
 
-`bun qa`
+`bun run qa`
 
 ### Code Quality unsafe fixes
 
-`bun qau`
+`bun run qau`
 
 ### Run tests for WS
 
-`bun test`
+`bun run test`
 
 ### Run tests for HTTP
 
-`SURREAL_PROTOCOL=http bun test`
+`SURREAL_DEFAULT_PROTOCOL=http bun test`
 
 ### PRs
 
@@ -226,8 +363,11 @@ for VSCode are helpful.
 
 ### Directory structure
 
-- `./biome.json` include settings for code quality.
-- `./scripts` include the build scripts for NPM and JSR.
-- `./src` includes all source code. `./src/index.ts` is the main entrypoint.
-- `./dist` is build by `./scripts/build.ts` and includes the compiled and minified bundles for ESM, CJS and bundled ESM targets.
-- `./tests` includes all test files.
+- `./biome.json` contains settings for code quality.
+- `./scripts` contains the build and publish scripts.
+- `./packages/sdk` contains the JavaScript SDK source code.
+- `./packages/node` contains the Node.js SDK source code.
+- `./packages/wasm` contains the WebAssembly SDK source code.
+- `./packages/tests` contains the testing suite.
+- `./demo/wasm` contains a WebAssembly demo.
+- `./demo/node` contains a Node.js demo.

@@ -1,0 +1,406 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`cbor encode basic types: positive integer 1`] = `
+Uint8Array [
+  24,
+  123,
+]
+`;
+
+exports[`cbor encode basic types: negative integer 1`] = `
+Uint8Array [
+  56,
+  122,
+]
+`;
+
+exports[`cbor encode basic types: positive float 1`] = `
+Uint8Array [
+  251,
+  64,
+  94,
+  221,
+  47,
+  26,
+  159,
+  190,
+  119,
+]
+`;
+
+exports[`cbor encode basic types: negative float 1`] = `
+Uint8Array [
+  251,
+  192,
+  94,
+  221,
+  47,
+  26,
+  159,
+  190,
+  119,
+]
+`;
+
+exports[`cbor encode basic types: positive bigint 1`] = `
+Uint8Array [
+  27,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+]
+`;
+
+exports[`cbor encode basic types: negative bigint 1`] = `
+Uint8Array [
+  59,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+]
+`;
+
+exports[`cbor encode basic types: string 1`] = `
+Uint8Array [
+  109,
+  72,
+  101,
+  108,
+  108,
+  111,
+  32,
+  10,
+  87,
+  111,
+  114,
+  108,
+  100,
+  33,
+]
+`;
+
+exports[`cbor encode basic types: undefined 1`] = `
+Uint8Array [
+  247,
+]
+`;
+
+exports[`cbor encode basic types: null 1`] = `
+Uint8Array [
+  246,
+]
+`;
+
+exports[`cbor encode basic types: true 1`] = `
+Uint8Array [
+  245,
+]
+`;
+
+exports[`cbor encode basic types: false 1`] = `
+Uint8Array [
+  244,
+]
+`;
+
+exports[`cbor encode basic types: map 1`] = `
+Uint8Array [
+  161,
+  99,
+  107,
+  101,
+  121,
+  101,
+  118,
+  97,
+  108,
+  117,
+  101,
+]
+`;
+
+exports[`cbor encode basic types: object 1`] = `
+Uint8Array [
+  161,
+  99,
+  107,
+  101,
+  121,
+  101,
+  118,
+  97,
+  108,
+  117,
+  101,
+]
+`;
+
+exports[`cbor encode basic types: array 1`] = `
+Uint8Array [
+  130,
+  24,
+  123,
+  99,
+  97,
+  98,
+  99,
+]
+`;
+
+exports[`cbor encode basic types: uint8array 1`] = `
+Uint8Array [
+  67,
+  1,
+  2,
+  3,
+]
+`;
+
+exports[`cbor encode basic types: arraybuffer 1`] = `
+Uint8Array [
+  67,
+  1,
+  2,
+  3,
+]
+`;
+
+exports[`cbor encode/decode: encoded input 1`] = `
+Uint8Array [
+  175,
+  102,
+  112,
+  111,
+  115,
+  105,
+  110,
+  116,
+  24,
+  123,
+  102,
+  110,
+  101,
+  103,
+  105,
+  110,
+  116,
+  56,
+  122,
+  102,
+  112,
+  111,
+  115,
+  102,
+  108,
+  111,
+  251,
+  64,
+  94,
+  221,
+  47,
+  26,
+  159,
+  190,
+  119,
+  102,
+  110,
+  101,
+  103,
+  102,
+  108,
+  111,
+  251,
+  192,
+  94,
+  221,
+  47,
+  26,
+  159,
+  190,
+  119,
+  102,
+  112,
+  111,
+  115,
+  98,
+  105,
+  103,
+  27,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  102,
+  110,
+  101,
+  103,
+  98,
+  105,
+  103,
+  59,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  102,
+  115,
+  116,
+  114,
+  105,
+  110,
+  103,
+  108,
+  72,
+  101,
+  108,
+  108,
+  111,
+  32,
+  87,
+  111,
+  114,
+  108,
+  100,
+  33,
+  105,
+  117,
+  110,
+  100,
+  101,
+  102,
+  105,
+  110,
+  101,
+  100,
+  247,
+  100,
+  110,
+  117,
+  108,
+  108,
+  246,
+  101,
+  102,
+  97,
+  108,
+  115,
+  101,
+  244,
+  100,
+  116,
+  114,
+  117,
+  101,
+  245,
+  99,
+  109,
+  97,
+  112,
+  161,
+  99,
+  107,
+  101,
+  121,
+  101,
+  118,
+  97,
+  108,
+  117,
+  101,
+  101,
+  97,
+  114,
+  114,
+  97,
+  121,
+  130,
+  24,
+  123,
+  99,
+  97,
+  98,
+  99,
+  106,
+  117,
+  105,
+  110,
+  116,
+  56,
+  97,
+  114,
+  114,
+  97,
+  121,
+  67,
+  1,
+  2,
+  3,
+  107,
+  97,
+  114,
+  114,
+  97,
+  121,
+  98,
+  117,
+  102,
+  102,
+  101,
+  114,
+  67,
+  1,
+  2,
+  3,
+]
+`;
+
+exports[`cbor encode/decode: decoded input 1`] = `
+{
+  "array": [
+    123,
+    "abc",
+  ],
+  "arraybuffer": ArrayBuffer [
+    1,
+    2,
+    3,
+  ],
+  "false": false,
+  "map": {
+    "key": "value",
+  },
+  "negbig": -18446744073709551616n,
+  "negflo": -123.456,
+  "negint": -123,
+  "null": null,
+  "posbig": 18446744073709551615n,
+  "posflo": 123.456,
+  "posint": 123,
+  "string": "Hello World!",
+  "true": true,
+  "uint8array": ArrayBuffer [
+    1,
+    2,
+    3,
+  ],
+  "undefined": undefined,
+}
+`;

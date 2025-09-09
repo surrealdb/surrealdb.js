@@ -1,0 +1,10 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`import basic 1`] = `
+[
+  {
+    "hello": "world",
+    "id": RecordId {},
+  },
+]
+`;
