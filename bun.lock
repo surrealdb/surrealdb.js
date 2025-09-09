@@ -5,6 +5,7 @@
       "name": "surrealdb.js",
       "devDependencies": {
         "@biomejs/biome": "2.1.2",
+        "@types/semver": "^7.7.1",
         "@types/signale": "^1.4.7",
         "bun-types": "^1.2.21",
         "dts-bundle-generator": "^9.5.1",
@@ -12,6 +13,7 @@
         "esbuild-plugin-tsc": "^0.4.0",
         "fast-check": "^4.3.0",
         "rolldown": "1.0.0-beta.31",
+        "semver": "^7.7.2",
         "signale": "^1.4.0",
         "turbo": "^2.5.6",
       },
@@ -36,14 +38,14 @@
     },
     "packages/node": {
       "name": "@surrealdb/node",
-      "version": "2.0.0-alpha.6.surreal.2.3.7",
+      "version": "2.3.7",
       "devDependencies": {
         "@napi-rs/cli": "^3.1.5",
         "dedent": "^1.7.0",
-        "surrealdb": "workspace:*",
+        "surrealdb": "^2.0.0-0",
       },
       "peerDependencies": {
-        "surrealdb": "workspace:*",
+        "surrealdb": "^2.0.0-0",
       },
     },
     "packages/sdk": {
@@ -75,12 +77,12 @@
     },
     "packages/wasm": {
       "name": "@surrealdb/wasm",
-      "version": "2.0.0-alpha.6.surreal.2.3.7",
+      "version": "2.3.7",
       "devDependencies": {
-        "surrealdb": "workspace:*",
+        "surrealdb": "^2.0.0-0",
       },
       "peerDependencies": {
-        "surrealdb": "workspace:*",
+        "surrealdb": "^2.0.0-0",
       },
     },
   },
@@ -416,6 +418,8 @@
     "@types/node": ["@types/node@24.3.0", "", { "dependencies": { "undici-types": "~7.10.0" } }, "sha512-aPTXCrfwnDLj4VvXrm+UUCQjNEvJgNA8s5F1cvwQU+3KNltTOkBm1j30uNLyqqPNe7gE3KFzImYoZEfLhp4Yow=="],
 
     "@types/react": ["@types/react@19.1.10", "", { "dependencies": { "csstype": "^3.0.2" } }, "sha512-EhBeSYX0Y6ye8pNebpKrwFJq7BoQ8J5SO6NlvNwwHjSj6adXJViPQrKlsyPw7hLBLvckEMO1yxeGdR82YBBlDg=="],
+
+    "@types/semver": ["@types/semver@7.7.1", "", {}, "sha512-FmgJfu+MOcQ370SD0ev7EI8TlCAfKYU+B4m5T3yXc1CiRN94g/SZPtsCkk506aUDtlMnFZvasDwHHUcZUEaYuA=="],
 
     "@types/signale": ["@types/signale@1.4.7", "", { "dependencies": { "@types/node": "*" } }, "sha512-nc0j37QupTT7OcYeH3gRE1ZfzUalEUsDKJsJ3IsJr0pjjFZTjtrX1Bsn6Kv56YXI/H9rNSwAkIPRxNlZI8GyQw=="],
 

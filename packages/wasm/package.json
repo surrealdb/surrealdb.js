@@ -1,6 +1,6 @@
 {
     "name": "@surrealdb/wasm",
-    "version": "2.0.0-alpha.6.surreal.2.3.7",
+    "version": "2.3.7",
     "type": "module",
     "license": "Apache-2.0",
     "description": "Emeddable WebAssembly browser engine for SurrealDB",
@@ -22,10 +22,10 @@
         "deploy": "bun run ../../scripts/publish.ts"
     },
     "peerDependencies": {
-        "surrealdb": "workspace:*"
+        "surrealdb": "^2.0.0-0"
     },
     "devDependencies": {
-        "surrealdb": "workspace:*"
+        "surrealdb": "^2.0.0-0"
     },
     "exports": {
         ".": {

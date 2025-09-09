@@ -5,11 +5,13 @@ export interface Package {
     name: string;
     path: string;
     version: string;
+    peerDependencies: Record<string, string>;
+    devDependencies: Record<string, string>;
 }
 
-export async function resolvePackages(): Promise<Package[]> {
+export async function resolvePackages(): Promise<Map<string, Package>> {
     const glob = new Glob("./packages/*/package.json");
-    const packages: Package[] = [];
+    const packages: Map<string, Package> = new Map();
 
     for await (const file of glob.scan(".")) {
         const packageJson = await Bun.file(file).json();
@@ -18,27 +20,11 @@ export async function resolvePackages(): Promise<Package[]> {
             continue;
         }
 
-        packages.push({
-            name: packageJson.name,
+        packages.set(packageJson.name, {
+            ...packageJson,
             path: dirname(file),
-            version: packageJson.version,
         });
     }
 
     return packages;
-}
-
-export function normalizeVersion(version: string): [string, string] {
-    const [packageVersion, surrealVersion] = version.split(/[.-]surreal\./);
-    const trimmed = packageVersion.replace(/^v/, "");
-
-    return [trimmed, surrealVersion];
-}
-
-export function composeVersion(packageVersion: string, surrealVersion: string): string {
-    if (packageVersion.includes("-")) {
-        return `${packageVersion}.surreal.${surrealVersion}`;
-    }
-
-    return `${packageVersion}-surreal.${surrealVersion}`;
 }

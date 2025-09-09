@@ -1,5 +1,3 @@
-import { composeVersion, normalizeVersion } from "./utils/package";
-
 // Update the SurrealDB dependency in the Cargo.toml file
 console.log("✨ Updating SurrealDB dependency");
 
@@ -16,10 +14,9 @@ const crateVersion = pkgid.split("@")[1]?.trim() ?? "";
 console.log("🔍 Checking package version");
 
 const packageJson = await Bun.file("package.json").json();
-const [packageVersion, surrealVersion] = normalizeVersion(packageJson.version);
 
-if (surrealVersion !== crateVersion) {
-    packageJson.version = composeVersion(packageVersion, crateVersion);
+if (packageJson.version !== crateVersion) {
+    packageJson.version = crateVersion;
 
     await Bun.write("package.json", JSON.stringify(packageJson, null, 2));
     await Bun.spawn(["bunx", "biome", "format", "--write", "package.json"]).exited;
