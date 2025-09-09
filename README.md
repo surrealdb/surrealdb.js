@@ -98,7 +98,7 @@ import Surreal from "https://cdn.jsdelivr.net/npm/surrealdb";
 
 _**NOTE: this bundle is not optimized for production! So don't use it in production!**_
 
-## Getting started
+## <img width=28 align="center" src="https://raw.githubusercontent.com/surrealdb/icons/main/javascript.svg" />&nbsp; Getting started
 
 > [!WARNING]
 > These examples are for the v2 SDK (alpha). For the stable v1 SDK examples, see [here](https://github.com/surrealdb/surrealdb.js/blob/main/README_V1.md).
@@ -262,9 +262,69 @@ esbuild: {
 }
 ```
 
-## Embedding SurrealDB in Node.js, Deno, and Bun
+## Embedding SurrealDB in the browser
 
-The SurrealDB JavaScript SDK can be extended with the Node.js engine to run an embedded version of SurrealDB directly in your Node.js, Deno, or Bun runtime. This allows you to run SurrealDB in-memory or persisted to disk (RocksDB or SurrealKV) with minimal effort.
+<img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/webassembly.svg" />
+
+The **WebAssembly engine** for the JavaScript SDK provides a powerful way to extend your SurrealDB client with support for running embedded databases. The engine allows you to run SurrealDB in-memory or persisted to the browsers IndexedDB storage with minimal effort.
+
+### Install with a package manager
+
+Run the following command to add the WebAssembly engine to your project:
+
+```sh
+npm i @surrealdb/wasm@alpha
+# or
+pnpm i @surrealdb/wasm@alpha
+# or
+yarn add @surrealdb/wasm@alpha
+# or
+bun add @surrealdb/wasm@alpha
+```
+
+### Registering the WebAssembly engine
+
+You can now configure the SurrealDB client to use the WebAssembly engine.
+
+```ts
+import { createWasmEngines } from "@surrealdb/wasm";
+import { Surreal } from "surrealdb";
+
+// Register the WebAssembly engine
+const db = new Surreal({
+	engines: createWasmEngines(),
+});
+
+// Connect to an in-memory instance
+await db.connect("mem://");
+
+// Connect to an IndexedDB instance
+await db.connect("indxdb://demo");
+```
+
+### Usage with Vite
+
+When using [Vite](https://vitejs.dev/) the following configuration is recommended to be placed in your `vite.config.ts` to ensure the WebAssembly engine is properly bundled.
+
+```js
+optimizeDeps: {
+    exclude: ["@surrealdb/wasm"],
+    esbuildOptions: {
+        target: "esnext",
+    },
+},
+esbuild: {
+    supported: {
+        "top-level-await": true
+    },
+}
+```
+
+##  Embedding SurrealDB in Node.js, Deno, and Bun
+
+<img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/nodejs.svg" />
+
+The **Node.js engine** for the JavaScript SDK provides a powerful way to extend your SurrealDB client with support for running embedded databases. The engine allows you to run SurrealDB in-memory or persisted to disk (RocksDB or SurrealKV) with minimal effort.
 
 ### Install with a package manager
 
