@@ -1,4 +1,5 @@
 import type { decodeCbor, encodeCbor } from "../cbor";
+import type { decodeFlatBuffer, encodeFlatBuffer } from "../flatbuffer";
 import type { ReconnectContext } from "../internal/reconnect";
 import type { BoundQuery } from "../utils";
 import type { Duration, RecordId, Uuid } from "../value";
@@ -163,6 +164,8 @@ export interface DriverContext {
     options: DriverOptions;
     cborEncode: typeof encodeCbor;
     cborDecode: typeof decodeCbor;
+    flatBufferEncode: typeof encodeFlatBuffer;
+    flatBufferDecode: typeof decodeFlatBuffer;
     uniqueId: () => string;
 }
 
