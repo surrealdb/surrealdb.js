@@ -100,6 +100,9 @@ _**NOTE: this bundle is not optimized for production! So don't use it in product
 
 ## Getting started
 
+> [!WARNING]
+> These examples are for the v2 SDK (alpha). For the stable v1 SDK examples, see [here](https://github.com/surrealdb/surrealdb.js/blob/main/README_V1.md).
+
 In the example below you can see how to connect to a remote instance of SurrealDB, authenticating with the database, and issuing queries for creating, updating, and selecting data from records.
 
 ### Don't have a SurrealDB instance yet?
