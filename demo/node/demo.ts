@@ -1,5 +1,5 @@
+import { createNodeEngines } from "@surrealdb/node";
 import { Surreal } from "surrealdb";
-import { createNodeEngines } from "../../packages/node/src-ts";
 
 const surreal = new Surreal({
     engines: createNodeEngines(),

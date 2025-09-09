@@ -1,6 +1,6 @@
 {
     "name": "@surrealdb/node",
-    "version": "2.0.0-alpha.4+2.3.7",
+    "version": "2.3.0",
     "type": "module",
     "license": "Apache-2.0",
     "description": "Emeddable Node.js, Bun, and Deno engine for SurrealDB",
@@ -20,12 +20,13 @@
     "scripts": {
         "build": "bun run build.ts",
         "sync": "bun run ../../scripts/sync-surreal.ts",
-        "publish": "bun run ../../scripts/publish.ts"
+        "deploy": "bun run ../../scripts/publish.ts"
     },
-    "dependencies": {
-        "surrealdb": "workspace:*"
+    "peerDependencies": {
+        "surrealdb": "^2.0.0-0"
     },
     "devDependencies": {
+        "surrealdb": "^2.0.0-0",
         "@napi-rs/cli": "^3.1.5",
         "dedent": "^1.7.0"
     },
@@ -36,8 +37,7 @@
         }
     },
     "files": [
-        "dist",
-        "napi"
+        "dist"
     ],
     "napi": {
         "binaryName": "surrealdb-node"

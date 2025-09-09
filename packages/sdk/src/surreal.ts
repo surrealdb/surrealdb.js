@@ -1,5 +1,6 @@
 import { decodeCbor, encodeCbor } from "./cbor";
 import { ConnectionController } from "./controller";
+import { decodeFlatBuffer, encodeFlatBuffer } from "./flatbuffer";
 import { getIncrementalID } from "./internal/get-incremental-id";
 import { parseEndpoint } from "./internal/http";
 import {
@@ -73,6 +74,8 @@ export class Surreal implements EventPublisher<SurrealEvents> {
             options,
             cborEncode: encodeCbor,
             cborDecode: decodeCbor,
+            flatBufferEncode: encodeFlatBuffer,
+            flatBufferDecode: decodeFlatBuffer,
             uniqueId: getIncrementalID,
         });
 

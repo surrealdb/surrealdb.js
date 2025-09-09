@@ -1,47 +1,52 @@
 #!/usr/bin/env bun
 
-import { normalizeVersion, resolvePackages } from "./utils/package.js";
+import { satisfies } from "semver";
+import { resolvePackages } from "./utils/package.js";
 
 console.log("🔍 Validating package versions...");
 
 const packages = await resolvePackages();
 
-if (packages.length === 0) {
-    console.log("❌ No packages with versions found");
+// Find specific packages
+const wasmPackage = packages.get("@surrealdb/wasm");
+const nodePackage = packages.get("@surrealdb/node");
+const surrealdbPackage = packages.get("surrealdb");
+
+if (!wasmPackage || !nodePackage || !surrealdbPackage) {
+    console.log("❌ SDK packages not found");
     process.exit(1);
 }
 
-// Group packages by normalized version
-const versionGroups = new Map<string, string[]>();
-
-for (const pkg of packages) {
-    const normalizedVersion = normalizeVersion(pkg.version);
-    const currentPackages = versionGroups.get(normalizedVersion) || [];
-    currentPackages.push(`${pkg.name}@${pkg.version}`);
-    versionGroups.set(normalizedVersion, currentPackages);
+// Check that WASM and Node packages have the same version
+if (wasmPackage.version !== nodePackage.version) {
+    console.log("❌ @surrealdb/wasm and @surrealdb/node have different versions:");
+    console.log(`   @surrealdb/wasm: ${wasmPackage.version}`);
+    console.log(`   @surrealdb/node: ${nodePackage.version}`);
+    process.exit(1);
 }
 
-// Check if all packages have the same normalized version
-if (versionGroups.size !== 1) {
-    console.log("❌ Package versions are inconsistent:");
-    for (const [version, packageList] of versionGroups) {
-        console.log(`   Version ${version}: ${packageList.join(", ")}`);
+console.log(`✅ @surrealdb/wasm and @surrealdb/node have the same version: ${wasmPackage.version}`);
+
+const sdkVersion = surrealdbPackage.version;
+
+function checkDependencies(list: Record<string, string>) {
+    const range = list.surrealdb;
+    surrealdbPackage;
+
+    if (!range) {
+        console.log("❌ SDK is not a dependency");
+        process.exit(1);
     }
-    process.exit(1);
-}
 
-const [version] = versionGroups.keys();
-const packageList = versionGroups.get(version) ?? [];
-const [, , match] = Bun.argv;
-
-if (match) {
-    const normalizedMatch = normalizeVersion(match);
-
-    if (normalizedMatch !== version) {
-        console.log(`❌ Package versions do not match: ${normalizeVersion(match)} !== ${version}`);
+    if (!satisfies(sdkVersion, range)) {
+        console.log(`❌ SDK version ${sdkVersion} does not satisfy ${range}`);
         process.exit(1);
     }
 }
 
-console.log(`✅ All packages have the same version: ${version}`);
-console.log(`   Packages: ${packageList.join(", ")}`);
+checkDependencies(nodePackage.peerDependencies);
+checkDependencies(nodePackage.devDependencies);
+checkDependencies(wasmPackage.peerDependencies);
+checkDependencies(wasmPackage.devDependencies);
+
+console.log("✅ Version ranges are valid");

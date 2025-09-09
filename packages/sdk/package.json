@@ -1,6 +1,6 @@
 {
     "name": "surrealdb",
-    "version": "2.0.0-alpha.4",
+    "version": "2.0.0-alpha.7",
     "type": "module",
     "license": "Apache-2.0",
     "description": "The official SurrealDB SDK for JavaScript.",
@@ -17,7 +17,7 @@
     },
     "scripts": {
         "build": "bun run build.ts",
-        "publish": "bun run ../../scripts/publish.ts"
+        "deploy": "bun run ../../scripts/publish.ts"
     },
     "devDependencies": {
         "@types/bun": "^1.2.10",

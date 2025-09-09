@@ -11,11 +11,7 @@
         "sync": {
             "cache": false
         },
-        "dev": {
-            "cache": false
-        },
-        "publish": {
-            "dependsOn": ["^publish"],
+        "deploy": {
             "cache": false
         }
     }
