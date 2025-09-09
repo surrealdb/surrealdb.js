@@ -210,6 +210,24 @@ We have only scratched the surface of what the JavaScript SDK can do. For more i
 
 The SurrealDB JavaScript SDK can be extended with the WebAssembly engine to run an embedded version of SurrealDB directly in the browser. This allows you to run SurrealDB in-memory or persisted to IndexedDB with minimal effort.
 
+### Install with a package manager
+
+Run the following command to add the WebAssembly engine to your project:
+
+```sh
+npm i @surrealdb/wasm@alpha
+# or
+pnpm i @surrealdb/wasm@alpha
+# or
+yarn add @surrealdb/wasm@alpha
+# or
+bun add @surrealdb/wasm@alpha
+```
+
+### Registering the WebAssembly engine
+
+You can now configure the SurrealDB client to use the WebAssembly engine.
+
 ```ts
 import { createWasmEngines } from "@surrealdb/wasm";
 import { Surreal } from "surrealdb";
@@ -247,6 +265,24 @@ esbuild: {
 ## Embedding SurrealDB in Node.js, Deno, and Bun
 
 The SurrealDB JavaScript SDK can be extended with the Node.js engine to run an embedded version of SurrealDB directly in your Node.js, Deno, or Bun runtime. This allows you to run SurrealDB in-memory or persisted to disk (RocksDB or SurrealKV) with minimal effort.
+
+### Install with a package manager
+
+Run the following command to add the Node.js engine to your project:
+
+```sh
+npm i @surrealdb/node@alpha
+# or
+pnpm i @surrealdb/node@alpha
+# or
+yarn add @surrealdb/node@alpha
+# or
+bun add @surrealdb/node@alpha
+```
+
+### Registering the Node.js engine
+
+You can now configure the SurrealDB client to use the Node.js engine.
 
 ```ts
 import { createNodeEngines } from "@surrealdb/node";
