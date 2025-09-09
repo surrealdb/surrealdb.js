@@ -11,6 +11,9 @@ const { values } = parseArgs({
             type: "boolean",
             default: false,
         },
+        channel: {
+            type: "string",
+        },
     },
 });
 
@@ -34,6 +37,10 @@ if (version.includes("-alpha")) {
 
 if (version.includes("-beta")) {
     channel = "beta";
+}
+
+if (values.channel) {
+    channel = values.channel;
 }
 
 // Prepare command

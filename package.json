@@ -13,7 +13,7 @@
         "test": "turbo run-tests",
         "sync": "turbo sync",
         "deploy:sdk": "turbo deploy --filter surrealdb --",
-        "deploy:surreal": "turbo deploy --filter '@surrealdb/*' --",
+        "deploy:surreal": "turbo deploy --filter '@surrealdb/*' -- --channel alpha",
         "validate:versions": "bun run scripts/validate-versions.ts",
         "qc": "biome check .",
         "qa": "biome check . --write",
