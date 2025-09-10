@@ -6,7 +6,7 @@
             "outputs": ["dist/**", "target/**", "wasm/**"]
         },
         "run-tests": {
-            "dependsOn": ["^build"]
+            "cache": false
         },
         "sync": {
             "cache": false
