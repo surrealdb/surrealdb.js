@@ -86,10 +86,10 @@ export class NodeEngine extends JsonEngine implements SurrealEngine {
         }
 
         const id = this._context.uniqueId();
-        const payload = this._context.cborEncode({ id, ...request });
+        const payload = this._context.codecs.cbor.encode({ id, ...request });
 
         const response = await this.#engine.execute(payload);
-        const result = this._context.cborDecode<Result>(response);
+        const result = this._context.codecs.cbor.decode<Result>(response);
 
         return result;
     }
