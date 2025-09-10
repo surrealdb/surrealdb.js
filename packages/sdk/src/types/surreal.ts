@@ -1,5 +1,3 @@
-import type { decodeCbor, encodeCbor } from "../cbor";
-import type { decodeFlatBuffer, encodeFlatBuffer } from "../flatbuffer";
 import type { ReconnectContext } from "../internal/reconnect";
 import type { BoundQuery } from "../utils";
 import type { Duration, RecordId, Uuid } from "../value";
@@ -15,10 +13,14 @@ import type { Prettify } from "./internal";
 import type { LiveMessage } from "./live";
 import type { EventPublisher } from "./publisher";
 
+export type CodecType = "cbor" | "flatbuffer" | (string & {});
 export type QueryResponseKind = "single" | "batched" | "batched-final";
 export type ConnectionStatus = "disconnected" | "connecting" | "reconnecting" | "connected";
 export type EngineFactory = (context: DriverContext) => SurrealEngine;
 export type Engines = Record<string, EngineFactory>;
+export type CodecFactory = (options: CodecOptions) => ValueCodec;
+export type Codecs = Partial<Record<CodecType, CodecFactory>>;
+export type CodecRegistry = Record<CodecType, ValueCodec>;
 
 /**
  * The communication contract between the SDK and a SurrealDB datastore.
@@ -74,6 +76,8 @@ export type EngineEvents = {
  */
 export interface DriverOptions {
     engines?: Engines;
+    codecs?: Codecs;
+    codecOptions?: CodecOptions;
     websocketImpl?: typeof WebSocket;
 }
 
@@ -158,15 +162,27 @@ export interface ConnectionState {
 }
 
 /**
+ * Options used to configure the value codec
+ */
+export interface CodecOptions {
+    useNativeDates?: boolean;
+}
+
+/**
+ * A codec for encoding and decoding SurrealQL values
+ */
+export interface ValueCodec {
+    encode: <T>(data: T) => Uint8Array;
+    decode: <T>(data: Uint8Array) => T;
+}
+
+/**
  * Context information passed to each controller and engine
  */
 export interface DriverContext {
     options: DriverOptions;
-    cborEncode: typeof encodeCbor;
-    cborDecode: typeof decodeCbor;
-    flatBufferEncode: typeof encodeFlatBuffer;
-    flatBufferDecode: typeof decodeFlatBuffer;
     uniqueId: () => string;
+    codecs: CodecRegistry;
 }
 
 /**

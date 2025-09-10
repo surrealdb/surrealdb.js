@@ -1,4 +1,5 @@
 import { decode, encode, type Replacer, Tagged } from "@surrealdb/cbor";
+import type { CodecOptions, ValueCodec } from "../types";
 import { BoundExcluded, BoundIncluded } from "../utils/range";
 import {
     DateTime,
@@ -56,10 +57,29 @@ const TAG_GEOMETRY_MULTIPOLYGON = 93;
 const TAG_GEOMETRY_COLLECTION = 94;
 
 /**
- * The cbor replacer for SurrealDB values
+ * A class used to encode and decode SurrealQL values using CBOR
  */
-export const REPLACER = {
-    encode(v: unknown): unknown {
+export class CborCodec implements ValueCodec {
+    #options: CodecOptions;
+
+    constructor(options: CodecOptions) {
+        this.#options = options;
+    }
+
+    encode<T>(data: T): Uint8Array {
+        return encode(data, {
+            replacer: this.replacer,
+            partial: false,
+        });
+    }
+
+    decode<T>(data: Uint8Array): T {
+        return decode(data, {
+            tagged: this.tagged,
+        });
+    }
+
+    protected replacer: Replacer = (v: unknown): unknown => {
         if (v instanceof Date) {
             return new Tagged(TAG_CUSTOM_DATETIME, new DateTime(v).toCompact());
         }
@@ -116,12 +136,13 @@ export const REPLACER = {
             return new Tagged(TAG_GEOMETRY_COLLECTION, v.collection);
         }
         return v;
-    },
-    decode: {
-        [TAG_SPEC_DATETIME]: (v) => new DateTime(v),
+    };
+
+    protected tagged: Record<number, Replacer> = {
+        [TAG_SPEC_DATETIME]: (v) => this.#resolveDate(v),
+        [TAG_CUSTOM_DATETIME]: (v) => this.#resolveDate(v),
         [TAG_SPEC_UUID]: (v) => new Uuid(v),
         [TAG_STRING_UUID]: (v) => new Uuid(v),
-        [TAG_CUSTOM_DATETIME]: (v) => new DateTime(v),
         [TAG_NONE]: (_v) => undefined,
         [TAG_STRING_DECIMAL]: (v) => new Decimal(v),
         [TAG_STRING_DURATION]: (v) => new Duration(v),
@@ -145,32 +166,10 @@ export const REPLACER = {
         [TAG_GEOMETRY_MULTILINE]: (v) => new GeometryMultiLine(v),
         [TAG_GEOMETRY_MULTIPOLYGON]: (v) => new GeometryMultiPolygon(v),
         [TAG_GEOMETRY_COLLECTION]: (v) => new GeometryCollection(v),
-    } satisfies Record<number, Replacer>,
-};
+    };
 
-Object.freeze(REPLACER);
-
-/**
- * Recursively encode any supported SurrealQL value into a binary CBOR representation
- *
- * @param data - The input value
- * @returns CBOR binary representation
- */
-export function encodeCbor<T>(data: T): Uint8Array {
-    return encode(data, {
-        replacer: REPLACER.encode,
-        partial: false,
-    });
-}
-
-/**
- * Decode a CBOR encoded SurrealQL value into object representation
- *
- * @param data - The encoded SurrealQL value
- * @returns The parsed SurrealQL value
- */
-export function decodeCbor<T>(data: Uint8Array): T {
-    return decode(data, {
-        tagged: REPLACER.decode,
-    });
+    // biome-ignore lint/suspicious/noExplicitAny: Adhering to type
+    #resolveDate(v: any): unknown {
+        return this.#options.useNativeDates ? new Date(v) : new DateTime(v);
+    }
 }

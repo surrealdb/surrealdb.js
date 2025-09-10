@@ -1,1 +1,1 @@
-export { decodeCbor, encodeCbor } from "./replacer.ts";
+export { CborCodec } from "./codec.ts";

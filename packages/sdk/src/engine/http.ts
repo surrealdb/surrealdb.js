@@ -91,7 +91,9 @@ export class HttpEngine extends JsonEngine implements SurrealEngine {
             },
         });
 
-        const response = this._context.cborDecode<RpcResponse<Result>>(new Uint8Array(buffer));
+        const response = this._context.codecs.cbor.decode<RpcResponse<Result>>(
+            new Uint8Array(buffer),
+        );
 
         if (response.error) {
             throw new ResponseError(response.error);

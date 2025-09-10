@@ -1,6 +1,6 @@
-import { decodeCbor, encodeCbor } from "./cbor";
+import { CborCodec } from "./cbor";
 import { ConnectionController } from "./controller";
-import { decodeFlatBuffer, encodeFlatBuffer } from "./flatbuffer";
+import { FlatBufferCodec } from "./flatbuffer/codec";
 import { getIncrementalID } from "./internal/get-incremental-id";
 import { parseEndpoint } from "./internal/http";
 import {
@@ -22,6 +22,7 @@ import type {
     AnyAuth,
     AnyRecordId,
     AuthResponse,
+    CodecRegistry,
     ConnectionStatus,
     ConnectOptions,
     Doc,
@@ -72,11 +73,8 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     constructor(options: DriverOptions = {}) {
         this.#connection = new ConnectionController({
             options,
-            cborEncode: encodeCbor,
-            cborDecode: decodeCbor,
-            flatBufferEncode: encodeFlatBuffer,
-            flatBufferDecode: decodeFlatBuffer,
             uniqueId: getIncrementalID,
+            codecs: Surreal.compileCodecs(options),
         });
 
         this.#connection.subscribe("connecting", () => this.#publisher.publish("connecting"));
@@ -650,5 +648,15 @@ export class Surreal implements EventPublisher<SurrealEvents> {
             transaction: undefined,
             json: false,
         });
+    }
+
+    private static compileCodecs(options: DriverOptions): CodecRegistry {
+        const userCodecs = options.codecs ?? {};
+        const codecOptions = options.codecOptions ?? {};
+
+        return {
+            cbor: userCodecs.cbor?.(codecOptions) ?? new CborCodec(codecOptions),
+            flatbuffer: userCodecs.flatbuffer?.(codecOptions) ?? new FlatBufferCodec(codecOptions),
+        };
     }
 }

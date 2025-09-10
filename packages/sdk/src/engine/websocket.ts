@@ -66,7 +66,7 @@ export class WebSocketEngine extends JsonEngine implements SurrealEngine {
                     reconnect.reset();
 
                     for (const { request } of this.#calls.values()) {
-                        this.#socket?.send(this._context.cborEncode(request));
+                        this.#socket?.send(this._context.codecs.cbor.encode(request));
                     }
 
                     this.#publisher.publish("connected");
@@ -140,7 +140,7 @@ export class WebSocketEngine extends JsonEngine implements SurrealEngine {
             };
 
             this.#calls.set(id, call as Call<unknown>);
-            this.#socket?.send(this._context.cborEncode(call.request));
+            this.#socket?.send(this._context.codecs.cbor.encode(call.request));
         });
     }
 
@@ -220,7 +220,7 @@ export class WebSocketEngine extends JsonEngine implements SurrealEngine {
             socket.addEventListener("message", ({ data }) => {
                 try {
                     const buffer = this.parseBuffer(data);
-                    const decoded = this._context.cborDecode<Response>(buffer);
+                    const decoded = this._context.codecs.cbor.decode<Response>(buffer);
 
                     if (
                         typeof decoded === "object" &&
