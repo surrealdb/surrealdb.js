@@ -11,7 +11,7 @@ OPTION IMPORT;
 -- FUNCTIONS
 -- ------------------------------
 
-DEFINE FUNCTION fn::foo() { RETURN 'bar'; } PERMISSIONS FULL;
+DEFINE FUNCTION fn::foo() { RETURN 'bar' } PERMISSIONS FULL;
 
 -- ------------------------------
 -- TABLE: bar
@@ -57,7 +57,7 @@ OPTION IMPORT;
 -- FUNCTIONS
 -- ------------------------------
 
-DEFINE FUNCTION fn::foo() { RETURN 'bar'; } PERMISSIONS FULL;
+DEFINE FUNCTION fn::foo() { RETURN 'bar' } PERMISSIONS FULL;
 
 -- ------------------------------
 -- TABLE: foo
@@ -88,7 +88,7 @@ OPTION IMPORT;
 -- FUNCTIONS
 -- ------------------------------
 
-DEFINE FUNCTION fn::foo() { RETURN 'bar'; } PERMISSIONS FULL;
+DEFINE FUNCTION fn::foo() { RETURN 'bar' } PERMISSIONS FULL;
 
 "
 `;

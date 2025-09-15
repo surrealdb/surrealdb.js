@@ -57,7 +57,9 @@ describe("query()", async () => {
             }
         }
 
-        expect(valueCount).toEqual(100);
+        // In 2.x ranges are inclusive, in 3.x they are exclusive.
+        expect(valueCount).toBeGreaterThanOrEqual(99);
+        expect(valueCount).toBeLessThanOrEqual(100);
         expect(doneCount).toEqual(1);
         expect(errorCount).toEqual(0);
     });
