@@ -17,15 +17,22 @@ beforeAll(async () => {
 describe("export", async () => {
     const surreal = await createSurreal();
     const version = await fetchVersion(surreal);
-    const hasPostExport = compareVersions(version, "2.1.0") >= 0;
+    const is2x = compareVersions(version, "2.1.0") >= 0 && compareVersions(version, "3.0.0") < 0;
+    const is3x = compareVersions(version, "3.0.0") >= 0;
 
-    test.if(hasPostExport)("basic", async () => {
+    test.if(is2x)("basic 2.x", async () => {
         const res = await surreal.export();
 
         expect(res).toMatchSnapshot();
     });
 
-    test.if(hasPostExport)("filter tables", async () => {
+    test.if(is3x)("basic 3.x", async () => {
+        const res = await surreal.export();
+
+        expect(res).toMatchSnapshot();
+    });
+
+    test.if(is2x)("filter tables 2.x", async () => {
         const res = await surreal.export({
             tables: ["foo"],
         });
@@ -33,7 +40,24 @@ describe("export", async () => {
         expect(res).toMatchSnapshot();
     });
 
-    test.if(hasPostExport)("filter functions", async () => {
+    test.if(is3x)("filter tables 3.x", async () => {
+        const res = await surreal.export({
+            tables: ["foo"],
+        });
+
+        expect(res).toMatchSnapshot();
+    });
+
+    test.if(is2x)("filter functions 2.x", async () => {
+        const res = await surreal.export({
+            functions: true,
+            tables: false,
+        });
+
+        expect(res).toMatchSnapshot();
+    });
+
+    test.if(is3x)("filter functions 3.x", async () => {
         const res = await surreal.export({
             functions: true,
             tables: false,

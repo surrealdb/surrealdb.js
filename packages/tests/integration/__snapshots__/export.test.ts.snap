@@ -1,6 +1,52 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`export basic 1`] = `
+exports[`export basic 2.x 1`] = `
+"-- ------------------------------
+-- OPTION
+-- ------------------------------
+
+OPTION IMPORT;
+
+-- ------------------------------
+-- FUNCTIONS
+-- ------------------------------
+
+DEFINE FUNCTION fn::foo() { RETURN 'bar'; } PERMISSIONS FULL;
+
+-- ------------------------------
+-- TABLE: bar
+-- ------------------------------
+
+DEFINE TABLE bar TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+
+
+
+-- ------------------------------
+-- TABLE DATA: bar
+-- ------------------------------
+
+INSERT [ { hello: 'world', id: bar:1 } ];
+
+-- ------------------------------
+-- TABLE: foo
+-- ------------------------------
+
+DEFINE TABLE foo TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+
+
+
+-- ------------------------------
+-- TABLE DATA: foo
+-- ------------------------------
+
+INSERT [ { hello: 'world', id: foo:1 } ];
+
+"
+`;
+
+exports[`export basic 3.x 1`] = `
 "-- ------------------------------
 -- OPTION
 -- ------------------------------
@@ -46,7 +92,38 @@ INSERT [ { hello: 'world', id: foo:1 } ];
 "
 `;
 
-exports[`export filter tables 1`] = `
+exports[`export filter tables 2.x 1`] = `
+"-- ------------------------------
+-- OPTION
+-- ------------------------------
+
+OPTION IMPORT;
+
+-- ------------------------------
+-- FUNCTIONS
+-- ------------------------------
+
+DEFINE FUNCTION fn::foo() { RETURN 'bar'; } PERMISSIONS FULL;
+
+-- ------------------------------
+-- TABLE: foo
+-- ------------------------------
+
+DEFINE TABLE foo TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+
+
+
+-- ------------------------------
+-- TABLE DATA: foo
+-- ------------------------------
+
+INSERT [ { hello: 'world', id: foo:1 } ];
+
+"
+`;
+
+exports[`export filter tables 3.x 1`] = `
 "-- ------------------------------
 -- OPTION
 -- ------------------------------
@@ -77,7 +154,23 @@ INSERT [ { hello: 'world', id: foo:1 } ];
 "
 `;
 
-exports[`export filter functions 1`] = `
+exports[`export filter functions 2.x 1`] = `
+"-- ------------------------------
+-- OPTION
+-- ------------------------------
+
+OPTION IMPORT;
+
+-- ------------------------------
+-- FUNCTIONS
+-- ------------------------------
+
+DEFINE FUNCTION fn::foo() { RETURN 'bar'; } PERMISSIONS FULL;
+
+"
+`;
+
+exports[`export filter functions 3.x 1`] = `
 "-- ------------------------------
 -- OPTION
 -- ------------------------------
