@@ -258,3 +258,19 @@ export class ExpressionError extends SurrealError {
         super();
     }
 }
+
+/**
+ * Thrown when one or more subscribers throw an error
+ */
+export class PublishError extends SurrealError {
+    override name = "PublishError";
+    override message = "One or more subscribers threw an error:";
+
+    constructor(causes: unknown[]) {
+        super();
+
+        for (const cause of causes) {
+            this.message += `\n- ${cause instanceof Error ? cause.message : cause}`;
+        }
+    }
+}

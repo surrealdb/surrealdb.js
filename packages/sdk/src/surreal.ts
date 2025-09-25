@@ -49,6 +49,7 @@ export type SurrealEvents = {
     error: [Error];
     authenticated: [Token];
     invalidated: [];
+    using: [NamespaceDatabase];
 };
 
 /**
@@ -74,20 +75,40 @@ export class Surreal implements EventPublisher<SurrealEvents> {
         this.#connection = new ConnectionController({
             options,
             uniqueId: getIncrementalID,
-            codecs: Surreal.compileCodecs(options),
+            codecs: Surreal.#compileCodecs(options),
         });
 
-        this.#connection.subscribe("connecting", () => this.#publisher.publish("connecting"));
-        this.#connection.subscribe("connected", () => this.#publisher.publish("connected"));
-        this.#connection.subscribe("disconnected", () => this.#publisher.publish("disconnected"));
-        this.#connection.subscribe("reconnecting", () => this.#publisher.publish("reconnecting"));
-        this.#connection.subscribe("error", (error) => this.#publisher.publish("error", error));
+        this.#connection.subscribe("connecting", () => {
+            this.#publisher.publish("connecting");
+        });
+
+        this.#connection.subscribe("connected", () => {
+            this.#publisher.publish("connected");
+        });
+
+        this.#connection.subscribe("disconnected", () => {
+            this.#publisher.publish("disconnected");
+        });
+
+        this.#connection.subscribe("reconnecting", () => {
+            this.#publisher.publish("reconnecting");
+        });
+
+        this.#connection.subscribe("error", (error) => {
+            this.#publisher.publish("error", error);
+        });
 
         this.#connection.subscribe("authenticated", (token) =>
             this.#publisher.publish("authenticated", token),
         );
 
-        this.#connection.subscribe("invalidated", () => this.#publisher.publish("invalidated"));
+        this.#connection.subscribe("invalidated", () => {
+            this.#publisher.publish("invalidated");
+        });
+
+        this.#connection.subscribe("using", (using) => {
+            this.#publisher.publish("using", using);
+        });
     }
 
     /**
@@ -650,7 +671,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
         });
     }
 
-    private static compileCodecs(options: DriverOptions): CodecRegistry {
+    static #compileCodecs(options: DriverOptions): CodecRegistry {
         const userCodecs = options.codecs ?? {};
         const codecOptions = options.codecOptions ?? {};
 

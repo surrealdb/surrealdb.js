@@ -42,7 +42,7 @@ const DEFAULT_ENGINES: Engines = {
     https: (ctx) => new HttpEngine(ctx),
 };
 
-type ConnectionEvents = {
+export type ConnectionEvents = {
     connecting: [];
     connected: [];
     disconnected: [];
@@ -50,6 +50,7 @@ type ConnectionEvents = {
     error: [Error];
     authenticated: [Token];
     invalidated: [];
+    using: [NamespaceDatabase];
 };
 
 export class ConnectionController implements SurrealProtocol, EventPublisher<ConnectionEvents> {
@@ -209,6 +210,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         if (db === null) this.#state.database = undefined;
         if (ns) this.#state.namespace = ns;
         if (db) this.#state.database = db;
+
+        this.#eventPublisher.publish("using", response);
 
         return response;
     }
