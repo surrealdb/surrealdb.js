@@ -265,12 +265,25 @@ export class ExpressionError extends SurrealError {
 export class PublishError extends SurrealError {
     override name = "PublishError";
     override message = "One or more subscribers threw an error:";
+    readonly causes: unknown[];
 
     constructor(causes: unknown[]) {
         super();
+        this.causes = causes;
+        this.message += PublishError.#appendCauses(causes, "");
+    }
+
+    static #appendCauses(causes: unknown[], msg: string): string {
+        let message = msg;
 
         for (const cause of causes) {
-            this.message += `\n- ${cause instanceof Error ? cause.message : cause}`;
+            if (cause instanceof PublishError) {
+                message = PublishError.#appendCauses(cause.causes, msg);
+            } else {
+                message += `\n  - ${cause instanceof Error ? cause.message : cause}`;
+            }
         }
+
+        return message;
     }
 }

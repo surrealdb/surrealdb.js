@@ -42,7 +42,7 @@ const DEFAULT_ENGINES: Engines = {
     https: (ctx) => new HttpEngine(ctx),
 };
 
-export type ConnectionEvents = {
+type ConnectionEvents = {
     connecting: [];
     connected: [];
     disconnected: [];
