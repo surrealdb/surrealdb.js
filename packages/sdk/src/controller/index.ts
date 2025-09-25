@@ -250,6 +250,10 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#state.database = undefined;
         this.#state.variables = {};
         this.handleAuthInvalidate();
+        this.#eventPublisher.publish("using", {
+            namespace: null,
+            database: null,
+        });
     }
 
     importSql(data: string): Promise<void> {
