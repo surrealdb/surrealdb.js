@@ -50,6 +50,7 @@ type ConnectionEvents = {
     error: [Error];
     authenticated: [Token];
     invalidated: [];
+    using: [NamespaceDatabase];
 };
 
 export class ConnectionController implements SurrealProtocol, EventPublisher<ConnectionEvents> {
@@ -210,6 +211,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         if (ns) this.#state.namespace = ns;
         if (db) this.#state.database = db;
 
+        this.#eventPublisher.publish("using", response);
+
         return response;
     }
 
@@ -247,6 +250,10 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#state.database = undefined;
         this.#state.variables = {};
         this.handleAuthInvalidate();
+        this.#eventPublisher.publish("using", {
+            namespace: null,
+            database: null,
+        });
     }
 
     importSql(data: string): Promise<void> {

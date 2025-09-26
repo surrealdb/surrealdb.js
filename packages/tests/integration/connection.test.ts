@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { setupServer, VERSION_CHECK } from "./__helpers__";
 
 const { createSurreal, createIdleSurreal } = await setupServer();
@@ -74,5 +74,32 @@ describe("connection", async () => {
         await connect();
         await connect();
         await connect();
+    });
+
+    test("using event", async () => {
+        const { surreal, connect } = createIdleSurreal();
+        const handle = mock(() => {});
+
+        surreal.subscribe("using", handle);
+
+        await connect({
+            namespace: "foo",
+            database: "bar",
+        });
+
+        await surreal.use({
+            namespace: "hello",
+            database: null,
+        });
+
+        expect(handle).nthCalledWith(1, {
+            namespace: "foo",
+            database: "bar",
+        });
+
+        expect(handle).nthCalledWith(2, {
+            namespace: "hello",
+            database: null,
+        });
     });
 });
