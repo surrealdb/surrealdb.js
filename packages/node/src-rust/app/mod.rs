@@ -28,6 +28,22 @@ use uuid::Uuid;
 pub struct SurrealNodeEngine(RwLock<Option<SurrealNodeConnection>>);
 
 #[napi]
+pub struct NotificationReceiver {
+	receiver: channel::Receiver<Uint8Array>,
+}
+
+#[napi]
+impl NotificationReceiver {
+	#[napi]
+	pub async fn recv(&self) -> std::result::Result<Option<Uint8Array>, Error> {
+		match self.receiver.recv().await {
+			Ok(data) => Ok(Some(data)),
+			Err(_) => Ok(None), // Channel closed
+		}
+	}
+}
+
+#[napi]
 impl SurrealNodeEngine {
 	#[napi]
 	pub async fn execute(&self, data: Uint8Array) -> std::result::Result<Uint8Array, Error> {
@@ -44,20 +60,49 @@ impl SurrealNodeEngine {
 		Ok(out.as_slice().into())
 	}
 
-	// pub fn notifications(&self) -> std::result::Result<sys::ReadableStream, Error> {
-	//     let stream = self.0.kvs.notifications().ok_or("Notifications not enabled")?;
-	//
-	//
-	//     let response = stream.map(|notification| {
-	//         let json = json!({
-	// 			"id": notification.id,
-	// 			"action": notification.action.to_string(),
-	// 			"result": notification.result.into_json(),
-	// 		});
-	//         to_value(&json).map_err(Into::into)
-	//     });
-	//     Ok(ReadableStream::from_stream(response).into_raw())
-	// }
+	#[napi]
+	pub async fn notifications(&self) -> std::result::Result<NotificationReceiver, Error> {
+		let stream = {
+			let lock = self.0.read().await;
+			let engine = lock.as_ref().unwrap();
+
+			engine
+				.kvs
+				.notifications()
+				.ok_or_else(|| {
+					Error::new(napi::Status::GenericFailure, "Notifications not enabled")
+				})
+				.map_err(err_map)?
+		};
+
+		let (tx, rx) = channel::unbounded();
+
+		// Spawn a task to process notifications
+		napi::tokio::spawn(async move {
+			let notification_stream = stream;
+
+			while let Ok(notification) = notification_stream.recv().await {
+				// Construct live message
+				let mut message = surrealdb::sql::Object::default();
+
+				message.insert("id".to_string(), notification.id.into());
+				message.insert("action".to_string(), notification.action.to_string().into());
+				message.insert("record".to_string(), notification.record.into());
+				message.insert("result".to_string(), notification.result);
+
+				if let Ok(out) = cbor::res(message) {
+					let data = out.as_slice().into();
+					if tx.send(data).await.is_err() {
+						break; // Receiver dropped
+					}
+				}
+			}
+		});
+
+		Ok(NotificationReceiver {
+			receiver: rx,
+		})
+	}
 
 	#[napi]
 	pub async fn connect(
