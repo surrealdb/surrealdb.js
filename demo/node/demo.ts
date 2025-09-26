@@ -18,12 +18,16 @@ live.subscribe((message) => {
     console.log("Live notification:", message);
 });
 
-const res = await surreal.upsert(new RecordId("test", 1)).content({
-    name: "John",
-    value: Math.random(),
-});
+try {
+    const res = await surreal.upsert(new RecordId("test", 1)).content({
+        name: "John",
+        value: Math.random(),
+    });
 
-console.log("Result =", res);
+    console.log("Result =", res);
+} catch {
+    console.log("uh oh error");
+}
 
-await Bun.sleep(1000);
+await Bun.sleep(500);
 await surreal.close();
