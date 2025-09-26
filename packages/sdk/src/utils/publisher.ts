@@ -1,3 +1,4 @@
+import { PublishError } from "../errors";
 import type { EventPayload, EventPublisher } from "../types/publisher";
 
 export class Publisher<T extends EventPayload> implements EventPublisher<T> {
@@ -43,8 +44,18 @@ export class Publisher<T extends EventPayload> implements EventPublisher<T> {
             return;
         }
 
+        const failures: unknown[] = [];
+
         for (const subscription of subscriptions) {
-            subscription(...payload);
+            try {
+                subscription(...payload);
+            } catch (cause) {
+                failures.push(cause);
+            }
+        }
+
+        if (failures.length > 0) {
+            throw new PublishError(failures);
         }
     }
 }
