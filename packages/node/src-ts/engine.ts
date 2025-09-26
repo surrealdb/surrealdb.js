@@ -5,24 +5,26 @@ import {
     type DriverContext,
     type EngineEvents,
     JsonEngine,
+    type LiveAction,
     type LiveMessage,
     Publisher,
+    type RecordId,
     type RpcRequest,
     type SurrealEngine,
     UnexpectedConnectionError,
     type Uuid,
 } from "surrealdb";
 
-import { type ConnectionOptions, SurrealNodeEngine } from "../napi";
+import { type ConnectionOptions, type NotificationReceiver, SurrealNodeEngine } from "../napi";
 
 type LiveChannels = Record<string, [LiveMessage]>;
 
-// interface LivePayload {
-//     id: Uuid;
-//     action: LiveAction;
-//     result: LiveMessage;
-//     record: RecordId;
-// }
+interface LivePayload {
+    id: Uuid;
+    action: LiveAction;
+    result: LiveMessage;
+    record: RecordId;
+}
 
 /**
  * The engine implementation responsible for communicating with an embedded
@@ -30,9 +32,11 @@ type LiveChannels = Record<string, [LiveMessage]>;
  */
 export class NodeEngine extends JsonEngine implements SurrealEngine {
     #engine: SurrealNodeEngine | undefined;
+    #notificationReceiver: NotificationReceiver | undefined;
     #publisher = new Publisher<EngineEvents>();
     #subscriptions = new Publisher<LiveChannels>();
     #active = false;
+    #abort: AbortController | undefined;
     #options: ConnectionOptions | undefined;
 
     constructor(context: DriverContext, options?: ConnectionOptions) {
@@ -42,16 +46,21 @@ export class NodeEngine extends JsonEngine implements SurrealEngine {
 
     open(state: ConnectionState): void {
         this.#publisher.publish("connecting");
+        this.#abort?.abort();
+        this.#abort = new AbortController();
         this.#active = true;
         this._state = state;
-        this.#initialize(state);
+        this.#initialize(state, this.#abort.signal);
     }
 
     async close(): Promise<void> {
         this._state = undefined;
+        this.#abort?.abort();
+        this.#abort = undefined;
         this.#active = false;
         this.#engine?.free();
         this.#engine = undefined;
+        this.#notificationReceiver = undefined;
         this.#publisher.publish("disconnected");
     }
 
@@ -94,32 +103,36 @@ export class NodeEngine extends JsonEngine implements SurrealEngine {
         return result;
     }
 
-    async #initialize(state: ConnectionState) {
+    async #initialize(state: ConnectionState, signal: AbortSignal) {
         try {
             this.#engine = await SurrealNodeEngine.connect(state.url.toString(), this.#options);
 
-            // const reader = this.#engine.notifications().getReader();
+            if (signal.aborted) {
+                return;
+            }
 
-            // (async () => {
-            //     while (this.#active) {
-            //         const { done, value } = await reader.read();
+            this.#notificationReceiver = await this.#engine.notifications();
 
-            //         if (done) {
-            //             break;
-            //         }
+            (async () => {
+                while (this.#active && this.#notificationReceiver) {
+                    const value = await this.#notificationReceiver.recv();
 
-            //         const payload = this._context.cborDecode<LivePayload>(value);
+                    if (value === null) {
+                        break; // Channel closed
+                    }
 
-            //         if (payload.id) {
-            //             this.#subscriptions.publish(payload.id.toString(), {
-            //                 queryId: payload.id,
-            //                 action: payload.action,
-            //                 recordId: payload.record,
-            //                 value: payload.result,
-            //             });
-            //         }
-            //     }
-            // })();
+                    const payload = this._context.codecs.cbor.decode<LivePayload>(value);
+
+                    if (payload.id) {
+                        this.#subscriptions.publish(payload.id.toString(), {
+                            queryId: payload.id,
+                            action: payload.action,
+                            recordId: payload.record,
+                            value: payload.result,
+                        });
+                    }
+                }
+            })();
 
             this.#publisher.publish("connected");
         } catch (err) {

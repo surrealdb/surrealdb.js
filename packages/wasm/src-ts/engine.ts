@@ -35,6 +35,7 @@ export class WebAssemblyEngine extends JsonEngine implements SurrealEngine {
     #publisher = new Publisher<EngineEvents>();
     #subscriptions = new Publisher<LiveChannels>();
     #active = false;
+    #abort: AbortController | undefined;
     #options: ConnectionOptions | undefined;
 
     constructor(context: DriverContext, options?: ConnectionOptions) {
@@ -44,13 +45,17 @@ export class WebAssemblyEngine extends JsonEngine implements SurrealEngine {
 
     open(state: ConnectionState): void {
         this.#publisher.publish("connecting");
+        this.#abort?.abort();
+        this.#abort = new AbortController();
         this.#active = true;
         this._state = state;
-        this.#initialize(state);
+        this.#initialize(state, this.#abort.signal);
     }
 
     async close(): Promise<void> {
         this._state = undefined;
+        this.#abort?.abort();
+        this.#abort = undefined;
         this.#active = false;
         this.#engine?.free();
         this.#engine = undefined;
@@ -96,11 +101,15 @@ export class WebAssemblyEngine extends JsonEngine implements SurrealEngine {
         return result;
     }
 
-    async #initialize(state: ConnectionState) {
+    async #initialize(state: ConnectionState, signal: AbortSignal) {
         try {
             this.#engine = await SurrealWasmEngine.connect(state.url.toString(), this.#options);
 
             const reader = this.#engine.notifications().getReader();
+
+            if (signal.aborted) {
+                return;
+            }
 
             (async () => {
                 while (this.#active) {

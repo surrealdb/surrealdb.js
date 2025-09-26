@@ -55,6 +55,7 @@ impl SurrealWasmEngine {
 
 			message.insert("id".to_string(), notification.id.into());
 			message.insert("action".to_string(), notification.action.to_string().into());
+			message.insert("record".to_string(), notification.record.into());
 			message.insert("result".to_string(), notification.result);
 
 			// Into CBOR value

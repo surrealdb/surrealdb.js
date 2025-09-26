@@ -23,19 +23,16 @@ const currentPatch = patch(packageJson.version);
 
 const newVersion = new SemVer(crateVersion);
 
-console.log(majorMatch, minorMatch, currentPatch);
-
 if (majorMatch === minorMatch) {
-    newVersion.patch = currentPatch;
+    newVersion.patch = currentPatch + 1;
 } else {
     newVersion.patch = 0;
 }
 
 packageJson.version = newVersion.format();
+packageJson.surreal = crateVersion;
 
 await Bun.write("package.json", JSON.stringify(packageJson, null, 2));
 await Bun.spawn(["bunx", "biome", "format", "--write", "package.json"]).exited;
 
-console.log(
-    `👉 SurrealDB version updated to ${major(crateVersion)}.${minor(crateVersion)} rev ${newVersion.patch}`,
-);
+console.log(`👉 SurrealDB updated to ${crateVersion} and bumped package to ${newVersion.format()}`);
