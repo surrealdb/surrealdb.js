@@ -145,6 +145,7 @@ export class Query<
                     maybeJsonify(chunk.result?.[0] as T, json as J),
                     true,
                 );
+                yield new DoneFrame<T, J>(chunk.query, chunk.stats);
                 continue;
             }
 

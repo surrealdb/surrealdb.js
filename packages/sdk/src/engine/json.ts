@@ -11,6 +11,7 @@ import type {
     MlExportOptions,
     NamespaceDatabase,
     QueryChunk,
+    QueryStats,
     RpcQueryResult,
     RpcRequest,
     SqlExportOptions,
@@ -189,21 +190,24 @@ export abstract class JsonEngine implements SurrealProtocol {
                 query: index++,
                 batch: 0,
                 kind: "single",
-                stats: {
-                    bytesReceived: -1,
-                    bytesScanned: -1,
-                    recordsReceived: -1,
-                    recordsScanned: -1,
-                    duration: new Duration(time),
-                },
+            };
+
+            const stats: QueryStats = {
+                bytesReceived: -1,
+                bytesScanned: -1,
+                recordsReceived: -1,
+                recordsScanned: -1,
+                duration: new Duration(time),
             };
 
             if (status === "OK") {
                 if (Array.isArray(result)) {
                     chunk.kind = "batched-final";
                     chunk.result = result as T[];
+                    chunk.stats = stats;
                 } else {
                     chunk.result = [result] as T[];
+                    chunk.stats = stats;
                 }
             } else {
                 chunk.error = {

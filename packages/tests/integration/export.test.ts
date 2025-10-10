@@ -17,8 +17,8 @@ beforeAll(async () => {
 describe("export", async () => {
     const surreal = await createSurreal();
     const version = await fetchVersion(surreal);
-    const is2x = compareVersions(version, "2.1.0") >= 0 && compareVersions(version, "3.0.0") < 0;
-    const is3x = compareVersions(version, "3.0.0") >= 0;
+    const is3x = compareVersions(version, "3.0.0-alpha.1") >= 0;
+    const is2x = compareVersions(version, "3.0.0-alpha.1") < 0;
 
     test.if(is2x)("basic 2.x", async () => {
         const res = await surreal.export();

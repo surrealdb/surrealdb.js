@@ -40,7 +40,7 @@ describe("query()", async () => {
     });
 
     test("stream query results", async () => {
-        const stream = surreal.query(`SELECT * FROM foo`).stream();
+        const stream = surreal.query(`SELECT * FROM foo;`).stream();
 
         let valueCount = 0;
         let doneCount = 0;
@@ -60,6 +60,29 @@ describe("query()", async () => {
         // In 2.x ranges are inclusive, in 3.x they are exclusive.
         expect(valueCount).toBeGreaterThanOrEqual(99);
         expect(valueCount).toBeLessThanOrEqual(100);
+        expect(doneCount).toEqual(1);
+        expect(errorCount).toEqual(0);
+    });
+
+    test("stream single result query", async () => {
+        const stream = surreal.query(`RETURN { foo: "bar" }`).stream();
+
+        let valueCount = 0;
+        let doneCount = 0;
+        let errorCount = 0;
+
+        for await (const frame of stream) {
+            if (frame.isValue<{ foo: string }>() && frame.isSingle) {
+                expect(frame.value.foo).toEqual("bar");
+                valueCount++;
+            } else if (frame.isDone()) {
+                doneCount++;
+            } else if (frame.isError()) {
+                errorCount++;
+            }
+        }
+
+        expect(valueCount).toEqual(1);
         expect(doneCount).toEqual(1);
         expect(errorCount).toEqual(0);
     });
