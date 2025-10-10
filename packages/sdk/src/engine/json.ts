@@ -11,7 +11,6 @@ import type {
     MlExportOptions,
     NamespaceDatabase,
     QueryChunk,
-    QueryStats,
     RpcQueryResult,
     RpcRequest,
     SqlExportOptions,
