@@ -143,6 +143,7 @@ export class Query<
                 yield new ValueFrame<T, J>(
                     chunk.query,
                     maybeJsonify(chunk.result?.[0] as T, json as J),
+                    true,
                 );
                 continue;
             }
@@ -150,7 +151,7 @@ export class Query<
             const values = chunk.result as unknown[];
 
             for (const value of values) {
-                yield new ValueFrame<T, J>(chunk.query, maybeJsonify(value as T, json as J));
+                yield new ValueFrame<T, J>(chunk.query, maybeJsonify(value as T, json as J), false);
             }
 
             if (chunk.kind === "batched-final") {
