@@ -10,6 +10,7 @@ import {
     Table,
     Uuid,
 } from "../value";
+import { FileRef } from "../value/file";
 
 /**
  * Recursively convert any supported SurrealQL value into a string representation.
@@ -27,12 +28,24 @@ export function toSurqlString(input: unknown): string {
         if (input instanceof Date || input instanceof DateTime)
             return `d${JSON.stringify(input.toISOString())}`;
         if (input instanceof RecordId || input instanceof StringRecordId)
-            return `r${JSON.stringify(input.toString())}`;
+            return `r"${input.toString()}"`;
 
         if (input instanceof Geometry) return toSurqlString(input.toJSON());
 
+        if (input instanceof Uint8Array) {
+            const hex = Array.from(input).map(b => b.toString(16).padStart(2, "0")).join("");
+            return `b"${hex}"`;
+        }
+
+        if (input instanceof FileRef) {
+            return `f"${input.toString()}"`;
+        }
+
+        if (input instanceof Decimal) {
+            return `${input.toJSON()}dec`;
+        }
+
         if (
-            input instanceof Decimal ||
             input instanceof Duration ||
             input instanceof Future ||
             input instanceof Range ||

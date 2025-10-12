@@ -5,17 +5,17 @@ import { Value } from "./value";
 export type DurationTuple = [number | bigint, number | bigint] | [number | bigint] | [];
 
 // Time unit definitions in nanoseconds
-const NANOSECOND = 1n;
-const MICROSECOND = 1000n * NANOSECOND;
-const MILLISECOND = 1000n * MICROSECOND;
-const SECOND = 1000n * MILLISECOND;
-const MINUTE = 60n * SECOND;
-const HOUR = 60n * MINUTE;
-const DAY = 24n * HOUR;
-const WEEK = 7n * DAY;
+export const NANOSECOND = 1n;
+export const MICROSECOND = 1000n * NANOSECOND;
+export const MILLISECOND = 1000n * MICROSECOND;
+export const SECOND = 1000n * MILLISECOND;
+export const MINUTE = 60n * SECOND;
+export const HOUR = 60n * MINUTE;
+export const DAY = 24n * HOUR;
+export const WEEK = 7n * DAY;
 
 // Unit string to nanosecond mapping
-const UNITS = new Map([
+export const UNITS = new Map([
     ["ns", NANOSECOND],
     ["\u00b5s", MICROSECOND], // micro (Greek letter mu)
     ["\u03bcs", MICROSECOND], // micro (Greek letter mu variant)
@@ -35,8 +35,8 @@ const UNITS_REVERSED = Array.from(UNITS).reduce((map, [unit, size]) => {
 }, new Map<bigint, string>());
 
 // Regex for parsing duration parts like "3h" or "15ms"
-const DURATION_PART_REGEX = new RegExp(
-    `^(\\d+)\\.?\\d*(${Array.from(UNITS.keys()).map(escapeRegex).join("|")})`,
+export const DURATION_PART_REGEX = new RegExp(
+    `^(\\d+)(${Array.from(UNITS.keys()).map(escapeRegex).join("|")})`,
 );
 
 /**
