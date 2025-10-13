@@ -114,8 +114,11 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     public async disconnect(): Promise<true> {
-        if (this.#engine) {
-            await this.#engine.close();
+        const engine = this.#engine;
+        this.#engine = undefined;
+
+        if (engine) {
+            await engine.close();
         }
 
         return true;
