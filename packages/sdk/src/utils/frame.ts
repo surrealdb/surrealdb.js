@@ -63,14 +63,17 @@ export class Frame<T, J extends boolean> {
 }
 
 /**
- * Represents a value frame in a query result
+ * Represents a value frame in a query result. If `isSingle` is true, the frame represents a single value
+ * and no further values will be returned for that specific statement.
  */
 export class ValueFrame<T, J extends boolean> extends Frame<T, J> {
     value: MaybeJsonify<T, J>;
+    readonly isSingle: boolean;
 
-    constructor(query: number, value: MaybeJsonify<T, J>) {
+    constructor(query: number, value: MaybeJsonify<T, J>, isSingle: boolean) {
         super(query);
         this.value = value;
+        this.isSingle = isSingle;
     }
 
     override isOf<V = T>(query: number): this is ValueFrame<V, J> {

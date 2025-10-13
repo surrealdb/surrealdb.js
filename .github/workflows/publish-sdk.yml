@@ -28,6 +28,8 @@ jobs:
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
 
       - name: Code Checkout
         uses: actions/checkout@v4
@@ -46,6 +48,8 @@ jobs:
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
 
       - name: Code Checkout
         uses: actions/checkout@v4
@@ -73,6 +77,8 @@ jobs:
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
 
       - name: Code Checkout
         uses: actions/checkout@v4
@@ -111,6 +117,8 @@ jobs:
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
 
       - name: Code Checkout
         uses: actions/checkout@v4
