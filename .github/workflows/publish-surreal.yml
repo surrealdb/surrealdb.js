@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
 
       - name: Code Checkout
         uses: actions/checkout@v4
@@ -45,6 +47,8 @@ jobs:
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
 
       - name: Code Checkout
         uses: actions/checkout@v4
@@ -156,6 +160,8 @@ jobs:
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
 
       - name: Install cross-compilation toolchain
         if: ${{ contains(matrix.settings.target, 'aarch64-unknown-linux-gnu') }}
@@ -216,6 +222,8 @@ jobs:
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
 
       - name: Code Checkout
         uses: actions/checkout@v4
@@ -274,6 +282,8 @@ jobs:
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
 
       - name: Code Checkout
         uses: actions/checkout@v4
