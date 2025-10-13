@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { Value } from "surrealdb";
 import { setupServer, VERSION_CHECK } from "./__helpers__";
 
 const { createSurreal, createIdleSurreal } = await setupServer();
@@ -74,6 +75,18 @@ describe("connection", async () => {
         await connect();
         await connect();
         await connect();
+    });
+
+    test("chaos", async () => {
+        const { connect, surreal } = createIdleSurreal();
+
+        connect();
+        surreal.close();
+        connect();
+        surreal.close();
+        connect();
+
+        await surreal.ready;
     });
 
     test("using event", async () => {

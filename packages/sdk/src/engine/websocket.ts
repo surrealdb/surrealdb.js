@@ -179,6 +179,10 @@ export class WebSocketEngine extends JsonEngine implements SurrealEngine {
 
             // Wait for the connection to open
             socket.addEventListener("open", () => {
+                if (this.#terminated) {
+                    return;
+                }
+
                 try {
                     onConnected();
 
