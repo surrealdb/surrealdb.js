@@ -49,17 +49,17 @@ jobs:
       - name: Code Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          targets: wasm32-unknown-unknown
+      # - name: Install Rust
+      #   uses: dtolnay/rust-toolchain@stable
+      #   with:
+      #     toolchain: stable
+      #     targets: wasm32-unknown-unknown
 
-      - name: Install wasm-bindgen-cli
-        run: cargo install -f wasm-bindgen-cli --version 0.2.101
+      # - name: Install wasm-bindgen-cli
+      #   run: cargo install -f wasm-bindgen-cli --version 0.2.101
 
-      - name: Install wasm-opt
-        run: cargo install wasm-opt
+      # - name: Install wasm-opt
+      #   run: cargo install wasm-opt
 
       - name: Install dependencies
         run: bun install
