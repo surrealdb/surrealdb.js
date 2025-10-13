@@ -1,4 +1,4 @@
-import { HttpEngine, WebSocketEngine } from "../engine";
+import { createRemoteEngines } from "../engine";
 
 import {
     AuthenticationFailed,
@@ -19,7 +19,6 @@ import type {
     ConnectionStatus,
     ConnectOptions,
     DriverContext,
-    Engines,
     EventPublisher,
     LiveMessage,
     MlExportOptions,
@@ -34,13 +33,6 @@ import type {
 import { type BoundQuery, versionCheck } from "../utils";
 import { Publisher } from "../utils/publisher";
 import type { Uuid } from "../value";
-
-const DEFAULT_ENGINES: Engines = {
-    ws: (ctx) => new WebSocketEngine(ctx),
-    wss: (ctx) => new WebSocketEngine(ctx),
-    http: (ctx) => new HttpEngine(ctx),
-    https: (ctx) => new HttpEngine(ctx),
-};
 
 type ConnectionEvents = {
     connecting: [];
@@ -58,6 +50,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #context: DriverContext;
     #state: ConnectionState | undefined;
     #engine: SurrealEngine | undefined;
+    #nextEngine: SurrealEngine | undefined;
     #status: ConnectionStatus = "disconnected";
     #authProvider: AuthProvider | undefined;
     #authRenewal: ReturnType<typeof setTimeout> | undefined;
@@ -76,17 +69,21 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     public async connect(url: URL, options: ConnectOptions): Promise<true> {
+        const engine = this.#instanceEngine(url);
+
+        this.#nextEngine = engine;
+        this.#status = "connecting";
+
         await this.disconnect();
 
-        const engineMap = { ...DEFAULT_ENGINES, ...this.#context.options.engines };
-        const protocol = url.protocol.slice(0, -1);
-        const factory = engineMap[protocol];
-
-        if (!factory) {
-            throw new UnsupportedEngine(protocol);
+        // Connect was called again synchronously. In this situation, we skip the
+        // connection logic and return early.
+        if (this.#nextEngine !== engine) {
+            return true;
         }
 
-        this.#engine = factory(this.#context);
+        this.#engine = engine;
+        this.#nextEngine = undefined;
         this.#authProvider = options.authentication;
         this.#checkVersion = options.versionCheck ?? true;
         this.#renewAccess = options.renewAccess ?? true;
@@ -99,11 +96,12 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             reconnect: new ReconnectContext(options.reconnect),
         };
 
-        this.#engine.subscribe("connecting", () => this.onConnecting());
         this.#engine.subscribe("connected", () => this.onConnected());
         this.#engine.subscribe("disconnected", () => this.onDisconnected());
         this.#engine.subscribe("reconnecting", () => this.onReconnecting());
 
+        this.#status = "connecting";
+        this.#eventPublisher.publish("connecting");
         this.#engine.open(this.#state);
 
         await this.ready();
@@ -112,11 +110,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     public async disconnect(): Promise<true> {
-        const engine = this.#engine;
-        this.#engine = undefined;
-
-        if (engine) {
-            await engine.close();
+        if (this.#engine) {
+            await this.#engine.close();
         }
 
         return true;
@@ -282,11 +277,6 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.liveQuery(id);
     }
 
-    private onConnecting(): void {
-        this.#status = "connecting";
-        this.#eventPublisher.publish("connecting");
-    }
-
     private async onConnected(): Promise<void> {
         try {
             // Perform version check
@@ -398,5 +388,17 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         if (this.#authRenewal === undefined) return;
         clearTimeout(this.#authRenewal);
         this.#authRenewal = undefined;
+    }
+
+    #instanceEngine(url: URL): SurrealEngine {
+        const engineMap = this.#context.options.engines ?? createRemoteEngines();
+        const protocol = url.protocol.slice(0, -1);
+        const factory = engineMap[protocol];
+
+        if (!factory) {
+            throw new UnsupportedEngine(protocol);
+        }
+
+        return factory(this.#context);
     }
 }

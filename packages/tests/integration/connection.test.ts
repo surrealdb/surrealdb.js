@@ -77,19 +77,14 @@ describe("connection", async () => {
     });
 
     test("unawaited sequential connects", async () => {
-        const { connect, surreal } = createIdleSurreal();
+        const { connect } = createIdleSurreal();
 
         connect();
-        surreal.close();
         connect();
-        surreal.close();
         connect();
-        surreal.close();
-        connect();
-        surreal.close();
         connect();
 
-        await surreal.ready;
+        await connect();
     });
 
     test("using event", async () => {

@@ -11,11 +11,17 @@ await init(wasmCode);
  * Configure the `mem` and `indxdb` WebAssembly engines for the JavaScript SDK.
  *
  * @param options Optional connection options to configure the WebAssembly engines.
- * @example ```ts
+ * @example
+ * ```ts
+ * import { Surreal, createRemoteEngines } from "surrealdb";
  * import { createWasmEngines } from "@surrealdb/wasm";
- * import { Surreal } from "surrealdb";
  *
- * const db = new Surreal(createWasmEngines());
+ * const db = new Surreal({
+ *     engines: {
+ *         ...createRemoteEngines(),
+ *         ...createWasmEngines(),
+ *     },
+ * });
  * ```
  */
 export const createWasmEngines = (options?: ConnectionOptions): Engines => ({
