@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { compareVersions } from "compare-versions";
+import { satisfies } from "compare-versions";
 import { fetchVersion, setupServer } from "./__helpers__";
 
 const { createSurreal } = await setupServer();
@@ -17,8 +17,9 @@ beforeAll(async () => {
 describe("export", async () => {
     const surreal = await createSurreal();
     const version = await fetchVersion(surreal);
-    const is3x = compareVersions(version, "3.0.0-alpha.1") >= 0;
-    const is2x = compareVersions(version, "3.0.0-alpha.1") < 0;
+
+    const is3x = satisfies(version, ">=3.0.0-alpha.1");
+    const is2x = satisfies(version, ">=2.1.0 <3.0.0-alpha.1");
 
     test.if(is2x)("basic 2.x", async () => {
         const res = await surreal.export();
