@@ -76,7 +76,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     public async connect(url: URL, options: ConnectOptions): Promise<true> {
-        this.disconnect();
+        await this.disconnect();
 
         const engineMap = { ...DEFAULT_ENGINES, ...this.#context.options.engines };
         const protocol = url.protocol.slice(0, -1);
