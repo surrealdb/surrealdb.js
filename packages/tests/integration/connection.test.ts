@@ -76,6 +76,17 @@ describe("connection", async () => {
         await connect();
     });
 
+    test("unawaited sequential connects", async () => {
+        const { connect } = createIdleSurreal();
+
+        connect();
+        connect();
+        connect();
+        connect();
+
+        await connect();
+    });
+
     test("using event", async () => {
         const { surreal, connect } = createIdleSurreal();
         const handle = mock(() => {});

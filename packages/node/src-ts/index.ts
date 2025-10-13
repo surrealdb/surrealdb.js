@@ -8,11 +8,17 @@ import { NodeEngine } from "./engine";
  * While this package is called `@surrealdb/node`, it is also compatible with Bun and Deno.
  *
  * @param options Optional connection options to configure the Nodejs engines.
- * @example ```ts
+ * @example
+ * ```ts
+ * import { Surreal, createRemoteEngines } from "surrealdb";
  * import { createNodeEngines } from "@surrealdb/node";
- * import { Surreal } from "surrealdb";
  *
- * const db = new Surreal(createNodeEngines());
+ * const db = new Surreal({
+ *     engines: {
+ *         ...createRemoteEngines(),
+ *         ...createNodeEngines(),
+ *     },
+ * });
  * ```
  */
 export const createNodeEngines = (options?: ConnectionOptions): Engines => ({

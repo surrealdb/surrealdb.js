@@ -64,7 +64,6 @@ export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEve
  * The events emitted by a SurrealDB engine
  */
 export type EngineEvents = {
-    connecting: [];
     connected: [];
     reconnecting: [];
     disconnected: [];

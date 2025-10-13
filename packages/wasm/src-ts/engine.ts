@@ -44,7 +44,6 @@ export class WebAssemblyEngine extends JsonEngine implements SurrealEngine {
     }
 
     open(state: ConnectionState): void {
-        this.#publisher.publish("connecting");
         this.#abort?.abort();
         this.#abort = new AbortController();
         this.#active = true;

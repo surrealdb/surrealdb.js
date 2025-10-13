@@ -35,7 +35,6 @@ export class HttpEngine extends JsonEngine implements SurrealEngine {
     }
 
     open(state: ConnectionState): void {
-        this.#publisher.publish("connecting");
         this._state = state;
         this.#publisher.publish("connected");
     }

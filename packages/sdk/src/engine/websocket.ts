@@ -52,7 +52,6 @@ export class WebSocketEngine extends JsonEngine implements SurrealEngine {
     }
 
     open(state: ConnectionState): void {
-        this.#publisher.publish("connecting");
         this.#terminated = false;
         this._state = state;
 
@@ -114,6 +113,7 @@ export class WebSocketEngine extends JsonEngine implements SurrealEngine {
     }
 
     async close(): Promise<void> {
+        if (this.#terminated) return;
         this._state = undefined;
         this.#terminated = true;
         this.#socket?.close();

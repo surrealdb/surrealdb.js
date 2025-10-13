@@ -19,3 +19,4 @@ export { RecordIdRange } from "./record-id-range.ts";
 export { StringRecordId } from "./string-record-id.ts";
 export { Table } from "./table.ts";
 export { Uuid } from "./uuid.ts";
+export { Value } from "./value.ts";
