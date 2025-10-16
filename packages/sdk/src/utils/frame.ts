@@ -1,12 +1,12 @@
 import { ResponseError } from "../errors";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { QueryStats } from "../types";
+import type { QueryStats, QueryType } from "../types";
 
 /**
  * Represents a single query result frame frame
  */
 export class Frame<T, J extends boolean> {
-    query: number;
+    readonly query: number;
 
     constructor(query: number) {
         this.query = query;
@@ -67,7 +67,7 @@ export class Frame<T, J extends boolean> {
  * and no further values will be returned for that specific statement.
  */
 export class ValueFrame<T, J extends boolean> extends Frame<T, J> {
-    value: MaybeJsonify<T, J>;
+    readonly value: MaybeJsonify<T, J>;
     readonly isSingle: boolean;
 
     constructor(query: number, value: MaybeJsonify<T, J>, isSingle: boolean) {
@@ -85,8 +85,8 @@ export class ValueFrame<T, J extends boolean> extends Frame<T, J> {
  * Represents an error frame in a query result
  */
 export class ErrorFrame<T, J extends boolean> extends Frame<T, J> {
-    stats: QueryStats | undefined;
-    error: {
+    readonly stats: QueryStats | undefined;
+    readonly error: {
         code: number;
         message: string;
     };
@@ -117,11 +117,13 @@ export class ErrorFrame<T, J extends boolean> extends Frame<T, J> {
  * Represents a done frame in a query result
  */
 export class DoneFrame<T, J extends boolean> extends Frame<T, J> {
-    stats: QueryStats | undefined;
+    readonly stats: QueryStats | undefined;
+    readonly type: QueryType;
 
-    constructor(query: number, stats: QueryStats | undefined) {
+    constructor(query: number, stats: QueryStats | undefined, type: QueryType) {
         super(query);
         this.stats = stats;
+        this.type = type;
     }
 
     override isOf<V = T>(query: number): this is DoneFrame<V, J> {

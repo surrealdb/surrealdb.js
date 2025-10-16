@@ -88,10 +88,9 @@ export class UnexpectedConnectionError extends SurrealError {
  */
 export class UnsupportedEngine extends SurrealError {
     override name = "UnsupportedEngine";
-    override message = "The engine you are trying to connect to is not supported or configured";
 
-    constructor(public readonly engine: string) {
-        super();
+    constructor(engine: string) {
+        super(`The engine "${engine}" is not supported or configured`);
     }
 }
 

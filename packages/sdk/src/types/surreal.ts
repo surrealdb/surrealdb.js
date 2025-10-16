@@ -21,6 +21,7 @@ export type Engines = Record<string, EngineFactory>;
 export type CodecFactory = (options: CodecOptions) => ValueCodec;
 export type Codecs = Partial<Record<CodecType, CodecFactory>>;
 export type CodecRegistry = Record<CodecType, ValueCodec>;
+export type QueryType = "live" | "kill" | "other";
 
 /**
  * The communication contract between the SDK and a SurrealDB datastore.
@@ -249,6 +250,7 @@ export interface QueryChunk<T> {
     kind: QueryResponseKind;
     stats?: QueryStats;
     result?: T[];
+    type?: QueryType;
     error?: {
         code: number;
         message: string;
