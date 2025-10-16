@@ -1,8 +1,11 @@
+import type { QueryType } from "./surreal";
+
 export type RpcQueryResult<T = unknown> = RpcQueryResultOk<T> | RpcQueryResultErr;
 export type RpcQueryResultOk<T> = {
     status: "OK";
     time: string;
     result: T;
+    type: QueryType;
 };
 
 export type RpcQueryResultErr = {

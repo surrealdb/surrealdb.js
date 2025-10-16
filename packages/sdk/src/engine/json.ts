@@ -177,14 +177,14 @@ export abstract class JsonEngine implements SurrealProtocol {
     }
 
     async *query<T>(query: BoundQuery): AsyncIterable<QueryChunk<T>> {
-        const response: RpcQueryResult[] = await this.send({
+        const responses: RpcQueryResult[] = await this.send({
             method: "query",
             params: [query.query, query.bindings],
         });
 
         let index = 0;
 
-        for (const { status, result, time } of response) {
+        for (const response of responses) {
             const chunk: QueryChunk<T> = {
                 query: index++,
                 batch: 0,
@@ -194,21 +194,23 @@ export abstract class JsonEngine implements SurrealProtocol {
                     bytesScanned: -1,
                     recordsReceived: -1,
                     recordsScanned: -1,
-                    duration: new Duration(time),
+                    duration: new Duration(response.time),
                 },
             };
 
-            if (status === "OK") {
-                if (Array.isArray(result)) {
+            if (response.status === "OK") {
+                chunk.type = response.type;
+
+                if (Array.isArray(response.result)) {
                     chunk.kind = "batched-final";
-                    chunk.result = result as T[];
+                    chunk.result = response.result as T[];
                 } else {
-                    chunk.result = [result] as T[];
+                    chunk.result = [response.result] as T[];
                 }
             } else {
                 chunk.error = {
-                    code: Number(result) || 0,
-                    message: String(result),
+                    code: Number(response.result) || 0,
+                    message: String(response.result),
                 };
             }
 
