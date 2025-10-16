@@ -1,9 +1,18 @@
 import { SurrealError } from "../errors";
 import { Option } from "./option";
 
+// Whitespace lookup table for fast checking (space, tab, newline, carriage return)
+const WHITESPACE_TABLE = new Uint8Array(256);
+WHITESPACE_TABLE[32] = 1;  // space
+WHITESPACE_TABLE[9] = 1;   // tab
+WHITESPACE_TABLE[10] = 1;  // newline
+WHITESPACE_TABLE[13] = 1;  // carriage return
+
 export class Reader {
     readonly input: string;
     #position: number;
+    #cachedPos: number = -1;
+    #cachedNonWs: number = -1;
 
     constructor(input: string) {
         this.input = input;
@@ -120,11 +129,18 @@ export class Reader {
     }
 
     get position(): number {
-        return this.findNonWhitespace(this.#position);
+        if (this.#cachedPos === this.#position) {
+            return this.#cachedNonWs;
+        }
+        this.#cachedPos = this.#position;
+        this.#cachedNonWs = this.findNonWhitespace(this.#position);
+        return this.#cachedNonWs;
     }
 
     set position(pos: number) {
         this.#position = pos;
+        // Invalidate cache
+        this.#cachedPos = -1;
     }
 
     get positionWhitespace(): number {
@@ -140,19 +156,16 @@ export class Reader {
     }
 
     private findNonWhitespace(pos: number): number {
-        return (
-            pos +
-            this.input
-                .slice(pos)
-                .split("")
-                .findIndex(
-                    (c) =>
-                        c !== " " && // space
-                        c !== "\t" && // tab
-                        c !== "\n" && // newline
-                        c !== "\r", // carriage return
-                )
-        );
+        const len = this.input.length;
+        const input = this.input;
+        while (pos < len) {
+            const code = input.charCodeAt(pos);
+            if (code >= 256 || !WHITESPACE_TABLE[code]) {
+                return pos;
+            }
+            pos++;
+        }
+        return pos;
     }
 }
 

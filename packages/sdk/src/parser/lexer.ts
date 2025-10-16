@@ -2,39 +2,55 @@ import { SurrealError } from "../errors";
 import type { Reader } from "./reader"
 import { TokenKind } from "./token";
 
-export class Span {
-    #reader: Reader;
-    #kind: TokenKind;
-    #start: number;
-    #end: number;
-
-    constructor(reader: Reader, kind: TokenKind, start: number, end: number) {
-        this.#reader = reader;
-        this.#kind = kind;
-        this.#start = start;
-        this.#end = end;
-    }
-
-    get kind() {
-        return this.#kind;
-    }
-
-    get start() {
-        return this.#start;
-    }
-
-    get end() {
-        return this.#end;
-    }
-
-    raw() {
-        return this.#reader.input.slice(this.#start, this.#end);
-    }
+export interface Span {
+    kind: TokenKind;
+    start: number;
+    end: number;
+    raw(): string;
 }
+
+// Character type lookup tables for ultra-fast categorization
+const IDENT_START = new Uint8Array(256);
+const IDENT_CONTINUE = new Uint8Array(256);
+const DIGIT = new Uint8Array(256);
+
+// Initialize lookup tables
+for (let i = 65; i <= 90; i++) { // A-Z
+    IDENT_START[i] = 1;
+    IDENT_CONTINUE[i] = 1;
+}
+for (let i = 97; i <= 122; i++) { // a-z
+    IDENT_START[i] = 1;
+    IDENT_CONTINUE[i] = 1;
+}
+IDENT_START[95] = 1; // _
+IDENT_CONTINUE[95] = 1; // _
+
+for (let i = 48; i <= 57; i++) { // 0-9
+    IDENT_CONTINUE[i] = 1;
+    DIGIT[i] = 1;
+}
+DIGIT[95] = 1; // _ in numbers
 
 export class Lexer {
     private readonly reader: Reader;
     #last_peek: Span | undefined = undefined;
+    
+    // Reusable span object to avoid allocations
+    private readonly span: Span = {
+        kind: TokenKind.BraceOpen,
+        start: 0,
+        end: 0,
+        raw: () => this.reader.input.slice(this.span.start, this.span.end)
+    };
+    
+    // Pre-allocated peek span with stable closure
+    private readonly peekSpan: Span = {
+        kind: TokenKind.BraceOpen,
+        start: 0,
+        end: 0,
+        raw: () => this.reader.input.slice(this.peekSpan.start, this.peekSpan.end)
+    };
 
     constructor(reader: Reader) {
         this.reader = reader;
@@ -42,13 +58,15 @@ export class Lexer {
 
 
     peek(): Span {
-        this.#last_peek = this.lex_position(this.reader.position);
-        return this.#last_peek;
+        this.lex_position(this.peekSpan, this.reader.position);
+        this.#last_peek = this.peekSpan;
+        return this.peekSpan;
     }
 
     peekWhitespace(): Span {
-        this.#last_peek = this.lex_position(this.reader.positionWhitespace);
-        return this.#last_peek;
+        this.lex_position(this.peekSpan, this.reader.positionWhitespace);
+        this.#last_peek = this.peekSpan;
+        return this.peekSpan;
     }
 
     pop_peek(): Span | undefined {
@@ -63,30 +81,31 @@ export class Lexer {
     }
 
     next(): Span {
-        const span = this.lex_position(this.reader.position);
-        this.reader.position = span.end;
-        return span;
+        this.lex_position(this.span, this.reader.position);
+        this.reader.position = this.span.end;
+        return this.span;
     }
 
     nextWhitespace(): Span {
-        const span = this.lex_position(this.reader.positionWhitespace);
-        this.reader.position = span.end;
-        return span;
+        this.lex_position(this.span, this.reader.positionWhitespace);
+        this.reader.position = this.span.end;
+        return this.span;
     }
 
+    // Optimized version: directly lex without peek state management
     eat(expected: TokenKind): boolean {
-        const span = this.peek();
-        if (span.kind === expected) {
-            this.next();
+        this.lex_position(this.span, this.reader.position);
+        if (this.span.kind === expected) {
+            this.reader.position = this.span.end;
             return true;
         }
         return false;
     }
 
     eatWhitespace(expected: TokenKind): boolean {
-        const span = this.peekWhitespace();
-        if (span.kind === expected) {
-            this.nextWhitespace();
+        this.lex_position(this.span, this.reader.positionWhitespace);
+        if (this.span.kind === expected) {
+            this.reader.position = this.span.end;
             return true;
         }
         return false;
@@ -108,135 +127,263 @@ export class Lexer {
         throw new SurrealError(`Expected ${expected}, got ${span.kind}`);
     }
 
-    private lex_position(position: number): Span {
-        const peek = this.reader.input[position];
-        if (peek === undefined) {
+    private lex_position(span: Span, position: number): void {
+        const input = this.reader.input;
+        
+        if (position >= input.length) {
             throw new SurrealError("Unexpected end of input");
         }
+        
+        const code = input.charCodeAt(position);
     
-        switch (peek.toLowerCase()) {
-            case "{":
-                return new Span(this.reader, TokenKind.BraceOpen, position, position + 1);
-            case "}":
-                return new Span(this.reader, TokenKind.BraceClose, position, position + 1);
-            case "[":
-                return new Span(this.reader, TokenKind.SquareOpen, position, position + 1);
-            case "]":
-                return new Span(this.reader, TokenKind.SquareClose, position, position + 1);
-            case ":":
-                return new Span(this.reader, TokenKind.Colon, position, position + 1);
-            case ",":
-                return new Span(this.reader, TokenKind.Comma, position, position + 1);
-    
-            case '"':
-                return new Span(this.reader, TokenKind.QuoteDouble, position, position + 1);
-            case "'":
-                return new Span(this.reader, TokenKind.QuoteSingle, position, position + 1);
-    
-            case "s": {
-                const next = this.reader.input[position + 1];
-                if (next === '"') {
-                    return new Span(this.reader, TokenKind.StringDouble, position, position + 2);
+        // Use charCode-based switch for maximum performance
+        switch (code) {
+            // Numbers: 0-9 (48-57)
+            case 48: case 49: case 50: case 51: case 52:
+            case 53: case 54: case 55: case 56: case 57:
+                lex_number(span, this.reader, position);
+                return;
+            
+            // { (123)
+            case 123:
+                span.kind = TokenKind.BraceOpen;
+                span.start = position;
+                span.end = position + 1;
+                return;
+            // } (125)
+            case 125:
+                span.kind = TokenKind.BraceClose;
+                span.start = position;
+                span.end = position + 1;
+                return;
+            // [ (91)
+            case 91:
+                span.kind = TokenKind.SquareOpen;
+                span.start = position;
+                span.end = position + 1;
+                return;
+            // ] (93)
+            case 93:
+                span.kind = TokenKind.SquareClose;
+                span.start = position;
+                span.end = position + 1;
+                return;
+            // : (58)
+            case 58:
+                span.kind = TokenKind.Colon;
+                span.start = position;
+                span.end = position + 1;
+                return;
+            // , (44)
+            case 44:
+                span.kind = TokenKind.Comma;
+                span.start = position;
+                span.end = position + 1;
+                return;
+            // " (34)
+            case 34:
+                span.kind = TokenKind.QuoteDouble;
+                span.start = position;
+                span.end = position + 1;
+                return;
+            // ' (39)
+            case 39:
+                span.kind = TokenKind.QuoteSingle;
+                span.start = position;
+                span.end = position + 1;
+                return;
+            // ` (96)
+            case 96:
+                span.kind = TokenKind.Backtick;
+                span.start = position;
+                span.end = position + 1;
+                return;
+            // . (46)
+            case 46:
+                span.kind = TokenKind.Dot;
+                span.start = position;
+                span.end = position + 1;
+                return;
+            // ⟨ (10216)
+            case 10216:
+                span.kind = TokenKind.MathematicalOpen;
+                span.start = position;
+                span.end = position + 1;
+                return;
+            // ⟩ (10217)
+            case 10217:
+                span.kind = TokenKind.MathematicalClose;
+                span.start = position;
+                span.end = position + 1;
+                return;
+            
+            // s/S (115/83) - String prefix
+            case 115: case 83: {
+                const next = input.charCodeAt(position + 1);
+                if (next === 34) { // "
+                    span.kind = TokenKind.StringDouble;
+                    span.start = position;
+                    span.end = position + 2;
+                    return;
                 }
-                if (next === "'") {
-                    return new Span(this.reader, TokenKind.StringSingle, position, position + 2);
+                if (next === 39) { // '
+                    span.kind = TokenKind.StringSingle;
+                    span.start = position;
+                    span.end = position + 2;
+                    return;
                 }
-                return lex_ident(this.reader, position);
+                lex_ident(span, this.reader, position);
+                return;
             }
 
-            case "b": {
-                const next = this.reader.input[position + 1];
-                if (next === '"') {
-                    return new Span(this.reader, TokenKind.BytesDouble, position, position + 2);
+            // b/B (98/66) - Bytes prefix
+            case 98: case 66: {
+                const next = input.charCodeAt(position + 1);
+                if (next === 34) { // "
+                    span.kind = TokenKind.BytesDouble;
+                    span.start = position;
+                    span.end = position + 2;
+                    return;
                 }
-                if (next === "'") {
-                    return new Span(this.reader, TokenKind.BytesSingle, position, position + 2);
+                if (next === 39) { // '
+                    span.kind = TokenKind.BytesSingle;
+                    span.start = position;
+                    span.end = position + 2;
+                    return;
                 }
-                return lex_ident(this.reader, position);
+                lex_ident(span, this.reader, position);
+                return;
             }
     
-            case "d": {
-                const next = this.reader.input[position + 1];
-                if (next === '"') {
-                    return new Span(this.reader, TokenKind.DatetimeDouble, position, position + 2);
+            // d/D (100/68) - DateTime prefix
+            case 100: case 68: {
+                const next = input.charCodeAt(position + 1);
+                if (next === 34) { // "
+                    span.kind = TokenKind.DatetimeDouble;
+                    span.start = position;
+                    span.end = position + 2;
+                    return;
                 }
-                if (next === "'") {
-                    return new Span(this.reader, TokenKind.DatetimeSingle, position, position + 2);
+                if (next === 39) { // '
+                    span.kind = TokenKind.DatetimeSingle;
+                    span.start = position;
+                    span.end = position + 2;
+                    return;
                 }
-                return lex_ident(this.reader, position);
+                lex_ident(span, this.reader, position);
+                return;
             }
             
-            case "u": {
-                const next = this.reader.input[position + 1];
-                if (next === '"') {
-                    return new Span(this.reader, TokenKind.UuidDouble, position, position + 2);
+            // u/U (117/85) - UUID prefix
+            case 117: case 85: {
+                const next = input.charCodeAt(position + 1);
+                if (next === 34) { // "
+                    span.kind = TokenKind.UuidDouble;
+                    span.start = position;
+                    span.end = position + 2;
+                    return;
                 }
-                if (next === "'") {
-                    return new Span(this.reader, TokenKind.UuidSingle, position, position + 2);
+                if (next === 39) { // '
+                    span.kind = TokenKind.UuidSingle;
+                    span.start = position;
+                    span.end = position + 2;
+                    return;
                 }
-                return lex_ident(this.reader, position);
+                lex_ident(span, this.reader, position);
+                return;
             }
     
-            case "r": {
-                const next = this.reader.input[position + 1];
-                if (next === '"') {
-                    return new Span(this.reader, TokenKind.RecordDouble, position, position + 2);
+            // r/R (114/82) - Record prefix
+            case 114: case 82: {
+                const next = input.charCodeAt(position + 1);
+                if (next === 34) { // "
+                    span.kind = TokenKind.RecordDouble;
+                    span.start = position;
+                    span.end = position + 2;
+                    return;
                 }
-                if (next === "'") {
-                    return new Span(this.reader, TokenKind.RecordSingle, position, position + 2);
+                if (next === 39) { // '
+                    span.kind = TokenKind.RecordSingle;
+                    span.start = position;
+                    span.end = position + 2;
+                    return;
                 }
-                return lex_ident(this.reader, position);
+                lex_ident(span, this.reader, position);
+                return;
             }
 
-            case "f": {
-                const next = this.reader.input[position + 1];
-                if (next === '"') {
-                    return new Span(this.reader, TokenKind.FileDouble, position, position + 2);
+            // f/F (102/70) - File prefix
+            case 102: case 70: {
+                const next = input.charCodeAt(position + 1);
+                if (next === 34) { // "
+                    span.kind = TokenKind.FileDouble;
+                    span.start = position;
+                    span.end = position + 2;
+                    return;
                 }
-                if (next === "'") {
-                    return new Span(this.reader, TokenKind.FileSingle, position, position + 2);
+                if (next === 39) { // '
+                    span.kind = TokenKind.FileSingle;
+                    span.start = position;
+                    span.end = position + 2;
+                    return;
                 }
-                return lex_ident(this.reader, position);
+                lex_ident(span, this.reader, position);
+                return;
             }
     
-            case "`":
-                return new Span(this.reader, TokenKind.Backtick, position, position + 1);
-            case "⟨":
-                return new Span(this.reader, TokenKind.MathematicalOpen, position, position + 1);
-            case "⟩":
-                return new Span(this.reader, TokenKind.MathematicalClose, position, position + 1);
-
-            case ".":
-                return new Span(this.reader, TokenKind.Dot, position, position + 1);
-    
-            default: {
-                const char = peek.charCodeAt(0);
-                if (char >= 48 && char <= 57) {
-                    return lex_number(this.reader, position);
-                } else {
-                    return lex_ident(this.reader, position)
-                }
-            }
+            default:
+                lex_ident(span, this.reader, position);
+                return;
         }
     }
 }
 
-function lex_ident(reader: Reader, position: number): Span {
-    const left = reader.input.slice(position);
-    const match = left.match(/^[a-zA-Z_][a-zA-Z0-9_]*/i);
-    if (match) {
-        return new Span(reader, TokenKind.Ident, position, position + match[0].length);
+function lex_ident(span: Span, reader: Reader, position: number): void {
+    const input = reader.input;
+    const len = input.length;
+    const first = input.charCodeAt(position);
+    
+    // Check first char is [a-zA-Z_] using lookup table
+    if (first >= 256 || !IDENT_START[first]) {
+        throw new SurrealError("Expected identifier");
     }
-
-    throw new SurrealError("Expected identifier");
+    
+    let end = position + 1;
+    while (end < len) {
+        const c = input.charCodeAt(end);
+        // [a-zA-Z0-9_] using lookup table
+        if (c < 256 && IDENT_CONTINUE[c]) {
+            end++;
+        } else {
+            break;
+        }
+    }
+    
+    span.kind = TokenKind.Ident;
+    span.start = position;
+    span.end = end;
 }
 
-function lex_number(reader: Reader, position: number): Span {
-    const left = reader.input.slice(position);
-    const match = left.match(/^[\d_]+/);
-    if (match) {
-        return new Span(reader, TokenKind.Number, position, position + match[0].length);
+function lex_number(span: Span, reader: Reader, position: number): void {
+    const input = reader.input;
+    const len = input.length;
+    let end = position;
+    
+    while (end < len) {
+        const c = input.charCodeAt(end);
+        // [0-9_] using lookup table
+        if (c < 256 && DIGIT[c]) {
+            end++;
+        } else {
+            break;
+        }
     }
-
-    throw new SurrealError("Expected number");
+    
+    if (end === position) {
+        throw new SurrealError("Expected number");
+    }
+    
+    span.kind = TokenKind.Number;
+    span.start = position;
+    span.end = end;
 }
