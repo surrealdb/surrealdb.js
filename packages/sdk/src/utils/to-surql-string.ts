@@ -29,6 +29,7 @@ export function toSurqlString(input: unknown): string {
             return `d${JSON.stringify(input.toISOString())}`;
         if (input instanceof RecordId || input instanceof StringRecordId)
             return `r${JSON.stringify(input.toString())}`;
+        if (input instanceof FileRef) return `f${JSON.stringify(input.toString())}`;
 
         if (input instanceof Geometry) return toSurqlString(input.toJSON());
 
@@ -37,8 +38,7 @@ export function toSurqlString(input: unknown): string {
             input instanceof Duration ||
             input instanceof Future ||
             input instanceof Range ||
-            input instanceof Table ||
-            input instanceof FileRef
+            input instanceof Table
         ) {
             return input.toJSON();
         }
