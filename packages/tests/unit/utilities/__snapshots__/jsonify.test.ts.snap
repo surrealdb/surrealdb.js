@@ -6,6 +6,7 @@ exports[`jsonify() match snapshot 1`] = `
   "dec": "3.333333",
   "dur": "1d2h",
   "false": false,
+  "file": "my\\ bucket:/file/name",
   "float": 123.456,
   "geo": {
     "geometries": [
