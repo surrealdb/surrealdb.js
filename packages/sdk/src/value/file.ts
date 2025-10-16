@@ -31,7 +31,7 @@ export class FileRef extends Value {
     }
 
     toString(): string {
-        return `f"${fmtInner(this.#bucket, true)}:${fmtInner(this.#key, false)}"`;
+        return `${fmtInner(this.#bucket, true)}:${fmtInner(this.#key, false)}`;
     }
 }
 
