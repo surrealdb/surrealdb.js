@@ -1,7 +1,13 @@
 import { afterAll } from "bun:test";
 import { rm } from "node:fs/promises";
 import type { Subprocess } from "bun";
-import { type AnyAuth, type ConnectOptions, type ReconnectOptions, Surreal } from "surrealdb";
+import {
+    type AnyAuth,
+    type ConnectOptions,
+    type DriverOptions,
+    type ReconnectOptions,
+    Surreal,
+} from "surrealdb";
 import {
     SURREAL_BIND,
     SURREAL_DB,
@@ -58,6 +64,7 @@ type CreateSurrealOptions = {
     unselected?: boolean;
     reconnect?: boolean | Partial<ReconnectOptions>;
     renewAccess?: boolean;
+    driverOptions?: DriverOptions;
 };
 
 export async function setupServer(): Promise<{
@@ -93,8 +100,9 @@ export async function setupServer(): Promise<{
         unselected,
         reconnect,
         renewAccess,
+        driverOptions,
     }: CreateSurrealOptions = {}) {
-        const surreal = new Surreal();
+        const surreal = new Surreal(driverOptions);
         const port = reachable === false ? SURREAL_PORT_UNREACHABLE : SURREAL_PORT;
 
         const connect = (custom?: ConnectOptions) => {
