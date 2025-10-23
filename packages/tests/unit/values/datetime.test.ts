@@ -64,6 +64,12 @@ describe("DateTime", () => {
         expect(compact).toEqual([1703500200n, 123000000n]);
     });
 
+    test("toCompact method with zero", () => {
+        const dt = new DateTime(0);
+        const compact = dt.toCompact();
+        expect(compact.length).toEqual(2);
+    });
+
     test("equals method", () => {
         const dt1 = new DateTime("2023-12-25T10:30:00.123Z");
         const dt2 = new DateTime("2023-12-25T10:30:00.123Z");

@@ -8,7 +8,7 @@ const MICROSECOND = 1000n * NANOSECOND;
 const MILLISECOND = 1000n * MICROSECOND;
 const SECOND = 1000n * MILLISECOND;
 
-export type DateTimeTuple = [number | bigint, number | bigint] | [number | bigint] | [];
+export type DateTimeTuple = [number | bigint, number | bigint];
 
 /**
  * A SurrealQL datetime value with support for parsing, formatting, arithmetic, and nanosecond precision.
@@ -127,12 +127,8 @@ export class DateTime extends Value {
     /**
      * Converts the datetime to a tuple
      */
-    toCompact(): [bigint, bigint] | [bigint] | [] {
-        return this.#nanoseconds > 0n
-            ? [this.#seconds, this.#nanoseconds]
-            : this.#seconds > 0n
-              ? [this.#seconds]
-              : [];
+    toCompact(): [bigint, bigint] {
+        return [this.#seconds, this.#nanoseconds];
     }
 
     /**
