@@ -23,7 +23,7 @@ describe("cbor codec", async () => {
         await surreal.create(new RecordId("person", "tobie"));
 
         const [result] = await surreal
-            .query(`SELECT * FROM ONLY person`)
+            .query(`SELECT * FROM ONLY person LIMIT 1`)
             .collect<[{ id: RecordId }]>();
 
         expect(result.id.toString()).toEqual("person:jaime");
