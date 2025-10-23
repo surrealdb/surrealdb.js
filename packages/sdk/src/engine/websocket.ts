@@ -12,7 +12,7 @@ import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surr
 import { ChannelIterator } from "../utils/channel-iterator";
 import { Publisher } from "../utils/publisher";
 import { RecordId, Uuid } from "../value";
-import { JsonEngine } from "./json";
+import { RpcEngine } from "./rpc";
 
 type Interval = Parameters<typeof clearInterval>[0];
 type Response = Record<string, unknown>;
@@ -35,7 +35,7 @@ interface LivePayload {
 /**
  * An engine that communicates over WebSocket protocol
  */
-export class WebSocketEngine extends JsonEngine implements SurrealEngine {
+export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     #publisher = new Publisher<EngineEvents>();
     #socket: WebSocket | undefined;
     #calls = new Map<string, Call<unknown>>();

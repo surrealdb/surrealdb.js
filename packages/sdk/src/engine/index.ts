@@ -3,7 +3,7 @@ import { HttpEngine } from "./http";
 import { WebSocketEngine } from "./websocket";
 
 export { HttpEngine } from "./http";
-export { JsonEngine } from "./json";
+export { RpcEngine as JsonEngine } from "./rpc";
 export { WebSocketEngine } from "./websocket";
 
 /**

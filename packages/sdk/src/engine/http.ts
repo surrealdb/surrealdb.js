@@ -9,7 +9,7 @@ import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
 import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
 import { Publisher } from "../utils/publisher";
-import { JsonEngine } from "./json";
+import { RpcEngine } from "./rpc";
 
 const ALWAYS_ALLOW = new Set([
     "signin",
@@ -24,7 +24,7 @@ const ALWAYS_ALLOW = new Set([
 /**
  * An engine that communicates by sending individual HTTP requests
  */
-export class HttpEngine extends JsonEngine implements SurrealEngine {
+export class HttpEngine extends RpcEngine implements SurrealEngine {
     #publisher = new Publisher<EngineEvents>();
 
     subscribe<K extends keyof EngineEvents>(
