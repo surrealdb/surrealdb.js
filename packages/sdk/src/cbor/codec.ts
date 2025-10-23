@@ -79,97 +79,108 @@ export class CborCodec implements ValueCodec {
         });
     }
 
-    protected replacer: Replacer = (v: unknown): unknown => {
-        if (v instanceof Date) {
-            return new Tagged(TAG_CUSTOM_DATETIME, new DateTime(v).toCompact());
+    protected replacer: Replacer = (input: unknown): unknown => {
+        const value = this.#encodeValue(input);
+
+        if (value instanceof Date) {
+            return new Tagged(TAG_CUSTOM_DATETIME, new DateTime(value).toCompact());
         }
-        if (v instanceof DateTime) {
-            return new Tagged(TAG_CUSTOM_DATETIME, v.toCompact());
+        if (value instanceof DateTime) {
+            return new Tagged(TAG_CUSTOM_DATETIME, value.toCompact());
         }
-        if (v === undefined) return new Tagged(TAG_NONE, null);
-        if (v instanceof Uuid) {
-            return new Tagged(TAG_SPEC_UUID, v.toBuffer());
+        if (value === undefined) return new Tagged(TAG_NONE, null);
+        if (value instanceof Uuid) {
+            return new Tagged(TAG_SPEC_UUID, value.toBuffer());
         }
-        if (v instanceof Decimal) {
-            return new Tagged(TAG_STRING_DECIMAL, v.toString());
+        if (value instanceof Decimal) {
+            return new Tagged(TAG_STRING_DECIMAL, value.toString());
         }
-        if (v instanceof Duration) {
-            return new Tagged(TAG_CUSTOM_DURATION, v.toCompact());
+        if (value instanceof Duration) {
+            return new Tagged(TAG_CUSTOM_DURATION, value.toCompact());
         }
-        if (v instanceof RecordId) {
-            return new Tagged(TAG_RECORDID, [v.table.name, v.id]);
+        if (value instanceof RecordId) {
+            return new Tagged(TAG_RECORDID, [value.table.name, value.id]);
         }
-        if (v instanceof StringRecordId) {
-            return new Tagged(TAG_RECORDID, v.toString());
+        if (value instanceof StringRecordId) {
+            return new Tagged(TAG_RECORDID, value.toString());
         }
-        if (v instanceof RecordIdRange) {
+        if (value instanceof RecordIdRange) {
             return new Tagged(TAG_RECORDID, [
-                v.table.name,
-                new Tagged(TAG_RANGE, rangeToCbor([v.begin, v.end])),
+                value.table.name,
+                new Tagged(TAG_RANGE, rangeToCbor([value.begin, value.end])),
             ]);
         }
-        if (v instanceof Table) return new Tagged(TAG_TABLE, v.name);
-        if (v instanceof Future) return new Tagged(TAG_FUTURE, v.body);
-        if (v instanceof Range) return new Tagged(TAG_RANGE, rangeToCbor([v.begin, v.end]));
-        if (v instanceof FileRef) {
-            return new Tagged(TAG_FILE_POINTER, [v.bucket, v.key]);
+        if (value instanceof Table) return new Tagged(TAG_TABLE, value.name);
+        if (value instanceof Future) return new Tagged(TAG_FUTURE, value.body);
+        if (value instanceof Range)
+            return new Tagged(TAG_RANGE, rangeToCbor([value.begin, value.end]));
+        if (value instanceof FileRef) {
+            return new Tagged(TAG_FILE_POINTER, [value.bucket, value.key]);
         }
-        if (v instanceof GeometryPoint) {
-            return new Tagged(TAG_GEOMETRY_POINT, v.point);
+        if (value instanceof GeometryPoint) {
+            return new Tagged(TAG_GEOMETRY_POINT, value.point);
         }
-        if (v instanceof GeometryLine) {
-            return new Tagged(TAG_GEOMETRY_LINE, v.line);
+        if (value instanceof GeometryLine) {
+            return new Tagged(TAG_GEOMETRY_LINE, value.line);
         }
-        if (v instanceof GeometryPolygon) {
-            return new Tagged(TAG_GEOMETRY_POLYGON, v.polygon);
+        if (value instanceof GeometryPolygon) {
+            return new Tagged(TAG_GEOMETRY_POLYGON, value.polygon);
         }
-        if (v instanceof GeometryMultiPoint) {
-            return new Tagged(TAG_GEOMETRY_MULTIPOINT, v.points);
+        if (value instanceof GeometryMultiPoint) {
+            return new Tagged(TAG_GEOMETRY_MULTIPOINT, value.points);
         }
-        if (v instanceof GeometryMultiLine) {
-            return new Tagged(TAG_GEOMETRY_MULTILINE, v.lines);
+        if (value instanceof GeometryMultiLine) {
+            return new Tagged(TAG_GEOMETRY_MULTILINE, value.lines);
         }
-        if (v instanceof GeometryMultiPolygon) {
-            return new Tagged(TAG_GEOMETRY_MULTIPOLYGON, v.polygons);
+        if (value instanceof GeometryMultiPolygon) {
+            return new Tagged(TAG_GEOMETRY_MULTIPOLYGON, value.polygons);
         }
-        if (v instanceof GeometryCollection) {
-            return new Tagged(TAG_GEOMETRY_COLLECTION, v.collection);
+        if (value instanceof GeometryCollection) {
+            return new Tagged(TAG_GEOMETRY_COLLECTION, value.collection);
         }
-        return v;
+        return value;
     };
 
     protected tagged: Record<number, Replacer> = {
-        [TAG_SPEC_DATETIME]: (v) => this.#resolveDate(v),
-        [TAG_CUSTOM_DATETIME]: (v) => this.#resolveDate(v),
-        [TAG_SPEC_UUID]: (v) => new Uuid(v),
-        [TAG_STRING_UUID]: (v) => new Uuid(v),
+        [TAG_SPEC_DATETIME]: (v) => this.#decodeValue(this.#resolveDate(v)),
+        [TAG_CUSTOM_DATETIME]: (v) => this.#decodeValue(this.#resolveDate(v)),
+        [TAG_SPEC_UUID]: (v) => this.#decodeValue(new Uuid(v)),
+        [TAG_STRING_UUID]: (v) => this.#decodeValue(new Uuid(v)),
         [TAG_NONE]: (_v) => undefined,
-        [TAG_STRING_DECIMAL]: (v) => new Decimal(v),
-        [TAG_STRING_DURATION]: (v) => new Duration(v),
-        [TAG_CUSTOM_DURATION]: (v) => new Duration(v),
-        [TAG_TABLE]: (v) => new Table(v),
-        [TAG_FUTURE]: (v) => new Future(v),
-        [TAG_RANGE]: (v) => new Range(...cborToRange(v)),
-        [TAG_BOUND_INCLUDED]: (v) => new BoundIncluded(v),
-        [TAG_BOUND_EXCLUDED]: (v) => new BoundExcluded(v),
+        [TAG_STRING_DECIMAL]: (v) => this.#decodeValue(new Decimal(v)),
+        [TAG_STRING_DURATION]: (v) => this.#decodeValue(new Duration(v)),
+        [TAG_CUSTOM_DURATION]: (v) => this.#decodeValue(new Duration(v)),
+        [TAG_TABLE]: (v) => this.#decodeValue(new Table(v)),
+        [TAG_FUTURE]: (v) => this.#decodeValue(new Future(v)),
+        [TAG_RANGE]: (v) => this.#decodeValue(new Range(...cborToRange(v))),
+        [TAG_BOUND_INCLUDED]: (v) => this.#decodeValue(new BoundIncluded(v)),
+        [TAG_BOUND_EXCLUDED]: (v) => this.#decodeValue(new BoundExcluded(v)),
         [TAG_RECORDID]: (v) => {
             if (v[1] instanceof Range) {
-                return new RecordIdRange(v[0], v[1].begin, v[1].end);
+                return this.#decodeValue(new RecordIdRange(v[0], v[1].begin, v[1].end));
             }
-            return new RecordId(v[0], v[1]);
+            return this.#decodeValue(new RecordId(v[0], v[1]));
         },
-        [TAG_FILE_POINTER]: (v) => new FileRef(v[0], v[1]),
-        [TAG_GEOMETRY_POINT]: (v) => new GeometryPoint(v),
-        [TAG_GEOMETRY_LINE]: (v) => new GeometryLine(v),
-        [TAG_GEOMETRY_POLYGON]: (v) => new GeometryPolygon(v),
-        [TAG_GEOMETRY_MULTIPOINT]: (v) => new GeometryMultiPoint(v),
-        [TAG_GEOMETRY_MULTILINE]: (v) => new GeometryMultiLine(v),
-        [TAG_GEOMETRY_MULTIPOLYGON]: (v) => new GeometryMultiPolygon(v),
-        [TAG_GEOMETRY_COLLECTION]: (v) => new GeometryCollection(v),
+        [TAG_FILE_POINTER]: (v) => this.#decodeValue(new FileRef(v[0], v[1])),
+        [TAG_GEOMETRY_POINT]: (v) => this.#decodeValue(new GeometryPoint(v)),
+        [TAG_GEOMETRY_LINE]: (v) => this.#decodeValue(new GeometryLine(v)),
+        [TAG_GEOMETRY_POLYGON]: (v) => this.#decodeValue(new GeometryPolygon(v)),
+        [TAG_GEOMETRY_MULTIPOINT]: (v) => this.#decodeValue(new GeometryMultiPoint(v)),
+        [TAG_GEOMETRY_MULTILINE]: (v) => this.#decodeValue(new GeometryMultiLine(v)),
+        [TAG_GEOMETRY_MULTIPOLYGON]: (v) => this.#decodeValue(new GeometryMultiPolygon(v)),
+        [TAG_GEOMETRY_COLLECTION]: (v) => this.#decodeValue(new GeometryCollection(v)),
     };
 
     // biome-ignore lint/suspicious/noExplicitAny: Adhering to type
     #resolveDate(v: any): unknown {
         return this.#options.useNativeDates ? new Date(v) : new DateTime(v);
+    }
+
+    #encodeValue(v: unknown): unknown {
+        return this.#options.valueEncodeVisitor ? this.#options.valueEncodeVisitor(v) : v;
+    }
+
+    #decodeValue(v: unknown): unknown {
+        return this.#options.valueDecodeVisitor ? this.#options.valueDecodeVisitor(v) : v;
     }
 }
