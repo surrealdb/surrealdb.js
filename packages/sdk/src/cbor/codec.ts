@@ -146,7 +146,7 @@ export class CborCodec implements ValueCodec {
         [TAG_CUSTOM_DATETIME]: (v) => this.#decodeValue(this.#resolveDate(v)),
         [TAG_SPEC_UUID]: (v) => this.#decodeValue(new Uuid(v)),
         [TAG_STRING_UUID]: (v) => this.#decodeValue(new Uuid(v)),
-        [TAG_NONE]: (_v) => undefined,
+        [TAG_NONE]: (_v) => this.#decodeValue(undefined),
         [TAG_STRING_DECIMAL]: (v) => this.#decodeValue(new Decimal(v)),
         [TAG_STRING_DURATION]: (v) => this.#decodeValue(new Duration(v)),
         [TAG_CUSTOM_DURATION]: (v) => this.#decodeValue(new Duration(v)),
