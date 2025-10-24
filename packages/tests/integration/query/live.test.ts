@@ -38,7 +38,7 @@ describe("live() / liveOf()", async () => {
 
         subscription.subscribe(mockHandler);
 
-        await surreal.create(new RecordId("person", 3), {
+        await surreal.create(new RecordId("person", 3)).content({
             firstname: "John",
             lastname: "Doe",
         });
@@ -135,7 +135,7 @@ describe("live() / liveOf()", async () => {
         // Make sure we obtained a new live id
         expect(initialId).not.toEqual(subscription.id);
 
-        await surreal.create(new RecordId("person", 3), {
+        await surreal.create(new RecordId("person", 3)).content({
             firstname: "John",
             lastname: "Doe",
         });
@@ -180,7 +180,7 @@ describe("live() / liveOf()", async () => {
 
         subscription.subscribe(mockHandler);
 
-        await surreal.create(new RecordId("person", 4), {
+        await surreal.create(new RecordId("person", 4)).content({
             firstname: "John",
             lastname: "Doe",
         });
@@ -209,7 +209,7 @@ describe("live() / liveOf()", async () => {
         (async () => {
             await Bun.sleep(100);
 
-            await surreal.create(new RecordId("person", 5), {
+            await surreal.create(new RecordId("person", 5)).content({
                 firstname: "John",
                 lastname: "Doe",
             });
@@ -249,7 +249,7 @@ describe("live() / liveOf()", async () => {
             await spawn();
             await surreal.ready;
 
-            await surreal.create(new RecordId("person", 5), {
+            await surreal.create(new RecordId("person", 5)).content({
                 firstname: "John",
                 lastname: "Doe",
             });

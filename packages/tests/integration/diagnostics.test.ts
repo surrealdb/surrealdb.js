@@ -28,7 +28,7 @@ describe("diagnostics", async () => {
 
         await surreal.version();
 
-        await surreal.create<Person>(new RecordId("person", 1), {
+        await surreal.create<Person>(new RecordId("person", 1)).content({
             firstname: "John",
             lastname: "Doe",
         });
@@ -51,7 +51,7 @@ describe("diagnostics", async () => {
             },
         });
 
-        await surreal.create<Person>(new RecordId("test", "test"), {
+        await surreal.create<Person>(new RecordId("test", "test")).content({
             firstname: "John",
             lastname: "Doe",
         });
