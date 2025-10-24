@@ -2,18 +2,19 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Doc, Output } from "../types";
-import { type BoundQuery, surql } from "../utils";
+import type { Doc, Mutation, Output, Values } from "../types";
+import { type BoundQuery, raw, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { DateTime, Duration, RecordId, Table, Uuid } from "../value";
 import { Query } from "./query";
 
 interface CreateOptions {
     what: RecordId | Table;
+    mutation?: Mutation;
+    data?: Doc;
     output?: Output;
     timeout?: Duration;
     version?: DateTime;
-    data?: Doc;
     transaction: Uuid | undefined;
     json: boolean;
 }
@@ -21,7 +22,7 @@ interface CreateOptions {
 /**
  * A configurable `Promise` for a create query sent to a SurrealDB instance.
  */
-export class CreatePromise<T, J extends boolean = false> extends DispatchedPromise<
+export class CreatePromise<T, I, J extends boolean = false> extends DispatchedPromise<
     MaybeJsonify<T, J>
 > {
     #connection: ConnectionController;
@@ -40,18 +41,40 @@ export class CreatePromise<T, J extends boolean = false> extends DispatchedPromi
      * This is useful when query results need to be serialized. Keep in mind
      * that your responses will lose SurrealDB type information.
      */
-    json(): CreatePromise<T, true> {
-        return new CreatePromise<T, true>(this.#connection, {
+    json(): CreatePromise<T, I, true> {
+        return new CreatePromise<T, I, true>(this.#connection, {
             ...this.#options,
             json: true,
         });
     }
 
     /**
+     * Configure the query to set the record data
+     */
+    content(data: Values<I>): CreatePromise<T, I, J> {
+        return new CreatePromise<T, I, J>(this.#connection, {
+            ...this.#options,
+            mutation: "content",
+            data,
+        });
+    }
+
+    /**
+     * Configure the query to patch the record data
+     */
+    patch(data: Values<I>): CreatePromise<T, I, J> {
+        return new CreatePromise<T, I, J>(this.#connection, {
+            ...this.#options,
+            mutation: "patch",
+            data,
+        });
+    }
+
+    /**
      * Configure the output of the query
      */
-    output(output: Output): CreatePromise<T, J> {
-        return new CreatePromise<T, J>(this.#connection, {
+    output(output: Output): CreatePromise<T, I, J> {
+        return new CreatePromise<T, I, J>(this.#connection, {
             ...this.#options,
             output,
         });
@@ -60,8 +83,8 @@ export class CreatePromise<T, J extends boolean = false> extends DispatchedPromi
     /**
      * Configure the timeout of the query
      */
-    timeout(timeout: Duration): CreatePromise<T, J> {
-        return new CreatePromise<T, J>(this.#connection, {
+    timeout(timeout: Duration): CreatePromise<T, I, J> {
+        return new CreatePromise<T, I, J>(this.#connection, {
             ...this.#options,
             timeout,
         });
@@ -71,8 +94,8 @@ export class CreatePromise<T, J extends boolean = false> extends DispatchedPromi
      * Configure a custom version of the data being created. This is used
      * alongside version enabled storage engines such as SurrealKV.
      */
-    version(version: DateTime): CreatePromise<T, J> {
-        return new CreatePromise<T, J>(this.#connection, {
+    version(version: DateTime): CreatePromise<T, I, J> {
+        return new CreatePromise<T, I, J>(this.#connection, {
             ...this.#options,
             version,
         });
@@ -106,12 +129,12 @@ export class CreatePromise<T, J extends boolean = false> extends DispatchedPromi
     }
 
     #build(): Query<[T], J> {
-        const { what, data, transaction, json, output, timeout, version } = this.#options;
+        const { what, data, transaction, json, output, timeout, version, mutation } = this.#options;
 
         const query = surql`CREATE ${_only(what)}`;
 
-        if (data) {
-            query.append(surql` CONTENT ${data}`);
+        if (mutation && data) {
+            query.append(surql` ${raw(mutation.toUpperCase())} ${data}`);
         }
 
         if (output) {

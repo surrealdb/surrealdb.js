@@ -424,23 +424,20 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * Create a new record in the database
      *
      * @param recordId The record id of the record to create
-     * @param data The record data to insert
      */
-    create<T extends Doc>(recordId: RecordId, data?: Values<T>): CreatePromise<RecordResult<T>>;
+    create<T extends Doc>(recordId: RecordId): CreatePromise<RecordResult<T>, T>;
 
     /**
      * Create a new record in the specified table
      *
      * @param table The table to create a record in
-     * @param data The record data to insert
      */
-    create<T extends Doc>(table: Table, data?: Values<T>): CreatePromise<RecordResult<T>[]>;
+    create<T extends Doc>(table: Table): CreatePromise<RecordResult<T>[], T>;
 
     // Shadow implementation
-    create<T extends Doc>(what: RecordId | Table, data?: Values<T>): unknown {
+    create(what: RecordId | Table): unknown {
         return new CreatePromise(this.#connection, {
             what,
-            data,
             transaction: undefined,
             json: false,
         });
