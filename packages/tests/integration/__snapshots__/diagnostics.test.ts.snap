@@ -1,0 +1,157 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`diagnostics diagnostic events 1`] = `
+[
+  {
+    "key": Uuid {},
+    "phase": "before",
+    "type": "open",
+  },
+  {
+    "duration": Duration {},
+    "key": Uuid {},
+    "phase": "after",
+    "result": undefined,
+    "success": true,
+    "type": "open",
+  },
+  {
+    "key": Uuid {},
+    "phase": "before",
+    "type": "version",
+  },
+  {
+    "duration": Duration {},
+    "key": Uuid {},
+    "phase": "after",
+    "result": {
+      "version": "surrealdb-3.0.0-alpha.10",
+    },
+    "success": true,
+    "type": "version",
+  },
+  {
+    "key": Uuid {},
+    "phase": "before",
+    "type": "use",
+  },
+  {
+    "duration": Duration {},
+    "key": Uuid {},
+    "phase": "after",
+    "result": {
+      "corrected": {
+        "database": "test",
+        "namespace": "test",
+      },
+      "requested": {
+        "database": "test",
+        "namespace": "test",
+      },
+    },
+    "success": true,
+    "type": "use",
+  },
+  {
+    "key": Uuid {},
+    "phase": "before",
+    "type": "signin",
+  },
+  {
+    "duration": Duration {},
+    "key": Uuid {},
+    "phase": "after",
+    "result": {
+      "variant": "system_user",
+    },
+    "success": true,
+    "type": "signin",
+  },
+  {
+    "key": Uuid {},
+    "phase": "before",
+    "type": "version",
+  },
+  {
+    "duration": Duration {},
+    "key": Uuid {},
+    "phase": "after",
+    "result": {
+      "version": "surrealdb-3.0.0-alpha.10",
+    },
+    "success": true,
+    "type": "version",
+  },
+  {
+    "key": Uuid {},
+    "phase": "before",
+    "type": "query",
+  },
+  {
+    "key": Uuid {},
+    "phase": "progress",
+    "result": {
+      "chunk": {
+        "batch": 0,
+        "kind": "single",
+        "query": 0,
+        "result": [
+          {
+            "firstname": "John",
+            "id": RecordId {},
+            "lastname": "Doe",
+          },
+        ],
+        "stats": {
+          "bytesReceived": -1,
+          "bytesScanned": -1,
+          "duration": Duration {},
+          "recordsReceived": -1,
+          "recordsScanned": -1,
+        },
+        "type": undefined,
+      },
+      "params": {
+        "bind__5": RecordId {},
+        "bind__6": {
+          "firstname": "John",
+          "lastname": "Doe",
+        },
+      },
+      "query": "CREATE ONLY $bind__5 CONTENT $bind__6",
+      "transaction": undefined,
+    },
+    "type": "query",
+  },
+  {
+    "duration": Duration {},
+    "key": Uuid {},
+    "phase": "after",
+    "result": {
+      "params": {
+        "bind__5": RecordId {},
+        "bind__6": {
+          "firstname": "John",
+          "lastname": "Doe",
+        },
+      },
+      "query": "CREATE ONLY $bind__5 CONTENT $bind__6",
+      "transaction": undefined,
+    },
+    "success": true,
+    "type": "query",
+  },
+]
+`;
+
+exports[`diagnostics extract query 1`] = `"CREATE ONLY $bind__4 CONTENT $bind__5"`;
+
+exports[`diagnostics extract query 2`] = `
+{
+  "bind__4": RecordId {},
+  "bind__5": {
+    "firstname": "John",
+    "lastname": "Doe",
+  },
+}
+`;
