@@ -25,7 +25,7 @@ import { Duration, type Uuid } from "../value";
  * JSON-based engines implement the SurrealDB v1 protocol, which uses
  * JSON objects to communicate with the server.
  */
-export abstract class JsonEngine implements SurrealProtocol {
+export abstract class RpcEngine implements SurrealProtocol {
     protected _context: DriverContext;
     protected _state: ConnectionState | undefined;
 

@@ -4,11 +4,11 @@ import {
     ConnectionUnavailable,
     type DriverContext,
     type EngineEvents,
-    JsonEngine,
     type LiveAction,
     type LiveMessage,
     Publisher,
     type RecordId,
+    RpcEngine,
     type RpcRequest,
     type SurrealEngine,
     UnexpectedConnectionError,
@@ -30,7 +30,7 @@ interface LivePayload {
  * The engine implementation responsible for communicating with an embedded
  * WebAssembly build of SurrealDB.
  */
-export class WebAssemblyEngine extends JsonEngine implements SurrealEngine {
+export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
     #engine: SurrealWasmEngine | undefined;
     #publisher = new Publisher<EngineEvents>();
     #subscriptions = new Publisher<LiveChannels>();
