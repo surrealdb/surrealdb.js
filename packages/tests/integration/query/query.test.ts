@@ -108,7 +108,8 @@ describe("query()", async () => {
 
     test("pre compiled", async () => {
         const compiled = surreal
-            .create<Person>(new RecordId("person", 2), {
+            .create<Person>(new RecordId("person", 2))
+            .content({
                 firstname: "Mary",
                 lastname: "Doe",
             })
