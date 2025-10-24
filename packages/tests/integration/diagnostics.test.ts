@@ -15,7 +15,14 @@ describe("diagnostics", async () => {
 
         const surreal = await createSurreal({
             driverOptions: {
-                engines: applyDiagnostics(createRemoteEngines(), (event) => events.push(event)),
+                engines: applyDiagnostics(createRemoteEngines(), (event) => {
+                    // Skip the version event for test integrity
+                    if (event.type === "version" && event.phase === "after" && event.success) {
+                        return;
+                    }
+
+                    events.push(event);
+                }),
             },
         });
 

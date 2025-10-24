@@ -21,16 +21,6 @@ exports[`diagnostics diagnostic events 1`] = `
     "type": "version",
   },
   {
-    "duration": Duration {},
-    "key": Uuid {},
-    "phase": "after",
-    "result": {
-      "version": "surrealdb-3.0.0-alpha.10",
-    },
-    "success": true,
-    "type": "version",
-  },
-  {
     "key": Uuid {},
     "phase": "before",
     "type": "use",
@@ -70,16 +60,6 @@ exports[`diagnostics diagnostic events 1`] = `
   {
     "key": Uuid {},
     "phase": "before",
-    "type": "version",
-  },
-  {
-    "duration": Duration {},
-    "key": Uuid {},
-    "phase": "after",
-    "result": {
-      "version": "surrealdb-3.0.0-alpha.10",
-    },
-    "success": true,
     "type": "version",
   },
   {
