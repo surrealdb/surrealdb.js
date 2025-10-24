@@ -42,15 +42,15 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     open(state: ConnectionState): void {
-        this.#diagnoseSync(
+        this.#diagnose(
             "open",
-            () => this.#delegate.open(state),
+            () => Promise.resolve(this.#delegate.open(state)),
             () => undefined,
         );
     }
 
     async close(): Promise<void> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "close",
             () => this.#delegate.close(),
             () => undefined,
@@ -58,7 +58,7 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     async health(): Promise<void> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "health",
             () => this.#delegate.health(),
             () => undefined,
@@ -66,7 +66,7 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     async version(): Promise<VersionInfo> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "version",
             () => this.#delegate.version(),
             (info) => info,
@@ -74,7 +74,7 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "signup",
             () => this.#delegate.signup(auth),
             () => ({ variant: "system_user" }),
@@ -82,7 +82,7 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     async signin(auth: AnyAuth): Promise<AuthResponse> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "signin",
             () => this.#delegate.signin(auth),
             () => {
@@ -100,7 +100,7 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     async authenticate(token: Token): Promise<void> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "authenticate",
             () => this.#delegate.authenticate(token),
             () => ({ variant: "token" }),
@@ -108,7 +108,7 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     async use(what: Partial<NamespaceDatabase>): Promise<NamespaceDatabase> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "use",
             () => this.#delegate.use(what),
             (response) => ({ requested: what, corrected: response }),
@@ -116,7 +116,7 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     async set(name: string, value: unknown): Promise<void> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "set",
             () => this.#delegate.set(name, value),
             () => ({ name, value }),
@@ -124,7 +124,7 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     async unset(name: string): Promise<void> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "unset",
             () => this.#delegate.unset(name),
             () => ({ name }),
@@ -132,7 +132,7 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     async invalidate(): Promise<void> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "invalidate",
             () => this.#delegate.invalidate(),
             () => undefined,
@@ -140,7 +140,7 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     async reset(): Promise<void> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "reset",
             () => this.#delegate.reset(),
             () => undefined,
@@ -148,7 +148,7 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     async importSql(data: string): Promise<void> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "importSql",
             () => this.#delegate.importSql(data),
             () => undefined,
@@ -156,7 +156,7 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     async exportSql(options: Partial<SqlExportOptions>): Promise<string> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "exportSql",
             () => this.#delegate.exportSql(options),
             () => undefined,
@@ -164,7 +164,7 @@ export class DiagnosticsEngine implements SurrealEngine {
     }
 
     async exportMlModel(options: MlExportOptions): Promise<Uint8Array> {
-        return this.#diagnoseAsync(
+        return this.#diagnose(
             "exportMlModel",
             () => this.#delegate.exportMlModel(options),
             () => undefined,
@@ -274,44 +274,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         };
     }
 
-    #diagnoseSync<K extends DiagnosticKey, O>(
-        type: K,
-        callback: () => O,
-        result: (output: O) => DiagnosticResult<K>,
-    ): O {
-        const measure = Duration.measure();
-        const key = Uuid.v4();
-
-        this.#callback({ type, key, phase: "before" });
-
-        try {
-            const response = callback();
-
-            this.#callback({
-                type,
-                key,
-                phase: "after",
-                success: true,
-                duration: measure(),
-                result: result(response),
-            } as Diagnostic);
-
-            return response;
-        } catch (error) {
-            this.#callback({
-                type,
-                key,
-                phase: "after",
-                success: false,
-                duration: measure(),
-                error: error as Error,
-            });
-
-            throw error;
-        }
-    }
-
-    async #diagnoseAsync<K extends DiagnosticKey, O>(
+    async #diagnose<K extends DiagnosticKey, O>(
         type: K,
         callback: () => Promise<O>,
         result: (output: O) => DiagnosticResult<K>,
