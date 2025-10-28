@@ -9,6 +9,7 @@ import type {
     AuthResponse,
     Token,
 } from "./auth";
+import type { Nullable } from "./helpers";
 import type { Prettify } from "./internal";
 import type { LiveMessage } from "./live";
 import type { EventPublisher } from "./publisher";
@@ -34,10 +35,10 @@ export interface SurrealProtocol {
     version(): Promise<VersionInfo>;
 
     // Session operations
+    use(what: Nullable<NamespaceDatabase>): Promise<void>;
     signup(auth: AccessRecordAuth): Promise<AuthResponse>;
     signin(auth: AnyAuth): Promise<AuthResponse>;
     authenticate(token: Token): Promise<void>;
-    use(what: Partial<NamespaceDatabase>): Promise<NamespaceDatabase>;
     set(name: string, value: unknown): Promise<void>;
     unset(name: string): Promise<void>;
     invalidate(): Promise<void>;
@@ -208,8 +209,8 @@ export interface VersionInfo {
  * A combination of namespace and database
  */
 export interface NamespaceDatabase {
-    namespace: string | null;
-    database: string | null;
+    namespace?: string;
+    database?: string;
 }
 
 /**

@@ -10,6 +10,7 @@ import type {
     LiveMessage,
     MlExportOptions,
     NamespaceDatabase,
+    Nullable,
     QueryChunk,
     SqlExportOptions,
     SurrealEngine,
@@ -73,6 +74,14 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
+    async use(what: Nullable<NamespaceDatabase>): Promise<void> {
+        return this.#diagnose(
+            "use",
+            () => this.#delegate.use(what),
+            () => ({ requested: what }),
+        );
+    }
+
     async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
         return this.#diagnose(
             "signup",
@@ -104,14 +113,6 @@ export class DiagnosticsEngine implements SurrealEngine {
             "authenticate",
             () => this.#delegate.authenticate(token),
             () => ({ variant: "token" }),
-        );
-    }
-
-    async use(what: Partial<NamespaceDatabase>): Promise<NamespaceDatabase> {
-        return this.#diagnose(
-            "use",
-            () => this.#delegate.use(what),
-            (response) => ({ requested: what, corrected: response }),
         );
     }
 

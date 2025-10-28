@@ -30,10 +30,6 @@ exports[`diagnostics diagnostic events 1`] = `
     "key": Uuid {},
     "phase": "after",
     "result": {
-      "corrected": {
-        "database": "test",
-        "namespace": "test",
-      },
       "requested": {
         "database": "test",
         "namespace": "test",
