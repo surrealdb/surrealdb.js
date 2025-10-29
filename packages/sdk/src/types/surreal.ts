@@ -14,6 +14,7 @@ import type { Prettify } from "./internal";
 import type { LiveMessage } from "./live";
 import type { EventPublisher } from "./publisher";
 
+export type Session = Uuid | undefined;
 export type CodecType = "cbor" | "flatbuffer" | (string & {});
 export type QueryResponseKind = "single" | "batched" | "batched-final";
 export type ConnectionStatus = "disconnected" | "connecting" | "reconnecting" | "connected";
@@ -34,17 +35,17 @@ export interface SurrealProtocol {
     // Connection operations
     health(): Promise<void>;
     version(): Promise<VersionInfo>;
+    sessions(): Promise<Uuid[]>;
 
     // Session operations
-    use(what: Nullable<NamespaceDatabase>): Promise<void>;
-    signup(auth: AccessRecordAuth): Promise<AuthResponse>;
-    signin(auth: AnyAuth): Promise<AuthResponse>;
-    authenticate(token: Token): Promise<void>;
-    set(name: string, value: unknown): Promise<void>;
-    unset(name: string): Promise<void>;
-    invalidate(): Promise<void>;
-    reset(): Promise<void>;
-    sessions(): Promise<Uuid[]>;
+    use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void>;
+    signup(auth: AccessRecordAuth, session: Session): Promise<AuthResponse>;
+    signin(auth: AnyAuth, session: Session): Promise<AuthResponse>;
+    authenticate(token: Token, session: Session): Promise<void>;
+    set(name: string, value: unknown, session: Session): Promise<void>;
+    unset(name: string, session: Session): Promise<void>;
+    invalidate(session: Session): Promise<void>;
+    reset(session: Session): Promise<void>;
 
     // Data management operations
     importSql(data: string): Promise<void>;
@@ -52,7 +53,7 @@ export interface SurrealProtocol {
     exportMlModel(options: MlExportOptions): Promise<Uint8Array>;
 
     // Query operations
-    query<T>(query: BoundQuery, txn?: Uuid): AsyncIterable<QueryChunk<T>>;
+    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>>;
     liveQuery(id: Uuid): AsyncIterable<LiveMessage>;
 }
 
@@ -102,6 +103,10 @@ export interface ConnectOptions {
      * Authentication details to use when connecting to the datastore. You can provide a static value,
      * or a function which is called to retrieve the authentication details. Authentication details
      * may be requested on connect, reconnect, or when the access token expires.
+     *
+     * The provided authentication details may be used for all sessions, including those created
+     * using `startSession()`. If you need to use different authentication details for each session,
+     * you can provide a function which is called with the session ID as an argument.
      */
     authentication?: AuthProvider;
     /**
@@ -117,6 +122,10 @@ export interface ConnectOptions {
      * - When set to `false`, the driver will invalidate the session when the access token expires.
      * - When set to `true`, the driver will renew the session using the configured `authentication` details.
      * - When set to a function, the function will be called to renew the session.
+     *
+     * Access may be renewed for all sessions, including those created using `startSession()`. Both
+     * the `authentication` property as well as `renewAccess` allow you to provide a function which
+     * is called with the session ID as an argument.
      *
      * @default true
      */
@@ -153,17 +162,24 @@ export interface ReconnectOptions {
     catch?: (error: Error) => boolean;
 }
 
+export interface ConnectionSession {
+    id: Session;
+    namespace: string | undefined;
+    database: string | undefined;
+    accessToken: string | undefined;
+    refreshToken: string | undefined;
+    variables: Record<string, unknown>;
+    authRenewal: ReturnType<typeof setTimeout> | undefined;
+}
+
 /**
  * The current state of a connection to a SurrealDB datastore
  */
 export interface ConnectionState {
     url: URL;
     reconnect: ReconnectContext;
-    variables: Record<string, unknown>;
-    namespace?: string;
-    database?: string;
-    accessToken?: string;
-    refreshToken?: string;
+    rootSession: ConnectionSession;
+    sessions: Map<Uuid, ConnectionSession>;
 }
 
 /**

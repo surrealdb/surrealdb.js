@@ -1,7 +1,7 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { SurrealEvents } from "../surreal";
-import type { Expr, ExprLike, LiveResource } from "../types";
+import type { Expr, ExprLike, LiveResource, Session } from "../types";
 import type { Field, Selection } from "../types/internal";
 import { type BoundQuery, type Publisher, surql } from "../utils";
 import {
@@ -18,6 +18,7 @@ interface ManagedLiveOptions {
     selection?: Selection;
     cond?: Expr;
     fetch?: string[];
+    session: Session;
 }
 
 /**
@@ -114,12 +115,13 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
             this.#publisher,
             this.#connection,
             this.#options.what,
+            this.#options.session,
             this.#build(),
         );
     }
 
     #build(): Query {
-        const { what, selection, fields, cond, fetch } = this.#options;
+        const { what, selection, fields, cond, fetch, session } = this.#options;
 
         const query = surql`LIVE SELECT`;
 
@@ -147,12 +149,14 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
             query,
             transaction: undefined,
             json: false,
+            session,
         });
     }
 }
 
 interface UnmanagedLiveOptions {
     id: Uuid;
+    session: Session;
 }
 
 /**
@@ -173,6 +177,10 @@ export class UnmanagedLivePromise extends DispatchedPromise<LiveSubscription> {
 
         this.#connection.assertFeature("live-queries");
 
-        return new UnmanagedLiveSubscription(this.#connection, this.#options.id);
+        return new UnmanagedLiveSubscription(
+            this.#connection,
+            this.#options.session,
+            this.#options.id,
+        );
     }
 }

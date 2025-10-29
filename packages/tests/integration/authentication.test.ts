@@ -1,19 +1,33 @@
 import { beforeAll, describe, expect, mock, test } from "bun:test";
+import { satisfies } from "semver";
 import { type AnyAuth, RecordId, ResponseError } from "surrealdb";
-import { createAuth, setupServer } from "./__helpers__";
+import { createAuth, fetchVersion, setupServer } from "./__helpers__";
 
 const { createSurreal, createIdleSurreal } = await setupServer();
 
 beforeAll(async () => {
     const surreal = await createSurreal();
+    const version = await fetchVersion(surreal);
 
-    await surreal.query(/* surql */ `
-		DEFINE TABLE user PERMISSIONS FOR select WHERE id = $auth;
-		DEFINE ACCESS user ON DATABASE TYPE RECORD
-			SIGNUP ( CREATE type::thing('user', $id) )
-			SIGNIN ( SELECT * FROM type::thing('user', $id) )
-			DURATION FOR TOKEN 61s;
-	`);
+    const is3x = satisfies(version, ">=3.0.0-alpha.1");
+
+    if (is3x) {
+        await surreal.query(/* surql */ `
+			DEFINE TABLE user PERMISSIONS FOR select WHERE id = $auth;
+			DEFINE ACCESS user ON DATABASE TYPE RECORD
+				SIGNUP ( CREATE type::record('user', $id) )
+				SIGNIN ( SELECT * FROM type::record('user', $id) )
+				DURATION FOR TOKEN 61s;
+		`);
+    } else {
+        await surreal.query(/* surql */ `
+			DEFINE TABLE user PERMISSIONS FOR select WHERE id = $auth;
+			DEFINE ACCESS user ON DATABASE TYPE RECORD
+				SIGNUP ( CREATE type::thing('user', $id) )
+				SIGNIN ( SELECT * FROM type::thing('user', $id) )
+				DURATION FOR TOKEN 61s;
+		`);
+    }
 
     surreal.close();
 });

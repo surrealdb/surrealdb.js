@@ -2,7 +2,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { AnyRecordId, Output } from "../types";
+import type { AnyRecordId, Output, Session } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import { type DateTime, type Duration, RecordId, type Table, type Uuid } from "../value";
@@ -18,6 +18,7 @@ interface RelateOptions {
     version?: DateTime;
     data?: unknown;
     transaction: Uuid | undefined;
+    session: Session;
     json: boolean;
 }
 
@@ -119,7 +120,8 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
     }
 
     #build(): Query<[T], J> {
-        const { from, what, to, data, transaction, json, output, timeout, version } = this.#options;
+        const { from, what, to, data, transaction, session, json, output, timeout, version } =
+            this.#options;
 
         const isMultiple = Array.isArray(from) || Array.isArray(to);
 
@@ -155,6 +157,7 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
             query,
             transaction,
             json,
+            session,
         });
     }
 }

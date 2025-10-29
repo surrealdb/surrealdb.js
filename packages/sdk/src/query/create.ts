@@ -2,7 +2,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Mutation, Output, Values } from "../types";
+import type { Mutation, Output, Session, Values } from "../types";
 import { type BoundQuery, raw, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { DateTime, Duration, RecordId, Table, Uuid } from "../value";
@@ -16,6 +16,7 @@ interface CreateOptions {
     timeout?: Duration;
     version?: DateTime;
     transaction: Uuid | undefined;
+    session: Session;
     json: boolean;
 }
 
@@ -129,7 +130,8 @@ export class CreatePromise<T, I, J extends boolean = false> extends DispatchedPr
     }
 
     #build(): Query<[T], J> {
-        const { what, data, transaction, json, output, timeout, version, mutation } = this.#options;
+        const { what, data, transaction, session, json, output, timeout, version, mutation } =
+            this.#options;
 
         const query = surql`CREATE ${_only(what)}`;
 
@@ -153,6 +155,7 @@ export class CreatePromise<T, I, J extends boolean = false> extends DispatchedPr
             query,
             transaction,
             json,
+            session,
         });
     }
 }

@@ -13,6 +13,7 @@ import type {
     NamespaceDatabase,
     Nullable,
     QueryChunk,
+    Session,
     SqlExportOptions,
     SurrealEngine,
     Token,
@@ -79,26 +80,34 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async use(what: Nullable<NamespaceDatabase>): Promise<void> {
+    async sessions(): Promise<Uuid[]> {
+        return this.#diagnose(
+            "listSessions",
+            () => this.#delegate.sessions(),
+            (list) => list,
+        );
+    }
+
+    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void> {
         return this.#diagnose(
             "use",
-            () => this.#delegate.use(what),
+            () => this.#delegate.use(what, session),
             () => ({ requested: what }),
         );
     }
 
-    async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
+    async signup(auth: AccessRecordAuth, session: Session): Promise<AuthResponse> {
         return this.#diagnose(
             "signup",
-            () => this.#delegate.signup(auth),
+            () => this.#delegate.signup(auth, session),
             () => ({ variant: "system_user" }),
         );
     }
 
-    async signin(auth: AnyAuth): Promise<AuthResponse> {
+    async signin(auth: AnyAuth, session: Session): Promise<AuthResponse> {
         return this.#diagnose(
             "signin",
-            () => this.#delegate.signin(auth),
+            () => this.#delegate.signin(auth, session),
             () => {
                 if ("key" in auth) {
                     return { variant: "bearer_access" };
@@ -113,51 +122,43 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async authenticate(token: Token): Promise<void> {
+    async authenticate(token: Token, session: Session): Promise<void> {
         return this.#diagnose(
             "authenticate",
-            () => this.#delegate.authenticate(token),
+            () => this.#delegate.authenticate(token, session),
             () => ({ variant: "token" }),
         );
     }
 
-    async set(name: string, value: unknown): Promise<void> {
+    async set(name: string, value: unknown, session: Session): Promise<void> {
         return this.#diagnose(
             "set",
-            () => this.#delegate.set(name, value),
+            () => this.#delegate.set(name, value, session),
             () => ({ name, value }),
         );
     }
 
-    async unset(name: string): Promise<void> {
+    async unset(name: string, session: Session): Promise<void> {
         return this.#diagnose(
             "unset",
-            () => this.#delegate.unset(name),
+            () => this.#delegate.unset(name, session),
             () => ({ name }),
         );
     }
 
-    async invalidate(): Promise<void> {
+    async invalidate(session: Session): Promise<void> {
         return this.#diagnose(
             "invalidate",
-            () => this.#delegate.invalidate(),
+            () => this.#delegate.invalidate(session),
             () => undefined,
         );
     }
 
-    async reset(): Promise<void> {
+    async reset(session: Session): Promise<void> {
         return this.#diagnose(
             "reset",
-            () => this.#delegate.reset(),
+            () => this.#delegate.reset(session),
             () => undefined,
-        );
-    }
-
-    async sessions(): Promise<Uuid[]> {
-        return this.#diagnose(
-            "listSessions",
-            () => this.#delegate.sessions(),
-            (list) => list,
         );
     }
 
@@ -185,14 +186,14 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    query<T>(query: BoundQuery, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
+    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
         const measure = Duration.measure();
         const callback = this.#callback;
         const debugKey = Uuid.v4();
 
         callback({ type: "query", key: debugKey, phase: "before" });
 
-        const delegateResult = this.#delegate.query(query, txn);
+        const delegateResult = this.#delegate.query(query, session, txn);
 
         return {
             async *[Symbol.asyncIterator]() {

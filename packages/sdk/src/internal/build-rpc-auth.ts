@@ -1,7 +1,7 @@
 import { SurrealError } from "../errors";
-import type { AnyAuth, ConnectionState } from "../types";
+import type { AnyAuth, ConnectionSession } from "../types";
 
-export function buildRpcAuth(state: ConnectionState, auth: AnyAuth): Record<string, unknown> {
+export function buildRpcAuth(session: ConnectionSession, auth: AnyAuth): Record<string, unknown> {
     if ("key" in auth) {
         return {
             ns: auth.namespace,
@@ -13,8 +13,8 @@ export function buildRpcAuth(state: ConnectionState, auth: AnyAuth): Record<stri
 
     // Record user authentication
     if ("variables" in auth) {
-        const namespace = auth.namespace ?? state.namespace;
-        const database = auth.database ?? state.database;
+        const namespace = auth.namespace ?? session.namespace;
+        const database = auth.database ?? session.database;
 
         if (!database || !namespace) {
             throw new SurrealError(

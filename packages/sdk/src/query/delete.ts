@@ -2,7 +2,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Output } from "../types";
+import type { Output, Session } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { DateTime, Duration, RecordId, RecordIdRange, Table, Uuid } from "../value";
@@ -14,6 +14,7 @@ interface DeleteOptions {
     timeout?: Duration;
     version?: DateTime;
     transaction: Uuid | undefined;
+    session: Session;
     json: boolean;
 }
 
@@ -105,7 +106,7 @@ export class DeletePromise<T, J extends boolean = false> extends DispatchedPromi
     }
 
     #build(): Query<[T], J> {
-        const { what, transaction, json, output, timeout, version } = this.#options;
+        const { what, transaction, session, json, output, timeout, version } = this.#options;
 
         const query = surql`DELETE ${_only(what)}`;
 
@@ -125,6 +126,7 @@ export class DeletePromise<T, J extends boolean = false> extends DispatchedPromi
             query,
             transaction,
             json,
+            session,
         });
     }
 }

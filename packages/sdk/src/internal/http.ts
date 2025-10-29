@@ -1,5 +1,5 @@
 import { HttpConnectionError } from "../errors";
-import type { ConnectionState, DriverContext } from "../types/surreal";
+import type { ConnectionSession, ConnectionState, DriverContext } from "../types/surreal";
 
 export interface FetchSurrealOptions {
     body?: unknown;
@@ -11,6 +11,7 @@ export interface FetchSurrealOptions {
 export async function fetchSurreal(
     context: DriverContext,
     state: ConnectionState,
+    session: ConnectionSession,
     options: FetchSurrealOptions,
 ): Promise<Uint8Array> {
     const endpoint = new URL(options.url ?? state.url);
@@ -21,16 +22,16 @@ export async function fetchSurreal(
         ...options.headers,
     };
 
-    if (state.namespace) {
-        headerMap["Surreal-NS"] = state.namespace;
+    if (session.namespace) {
+        headerMap["Surreal-NS"] = session.namespace;
     }
 
-    if (state.database) {
-        headerMap["Surreal-DB"] = state.database;
+    if (session.database) {
+        headerMap["Surreal-DB"] = session.database;
     }
 
-    if (state.accessToken) {
-        headerMap.Authorization = `Bearer ${state.accessToken}`;
+    if (session.accessToken) {
+        headerMap.Authorization = `Bearer ${session.accessToken}`;
     }
 
     endpoint.protocol = endpoint.protocol.replace("ws", "http");

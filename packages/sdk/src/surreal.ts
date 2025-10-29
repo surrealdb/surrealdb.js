@@ -31,6 +31,7 @@ import type {
     NamespaceDatabase,
     Nullable,
     RecordResult,
+    Session,
     SqlExportOptions,
     Token,
     Values,
@@ -59,10 +60,14 @@ export type SurrealEvents = {
  * Note that most methods in this class are dispatched once you subscribe to the
  * returned Promise and offer various chainable configuration methods before
  * making the actual request.
+ *
+ * By default the Surreal instance is scoped to a default session, however you
+ * can create a new session by calling the `startSession` method.
  */
 export class Surreal implements EventPublisher<SurrealEvents> {
     readonly #publisher = new Publisher<SurrealEvents>();
     readonly #connection: ConnectionController;
+    readonly #session: Uuid | undefined;
 
     subscribe<K extends keyof SurrealEvents>(
         event: K,
@@ -71,48 +76,74 @@ export class Surreal implements EventPublisher<SurrealEvents> {
         return this.#publisher.subscribe(event, listener);
     }
 
-    constructor(options: DriverOptions = {}) {
-        this.#connection = new ConnectionController({
-            options,
-            uniqueId: getIncrementalID,
-            codecs: Surreal.#compileCodecs(options),
-        });
+    /**
+     * Construct a new Surreal instance with the provided options
+     *
+     * @param options Driver wide configuration options
+     */
+    constructor(options?: DriverOptions);
 
-        this.#connection.subscribe("connecting", () => {
-            this.#publisher.publish("connecting");
-        });
+    /**
+     * Construct a new Surreal session by composing an existing Surreal instance
+     * and a session ID.
+     *
+     * You will likely want to use the `startSession` method instead of this constructor,
+     * unless you specifically need to create a session from an existing id.
+     */
+    constructor(delegate: Surreal, session: Session);
 
-        this.#connection.subscribe("connected", () => {
-            this.#publisher.publish("connected");
-        });
+    constructor(optionsOrDelegate?: DriverOptions | Surreal, session?: Session) {
+        if (optionsOrDelegate instanceof Surreal) {
+            this.#publisher = optionsOrDelegate.#publisher;
+            this.#connection = optionsOrDelegate.#connection;
+            this.#session = session;
+        } else {
+            const options = optionsOrDelegate ?? {};
 
-        this.#connection.subscribe("disconnected", () => {
-            this.#publisher.publish("disconnected");
-        });
+            this.#connection = new ConnectionController({
+                options: options,
+                uniqueId: getIncrementalID,
+                codecs: Surreal.#compileCodecs(options),
+            });
 
-        this.#connection.subscribe("reconnecting", () => {
-            this.#publisher.publish("reconnecting");
-        });
+            this.#connection.subscribe("connecting", () => {
+                this.#publisher.publish("connecting");
+            });
 
-        this.#connection.subscribe("error", (error) => {
-            this.#publisher.publish("error", error);
-        });
+            this.#connection.subscribe("connected", () => {
+                this.#publisher.publish("connected");
+            });
 
-        this.#connection.subscribe("authenticated", (token) =>
-            this.#publisher.publish("authenticated", token),
-        );
+            this.#connection.subscribe("disconnected", () => {
+                this.#publisher.publish("disconnected");
+            });
 
-        this.#connection.subscribe("invalidated", () => {
-            this.#publisher.publish("invalidated");
-        });
+            this.#connection.subscribe("reconnecting", () => {
+                this.#publisher.publish("reconnecting");
+            });
 
-        this.#connection.subscribe("using", (using) => {
-            this.#publisher.publish("using", using);
-        });
+            this.#connection.subscribe("error", (error) => {
+                this.#publisher.publish("error", error);
+            });
+
+            this.#connection.subscribe("authenticated", (token) =>
+                this.#publisher.publish("authenticated", token),
+            );
+
+            this.#connection.subscribe("invalidated", () => {
+                this.#publisher.publish("invalidated");
+            });
+
+            this.#connection.subscribe("using", (using) => {
+                this.#publisher.publish("using", using);
+            });
+        }
     }
 
     /**
-     * Connect to a local or remote SurrealDB instance using the provided URL
+     * Connect to a local or remote SurrealDB instance using the provided URL.
+     *
+     * Calling `connect()` will reset and dispose any existing sessions created with `startSession()`.
      *
      * @param url The endpoint to connect to
      * @param opts Options to configure the connection
@@ -132,28 +163,35 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * Returns the active selected namespace
      */
     get namespace(): string | undefined {
-        return this.#connection.state?.namespace;
+        return this.#connection.getSession(this.#session).namespace;
     }
 
     /**
      * Returns the active selected database
      */
     get database(): string | undefined {
-        return this.#connection.state?.database;
+        return this.#connection.getSession(this.#session).database;
     }
 
     /**
      * Returns the currently used authentication access token
      */
     get accessToken(): string | undefined {
-        return this.#connection.state?.accessToken;
+        return this.#connection.getSession(this.#session).accessToken;
     }
 
     /**
-     * Returns the parameters currently defined on the connection
+     * Returns the parameters currently defined on the session
      */
     get parameters(): Record<string, unknown> {
-        return this.#connection.state?.variables ?? {};
+        return this.#connection.getSession(this.#session).variables ?? {};
+    }
+
+    /**
+     * Returns the ID of the current session. If the default session is used, undefined is returned.
+     */
+    get session(): Session {
+        return this.#session;
     }
 
     /**
@@ -161,6 +199,14 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      */
     get status(): ConnectionStatus {
         return this.#connection.status;
+    }
+
+    /**
+     * Returns whether the session is valid and can be used. This is always true for the default session,
+     * however for other sessions it will be false after the session has been disposed.
+     */
+    get isValid(): boolean {
+        return this.#connection.hasSession(this.#session);
     }
 
     /**
@@ -204,6 +250,37 @@ export class Surreal implements EventPublisher<SurrealEvents> {
         return this.#connection.version();
     }
 
+    /**
+     * Lists all additional sessions created on the current connection
+     *
+     * @returns A list of active session IDs
+     */
+    sessions(): Promise<Uuid[]> {
+        return this.#connection.sessions();
+    }
+
+    /**
+     * Create a new session on this connection and return a dedicated `Surreal` instance scoped to the new session.
+     *
+     * This session will contain its own copy of global variables, namespace, database, and authentication state.
+     * Connection related functions and event subscriptions will be shared with the original session. When the
+     * connection reconnects, the session will be automatically restored.
+     *
+     * You can invoke `reset()` on the created session to destroy it, after which it cannot be used again.
+     *
+     * If you pass `true` for the `clone` parameter, the new session will contain a copy of the global state of the current session,
+     * including the namespace, database, variables, and authentication state.
+     *
+     * @param clone Whether to clone the global state of the current session into the new session.
+     * @returns
+     */
+    async startSession(inherit: boolean = false): Promise<Surreal> {
+        const cloneId = inherit ? this.#session : null;
+        const session = await this.#connection.createSession(cloneId);
+
+        return new Surreal(this, session);
+    }
+
     // =========================================================== //
     //                                                             //
     //                       Session Methods                       //
@@ -222,7 +299,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @returns The newly selected namespace and database
      */
     async use(what: Nullable<NamespaceDatabase>): Promise<NamespaceDatabase> {
-        await this.#connection.use(what);
+        await this.#connection.use(what, this.#session);
 
         return {
             namespace: this.namespace,
@@ -238,7 +315,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @return The authentication tokens.
      */
     signup(auth: AccessRecordAuth): Promise<AuthResponse> {
-        return this.#connection.signup(auth);
+        return this.#connection.signup(auth, this.#session);
     }
 
     /**
@@ -248,7 +325,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @return The authentication tokens.
      */
     signin(auth: AnyAuth): Promise<AuthResponse> {
-        return this.#connection.signin(auth);
+        return this.#connection.signin(auth, this.#session);
     }
 
     /**
@@ -257,7 +334,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param token The JWT authentication token.
      */
     authenticate(token: Token): Promise<void> {
-        return this.#connection.authenticate(token);
+        return this.#connection.authenticate(token, this.#session);
     }
 
     /**
@@ -267,7 +344,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param val Assigns the value to the variable name
      */
     set(variable: string, value: unknown): Promise<void> {
-        return this.#connection.set(variable, value);
+        return this.#connection.set(variable, value, this.#session);
     }
 
     /**
@@ -276,31 +353,24 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param key Specifies the name of the variable.
      */
     unset(variable: string): Promise<void> {
-        return this.#connection.unset(variable);
+        return this.#connection.unset(variable, this.#session);
     }
 
     /**
      * Invalidates the authentication for the current connection.
      */
     invalidate(): Promise<void> {
-        return this.#connection.invalidate();
+        return this.#connection.invalidate(this.#session);
     }
 
     /**
      * Resets the current session to its initial state, clearing
      * authentication state, variables, and selected namespace/database.
-     */
-    reset(): Promise<void> {
-        return this.#connection.reset();
-    }
-
-    /**
-     * Lists all additional sessions created on the current connection
      *
-     * @returns A list of active session IDs
+     * If this is not the default session, the session will be disposed and cannot be used again.
      */
-    sessions(): Promise<Uuid[]> {
-        return this.#connection.sessions();
+    async reset(): Promise<void> {
+        await this.#connection.reset(this.#session);
     }
 
     // =========================================================== //
@@ -363,6 +433,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
         return new Query(this.#connection, {
             query: query instanceof BoundQuery ? query : new BoundQuery(query, bindings),
             transaction: undefined,
+            session: this.#session,
             json: false,
         });
     }
@@ -378,6 +449,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     auth<T>(): AuthPromise<RecordResult<T> | undefined> {
         return new AuthPromise(this.#connection, {
             transaction: undefined,
+            session: this.#session,
             json: false,
         });
     }
@@ -391,6 +463,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     live<T>(what: LiveResource): ManagedLivePromise<T> {
         return new ManagedLivePromise(this.#connection, this.#publisher, {
             what,
+            session: this.#session,
         });
     }
 
@@ -405,6 +478,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     liveOf(id: Uuid): UnmanagedLivePromise {
         return new UnmanagedLivePromise(this.#connection, {
             id,
+            session: this.#session,
         });
     }
 
@@ -434,6 +508,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
         return new SelectPromise(this.#connection, {
             what,
             transaction: undefined,
+            session: this.#session,
             json: false,
         });
     }
@@ -457,6 +532,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
         return new CreatePromise(this.#connection, {
             what,
             transaction: undefined,
+            session: this.#session,
             json: false,
         });
     }
@@ -504,6 +580,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
             to,
             data,
             transaction: undefined,
+            session: this.#session,
             json: false,
         });
     }
@@ -530,6 +607,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
                 table: arg1,
                 what: arg2 ?? [],
                 transaction: undefined,
+                session: this.#session,
                 json: false,
             });
         }
@@ -538,6 +616,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
             table: undefined,
             what: arg1,
             transaction: undefined,
+            session: this.#session,
             json: false,
         });
     }
@@ -568,6 +647,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
         return new UpdatePromise(this.#connection, {
             what,
             transaction: undefined,
+            session: this.#session,
             json: false,
         });
     }
@@ -607,6 +687,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
         return new UpsertPromise(this.#connection, {
             what,
             transaction: undefined,
+            session: this.#session,
             json: false,
         });
     }
@@ -638,6 +719,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
             what,
             output: "before",
             transaction: undefined,
+            session: this.#session,
             json: false,
         });
     }
@@ -667,6 +749,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
                 version: arg2,
                 args: arg3 ?? [],
                 transaction: undefined,
+                session: this.#session,
                 json: false,
             });
         }
@@ -676,6 +759,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
             version: undefined,
             args: arg2 ?? [],
             transaction: undefined,
+            session: this.#session,
             json: false,
         });
     }

@@ -1,4 +1,4 @@
-import type { Feature } from "./types";
+import type { Feature, Session } from "./types";
 
 export class SurrealError extends Error {}
 
@@ -224,5 +224,20 @@ export class UnsupportedFeatureError extends SurrealError {
     constructor(feature: Feature) {
         super(`The configured engine does not support the feature: ${feature}`);
         this.feature = feature;
+    }
+}
+
+/**
+ * Thrown when a session is invalid
+ */
+export class InvalidSessionError extends SurrealError {
+    override name = "InvalidSessionError";
+    override message = "The provided session is invalid";
+
+    readonly session: Session;
+
+    constructor(session: Session) {
+        super(`Invalid session: ${session}`);
+        this.session = session;
     }
 }
