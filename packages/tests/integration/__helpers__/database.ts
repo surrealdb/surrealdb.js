@@ -1,5 +1,6 @@
 import { RecordId, type Surreal, Table } from "surrealdb";
 
+export const testTable: Table<"test"> = new Table("test");
 export const personTable: Table<"person"> = new Table("person");
 export const graphTable: Table<"graph"> = new Table("graph");
 
