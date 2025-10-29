@@ -3,45 +3,19 @@ import type { Feature } from "./types";
 export class SurrealError extends Error {}
 
 /**
- * Thrown when an operation depends on an active connection
+ * Thrown when a call has been terminated because the connection was closed
  */
-export class NoActiveConnection extends SurrealError {
-    override name = "NoActiveConnection";
-    override message = "You must call the connect() method before performing this operation";
-}
-
-/**
- * Thrown when an engine received an unexpected response
- */
-export class UnexpectedResponse extends SurrealError {
-    override name = "UnexpectedResponse";
-    override message =
-        "The returned response from the SurrealDB instance is in an unexpected format. Unable to process response!";
-}
-
-/**
- * Thrown when a provided connection URL is unsupported
- */
-export class InvalidURLProvided extends SurrealError {
-    override name = "InvalidURLProvided";
-    override message =
-        "The provided string is either not a URL or is a URL but with an invalid protocol!";
-}
-
-/**
- * Thrown when an engine disconnected from a datastore
- */
-export class EngineDisconnected extends SurrealError {
-    override name = "EngineDisconnected";
-    override message = "The engine reported the connection to SurrealDB has dropped";
+export class CallTerminatedError extends SurrealError {
+    override name = "CallTerminatedError";
+    override message = "The call has been termined because the connection was closed";
 }
 
 /**
  * Thrown when reconnect attempts have been exhausted
  */
-export class ReconnectExhaustion extends SurrealError {
-    override name = "ReconnectExhaustion";
-    override message = "The engine failed exhausted all reconnect attempts";
+export class ReconnectExhaustionError extends SurrealError {
+    override name = "ReconnectExhaustionError";
+    override message = "The reconnect attempts have been exhausted";
 }
 
 /**
@@ -53,22 +27,15 @@ export class ReconnectIterationError extends SurrealError {
 }
 
 /**
- * Thrown when a future is dispatched more than once
+ * Thrown when an unexpected server response is received
  */
-export class FutureDispatchedError extends SurrealError {
-    override name = "FutureDispatchedError";
-    override message = "The future has already been dispatched and cannot be reused";
-}
+export class UnexpectedServerResponseError extends SurrealError {
+    override name = "UnexpectedServerResponseError";
+    readonly response: unknown;
 
-/**
- * Thriwn when an unexpected response is received from the server
- */
-export class UnexpectedServerResponse extends SurrealError {
-    override name = "UnexpectedServerResponse";
-
-    constructor(public readonly response: unknown) {
-        super();
-        this.message = `${response}`;
+    constructor(response: unknown) {
+        super(`The server returned an unexpected response: ${JSON.stringify(response)}`);
+        this.response = response;
     }
 }
 
@@ -88,27 +55,29 @@ export class UnexpectedConnectionError extends SurrealError {
 /**
  * Thrown when an engine is not supported
  */
-export class UnsupportedEngine extends SurrealError {
-    override name = "UnsupportedEngine";
+export class UnsupportedEngineError extends SurrealError {
+    override name = "UnsupportedEngineError";
+    readonly engine: string;
 
     constructor(engine: string) {
         super(`The engine "${engine}" is not supported or configured`);
+        this.engine = engine;
     }
 }
 
 /**
  * Thrown when there is no connection available
  */
-export class ConnectionUnavailable extends SurrealError {
-    override name = "ConnectionUnavailable";
+export class ConnectionUnavailableError extends SurrealError {
+    override name = "ConnectionUnavailableError";
     override message = "There is no connection available at this moment";
 }
 
 /**
  * Thrown when there is no namespace and/or database selected
  */
-export class MissingNamespaceDatabase extends SurrealError {
-    override name = "MissingNamespaceDatabase";
+export class MissingNamespaceDatabaseError extends SurrealError {
+    override name = "MissingNamespaceDatabaseError";
     override message = "There is no namespace and/or database selected";
 }
 
@@ -118,24 +87,15 @@ export class MissingNamespaceDatabase extends SurrealError {
 export class HttpConnectionError extends SurrealError {
     override name = "HttpConnectionError";
 
-    constructor(
-        public override readonly message: string,
-        public readonly status: number,
-        public readonly statusText: string,
-        public readonly buffer: ArrayBuffer,
-    ) {
-        super();
-    }
-}
+    readonly status: number;
+    readonly statusText: string;
+    readonly buffer: ArrayBuffer;
 
-/**
- * Thrown when a query could not be executed
- */
-export class QueryError extends SurrealError {
-    override name = "QueryError";
-
-    constructor(public override readonly message: string) {
-        super();
+    constructor(message: string, status: number, statusText: string, buffer: ArrayBuffer) {
+        super(`HTTP connection failed: ${message}`);
+        this.status = status;
+        this.statusText = statusText;
+        this.buffer = buffer;
     }
 }
 
@@ -144,7 +104,8 @@ export class QueryError extends SurrealError {
  */
 export class ResponseError extends SurrealError {
     override name = "ResponseError";
-    code: number;
+
+    readonly code: number;
 
     constructor(response: { code: number; message: string }) {
         super(response.message);
@@ -153,38 +114,10 @@ export class ResponseError extends SurrealError {
 }
 
 /**
- * Thrown when a namespace was not specified
- *
- * TODO Replace with `MissingNamespaceDatabase`
- */
-export class NoNamespaceSpecified extends SurrealError {
-    override name = "NoNamespaceSpecified";
-    override message = "Please specify a namespace to use";
-}
-
-/**
- * Thrown when a database was not specified
- *
- * TODO Replace with `MissingNamespaceDatabase`
- */
-export class NoDatabaseSpecified extends SurrealError {
-    override name = "NoDatabaseSpecified";
-    override message = "Please specify a database to use";
-}
-
-/**
- * Thrown when a token was not returned
- */
-export class NoTokenReturned extends SurrealError {
-    override name = "NoTokenReturned";
-    override message = "Did not receive an authentication token";
-}
-
-/**
  * Thrown when authentication fails
  */
-export class AuthenticationFailed extends SurrealError {
-    override name = "AuthenticationFailed";
+export class AuthenticationError extends SurrealError {
+    override name = "AuthenticationError";
     override message = "Authentication did not succeed";
 
     constructor(cause: unknown) {
@@ -196,8 +129,8 @@ export class AuthenticationFailed extends SurrealError {
 /**
  * Thrown when a live subscription fails to listen
  */
-export class LiveSubscriptionFailed extends SurrealError {
-    override name = "LiveSubscriptionFailed";
+export class LiveSubscriptionError extends SurrealError {
+    override name = "LiveSubscriptionError";
     override message = "Live subscription failed to listen";
 
     constructor(cause: unknown) {
@@ -209,46 +142,31 @@ export class LiveSubscriptionFailed extends SurrealError {
 /**
  * Thrown when the version of the remote datastore is not supported
  */
-export class UnsupportedVersion extends SurrealError {
-    override name = "UnsupportedVersion";
-    version: string;
-    supportedRange: string;
+export class UnsupportedVersionError extends SurrealError {
+    override name = "UnsupportedVersionError";
+
+    readonly version: string;
+    readonly supportedRange: string;
 
     constructor(version: string, supportedRange: string) {
-        super();
+        super(
+            `The version "${version}" reported by the engine does not satisfy the supported range: "${supportedRange}"`,
+        );
         this.version = version;
         this.supportedRange = supportedRange;
-        this.message = `The version "${version}" reported by the engine is not supported by this library, expected a version that satisfies "${supportedRange}"`;
     }
 }
 
 /**
- * Thrown when version checking is unsuccessful
- */
-export class VersionCheckFailure extends SurrealError {
-    override name = "VersionCheckFailure";
-    override message = "Failed to check version compatibility with the SurrealDB instance";
-
-    constructor(
-        readonly error?: Error | undefined,
-        readonly response?: {
-            code: number;
-            message: string;
-        },
-    ) {
-        super();
-    }
-}
-
-/**
- * Thrown when an expression is invalid
+ * Thrown when a SurrealQL expression fails to compute
  */
 export class ExpressionError extends SurrealError {
     override name = "ExpressionError";
     override message = "Failed to parse invalid expression";
 
-    constructor(public override readonly cause?: unknown) {
+    constructor(cause?: unknown) {
         super();
+        this.cause = cause;
     }
 }
 
@@ -258,6 +176,7 @@ export class ExpressionError extends SurrealError {
 export class PublishError extends SurrealError {
     override name = "PublishError";
     override message = "One or more subscribers threw an error:";
+
     readonly causes: unknown[];
 
     constructor(causes: unknown[]) {
@@ -289,7 +208,7 @@ export class InvalidDateError extends SurrealError {
     override message = "The provided date is invalid";
 
     constructor(date: Date) {
-        super(`Invalid date: ${date}`);
+        super(`The provided date is invalid: ${date}`);
     }
 }
 
@@ -299,8 +218,10 @@ export class InvalidDateError extends SurrealError {
 export class UnsupportedFeatureError extends SurrealError {
     override name = "UnsupportedFeatureError";
 
+    readonly feature: Feature;
+
     constructor(feature: Feature) {
-        super();
-        this.message = `The configured engine does not support the feature: ${feature}`;
+        super(`The configured engine does not support the feature: ${feature}`);
+        this.feature = feature;
     }
 }

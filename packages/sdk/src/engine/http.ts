@@ -1,8 +1,9 @@
 import {
-    ConnectionUnavailable,
-    MissingNamespaceDatabase,
+    ConnectionUnavailableError,
+    MissingNamespaceDatabaseError,
     ResponseError,
     SurrealError,
+    UnexpectedServerResponseError,
 } from "../errors";
 import { fetchSurreal } from "../internal/http";
 import type { LiveMessage } from "../types/live";
@@ -50,7 +51,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         request: RpcRequest<Method, Params>,
     ): Promise<Result> {
         if (!this._state) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         // Unsupported by the HTTP protocol
@@ -68,7 +69,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             (!this._state.namespace || !this._state.database) &&
             !ALWAYS_ALLOW.has(request.method)
         ) {
-            throw new MissingNamespaceDatabase();
+            throw new MissingNamespaceDatabaseError();
         }
 
         switch (request.method) {
@@ -92,15 +93,19 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             },
         });
 
-        const response = this._context.codecs.cbor.decode<RpcResponse<Result>>(
-            new Uint8Array(buffer),
-        );
+        try {
+            const response = this._context.codecs.cbor.decode<RpcResponse<Result>>(
+                new Uint8Array(buffer),
+            );
 
-        if (response.error) {
-            throw new ResponseError(response.error);
+            if (response.error) {
+                throw new ResponseError(response.error);
+            }
+
+            return response.result;
+        } catch (error) {
+            throw new UnexpectedServerResponseError(error);
         }
-
-        return response.result;
     }
 
     override liveQuery(): AsyncIterable<LiveMessage> {

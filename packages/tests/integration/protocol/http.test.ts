@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ConnectionUnavailable } from "surrealdb";
+import { ConnectionUnavailableError } from "surrealdb";
 import { setupServer } from "../__helpers__";
 
 const { createSurreal, createIdleSurreal } = await setupServer();
@@ -62,6 +62,6 @@ describe("HTTP protocol", () => {
 
         expect(async () => {
             await surreal.ready;
-        }).toThrow(ConnectionUnavailable);
+        }).toThrow(ConnectionUnavailableError);
     });
 });

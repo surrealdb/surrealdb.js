@@ -1,10 +1,10 @@
 import {
-    ConnectionUnavailable,
-    EngineDisconnected,
-    ReconnectExhaustion,
+    CallTerminatedError,
+    ConnectionUnavailableError,
+    ReconnectExhaustionError,
     ResponseError,
     UnexpectedConnectionError,
-    UnexpectedServerResponse,
+    UnexpectedServerResponseError,
 } from "../errors";
 import type { LiveAction, LiveMessage, RpcRequest, RpcResponse } from "../types";
 import { LIVE_ACTIONS } from "../types/live";
@@ -83,13 +83,13 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 if (this.#terminated || !reconnect.enabled || !reconnect.allowed) {
                     // Propagate reconnect exhaustion
                     if (reconnect.enabled && !reconnect.allowed) {
-                        this.#publisher.publish("error", new ReconnectExhaustion());
+                        this.#publisher.publish("error", new ReconnectExhaustionError());
                     }
 
                     // Optionally terminate pending calls
                     if (!this.#terminated) {
                         for (const { reject } of this.#calls.values()) {
-                            reject(new EngineDisconnected());
+                            reject(new CallTerminatedError());
                         }
                     }
 
@@ -130,7 +130,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     ): Promise<Result> {
         return new Promise((resolve, reject) => {
             if (!this.#active) {
-                reject(new ConnectionUnavailable());
+                reject(new ConnectionUnavailableError());
                 return;
             }
 
@@ -165,7 +165,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     private async createSocket(onConnected: () => void): Promise<Error | null> {
         return new Promise((resolve, reject) => {
             if (!this._state) {
-                reject(new ConnectionUnavailable());
+                reject(new ConnectionUnavailableError());
                 return;
             }
 
@@ -231,7 +231,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                     ) {
                         this.handleRpcResponse(decoded);
                     } else {
-                        throw new UnexpectedServerResponse(decoded);
+                        throw new UnexpectedServerResponseError(decoded);
                     }
                 } catch (detail) {
                     socket.dispatchEvent(new CustomEvent("error", { detail }));
@@ -249,7 +249,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             return new Uint8Array(data);
         }
 
-        throw new UnexpectedServerResponse(data);
+        throw new UnexpectedServerResponseError(data);
     }
 
     private handleRpcResponse({ id, ...res }: Response) {
@@ -279,7 +279,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             return;
         }
 
-        this.#publisher.publish("error", new UnexpectedServerResponse(res));
+        this.#publisher.publish("error", new UnexpectedServerResponseError(res));
     }
 }
 

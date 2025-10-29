@@ -1,10 +1,10 @@
 import { createRemoteEngines } from "../engine";
 
 import {
-    AuthenticationFailed,
-    ConnectionUnavailable,
+    AuthenticationError,
+    ConnectionUnavailableError,
     SurrealError,
-    UnsupportedEngine,
+    UnsupportedEngineError,
     UnsupportedFeatureError,
 } from "../errors";
 import { ReconnectContext } from "../internal/reconnect";
@@ -130,7 +130,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     public async ready(): Promise<void> {
         if (this.#status === "disconnected") {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         if (this.#status === "connected") {
@@ -156,18 +156,18 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     health(): Promise<void> {
-        if (!this.#engine) throw new ConnectionUnavailable();
+        if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine?.health();
     }
 
     version(): Promise<VersionInfo> {
-        if (!this.#engine) throw new ConnectionUnavailable();
+        if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine.version();
     }
 
     async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
         if (!this.#engine || !this.#state) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         const response = await this.#engine.signup(auth);
@@ -181,7 +181,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     async signin(auth: AnyAuth): Promise<AuthResponse> {
         if (!this.#engine || !this.#state) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         const response = await this.#engine.signin(auth);
@@ -195,7 +195,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     async authenticate(token: Token): Promise<void> {
         if (!this.#engine || !this.#state) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         await this.#engine.authenticate(token);
@@ -206,7 +206,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     async use(what: Nullable<NamespaceDatabase>): Promise<void> {
         if (!this.#engine || !this.#state) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         if (what.namespace === null && what.database !== null) {
@@ -230,7 +230,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     async set(name: string, value: unknown): Promise<void> {
         if (!this.#engine || !this.#state) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         await this.#engine.set(name, value);
@@ -239,7 +239,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     async unset(name: string): Promise<void> {
         if (!this.#engine || !this.#state) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         await this.#engine.unset(name);
@@ -247,14 +247,14 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     async invalidate(): Promise<void> {
-        if (!this.#engine) throw new ConnectionUnavailable();
+        if (!this.#engine) throw new ConnectionUnavailableError();
         await this.#engine.invalidate();
         this.handleAuthInvalidate();
     }
 
     async reset(): Promise<void> {
         if (!this.#engine || !this.#state) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         await this.#engine.reset();
@@ -269,27 +269,27 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     importSql(data: string): Promise<void> {
-        if (!this.#engine) throw new ConnectionUnavailable();
+        if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine.importSql(data);
     }
 
     exportSql(options: Partial<SqlExportOptions>): Promise<string> {
-        if (!this.#engine) throw new ConnectionUnavailable();
+        if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine.exportSql(options);
     }
 
     exportMlModel(options: MlExportOptions): Promise<Uint8Array> {
-        if (!this.#engine) throw new ConnectionUnavailable();
+        if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine.exportMlModel(options);
     }
 
     query<T>(query: BoundQuery, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
-        if (!this.#engine) throw new ConnectionUnavailable();
+        if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine.query(query, txn);
     }
 
     liveQuery(id: Uuid): AsyncIterable<LiveMessage> {
-        if (!this.#engine) throw new ConnectionUnavailable();
+        if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine.liveQuery(id);
     }
 
@@ -371,7 +371,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         // Schedule next renewal or invalidation
         this.#authRenewal = setTimeout(() => {
             this.renewAuth().catch((err) => {
-                this.#eventPublisher.publish("error", new AuthenticationFailed(err));
+                this.#eventPublisher.publish("error", new AuthenticationError(err));
             });
         }, delay);
     }
@@ -412,7 +412,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         const factory = engineMap[protocol];
 
         if (!factory) {
-            throw new UnsupportedEngine(protocol);
+            throw new UnsupportedEngineError(protocol);
         }
 
         return factory(this.#context);

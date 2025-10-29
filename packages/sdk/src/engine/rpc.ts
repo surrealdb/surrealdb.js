@@ -1,4 +1,4 @@
-import { ConnectionUnavailable } from "../errors";
+import { ConnectionUnavailableError } from "../errors";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { fetchSurreal } from "../internal/http";
 import type {
@@ -55,7 +55,7 @@ export abstract class RpcEngine implements SurrealProtocol {
 
     async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
         if (!this._state) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         const token: string = await this.send({
@@ -70,7 +70,7 @@ export abstract class RpcEngine implements SurrealProtocol {
 
     async signin(auth: AnyAuth): Promise<AuthResponse> {
         if (!this._state) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         const token: string = await this.send({
@@ -118,7 +118,7 @@ export abstract class RpcEngine implements SurrealProtocol {
 
     async importSql(data: string): Promise<void> {
         if (!this._state) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         const endpoint = new URL(this._state.url);
@@ -137,7 +137,7 @@ export abstract class RpcEngine implements SurrealProtocol {
 
     async exportSql(options: SqlExportOptions): Promise<string> {
         if (!this._state) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         const endpoint = new URL(this._state.url);
@@ -158,7 +158,7 @@ export abstract class RpcEngine implements SurrealProtocol {
 
     async exportMlModel(options: MlExportOptions): Promise<Uint8Array> {
         if (!this._state) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         const endpoint = new URL(this._state.url);

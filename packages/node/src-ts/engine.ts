@@ -1,7 +1,7 @@
 import {
     ChannelIterator,
     type ConnectionState,
-    ConnectionUnavailable,
+    ConnectionUnavailableError,
     type DriverContext,
     type EngineEvents,
     type Feature,
@@ -93,7 +93,7 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         request: RpcRequest<Method, Params>,
     ): Promise<Result> {
         if (!this.#active || !this.#engine) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         const id = this._context.uniqueId();
