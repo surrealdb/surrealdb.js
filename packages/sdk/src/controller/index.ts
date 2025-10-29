@@ -268,6 +268,11 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         });
     }
 
+    async sessions(): Promise<Uuid[]> {
+        if (!this.#engine) throw new ConnectionUnavailable();
+        return this.#engine.sessions();
+    }
+
     importSql(data: string): Promise<void> {
         if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine.importSql(data);

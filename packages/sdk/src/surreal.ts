@@ -294,6 +294,15 @@ export class Surreal implements EventPublisher<SurrealEvents> {
         return this.#connection.reset();
     }
 
+    /**
+     * Lists all additional sessions created on the current connection
+     *
+     * @returns A list of active session IDs
+     */
+    sessions(): Promise<Uuid[]> {
+        return this.#connection.sessions();
+    }
+
     // =========================================================== //
     //                                                             //
     //                  Data Management Methods                    //

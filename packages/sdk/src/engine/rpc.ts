@@ -116,6 +116,12 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
+    async sessions(): Promise<Uuid[]> {
+        return await this.send({
+            method: "sessions",
+        });
+    }
+
     async importSql(data: string): Promise<void> {
         if (!this._state) {
             throw new ConnectionUnavailableError();

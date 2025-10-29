@@ -44,6 +44,7 @@ export interface SurrealProtocol {
     unset(name: string): Promise<void>;
     invalidate(): Promise<void>;
     reset(): Promise<void>;
+    sessions(): Promise<Uuid[]>;
 
     // Data management operations
     importSql(data: string): Promise<void>;

@@ -153,6 +153,14 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
+    async sessions(): Promise<Uuid[]> {
+        return this.#diagnose(
+            "listSessions",
+            () => this.#delegate.sessions(),
+            (list) => list,
+        );
+    }
+
     async importSql(data: string): Promise<void> {
         return this.#diagnose(
             "importSql",
