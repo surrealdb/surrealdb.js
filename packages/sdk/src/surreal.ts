@@ -401,11 +401,11 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     }
 
     /**
-     * Select all fields from a specific record based on the provied Record ID
+     * Select the contents of a specific record based on the provied Record ID
      *
      * @param recordId The record ID to select
      */
-    select<T extends Doc>(recordId: RecordId): SelectPromise<RecordResult<T>, T>;
+    select<T extends Doc>(recordId: RecordId): SelectPromise<RecordResult<T> | undefined, T>;
 
     /**
      * Select all records based on the provided Record ID range
