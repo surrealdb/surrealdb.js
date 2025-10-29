@@ -9,7 +9,7 @@ import type { Duration, RecordId, RecordIdRange, Table, Uuid } from "../value";
 import { Query } from "./query";
 
 interface UpdateOptions {
-    thing: RecordId | RecordIdRange | Table;
+    what: RecordId | RecordIdRange | Table;
     mutation?: Mutation;
     data?: unknown;
     cond?: Expr;
@@ -155,9 +155,9 @@ export class UpdatePromise<T, I, J extends boolean = false> extends DispatchedPr
     }
 
     #build(): Query<[T], J> {
-        const { thing, data, transaction, json, cond, output, timeout, mutation } = this.#options;
+        const { what, data, transaction, json, cond, output, timeout, mutation } = this.#options;
 
-        const query = surql`UPDATE ${_only(thing)}`;
+        const query = surql`UPDATE ${_only(what)}`;
 
         if (mutation && data) {
             query.append(surql` ${raw(mutation.toUpperCase())} ${data}`);

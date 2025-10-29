@@ -552,12 +552,12 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      *
      * @param table The table to update
      */
-    update<T>(range: Table): UpdatePromise<RecordResult<T>[], T>;
+    update<T>(table: Table): UpdatePromise<RecordResult<T>[], T>;
 
     // Shadow implementation
-    update(thing: RecordId | RecordIdRange | Table): unknown {
+    update(what: RecordId | RecordIdRange | Table): unknown {
         return new UpdatePromise(this.#connection, {
-            thing,
+            what,
             transaction: undefined,
             json: false,
         });
@@ -581,7 +581,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param range The range of record IDs to upsert
      * @param data The record data to upsert
      */
-    upsert<T>(thing: RecordIdRange): UpsertPromise<RecordResult<T>[], T>;
+    upsert<T>(range: RecordIdRange): UpsertPromise<RecordResult<T>[], T>;
 
     /**
      * Upserts all records present in the specified table
@@ -591,12 +591,12 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param table The table to upsert
      * @param data The record data to upsert
      */
-    upsert<T>(thing: Table): UpsertPromise<RecordResult<T>[], T>;
+    upsert<T>(table: Table): UpsertPromise<RecordResult<T>[], T>;
 
     // Shadow implementation
-    upsert(thing: RecordId | RecordIdRange | Table): unknown {
+    upsert(what: RecordId | RecordIdRange | Table): unknown {
         return new UpsertPromise(this.#connection, {
-            thing,
+            what,
             transaction: undefined,
             json: false,
         });
@@ -614,7 +614,7 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      *
      * @param range The range of record IDs to delete
      */
-    delete<T>(thing: RecordIdRange): DeletePromise<RecordResult<T>[]>;
+    delete<T>(range: RecordIdRange): DeletePromise<RecordResult<T>[]>;
 
     /**
      * Deletes all records present in the specified table
