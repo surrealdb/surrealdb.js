@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { RecordId } from "surrealdb";
 import { setupServer, VERSION_CHECK } from "./__helpers__";
 
 const { createSurreal, createIdleSurreal } = await setupServer();
@@ -110,7 +111,39 @@ describe("connection", async () => {
 
         expect(handle).nthCalledWith(2, {
             namespace: "hello",
-            database: null,
+            database: undefined,
         });
+    });
+
+    test("use seperately", async () => {
+        const surreal = await createSurreal();
+
+        await surreal.use({
+            namespace: "foo",
+        });
+
+        await surreal.use({
+            database: "bar",
+        });
+
+        expect(surreal.namespace).toBe("foo");
+        expect(surreal.database).toBe("bar");
+
+        await surreal.select(new RecordId("person", 1));
+    });
+
+    test("use correction", async () => {
+        const surreal = await createSurreal();
+
+        await surreal.use({
+            namespace: "foo",
+        });
+
+        const current = await surreal.use({
+            database: "bar",
+        });
+
+        expect(current.namespace).toBe("foo");
+        expect(current.database).toBe("bar");
     });
 });

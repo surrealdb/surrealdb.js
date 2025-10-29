@@ -10,6 +10,7 @@ import type {
     LiveMessage,
     MlExportOptions,
     NamespaceDatabase,
+    Nullable,
     QueryChunk,
     RpcQueryResult,
     RpcRequest,
@@ -43,6 +44,13 @@ export abstract class RpcEngine implements SurrealProtocol {
         return {
             version,
         };
+    }
+
+    async use(what: Nullable<NamespaceDatabase>): Promise<void> {
+        await this.send({
+            method: "use",
+            params: [what.namespace, what.database],
+        });
     }
 
     async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
@@ -80,18 +88,6 @@ export abstract class RpcEngine implements SurrealProtocol {
             method: "authenticate",
             params: [token],
         });
-    }
-
-    async use(what: Partial<NamespaceDatabase>): Promise<NamespaceDatabase> {
-        await this.send({
-            method: "use",
-            params: [what.namespace, what.database],
-        });
-
-        return {
-            namespace: what.namespace ?? null,
-            database: what.database ?? null,
-        };
     }
 
     async set(name: string, value: unknown): Promise<void> {

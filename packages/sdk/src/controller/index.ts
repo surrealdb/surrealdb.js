@@ -23,6 +23,7 @@ import type {
     LiveMessage,
     MlExportOptions,
     NamespaceDatabase,
+    Nullable,
     QueryChunk,
     SqlExportOptions,
     SurrealEngine,
@@ -190,7 +191,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.handleAuthUpdate();
     }
 
-    async use(what: Partial<NamespaceDatabase>): Promise<NamespaceDatabase> {
+    async use(what: Nullable<NamespaceDatabase>): Promise<void> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailable();
         }
@@ -199,17 +200,19 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             throw new SurrealError("Cannot unset namespace without unsetting database");
         }
 
-        const response = await this.#engine.use(what);
-        const { namespace: ns, database: db } = response;
+        await this.#engine.use(what);
 
-        if (ns === null) this.#state.namespace = undefined;
-        if (db === null) this.#state.database = undefined;
-        if (ns) this.#state.namespace = ns;
-        if (db) this.#state.database = db;
+        const { namespace, database } = what;
 
-        this.#eventPublisher.publish("using", response);
+        if (namespace === null) this.#state.namespace = undefined;
+        if (database === null) this.#state.database = undefined;
+        if (namespace) this.#state.namespace = namespace;
+        if (database) this.#state.database = database;
 
-        return response;
+        this.#eventPublisher.publish("using", {
+            namespace: this.#state.namespace,
+            database: this.#state.database,
+        });
     }
 
     async set(name: string, value: unknown): Promise<void> {
@@ -247,8 +250,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#state.variables = {};
         this.handleAuthInvalidate();
         this.#eventPublisher.publish("using", {
-            namespace: null,
-            database: null,
+            namespace: undefined,
+            database: undefined,
         });
     }
 

@@ -30,6 +30,7 @@ import type {
     EventPublisher,
     LiveResource,
     NamespaceDatabase,
+    Nullable,
     RecordResult,
     SqlExportOptions,
     Token,
@@ -211,6 +212,26 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     // =========================================================== //
 
     /**
+     * Switch to the specified {@link https://surrealdb.com/docs/surrealdb/introduction/concepts/namespace|namespace}
+     * and {@link https://surrealdb.com/docs/surrealdb/introduction/concepts/database|database}
+     *
+     * Leaving the namespace or database undefined will leave the current namespace or database unchanged,
+     * while passing null will unset the selected namespace or database.
+     *
+     * @param database Switches to a specific namespace
+     * @param db Switches to a specific database
+     * @returns The newly selected namespace and database
+     */
+    async use(what: Nullable<NamespaceDatabase>): Promise<NamespaceDatabase> {
+        await this.#connection.use(what);
+
+        return {
+            namespace: this.namespace,
+            database: this.database,
+        };
+    }
+
+    /**
      * Sign up to the SurrealDB instance as a new
      * {@link https://surrealdb.com/docs/surrealdb/security/authentication#record-users|record user}.
      *
@@ -238,17 +259,6 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      */
     authenticate(token: Token): Promise<void> {
         return this.#connection.authenticate(token);
-    }
-
-    /**
-     * Switch to the specified {@link https://surrealdb.com/docs/surrealdb/introduction/concepts/namespace|namespace}
-     * and {@link https://surrealdb.com/docs/surrealdb/introduction/concepts/database|database}
-     *
-     * @param database Switches to a specific namespace
-     * @param db Switches to a specific database
-     */
-    use(what: Partial<NamespaceDatabase>): Promise<NamespaceDatabase> {
-        return this.#connection.use(what);
     }
 
     /**

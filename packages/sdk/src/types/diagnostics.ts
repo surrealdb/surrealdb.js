@@ -1,10 +1,11 @@
 import type { Duration, Uuid } from "../value";
+import type { Nullable } from "./helpers";
 import type { LiveMessage } from "./live";
 import type { NamespaceDatabase, QueryChunk, VersionInfo } from "./surreal";
 
 type AuthVariant = "system_user" | "token" | "record_access" | "bearer_access";
 type AuthInfo = { variant: AuthVariant };
-type UseInfo = { requested: Partial<NamespaceDatabase>; corrected: NamespaceDatabase };
+type UseInfo = { requested: Nullable<NamespaceDatabase> };
 type SetInfo = { name: string; value: unknown };
 type UnsetInfo = { name: string };
 type LiveQueryInfo = { id: Uuid; message?: LiveMessage };
