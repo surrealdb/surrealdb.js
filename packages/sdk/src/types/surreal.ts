@@ -194,8 +194,14 @@ export interface DriverContext {
 /**
  * Represents a record response
  */
-export type RecordResult<T extends Record<string, unknown>> = Prettify<
-    T["id"] extends RecordId ? T : { id: RecordId } & T
+export type RecordResult<T> = Prettify<
+    T extends object
+        ? T extends { id: infer Id }
+            ? Id extends RecordId
+                ? T
+                : { id: RecordId } & Omit<T, "id">
+            : { id: RecordId } & T
+        : { id: RecordId }
 >;
 
 /**
