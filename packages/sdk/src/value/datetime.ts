@@ -1,4 +1,4 @@
-import { SurrealError } from "../errors";
+import { InvalidDateError, SurrealError } from "../errors";
 import { Duration } from "./duration";
 import { Value } from "./value";
 
@@ -79,8 +79,12 @@ export class DateTime extends Value {
             this.#nanoseconds = input.#nanoseconds;
         } else if (input instanceof Date) {
             // Convert from JavaScript Date
-            const s = BigInt(Math.floor(input.getTime() / 1000));
-            const ns = BigInt((input.getTime() % 1000) * 1000000);
+            const time = input.getTime();
+            if (Number.isNaN(time)) {
+                throw new InvalidDateError(input);
+            }
+            const s = BigInt(Math.floor(time / 1000));
+            const ns = BigInt((time % 1000) * 1000000);
             this.#seconds = s;
             this.#nanoseconds = ns;
         } else if (typeof input === "string") {
@@ -179,10 +183,11 @@ export class DateTime extends Value {
 
             // Parse the base time without fraction first
             const baseIsoString = `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
-            const baseTimestamp = Date.parse(baseIsoString);
+            const baseDate = new Date(baseIsoString);
+            const baseTimestamp = baseDate.getTime();
 
             if (Number.isNaN(baseTimestamp)) {
-                throw new SurrealError(`Invalid datetime format: ${input}`);
+                throw new InvalidDateError(baseDate);
             }
 
             const seconds = BigInt(Math.floor(baseTimestamp / 1000));

@@ -286,3 +286,15 @@ export class PublishError extends SurrealError {
         return message;
     }
 }
+
+/**
+ * Thrown when a parsed date is invalid
+ */
+export class InvalidDateError extends SurrealError {
+    override name = "InvalidDateError";
+    override message = "The provided date is invalid";
+
+    constructor(date: Date) {
+        super(`Invalid date: ${date}`);
+    }
+}
