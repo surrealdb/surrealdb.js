@@ -4,6 +4,7 @@ import {
     ConnectionUnavailable,
     type DriverContext,
     type EngineEvents,
+    type Feature,
     type LiveAction,
     type LiveMessage,
     Publisher,
@@ -42,6 +43,8 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         super(context);
         this.#options = options;
     }
+
+    features = new Set<Feature>(["live-queries"]);
 
     open(state: ConnectionState): void {
         this.#abort?.abort();

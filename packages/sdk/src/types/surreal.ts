@@ -23,6 +23,7 @@ export type CodecFactory = (options: CodecOptions) => ValueCodec;
 export type Codecs = Partial<Record<CodecType, CodecFactory>>;
 export type CodecRegistry = Record<CodecType, ValueCodec>;
 export type QueryType = "live" | "kill" | "other";
+export type Feature = "live-queries";
 
 /**
  * The communication contract between the SDK and a SurrealDB datastore.
@@ -58,6 +59,7 @@ export interface SurrealProtocol {
  * An engine responsible for communicating to a SurrealDB datastore
  */
 export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEvents> {
+    features: Set<Feature>;
     open(state: ConnectionState): void;
     close(): Promise<void>;
 }

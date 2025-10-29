@@ -108,6 +108,8 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
     protected async dispatch(): Promise<LiveSubscription> {
         await this.#connection.ready();
 
+        this.#connection.assertFeature("live-queries");
+
         return new ManagedLiveSubscription(
             this.#publisher,
             this.#connection,
@@ -168,6 +170,8 @@ export class UnmanagedLivePromise extends DispatchedPromise<LiveSubscription> {
 
     protected async dispatch(): Promise<LiveSubscription> {
         await this.#connection.ready();
+
+        this.#connection.assertFeature("live-queries");
 
         return new UnmanagedLiveSubscription(this.#connection, this.#options.id);
     }

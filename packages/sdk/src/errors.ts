@@ -1,3 +1,5 @@
+import type { Feature } from "./types";
+
 export class SurrealError extends Error {}
 
 /**
@@ -92,14 +94,6 @@ export class UnsupportedEngine extends SurrealError {
     constructor(engine: string) {
         super(`The engine "${engine}" is not supported or configured`);
     }
-}
-
-/**
- * Thrown when a feature is not available for the current engine
- */
-export class FeatureUnavailableForEngine extends SurrealError {
-    override name = "FeatureUnavailableForEngine";
-    override message = "The feature you are trying to use is not available on this engine";
 }
 
 /**
@@ -296,5 +290,17 @@ export class InvalidDateError extends SurrealError {
 
     constructor(date: Date) {
         super(`Invalid date: ${date}`);
+    }
+}
+
+/**
+ * Thrown when a feature is not supported by the current engine
+ */
+export class UnsupportedFeatureError extends SurrealError {
+    override name = "UnsupportedFeatureError";
+
+    constructor(feature: Feature) {
+        super();
+        this.message = `The configured engine does not support the feature: ${feature}`;
     }
 }

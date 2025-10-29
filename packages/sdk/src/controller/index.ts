@@ -5,6 +5,7 @@ import {
     ConnectionUnavailable,
     SurrealError,
     UnsupportedEngine,
+    UnsupportedFeatureError,
 } from "../errors";
 import { ReconnectContext } from "../internal/reconnect";
 import { fastParseJwt } from "../internal/tokens";
@@ -20,6 +21,7 @@ import type {
     ConnectOptions,
     DriverContext,
     EventPublisher,
+    Feature,
     LiveMessage,
     MlExportOptions,
     NamespaceDatabase,
@@ -139,6 +141,17 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         if (error) {
             throw error;
+        }
+    }
+
+    public hasFeature(feature: Feature): boolean {
+        if (!this.#engine) return false;
+        return this.#engine.features.has(feature);
+    }
+
+    public assertFeature(feature: Feature): void {
+        if (!this.hasFeature(feature)) {
+            throw new UnsupportedFeatureError(feature);
         }
     }
 

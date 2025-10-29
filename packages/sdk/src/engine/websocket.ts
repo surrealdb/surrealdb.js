@@ -8,7 +8,7 @@ import {
 } from "../errors";
 import type { LiveAction, LiveMessage, RpcRequest, RpcResponse } from "../types";
 import { LIVE_ACTIONS } from "../types/live";
-import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
+import type { ConnectionState, EngineEvents, Feature, SurrealEngine } from "../types/surreal";
 import { ChannelIterator } from "../utils/channel-iterator";
 import { Publisher } from "../utils/publisher";
 import { RecordId, Uuid } from "../value";
@@ -43,6 +43,8 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     #pinger: Interval;
     #active = false;
     #terminated = false;
+
+    features = new Set<Feature>(["live-queries"]);
 
     subscribe<K extends keyof EngineEvents>(
         event: K,

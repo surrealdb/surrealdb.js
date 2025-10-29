@@ -7,6 +7,7 @@ import type {
     DiagnosticKey,
     DiagnosticResult,
     EngineEvents,
+    Feature,
     LiveMessage,
     MlExportOptions,
     NamespaceDatabase,
@@ -33,6 +34,10 @@ export class DiagnosticsEngine implements SurrealEngine {
     constructor(delegate: SurrealEngine, callback: DiagnosticsCallback) {
         this.#delegate = delegate;
         this.#callback = callback;
+    }
+
+    get features(): Set<Feature> {
+        return this.#delegate.features;
     }
 
     subscribe<K extends keyof EngineEvents>(
