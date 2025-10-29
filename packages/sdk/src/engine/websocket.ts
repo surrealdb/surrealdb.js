@@ -168,7 +168,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             }
 
             // Open a new connection
-            const WebSocketImpl = this._context.options.websocketImpl ?? WebSocket;
+            const WebSocketImpl = this._context.options.websocketImpl ?? window.WebSocket;
             const socket = new WebSocketImpl(this._state.url.toString(), "cbor");
             if (socket.binaryType === "blob") socket.binaryType = "arraybuffer";
 

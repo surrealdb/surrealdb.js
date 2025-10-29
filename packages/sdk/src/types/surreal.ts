@@ -80,6 +80,7 @@ export interface DriverOptions {
     codecs?: Codecs;
     codecOptions?: CodecOptions;
     websocketImpl?: typeof WebSocket;
+    fetchImpl?: typeof fetch;
 }
 
 /**
