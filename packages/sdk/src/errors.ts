@@ -70,7 +70,8 @@ export class UnsupportedEngineError extends SurrealError {
  */
 export class ConnectionUnavailableError extends SurrealError {
     override name = "ConnectionUnavailableError";
-    override message = "There is no connection available at this moment";
+    override message =
+        "You must be connected to a SurrealDB instance before performing this operation";
 }
 
 /**
