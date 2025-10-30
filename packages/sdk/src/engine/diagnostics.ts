@@ -92,7 +92,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         return this.#diagnose(
             "use",
             () => this.#delegate.use(what, session),
-            () => ({ requested: what }),
+            () => ({ requested: what, session }),
         );
     }
 
@@ -100,7 +100,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         return this.#diagnose(
             "signup",
             () => this.#delegate.signup(auth, session),
-            () => ({ variant: "system_user" }),
+            () => ({ variant: "system_user", session }),
         );
     }
 
@@ -109,15 +109,14 @@ export class DiagnosticsEngine implements SurrealEngine {
             "signin",
             () => this.#delegate.signin(auth, session),
             () => {
-                if ("key" in auth) {
-                    return { variant: "bearer_access" };
-                }
+                const variant =
+                    "key" in auth
+                        ? "bearer_access"
+                        : "variables" in auth
+                          ? "record_access"
+                          : "system_user";
 
-                if ("variables" in auth) {
-                    return { variant: "record_access" };
-                }
-
-                return { variant: "system_user" };
+                return { variant, session };
             },
         );
     }
@@ -126,7 +125,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         return this.#diagnose(
             "authenticate",
             () => this.#delegate.authenticate(token, session),
-            () => ({ variant: "token" }),
+            () => ({ variant: "token", session }),
         );
     }
 
@@ -134,7 +133,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         return this.#diagnose(
             "set",
             () => this.#delegate.set(name, value, session),
-            () => ({ name, value }),
+            () => ({ name, value, session }),
         );
     }
 
@@ -142,7 +141,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         return this.#diagnose(
             "unset",
             () => this.#delegate.unset(name, session),
-            () => ({ name }),
+            () => ({ name, session }),
         );
     }
 
@@ -150,7 +149,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         return this.#diagnose(
             "invalidate",
             () => this.#delegate.invalidate(session),
-            () => undefined,
+            () => ({ session }),
         );
     }
 
@@ -158,7 +157,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         return this.#diagnose(
             "reset",
             () => this.#delegate.reset(session),
-            () => undefined,
+            () => ({ session }),
         );
     }
 
@@ -208,6 +207,7 @@ export class DiagnosticsEngine implements SurrealEngine {
                                 params: query.bindings,
                                 transaction: txn,
                                 chunk: chunk,
+                                session,
                             },
                         });
 
@@ -224,6 +224,7 @@ export class DiagnosticsEngine implements SurrealEngine {
                             query: query.query,
                             params: query.bindings,
                             transaction: txn,
+                            session,
                         },
                     });
                 } catch (error) {

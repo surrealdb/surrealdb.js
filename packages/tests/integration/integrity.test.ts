@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { applyDiagnostics, createRemoteEngines, InvalidDateError, RecordId } from "surrealdb";
+import { InvalidDateError, RecordId } from "surrealdb";
 import { setupServer, testTable } from "./__helpers__";
 
 const { createSurreal } = await setupServer();
