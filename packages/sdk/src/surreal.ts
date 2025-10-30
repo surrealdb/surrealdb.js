@@ -259,7 +259,29 @@ export class Surreal implements EventPublisher<SurrealEvents> {
     }
 
     /**
-     * Create a new session on this connection and return a dedicated `Surreal` instance scoped to the new session.
+     * Create a new session on this connection by cloning the current session and return a dedicated
+     * `Surreal` instance scoped to it.
+     *
+     * This session will contain its own copy of global variables, namespace, database, and authentication state.
+     * Connection related functions and event subscriptions will be shared with the original session. When the
+     * connection reconnects, the session will be automatically restored.
+     *
+     * You can invoke `reset()` on the created session to destroy it, after which it cannot be used again.
+     *
+     * The following properties are inherited by the new session:
+     * - namespace
+     * - database
+     * - variables
+     * - authentication state
+     *
+     * @returns The new session
+     */
+    async forkSession(): Promise<Surreal> {
+        return new Surreal(this, await this.#connection.createSession(this.#session));
+    }
+
+    /**
+     * Create a fresh new session on this connection and return a dedicated `Surreal` instance scoped to it.
      *
      * This session will contain its own copy of global variables, namespace, database, and authentication state.
      * Connection related functions and event subscriptions will be shared with the original session. When the
@@ -270,14 +292,10 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * If you pass `true` for the `clone` parameter, the new session will contain a copy of the global state of the current session,
      * including the namespace, database, variables, and authentication state.
      *
-     * @param clone Whether to clone the global state of the current session into the new session.
-     * @returns
+     * @returns The new session
      */
-    async startSession(inherit: boolean = false): Promise<Surreal> {
-        const cloneId = inherit ? this.#session : null;
-        const session = await this.#connection.createSession(cloneId);
-
-        return new Surreal(this, session);
+    async newSession(): Promise<Surreal> {
+        return new Surreal(this, await this.#connection.createSession(null));
     }
 
     // =========================================================== //

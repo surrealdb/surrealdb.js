@@ -11,12 +11,12 @@ describe("sessions", async () => {
         expect(surreal.session).toBeUndefined();
     });
 
-    test("startSession", async () => {
+    test("newSession()", async () => {
         const surreal = await createSurreal();
 
         await surreal.set("foo", "bar");
 
-        const session = await surreal.startSession();
+        const session = await surreal.newSession();
 
         expect(surreal.session).not.toEqual(session.session);
         expect(surreal.parameters.foo).toEqual("bar");
@@ -24,14 +24,16 @@ describe("sessions", async () => {
         expect(session.isValid).toBeTrue();
         expect(session.session).toBeDefined();
         expect(session.parameters.foo).toBeUndefined();
+        expect(session.namespace).toBeUndefined();
+        expect(session.database).toBeUndefined();
     });
 
-    test("startSession with clone", async () => {
+    test("forkSession()", async () => {
         const surreal = await createSurreal();
 
         await surreal.set("foo", "bar");
 
-        const session = await surreal.startSession(true);
+        const session = await surreal.forkSession();
 
         expect(surreal.session).not.toEqual(session.session);
         expect(surreal.parameters.foo).toEqual("bar");
@@ -43,7 +45,7 @@ describe("sessions", async () => {
 
     test("request sessions list", async () => {
         const surreal = await createSurreal();
-        const session = await surreal.startSession(true);
+        const session = await surreal.forkSession();
 
         expect(surreal.session).not.toEqual(session.session);
 
@@ -56,8 +58,8 @@ describe("sessions", async () => {
     test("session isolation", async () => {
         const surreal = await createSurreal();
 
-        const session1 = await surreal.startSession(true);
-        const session2 = await surreal.startSession(true);
+        const session1 = await surreal.forkSession();
+        const session2 = await surreal.forkSession();
 
         await session1.set("foo", "hello");
         await session2.set("foo", "world");
