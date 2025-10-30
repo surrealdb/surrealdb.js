@@ -1,12 +1,11 @@
 import {
     ConnectionUnavailableError,
-    InvalidSessionError,
     MissingNamespaceDatabaseError,
     ResponseError,
     SurrealError,
     UnexpectedServerResponseError,
 } from "../errors";
-
+import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
@@ -67,13 +66,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             }
         }
 
-        const session = request.session
-            ? this._state.sessions.get(request.session)
-            : this._state.rootSession;
-
-        if (!session) {
-            throw new InvalidSessionError(request.session);
-        }
+        const session = getSessionFromState(this._state, request.session);
 
         if ((!session.namespace || !session.database) && !ALWAYS_ALLOW.has(request.method)) {
             throw new MissingNamespaceDatabaseError();
