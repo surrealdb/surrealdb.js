@@ -201,6 +201,10 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return sessionId;
     }
 
+    propagateError(error: Error): void {
+        this.#eventPublisher.publish("error", error);
+    }
+
     health(): Promise<void> {
         if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine?.health();

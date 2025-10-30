@@ -1,9 +1,8 @@
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import type { SurrealEvents } from "../surreal";
 import type { Expr, ExprLike, LiveResource, Session } from "../types";
 import type { Field, Selection } from "../types/internal";
-import { type BoundQuery, type Publisher, surql } from "../utils";
+import { type BoundQuery, surql } from "../utils";
 import {
     type LiveSubscription,
     ManagedLiveSubscription,
@@ -26,17 +25,11 @@ interface ManagedLiveOptions {
  */
 export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
     #connection: ConnectionController;
-    #publisher: Publisher<SurrealEvents>;
     #options: ManagedLiveOptions;
 
-    constructor(
-        connection: ConnectionController,
-        publisher: Publisher<SurrealEvents>,
-        options: ManagedLiveOptions,
-    ) {
+    constructor(connection: ConnectionController, options: ManagedLiveOptions) {
         super();
         this.#connection = connection;
-        this.#publisher = publisher;
         this.#options = options;
     }
 
@@ -45,7 +38,7 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
      * instead of the full resource on each update.
      */
     diff(): ManagedLivePromise<T> {
-        return new ManagedLivePromise(this.#connection, this.#publisher, {
+        return new ManagedLivePromise(this.#connection, {
             ...this.#options,
             fields: [],
             selection: "diff",
@@ -56,7 +49,7 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
      * Configure the query to only select the specified field(s)
      */
     fields(...fields: Field<T>[]): ManagedLivePromise<T> {
-        return new ManagedLivePromise(this.#connection, this.#publisher, {
+        return new ManagedLivePromise(this.#connection, {
             ...this.#options,
             fields: fields as string[],
             selection: "fields",
@@ -67,7 +60,7 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
      * Configure the query to retrieve the value of the specified field
      */
     value(field: Field<T>): ManagedLivePromise<T> {
-        return new ManagedLivePromise(this.#connection, this.#publisher, {
+        return new ManagedLivePromise(this.#connection, {
             ...this.#options,
             fields: [field as string],
             selection: "value",
@@ -83,7 +76,7 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
      * @see {@link https://github.com/surrealdb/surrealdb.js/blob/main/packages/sdk/src/utils/expr.ts}
      */
     where(expr: ExprLike): ManagedLivePromise<T> {
-        return new ManagedLivePromise(this.#connection, this.#publisher, {
+        return new ManagedLivePromise(this.#connection, {
             ...this.#options,
             cond: expr ? expr : undefined,
         });
@@ -93,7 +86,7 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
      * Configure the query to fetch record link contents for the specified field(s)
      */
     fetch(...fields: Field<T>[]): ManagedLivePromise<T> {
-        return new ManagedLivePromise(this.#connection, this.#publisher, {
+        return new ManagedLivePromise(this.#connection, {
             ...this.#options,
             fetch: fields as string[],
         });
@@ -112,7 +105,6 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
         this.#connection.assertFeature("live-queries");
 
         return new ManagedLiveSubscription(
-            this.#publisher,
             this.#connection,
             this.#options.what,
             this.#options.session,
