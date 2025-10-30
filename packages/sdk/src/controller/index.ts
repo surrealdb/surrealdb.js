@@ -37,12 +37,9 @@ import type {
     Token,
     VersionInfo,
 } from "../types";
-import type { BoundQuery } from "../utils";
+import { type BoundQuery, isVersionSupported, MAXIMUM_VERSION, MINIMUM_VERSION } from "../utils";
 import { Publisher } from "../utils/publisher";
 import { Uuid } from "../value";
-
-const MINIMUM_VERSION = "2.0.0";
-const MAXIMUM_VERSION = "4.0.0";
 
 type ConnectionEvents = {
     connecting: [];
@@ -77,6 +74,24 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     constructor(context: DriverContext) {
         this.#context = context;
     }
+
+    public get state(): ConnectionState | undefined {
+        return this.#state;
+    }
+
+    public get status(): ConnectionStatus {
+        return this.#status;
+    }
+
+    propagateError(error: Error): void {
+        this.#eventPublisher.publish("error", error);
+    }
+
+    // =========================================================== //
+    //                                                             //
+    //                    Connection Management                    //
+    //                                                             //
+    // =========================================================== //
 
     public async connect(url: URL, options: ConnectOptions): Promise<true> {
         const engine = this.#instanceEngine(url);
@@ -133,14 +148,6 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return true;
     }
 
-    public get state(): ConnectionState | undefined {
-        return this.#state;
-    }
-
-    public get status(): ConnectionStatus {
-        return this.#status;
-    }
-
     public async ready(): Promise<void> {
         if (this.#status === "disconnected") {
             throw new ConnectionUnavailableError();
@@ -157,53 +164,33 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         }
     }
 
-    public hasFeature(feature: Feature): boolean {
-        if (!this.#engine) return false;
-        return this.#engine.features.has(feature);
+    async #matchVersion(
+        min?: string,
+        until?: string,
+    ): Promise<{ version: string; matches: boolean }> {
+        const { version } = await this.version();
+        const matches = isVersionSupported(version, min, until);
+
+        return { version, matches };
     }
 
-    public assertFeature(feature: Feature): void {
-        if (!this.hasFeature(feature)) {
-            throw new UnsupportedFeatureError(feature);
-        }
-    }
+    #instanceEngine(url: URL): SurrealEngine {
+        const engineMap = this.#context.options.engines ?? createRemoteEngines();
+        const protocol = url.protocol.slice(0, -1);
+        const factory = engineMap[protocol];
 
-    hasSession(session: Session): boolean {
-        if (!this.#state) return false;
-        if (session === undefined) return true;
-        return this.#state.sessions.has(session);
-    }
-
-    getSession(session: Session): ConnectionSession {
-        if (!this.#state) throw new ConnectionUnavailableError();
-        return getSessionFromState(this.#state, session);
-    }
-
-    async createSession(clone: Session | null): Promise<Session> {
-        if (!this.#state) throw new ConnectionUnavailableError();
-
-        const { matches } = await this.#matchVersion("3.0.0");
-
-        if (!matches) {
-            throw new SurrealError("Sessions are not supported with this version of SurrealDB");
+        if (!factory) {
+            throw new UnsupportedEngineError(protocol);
         }
 
-        const sessionId = Uuid.v4();
-
-        if (clone === null) {
-            this.#state.sessions.set(sessionId, this.#createSessionState(sessionId));
-        } else {
-            const state = this.#cloneSessionState(sessionId, clone);
-            this.#state.sessions.set(sessionId, state);
-            await this.#restoreSession(state);
-        }
-
-        return sessionId;
+        return factory(this.#context);
     }
 
-    propagateError(error: Error): void {
-        this.#eventPublisher.publish("error", error);
-    }
+    // =========================================================== //
+    //                                                             //
+    //                      Protocol Wrappers                      //
+    //                                                             //
+    // =========================================================== //
 
     health(): Promise<void> {
         if (!this.#engine) throw new ConnectionUnavailableError();
@@ -360,6 +347,12 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.liveQuery(id);
     }
 
+    // =========================================================== //
+    //                                                             //
+    //                       Status Callbacks                      //
+    //                                                             //
+    // =========================================================== //
+
     async #onConnected(): Promise<void> {
         try {
             // Perform version check
@@ -400,6 +393,12 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#status = "reconnecting";
         this.#eventPublisher.publish("reconnecting");
     }
+
+    // =========================================================== //
+    //                                                             //
+    //                   Authentication Handling                   //
+    //                                                             //
+    // =========================================================== //
 
     async #applyAuthOrToken(auth: AuthOrToken, session: Session): Promise<void> {
         if (typeof auth === "string") {
@@ -482,16 +481,43 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         sessionState.authRenewal = undefined;
     }
 
-    #instanceEngine(url: URL): SurrealEngine {
-        const engineMap = this.#context.options.engines ?? createRemoteEngines();
-        const protocol = url.protocol.slice(0, -1);
-        const factory = engineMap[protocol];
+    // =========================================================== //
+    //                                                             //
+    //                      Session Management                     //
+    //                                                             //
+    // =========================================================== //
 
-        if (!factory) {
-            throw new UnsupportedEngineError(protocol);
+    hasSession(session: Session): boolean {
+        if (!this.#state) return false;
+        if (session === undefined) return true;
+        return this.#state.sessions.has(session);
+    }
+
+    getSession(session: Session): ConnectionSession {
+        if (!this.#state) throw new ConnectionUnavailableError();
+        return getSessionFromState(this.#state, session);
+    }
+
+    async createSession(clone: Session | null): Promise<Session> {
+        if (!this.#state) throw new ConnectionUnavailableError();
+
+        const { matches } = await this.#matchVersion("3.0.0");
+
+        if (!matches) {
+            throw new SurrealError("Sessions are not supported with this version of SurrealDB");
         }
 
-        return factory(this.#context);
+        const sessionId = Uuid.v4();
+
+        if (clone === null) {
+            this.#state.sessions.set(sessionId, this.#createSessionState(sessionId));
+        } else {
+            const state = this.#cloneSessionState(sessionId, clone);
+            this.#state.sessions.set(sessionId, state);
+            await this.#restoreSession(state);
+        }
+
+        return sessionId;
     }
 
     #allSessions(): ConnectionSession[] {
@@ -565,31 +591,5 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         if (!authRestored) {
             await this.#applyAuthProvider(session.id);
         }
-    }
-
-    /**
-     * Returns whether the datastore version is compatible with the specified
-     * version range.
-     *
-     * @param min Custom minimum version to check against
-     * @param until Custom maximum version to check against
-     * @returns the trimmed version and whether it satisfies the range
-     */
-    async #matchVersion(
-        min: string = MINIMUM_VERSION,
-        until: string = MAXIMUM_VERSION,
-    ): Promise<{ version: string; matches: boolean }> {
-        const { version } = await this.version();
-        const trimmed = version.replace("surrealdb-", "").trim();
-
-        const isMatch =
-            min.localeCompare(trimmed, undefined, {
-                numeric: true,
-            }) <= 0 &&
-            until.localeCompare(trimmed, undefined, {
-                numeric: true,
-            }) === 1;
-
-        return { version: trimmed, matches: isMatch };
     }
 }

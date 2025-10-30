@@ -4,6 +4,7 @@ export * from "./equals";
 export * from "./escape";
 export * from "./expr";
 export * from "./frame";
+export * from "./is-version-supported";
 export * from "./jsonify";
 export * from "./live";
 export * from "./publisher";
