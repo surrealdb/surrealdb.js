@@ -35,7 +35,6 @@ import type {
     SqlExportOptions,
     Token,
     Values,
-    Version,
     VersionInfo,
 } from "./types";
 import { BoundQuery } from "./utils";
@@ -739,10 +738,10 @@ export class Surreal implements EventPublisher<SurrealEvents> {
      * @param version The version of the function to use
      * @param args The arguments supplied to the function
      */
-    run<T>(name: string, version: Version, args?: unknown[]): RunPromise<T>;
+    run<T>(name: string, version: string, args?: unknown[]): RunPromise<T>;
 
     // Shadow implementation
-    run(name: string, arg2?: Version | unknown[], arg3?: unknown[]): unknown {
+    run(name: string, arg2?: string | unknown[], arg3?: unknown[]): unknown {
         if (typeof arg2 === "string") {
             return new RunPromise(this.#connection, {
                 name,

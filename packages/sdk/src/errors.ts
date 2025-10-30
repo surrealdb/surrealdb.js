@@ -147,14 +147,15 @@ export class UnsupportedVersionError extends SurrealError {
     override name = "UnsupportedVersionError";
 
     readonly version: string;
-    readonly supportedRange: string;
+    readonly minimum: string;
+    readonly maximum: string;
 
-    constructor(version: string, supportedRange: string) {
-        super(
-            `The version "${version}" reported by the engine does not satisfy the supported range: "${supportedRange}"`,
-        );
+    constructor(version: string, minimum: string, maximum: string) {
+        super();
         this.version = version;
-        this.supportedRange = supportedRange;
+        this.minimum = minimum;
+        this.maximum = maximum;
+        this.message = `The version "${version}" reported by the engine is not supported by this library, expected a version that satisfies >= ${minimum} < ${maximum}`;
     }
 }
 

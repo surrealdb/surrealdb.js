@@ -2,7 +2,7 @@ import type { ConnectionController } from "../controller";
 import { SurrealError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Session, Version } from "../types";
+import type { Session } from "../types";
 import { BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { Uuid } from "../value";
@@ -13,7 +13,7 @@ const VERSION_REGEX = /^[0-9.]+$/;
 
 interface RunOptions {
     name: string;
-    version: Version | undefined;
+    version: string | undefined;
     args: unknown[];
     transaction: Uuid | undefined;
     session: Session;
