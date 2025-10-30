@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { setupServer } from "./__helpers__";
+import { satisfies } from "semver";
+import { requestVersion, setupServer } from "./__helpers__";
 
 const { createSurreal } = await setupServer();
+const version = await requestVersion();
+const is3x = satisfies(version, ">=3.0.0-alpha.1");
 
-describe("sessions", async () => {
+describe.if(is3x)("sessions", async () => {
     test("default session is undefined", async () => {
         const surreal = await createSurreal();
 

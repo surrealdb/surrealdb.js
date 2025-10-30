@@ -181,3 +181,13 @@ async function waitForHealth(): Promise<void> {
 
     throw new Error("Could not resolve health endpoint after 10 seconds.");
 }
+
+export async function requestVersion(): Promise<string> {
+    const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "version"]);
+    const version = await Bun.readableStreamToText(proc.stdout);
+
+    return version
+        .replace(/^surrealdb-/, "")
+        .slice(0, version.indexOf(" "))
+        .trim();
+}

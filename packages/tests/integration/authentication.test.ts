@@ -1,15 +1,15 @@
 import { beforeAll, describe, expect, mock, test } from "bun:test";
 import { satisfies } from "semver";
 import { type AnyAuth, RecordId, ResponseError } from "surrealdb";
-import { createAuth, fetchVersion, setupServer } from "./__helpers__";
+import { createAuth, requestVersion, setupServer } from "./__helpers__";
 
 const { createSurreal, createIdleSurreal } = await setupServer();
 
+const version = await requestVersion();
+const is3x = satisfies(version, ">=3.0.0-alpha.1");
+
 beforeAll(async () => {
     const surreal = await createSurreal();
-    const version = await fetchVersion(surreal);
-
-    const is3x = satisfies(version, ">=3.0.0-alpha.1");
 
     if (is3x) {
         await surreal.query(/* surql */ `
@@ -29,7 +29,7 @@ beforeAll(async () => {
 		`);
     }
 
-    surreal.close();
+    await surreal.close();
 });
 
 describe("system auth", async () => {
