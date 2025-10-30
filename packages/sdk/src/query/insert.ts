@@ -2,7 +2,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Doc, Output } from "../types";
+import type { Output } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { DateTime, Duration, Table, Uuid } from "../value";
@@ -10,7 +10,7 @@ import { Query } from "./query";
 
 interface InsertOptions {
     table: Table | undefined;
-    what: Doc | Doc[];
+    what: unknown | unknown[];
     relation?: boolean;
     ignore?: boolean;
     output?: Output;

@@ -2,7 +2,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { AnyRecordId, Doc, Output } from "../types";
+import type { AnyRecordId, Output } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import { type DateTime, type Duration, RecordId, type Table, type Uuid } from "../value";
@@ -16,7 +16,7 @@ interface RelateOptions {
     output?: Output;
     timeout?: Duration;
     version?: DateTime;
-    data?: Doc;
+    data?: unknown;
     transaction: Uuid | undefined;
     json: boolean;
 }
