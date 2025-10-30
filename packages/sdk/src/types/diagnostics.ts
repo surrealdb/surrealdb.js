@@ -30,6 +30,8 @@ type DiagnosticMap = {
     use: UseInfo & SessionInfo;
     set: SetInfo & SessionInfo;
     unset: UnsetInfo & SessionInfo;
+    refresh: SessionInfo;
+    revoke: SessionInfo;
     invalidate: SessionInfo;
     reset: SessionInfo;
     sessions: Uuid[];

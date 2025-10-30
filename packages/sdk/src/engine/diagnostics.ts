@@ -1,7 +1,6 @@
 import type {
     AccessRecordAuth,
     AnyAuth,
-    AuthResponse,
     ConnectionState,
     Diagnostic,
     DiagnosticKey,
@@ -17,6 +16,7 @@ import type {
     SqlExportOptions,
     SurrealEngine,
     Token,
+    Tokens,
     VersionInfo,
 } from "../types";
 import type { BoundQuery } from "../utils";
@@ -96,7 +96,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async signup(auth: AccessRecordAuth, session: Session): Promise<AuthResponse> {
+    async signup(auth: AccessRecordAuth, session: Session): Promise<Tokens> {
         return this.#diagnose(
             "signup",
             () => this.#delegate.signup(auth, session),
@@ -104,7 +104,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async signin(auth: AnyAuth, session: Session): Promise<AuthResponse> {
+    async signin(auth: AnyAuth, session: Session): Promise<Tokens> {
         return this.#diagnose(
             "signin",
             () => this.#delegate.signin(auth, session),
@@ -149,6 +149,22 @@ export class DiagnosticsEngine implements SurrealEngine {
         return this.#diagnose(
             "invalidate",
             () => this.#delegate.invalidate(session),
+            () => ({ session }),
+        );
+    }
+
+    async refresh(tokens: Tokens, session: Session): Promise<Tokens> {
+        return this.#diagnose(
+            "refresh",
+            () => this.#delegate.refresh(tokens, session),
+            () => ({ session }),
+        );
+    }
+
+    async revoke(tokens: Tokens, session: Session): Promise<void> {
+        return this.#diagnose(
+            "revoke",
+            () => this.#delegate.revoke(tokens, session),
             () => ({ session }),
         );
     }

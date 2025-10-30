@@ -16,8 +16,6 @@ import type {
     AnyAuth,
     AuthOrToken,
     AuthProvider,
-    AuthRenewer,
-    AuthResponse,
     ConnectionSession,
     ConnectionState,
     ConnectionStatus,
@@ -35,6 +33,7 @@ import type {
     SurrealEngine,
     SurrealProtocol,
     Token,
+    Tokens,
     VersionInfo,
 } from "../types";
 import { type BoundQuery, isVersionSupported, MAXIMUM_VERSION, MINIMUM_VERSION } from "../utils";
@@ -61,7 +60,9 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #nextEngine: SurrealEngine | undefined;
     #status: ConnectionStatus = "disconnected";
     #authProvider: AuthProvider | undefined;
-    #renewAccess: AuthRenewer = false;
+    #authRenewal: ReturnType<typeof setTimeout> | undefined;
+    #refreshAccess = false;
+    #renewAccess = false;
     #checkVersion = true;
 
     subscribe<K extends keyof ConnectionEvents>(
@@ -111,6 +112,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#nextEngine = undefined;
         this.#authProvider = options.authentication;
         this.#checkVersion = options.versionCheck ?? true;
+        this.#refreshAccess = options.refreshAccess ?? true;
         this.#renewAccess = options.renewAccess ?? true;
         this.#state = {
             url,
@@ -218,7 +220,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.sessions();
     }
 
-    async signup(auth: AccessRecordAuth, session: Session): Promise<AuthResponse> {
+    async signup(auth: AccessRecordAuth, session: Session): Promise<Tokens> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
@@ -233,7 +235,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return response;
     }
 
-    async signin(auth: AnyAuth, session: Session): Promise<AuthResponse> {
+    async signin(auth: AnyAuth, session: Session): Promise<Tokens> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
@@ -307,6 +309,29 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         const sessionState = this.getSession(session);
 
         delete sessionState.variables[name];
+    }
+
+    async revoke(tokens: Tokens, session: Session): Promise<void> {
+        if (!this.#engine || !this.#state) {
+            throw new ConnectionUnavailableError();
+        }
+
+        await this.#engine.revoke(tokens, session);
+    }
+
+    async refresh(tokens: Tokens, session: Session): Promise<Tokens> {
+        if (!this.#engine || !this.#state) {
+            throw new ConnectionUnavailableError();
+        }
+
+        const response = await this.#engine.refresh(tokens, session);
+        const sessionState = this.getSession(session);
+
+        sessionState.accessToken = response.access;
+        sessionState.refreshToken = response.refresh;
+        this.#handleAuthUpdate(session);
+
+        return response;
     }
 
     async invalidate(session: Session): Promise<void> {
@@ -458,19 +483,23 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     async #renewAuth(session: Session): Promise<void> {
-        if (this.#renewAccess === false) {
-            this.#handleAuthInvalidate(session);
+        const sessionState = this.getSession(session);
+        const access = sessionState.accessToken;
+        const refresh = sessionState.refreshToken;
+
+        // Attempt to refresh the session using the refresh token
+        if (this.#refreshAccess && access && refresh) {
+            await this.refresh({ access, refresh }, session);
             return;
         }
 
-        if (this.#renewAccess === true) {
+        // Fall back to using the auth provider
+        if (this.#renewAccess) {
             await this.#applyAuthProvider(session);
             return;
         }
 
-        const auth = await this.#renewAccess(session);
-
-        await this.#applyAuthOrToken(auth, session);
+        this.#handleAuthInvalidate(session);
     }
 
     #handleAuthInvalidate(session: Session): void {
