@@ -1,4 +1,4 @@
-import { UnsupportedVersion } from "../errors.ts";
+import { UnsupportedVersionError } from "../errors.ts";
 import type { Version } from "../types";
 
 export const MINIMUM_VERSION: Version = "2.0.0";
@@ -20,7 +20,7 @@ export function versionCheck(
     until: Version = MAXIMUM_VERSION,
 ): true {
     if (!isVersionSupported(version, min, until)) {
-        throw new UnsupportedVersion(version, `>= ${min} < ${until}`);
+        throw new UnsupportedVersionError(version, `>= ${min} < ${until}`);
     }
 
     return true;

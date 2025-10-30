@@ -1,5 +1,5 @@
 import type { ConnectionController } from "../controller";
-import { ConnectionUnavailable, LiveSubscriptionFailed, SurrealError } from "../errors";
+import { ConnectionUnavailableError, LiveSubscriptionError, SurrealError } from "../errors";
 import { Query } from "../query";
 import type { LiveMessage, LiveResource } from "../types";
 import type { Uuid } from "../value";
@@ -172,7 +172,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
                 }
             }
         } catch (err: unknown) {
-            this.#publisher.publish("error", new LiveSubscriptionFailed(err));
+            this.#publisher.publish("error", new LiveSubscriptionError(err));
         }
     }
 }
@@ -194,7 +194,7 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
         this.#id = id;
 
         if (this.#controller.status !== "connected") {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         (async () => {
