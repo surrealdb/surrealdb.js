@@ -1,4 +1,4 @@
-import { ConnectionUnavailableError } from "../errors";
+import { ConnectionUnavailableError, UnexpectedServerResponseError } from "../errors";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
@@ -68,15 +68,13 @@ export abstract class RpcEngine implements SurrealProtocol {
         }
 
         const sessionState = getSessionFromState(this._state, session);
-        const token: string = await this.send({
+        const response = await this.send({
             method: "signup",
             params: [buildRpcAuth(sessionState, auth)],
             session,
         });
 
-        return {
-            token,
-        };
+        return this.parseTokens(response);
     }
 
     async signin(auth: AnyAuth, session: Session): Promise<AuthResponse> {
@@ -85,15 +83,13 @@ export abstract class RpcEngine implements SurrealProtocol {
         }
 
         const sessionState = getSessionFromState(this._state, session);
-        const token: string = await this.send({
+        const response = await this.send({
             method: "signin",
             params: [buildRpcAuth(sessionState, auth)],
             session,
         });
 
-        return {
-            token,
-        };
+        return this.parseTokens(response);
     }
 
     async authenticate(token: Token, session: Session): Promise<void> {
@@ -234,6 +230,21 @@ export abstract class RpcEngine implements SurrealProtocol {
     }
 
     abstract liveQuery(id: Uuid): AsyncIterable<LiveMessage>;
+
+    parseTokens(response: unknown): AuthResponse {
+        if (typeof response === "string") {
+            return {
+                access: response,
+                refresh: undefined,
+            };
+        }
+
+        if (typeof response === "object") {
+            return response as AuthResponse;
+        }
+
+        throw new UnexpectedServerResponseError(response);
+    }
 
     abstract send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,

@@ -60,6 +60,6 @@ export type AuthRenewer = boolean | AuthCallable;
 export type AuthProvider = AuthOrToken | AuthCallable;
 
 export type AuthResponse = {
-    token: Token;
+    access: Token;
     refresh?: Token;
 };

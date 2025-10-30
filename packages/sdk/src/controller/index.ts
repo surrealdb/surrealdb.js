@@ -226,7 +226,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         const response = await this.#engine.signup(auth, session);
         const sessionState = this.getSession(session);
 
-        sessionState.accessToken = response.token;
+        sessionState.accessToken = response.access;
         sessionState.refreshToken = response.refresh;
         this.#handleAuthUpdate(session);
 
@@ -241,7 +241,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         const response = await this.#engine.signin(auth, session);
         const sessionState = this.getSession(session);
 
-        sessionState.accessToken = response.token;
+        sessionState.accessToken = response.access;
         sessionState.refreshToken = response.refresh;
         this.#handleAuthUpdate(session);
 
