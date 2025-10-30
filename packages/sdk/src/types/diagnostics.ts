@@ -31,7 +31,7 @@ type DiagnosticMap = {
     unset: UnsetInfo;
     invalidate: undefined;
     reset: undefined;
-    listSessions: Uuid[];
+    sessions: Uuid[];
     importSql: undefined;
     exportSql: undefined;
     exportMlModel: undefined;

@@ -82,7 +82,7 @@ export class DiagnosticsEngine implements SurrealEngine {
 
     async sessions(): Promise<Uuid[]> {
         return this.#diagnose(
-            "listSessions",
+            "sessions",
             () => this.#delegate.sessions(),
             (list) => list,
         );
