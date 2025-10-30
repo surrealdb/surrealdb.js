@@ -14,6 +14,7 @@ export async function fetchSurreal(
     options: FetchSurrealOptions,
 ): Promise<Uint8Array> {
     const endpoint = new URL(options.url ?? state.url);
+    const fetchImpl = context.options.fetchImpl ?? globalThis.fetch;
     const headerMap: Record<string, string> = {
         "Content-Type": "application/cbor",
         Accept: "application/cbor",
@@ -34,7 +35,7 @@ export async function fetchSurreal(
 
     endpoint.protocol = endpoint.protocol.replace("ws", "http");
 
-    const raw = await fetch(endpoint, {
+    const raw = await fetchImpl(endpoint, {
         method: options.method ?? "POST",
         headers: headerMap,
         body: options.body ? context.codecs.cbor.encode(options.body) : undefined,
