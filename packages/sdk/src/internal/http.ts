@@ -14,7 +14,7 @@ export async function fetchSurreal(
     options: FetchSurrealOptions,
 ): Promise<Uint8Array> {
     const endpoint = new URL(options.url ?? state.url);
-    const fetchImpl = context.options.fetchImpl ?? window.fetch;
+    const fetchImpl = context.options.fetchImpl ?? globalThis.fetch;
     const headerMap: Record<string, string> = {
         "Content-Type": "application/cbor",
         Accept: "application/cbor",
