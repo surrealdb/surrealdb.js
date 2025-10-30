@@ -114,9 +114,9 @@ export class SurrealSession {
      * @returns The new session
      */
     async forkSession(): Promise<SurrealSession> {
-        const session = await this.#connection.createSession(this.#session);
+        const created = await this.#connection.createSession(this.#session);
 
-        return new SurrealSession(this.#connection, session);
+        return SurrealSession.of(this, created);
     }
 
     // =========================================================== //
@@ -574,5 +574,20 @@ export class SurrealSession {
             session: this.#session,
             json: false,
         });
+    }
+
+    /**
+     * Compose a new `SurrealSession` instance with the provided parent connection
+     * and session ID.
+     *
+     * You likely won't need to use this method directly, but it can be useful when
+     * you need to compose a new `SurrealSession` instance from an id.
+     *
+     * @param session The parent connection or session to reference
+     * @param id The ID of the session
+     * @returns A new `SurrealSession` representing the provided ID
+     */
+    static of(parent: SurrealSession, id: Session): SurrealSession {
+        return new SurrealSession(parent.#connection, id);
     }
 }

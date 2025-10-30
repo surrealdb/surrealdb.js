@@ -208,7 +208,9 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
      * @returns The new session
      */
     async newSession(): Promise<SurrealSession> {
-        return new SurrealSession(this.#connection, await this.#connection.createSession(null));
+        const created = await this.#connection.createSession(null);
+
+        return SurrealSession.of(this, created);
     }
 
     // =========================================================== //
