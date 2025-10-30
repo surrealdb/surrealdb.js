@@ -572,6 +572,11 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             await this.use(what, session.id);
         }
 
+        // Apply defined variables
+        for (const [name, value] of Object.entries(session.variables)) {
+            await this.set(name, value, session.id);
+        }
+
         // Attempt to re-authenticate the existing token
         if (session.accessToken) {
             const payload = fastParseJwt(session.accessToken);

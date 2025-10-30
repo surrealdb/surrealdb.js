@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { satisfies } from "semver";
 import { requestVersion, setupServer } from "./__helpers__";
 
-const { createSurreal } = await setupServer();
+const { createSurreal, spawn, kill } = await setupServer();
 const version = await requestVersion();
 const is3x = satisfies(version, ">=3.0.0-alpha.1");
 
@@ -76,5 +76,40 @@ describe.if(is3x)("sessions", async () => {
         const sessions = await surreal.sessions();
 
         expect(sessions.length).toBe(2);
+    });
+
+    test("reset session", async () => {
+        const surreal = await createSurreal();
+        const session = await surreal.forkSession();
+
+        expect(session.isValid).toBeTrue();
+
+        await session.reset();
+
+        expect(session.isValid).toBeFalse();
+    });
+
+    test("restore state after reconnect", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+
+        await surreal.set("foo", "bar");
+
+        const session = await surreal.forkSession();
+
+        await session.set("hello", "world");
+
+        await kill();
+        await spawn();
+
+        const [foo, hello] = await session
+            .query("RETURN $foo; RETURN $hello")
+            .collect<[string, string]>();
+
+        expect(foo).toBe("bar");
+        expect(hello).toBe("world");
     });
 });
