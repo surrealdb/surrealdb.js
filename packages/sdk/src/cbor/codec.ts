@@ -47,6 +47,9 @@ export const TAG_BOUND_EXCLUDED = 51;
 // File Pointer
 const TAG_FILE_POINTER = 55;
 
+// Sets
+const TAG_SET = 56;
+
 // Custom Geometries
 const TAG_GEOMETRY_POINT = 88;
 const TAG_GEOMETRY_LINE = 89;
@@ -117,6 +120,9 @@ export class CborCodec implements ValueCodec {
         if (value instanceof FileRef) {
             return new Tagged(TAG_FILE_POINTER, [value.bucket, value.key]);
         }
+        if (value instanceof Set) {
+            return new Tagged(TAG_SET, [...value]);
+        }
         if (value instanceof GeometryPoint) {
             return new Tagged(TAG_GEOMETRY_POINT, value.point);
         }
@@ -162,6 +168,7 @@ export class CborCodec implements ValueCodec {
             return this.#decodeValue(new RecordId(v[0], v[1]));
         },
         [TAG_FILE_POINTER]: (v) => this.#decodeValue(new FileRef(v[0], v[1])),
+        [TAG_SET]: (v) => this.#decodeValue(new Set(v)),
         [TAG_GEOMETRY_POINT]: (v) => this.#decodeValue(new GeometryPoint(v)),
         [TAG_GEOMETRY_LINE]: (v) => this.#decodeValue(new GeometryLine(v)),
         [TAG_GEOMETRY_POLYGON]: (v) => this.#decodeValue(new GeometryPolygon(v)),
