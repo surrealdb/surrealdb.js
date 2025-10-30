@@ -547,7 +547,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             database: state.database,
             accessToken: state.accessToken,
             refreshToken: state.refreshToken,
-            authRenewal: state.authRenewal,
+            authRenewal: undefined,
         };
     }
 
