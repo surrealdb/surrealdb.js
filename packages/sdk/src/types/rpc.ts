@@ -1,4 +1,4 @@
-import type { QueryType } from "./surreal";
+import type { QueryType, Session } from "./surreal";
 
 export type RpcQueryResult<T = unknown> = RpcQueryResultOk<T> | RpcQueryResultErr;
 export type RpcQueryResultOk<T> = {
@@ -19,6 +19,7 @@ export type RpcRequest<
     Params extends unknown[] | undefined = unknown[],
 > = {
     method: Method;
+    session?: Session;
     params?: Params;
 };
 

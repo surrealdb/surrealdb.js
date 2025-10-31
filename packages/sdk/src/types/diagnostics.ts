@@ -1,9 +1,10 @@
 import type { Duration, Uuid } from "../value";
 import type { Nullable } from "./helpers";
 import type { LiveMessage } from "./live";
-import type { NamespaceDatabase, QueryChunk, VersionInfo } from "./surreal";
+import type { NamespaceDatabase, QueryChunk, Session, VersionInfo } from "./surreal";
 
 type AuthVariant = "system_user" | "token" | "record_access" | "bearer_access";
+type SessionInfo = { session: Session };
 type AuthInfo = { variant: AuthVariant };
 type UseInfo = { requested: Nullable<NamespaceDatabase> };
 type SetInfo = { name: string; value: unknown };
@@ -17,20 +18,21 @@ type QueryInfo = {
 };
 
 type DiagnosticMap = {
-    query: QueryInfo;
+    query: QueryInfo & SessionInfo;
     liveQuery: LiveQueryInfo;
     version: VersionInfo;
-    signup: AuthInfo;
-    signin: AuthInfo;
-    authenticate: AuthInfo;
+    signup: AuthInfo & SessionInfo;
+    signin: AuthInfo & SessionInfo;
+    authenticate: AuthInfo & SessionInfo;
     open: undefined;
     close: undefined;
     health: undefined;
-    use: UseInfo;
-    set: SetInfo;
-    unset: UnsetInfo;
-    invalidate: undefined;
-    reset: undefined;
+    use: UseInfo & SessionInfo;
+    set: SetInfo & SessionInfo;
+    unset: UnsetInfo & SessionInfo;
+    invalidate: SessionInfo;
+    reset: SessionInfo;
+    sessions: Uuid[];
     importSql: undefined;
     exportSql: undefined;
     exportMlModel: undefined;

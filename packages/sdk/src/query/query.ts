@@ -2,6 +2,7 @@ import type { ConnectionController } from "../controller";
 import { ResponseError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
+import type { Session } from "../types";
 import type { BoundQuery } from "../utils";
 import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../utils/frame";
 import type { Uuid } from "../value";
@@ -9,6 +10,7 @@ import type { Uuid } from "../value";
 interface QueryOptions {
     query: BoundQuery;
     transaction: Uuid | undefined;
+    session: Session;
     json: boolean;
 }
 
@@ -70,8 +72,8 @@ export class Query<
     async collect<T extends unknown[] = R>(...queries: number[]): Promise<Collect<T, J>> {
         await this.#connection.ready();
 
-        const { query, transaction, json } = this.#options;
-        const chunks = this.#connection.query(query, transaction);
+        const { query, transaction, session, json } = this.#options;
+        const chunks = this.#connection.query(query, session, transaction);
         const responses: unknown[] = [];
         const queryIndexes =
             queries.length > 0 ? new Map(queries.map((idx, i) => [idx, i])) : undefined;
@@ -130,8 +132,8 @@ export class Query<
     async *stream<T = unknown>(): AsyncIterable<Frame<T, J>> {
         await this.#connection.ready();
 
-        const { query, transaction, json } = this.#options;
-        const chunks = this.#connection.query(query, transaction);
+        const { query, transaction, session, json } = this.#options;
+        const chunks = this.#connection.query(query, session, transaction);
 
         for await (const chunk of chunks) {
             if (chunk.error) {
@@ -164,8 +166,8 @@ export class Query<
     async dispatch(): Promise<void> {
         await this.#connection.ready();
 
-        const { query, transaction } = this.#options;
-        const chunks = this.#connection.query(query, transaction);
+        const { query, transaction, session } = this.#options;
+        const chunks = this.#connection.query(query, session, transaction);
 
         for await (const chunk of chunks) {
             if (chunk.error) {

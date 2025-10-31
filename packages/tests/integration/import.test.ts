@@ -1,15 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { compareVersions } from "compare-versions";
-import { fetchVersion, setupServer } from "./__helpers__";
+import { setupServer } from "./__helpers__";
 
 const { createSurreal } = await setupServer();
 
 describe("import", async () => {
     const surreal = await createSurreal();
-    const version = await fetchVersion(surreal);
-    const runTest = compareVersions(version, "2.0.0") >= 0;
 
-    test.if(runTest)("basic", async () => {
+    test("basic", async () => {
         await surreal.import(/* surql */ `
 			CREATE foo:1 CONTENT { hello: "world" };
 		`);

@@ -1,5 +1,6 @@
 import { ConnectionUnavailableError } from "../errors";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
+import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
 import type {
     AccessRecordAuth,
@@ -14,6 +15,7 @@ import type {
     QueryChunk,
     RpcQueryResult,
     RpcRequest,
+    Session,
     SqlExportOptions,
     SurrealProtocol,
     Token,
@@ -46,21 +48,30 @@ export abstract class RpcEngine implements SurrealProtocol {
         };
     }
 
-    async use(what: Nullable<NamespaceDatabase>): Promise<void> {
+    async sessions(): Promise<Uuid[]> {
+        return await this.send({
+            method: "sessions",
+        });
+    }
+
+    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void> {
         await this.send({
             method: "use",
             params: [what.namespace, what.database],
+            session,
         });
     }
 
-    async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
+    async signup(auth: AccessRecordAuth, session: Session): Promise<AuthResponse> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
 
+        const sessionState = getSessionFromState(this._state, session);
         const token: string = await this.send({
             method: "signup",
-            params: [buildRpcAuth(this._state, auth)],
+            params: [buildRpcAuth(sessionState, auth)],
+            session,
         });
 
         return {
@@ -68,14 +79,16 @@ export abstract class RpcEngine implements SurrealProtocol {
         };
     }
 
-    async signin(auth: AnyAuth): Promise<AuthResponse> {
+    async signin(auth: AnyAuth, session: Session): Promise<AuthResponse> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
 
+        const sessionState = getSessionFromState(this._state, session);
         const token: string = await this.send({
             method: "signin",
-            params: [buildRpcAuth(this._state, auth)],
+            params: [buildRpcAuth(sessionState, auth)],
+            session,
         });
 
         return {
@@ -83,36 +96,41 @@ export abstract class RpcEngine implements SurrealProtocol {
         };
     }
 
-    async authenticate(token: Token): Promise<void> {
+    async authenticate(token: Token, session: Session): Promise<void> {
         await this.send({
             method: "authenticate",
             params: [token],
+            session,
         });
     }
 
-    async set(name: string, value: unknown): Promise<void> {
+    async set(name: string, value: unknown, session: Session): Promise<void> {
         await this.send({
             method: "let",
             params: [name, value],
+            session,
         });
     }
 
-    async unset(name: string): Promise<void> {
+    async unset(name: string, session: Session): Promise<void> {
         await this.send({
             method: "unset",
             params: [name],
+            session,
         });
     }
 
-    async invalidate(): Promise<void> {
+    async invalidate(session: Session): Promise<void> {
         await this.send({
             method: "invalidate",
+            session,
         });
     }
 
-    async reset(): Promise<void> {
+    async reset(session: Session): Promise<void> {
         await this.send({
             method: "reset",
+            session,
         });
     }
 
@@ -126,7 +144,7 @@ export abstract class RpcEngine implements SurrealProtocol {
 
         endpoint.pathname = `${basepath}/import`;
 
-        await fetchSurreal(this._context, this._state, {
+        await fetchSurreal(this._context, this._state, this._state.rootSession, {
             body: data,
             url: endpoint,
             headers: {
@@ -145,7 +163,7 @@ export abstract class RpcEngine implements SurrealProtocol {
 
         endpoint.pathname = `${basepath}/export`;
 
-        const buffer = await fetchSurreal(this._context, this._state, {
+        const buffer = await fetchSurreal(this._context, this._state, this._state.rootSession, {
             body: options ?? {},
             url: endpoint,
             headers: {
@@ -166,16 +184,17 @@ export abstract class RpcEngine implements SurrealProtocol {
 
         endpoint.pathname = `${basepath}/ml/export/${options.name}/${options.version}`;
 
-        return await fetchSurreal(this._context, this._state, {
+        return await fetchSurreal(this._context, this._state, this._state.rootSession, {
             url: endpoint,
             method: "GET",
         });
     }
 
-    async *query<T>(query: BoundQuery): AsyncIterable<QueryChunk<T>> {
+    async *query<T>(query: BoundQuery, session: Session): AsyncIterable<QueryChunk<T>> {
         const responses: RpcQueryResult[] = await this.send({
             method: "query",
             params: [query.query, query.bindings],
+            session,
         });
 
         let index = 0;

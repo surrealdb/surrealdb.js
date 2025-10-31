@@ -6,7 +6,9 @@ import {
     SurrealError,
     UnsupportedEngineError,
     UnsupportedFeatureError,
+    UnsupportedVersionError,
 } from "../errors";
+import { getSessionFromState } from "../internal/get-session-from-state";
 import { ReconnectContext } from "../internal/reconnect";
 import { fastParseJwt } from "../internal/tokens";
 import type {
@@ -16,6 +18,7 @@ import type {
     AuthProvider,
     AuthRenewer,
     AuthResponse,
+    ConnectionSession,
     ConnectionState,
     ConnectionStatus,
     ConnectOptions,
@@ -27,15 +30,16 @@ import type {
     NamespaceDatabase,
     Nullable,
     QueryChunk,
+    Session,
     SqlExportOptions,
     SurrealEngine,
     SurrealProtocol,
     Token,
     VersionInfo,
 } from "../types";
-import { type BoundQuery, versionCheck } from "../utils";
+import { type BoundQuery, isVersionSupported, MAXIMUM_VERSION, MINIMUM_VERSION } from "../utils";
 import { Publisher } from "../utils/publisher";
-import type { Uuid } from "../value";
+import { Uuid } from "../value";
 
 type ConnectionEvents = {
     connecting: [];
@@ -43,9 +47,10 @@ type ConnectionEvents = {
     disconnected: [];
     reconnecting: [];
     error: [Error];
-    authenticated: [Token];
-    invalidated: [];
-    using: [NamespaceDatabase];
+    authenticated: [Token, Session];
+    invalidated: [Session];
+    using: [NamespaceDatabase, Session];
+    reset: [Session];
 };
 
 export class ConnectionController implements SurrealProtocol, EventPublisher<ConnectionEvents> {
@@ -56,7 +61,6 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #nextEngine: SurrealEngine | undefined;
     #status: ConnectionStatus = "disconnected";
     #authProvider: AuthProvider | undefined;
-    #authRenewal: ReturnType<typeof setTimeout> | undefined;
     #renewAccess: AuthRenewer = false;
     #checkVersion = true;
 
@@ -70,6 +74,24 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     constructor(context: DriverContext) {
         this.#context = context;
     }
+
+    public get state(): ConnectionState | undefined {
+        return this.#state;
+    }
+
+    public get status(): ConnectionStatus {
+        return this.#status;
+    }
+
+    propagateError(error: Error): void {
+        this.#eventPublisher.publish("error", error);
+    }
+
+    // =========================================================== //
+    //                                                             //
+    //                    Connection Management                    //
+    //                                                             //
+    // =========================================================== //
 
     public async connect(url: URL, options: ConnectOptions): Promise<true> {
         const engine = this.#instanceEngine(url);
@@ -92,16 +114,18 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#renewAccess = options.renewAccess ?? true;
         this.#state = {
             url,
-            variables: {},
-            namespace: options.namespace,
-            database: options.database,
-            accessToken: undefined,
+            sessions: new Map(),
             reconnect: new ReconnectContext(options.reconnect),
+            rootSession: {
+                ...this.#createSessionState(undefined),
+                namespace: options.namespace,
+                database: options.database,
+            },
         };
 
-        this.#engine.subscribe("connected", () => this.onConnected());
-        this.#engine.subscribe("disconnected", () => this.onDisconnected());
-        this.#engine.subscribe("reconnecting", () => this.onReconnecting());
+        this.#engine.subscribe("connected", () => this.#onConnected());
+        this.#engine.subscribe("disconnected", () => this.#onDisconnected());
+        this.#engine.subscribe("reconnecting", () => this.#onReconnecting());
 
         this.#status = "connecting";
         this.#eventPublisher.publish("connecting");
@@ -113,19 +137,15 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     public async disconnect(): Promise<true> {
+        for (const session of this.#allSessions()) {
+            this.#destroySession(session.id);
+        }
+
         if (this.#engine) {
             await this.#engine.close();
         }
 
         return true;
-    }
-
-    public get state(): ConnectionState | undefined {
-        return this.#state;
-    }
-
-    public get status(): ConnectionStatus {
-        return this.#status;
     }
 
     public async ready(): Promise<void> {
@@ -155,6 +175,34 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         }
     }
 
+    async #matchVersion(
+        min?: string,
+        until?: string,
+    ): Promise<{ version: string; matches: boolean }> {
+        const { version } = await this.version();
+        const matches = isVersionSupported(version, min, until);
+
+        return { version, matches };
+    }
+
+    #instanceEngine(url: URL): SurrealEngine {
+        const engineMap = this.#context.options.engines ?? createRemoteEngines();
+        const protocol = url.protocol.slice(0, -1);
+        const factory = engineMap[protocol];
+
+        if (!factory) {
+            throw new UnsupportedEngineError(protocol);
+        }
+
+        return factory(this.#context);
+    }
+
+    // =========================================================== //
+    //                                                             //
+    //                      Protocol Wrappers                      //
+    //                                                             //
+    // =========================================================== //
+
     health(): Promise<void> {
         if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine?.health();
@@ -165,46 +213,54 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.version();
     }
 
-    async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
+    async sessions(): Promise<Uuid[]> {
+        if (!this.#engine) throw new ConnectionUnavailableError();
+        return this.#engine.sessions();
+    }
+
+    async signup(auth: AccessRecordAuth, session: Session): Promise<AuthResponse> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
 
-        const response = await this.#engine.signup(auth);
+        const response = await this.#engine.signup(auth, session);
+        const sessionState = this.getSession(session);
 
-        this.#state.accessToken = response.token;
-        this.#state.refreshToken = response.refresh;
-        this.handleAuthUpdate();
+        sessionState.accessToken = response.token;
+        sessionState.refreshToken = response.refresh;
+        this.#handleAuthUpdate(session);
 
         return response;
     }
 
-    async signin(auth: AnyAuth): Promise<AuthResponse> {
+    async signin(auth: AnyAuth, session: Session): Promise<AuthResponse> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
 
-        const response = await this.#engine.signin(auth);
+        const response = await this.#engine.signin(auth, session);
+        const sessionState = this.getSession(session);
 
-        this.#state.accessToken = response.token;
-        this.#state.refreshToken = response.refresh;
-        this.handleAuthUpdate();
+        sessionState.accessToken = response.token;
+        sessionState.refreshToken = response.refresh;
+        this.#handleAuthUpdate(session);
 
         return response;
     }
 
-    async authenticate(token: Token): Promise<void> {
+    async authenticate(token: Token, session: Session): Promise<void> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
 
-        await this.#engine.authenticate(token);
+        await this.#engine.authenticate(token, session);
+        const sessionState = this.getSession(session);
 
-        this.#state.accessToken = token;
-        this.handleAuthUpdate();
+        sessionState.accessToken = token;
+        this.#handleAuthUpdate(session);
     }
 
-    async use(what: Nullable<NamespaceDatabase>): Promise<void> {
+    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
@@ -213,59 +269,68 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             throw new SurrealError("Cannot unset namespace without unsetting database");
         }
 
-        await this.#engine.use(what);
+        await this.#engine.use(what, session);
 
         const { namespace, database } = what;
+        const sessionState = this.getSession(session);
 
-        if (namespace === null) this.#state.namespace = undefined;
-        if (database === null) this.#state.database = undefined;
-        if (namespace) this.#state.namespace = namespace;
-        if (database) this.#state.database = database;
+        if (namespace === null) sessionState.namespace = undefined;
+        if (database === null) sessionState.database = undefined;
+        if (namespace) sessionState.namespace = namespace;
+        if (database) sessionState.database = database;
 
-        this.#eventPublisher.publish("using", {
-            namespace: this.#state.namespace,
-            database: this.#state.database,
-        });
+        const selected: NamespaceDatabase = {
+            namespace: sessionState.namespace,
+            database: sessionState.database,
+        };
+
+        this.#eventPublisher.publish("using", selected, session);
     }
 
-    async set(name: string, value: unknown): Promise<void> {
+    async set(name: string, value: unknown, session: Session): Promise<void> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
 
-        await this.#engine.set(name, value);
-        this.#state.variables[name] = value;
+        await this.#engine.set(name, value, session);
+        const sessionState = this.getSession(session);
+
+        sessionState.variables[name] = value;
     }
 
-    async unset(name: string): Promise<void> {
+    async unset(name: string, session: Session): Promise<void> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
 
-        await this.#engine.unset(name);
-        delete this.#state.variables[name];
+        await this.#engine.unset(name, session);
+        const sessionState = this.getSession(session);
+
+        delete sessionState.variables[name];
     }
 
-    async invalidate(): Promise<void> {
+    async invalidate(session: Session): Promise<void> {
         if (!this.#engine) throw new ConnectionUnavailableError();
-        await this.#engine.invalidate();
-        this.handleAuthInvalidate();
+        await this.#engine.invalidate(session);
+        this.#handleAuthInvalidate(session);
     }
 
-    async reset(): Promise<void> {
+    async reset(session: Session): Promise<void> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
 
-        await this.#engine.reset();
-        this.#state.namespace = undefined;
-        this.#state.database = undefined;
-        this.#state.variables = {};
-        this.handleAuthInvalidate();
-        this.#eventPublisher.publish("using", {
-            namespace: undefined,
-            database: undefined,
-        });
+        await this.#engine.reset(session);
+
+        if (session === undefined) {
+            this.#state.rootSession.namespace = undefined;
+            this.#state.rootSession.database = undefined;
+            this.#state.rootSession.variables = {};
+            this.#handleAuthInvalidate(session);
+            this.#eventPublisher.publish("reset", session);
+        } else {
+            this.#destroySession(session);
+        }
     }
 
     importSql(data: string): Promise<void> {
@@ -283,9 +348,9 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.exportMlModel(options);
     }
 
-    query<T>(query: BoundQuery, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
+    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
         if (!this.#engine) throw new ConnectionUnavailableError();
-        return this.#engine.query(query, txn);
+        return this.#engine.query(query, session, txn);
     }
 
     liveQuery(id: Uuid): AsyncIterable<LiveMessage> {
@@ -293,27 +358,27 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.liveQuery(id);
     }
 
-    private async onConnected(): Promise<void> {
+    // =========================================================== //
+    //                                                             //
+    //                       Status Callbacks                      //
+    //                                                             //
+    // =========================================================== //
+
+    async #onConnected(): Promise<void> {
         try {
             // Perform version check
             if (this.#checkVersion) {
-                const { version } = await this.version();
+                const { version, matches } = await this.#matchVersion();
 
-                if (version) {
-                    versionCheck(version);
+                if (!matches) {
+                    throw new UnsupportedVersionError(version, MINIMUM_VERSION, MAXIMUM_VERSION);
                 }
             }
 
-            // Apply selected namespace and database
-            if (this.#state?.namespace || this.#state?.database) {
-                await this.use({
-                    namespace: this.#state.namespace,
-                    database: this.#state.database,
-                });
+            // Restore all previous sessions
+            for (const session of this.#allSessions()) {
+                await this.#restoreSession(session);
             }
-
-            // Apply authentication details
-            await this.applyAuthProvider();
 
             this.#status = "connected";
             this.#eventPublisher.publish("connected");
@@ -324,41 +389,57 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         }
     }
 
-    private onDisconnected(): void {
+    #onDisconnected(): void {
+        for (const session of this.#allSessions()) {
+            this.#cancelAuthRenewal(session.id);
+        }
+
         this.#state = undefined;
         this.#engine = undefined;
         this.#status = "disconnected";
         this.#eventPublisher.publish("disconnected");
-        this.cancelAuthRenewal();
     }
 
-    private onReconnecting(): void {
+    #onReconnecting(): void {
         this.#status = "reconnecting";
         this.#eventPublisher.publish("reconnecting");
     }
 
-    private async applyAuthOrToken(auth: AuthOrToken): Promise<void> {
+    // =========================================================== //
+    //                                                             //
+    //                   Authentication Handling                   //
+    //                                                             //
+    // =========================================================== //
+
+    async #applyAuthOrToken(auth: AuthOrToken, session: Session): Promise<void> {
         if (typeof auth === "string") {
-            await this.authenticate(auth);
+            await this.authenticate(auth, session);
         } else {
-            await this.signin(auth);
+            await this.signin(auth, session);
         }
     }
 
-    private async applyAuthProvider(): Promise<void> {
+    async #applyAuthProvider(session: Session): Promise<void> {
         const provider = this.#authProvider;
         if (!provider) return;
 
-        await this.applyAuthOrToken(typeof provider === "function" ? await provider() : provider);
+        await this.#applyAuthOrToken(
+            typeof provider === "function" ? await provider(session) : provider,
+            session,
+        );
     }
 
-    private handleAuthUpdate(): void {
-        if (!this.#state || !this.#state.accessToken) return;
+    #handleAuthUpdate(session: Session): void {
+        if (!this.#state) return;
 
-        this.cancelAuthRenewal();
-        this.#eventPublisher.publish("authenticated", this.#state.accessToken);
+        const sessionState = this.getSession(session);
 
-        const token = this.#state.accessToken;
+        if (!sessionState.accessToken) return;
+
+        this.#cancelAuthRenewal(session);
+        this.#eventPublisher.publish("authenticated", sessionState.accessToken, session);
+
+        const token = sessionState.accessToken;
         const payload = fastParseJwt(token);
 
         // Check expirey existance
@@ -369,52 +450,162 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         const delay = Math.max((payload.exp - now - 60) * 1000, 0);
 
         // Schedule next renewal or invalidation
-        this.#authRenewal = setTimeout(() => {
-            this.renewAuth().catch((err) => {
+        sessionState.authRenewal = setTimeout(() => {
+            this.#renewAuth(session).catch((err) => {
                 this.#eventPublisher.publish("error", new AuthenticationError(err));
             });
         }, delay);
     }
 
-    private async renewAuth(): Promise<void> {
+    async #renewAuth(session: Session): Promise<void> {
         if (this.#renewAccess === false) {
-            this.handleAuthInvalidate();
+            this.#handleAuthInvalidate(session);
             return;
         }
 
         if (this.#renewAccess === true) {
-            await this.applyAuthProvider();
+            await this.#applyAuthProvider(session);
             return;
         }
 
-        const auth = await this.#renewAccess();
+        const auth = await this.#renewAccess(session);
 
-        await this.applyAuthOrToken(auth);
+        await this.#applyAuthOrToken(auth, session);
     }
 
-    private handleAuthInvalidate(): void {
+    #handleAuthInvalidate(session: Session): void {
         if (!this.#state) return;
-        this.#state.accessToken = undefined;
-        this.#state.refreshToken = undefined;
-        this.cancelAuthRenewal();
-        this.#eventPublisher.publish("invalidated");
+        const sessionState = this.getSession(session);
+
+        sessionState.accessToken = undefined;
+        sessionState.refreshToken = undefined;
+
+        this.#cancelAuthRenewal(session);
+        this.#eventPublisher.publish("invalidated", session);
     }
 
-    private cancelAuthRenewal(): void {
-        if (this.#authRenewal === undefined) return;
-        clearTimeout(this.#authRenewal);
-        this.#authRenewal = undefined;
+    #cancelAuthRenewal(session: Session): void {
+        if (!this.#state) return;
+        const sessionState = this.getSession(session);
+        if (!sessionState.authRenewal) return;
+        clearTimeout(sessionState.authRenewal);
+        sessionState.authRenewal = undefined;
     }
 
-    #instanceEngine(url: URL): SurrealEngine {
-        const engineMap = this.#context.options.engines ?? createRemoteEngines();
-        const protocol = url.protocol.slice(0, -1);
-        const factory = engineMap[protocol];
+    // =========================================================== //
+    //                                                             //
+    //                      Session Management                     //
+    //                                                             //
+    // =========================================================== //
 
-        if (!factory) {
-            throw new UnsupportedEngineError(protocol);
+    hasSession(session: Session): boolean {
+        if (!this.#state) return false;
+        if (session === undefined) return true;
+        return this.#state.sessions.has(session);
+    }
+
+    getSession(session: Session): ConnectionSession {
+        if (!this.#state) throw new ConnectionUnavailableError();
+        return getSessionFromState(this.#state, session);
+    }
+
+    async createSession(clone: Session | null): Promise<Session> {
+        if (!this.#state) throw new ConnectionUnavailableError();
+
+        const { matches } = await this.#matchVersion("3.0.0");
+
+        if (!matches) {
+            throw new SurrealError("Sessions are not supported with this version of SurrealDB");
         }
 
-        return factory(this.#context);
+        const sessionId = Uuid.v4();
+
+        if (clone === null) {
+            this.#state.sessions.set(sessionId, this.#createSessionState(sessionId));
+        } else {
+            const state = this.#cloneSessionState(sessionId, clone);
+            this.#state.sessions.set(sessionId, state);
+            await this.#restoreSession(state);
+        }
+
+        return sessionId;
+    }
+
+    #allSessions(): ConnectionSession[] {
+        if (!this.#state) return [];
+        return [this.#state.rootSession, ...Array.from(this.#state.sessions.values())];
+    }
+
+    #createSessionState(id: Session): ConnectionSession {
+        return {
+            id,
+            variables: {},
+            namespace: undefined,
+            database: undefined,
+            accessToken: undefined,
+            refreshToken: undefined,
+            authRenewal: undefined,
+        };
+    }
+
+    #cloneSessionState(newId: Session, existingId: Session): ConnectionSession {
+        const state = this.getSession(existingId);
+
+        return {
+            id: newId,
+            variables: { ...state.variables },
+            namespace: state.namespace,
+            database: state.database,
+            accessToken: state.accessToken,
+            refreshToken: state.refreshToken,
+            authRenewal: undefined,
+        };
+    }
+
+    #destroySession(session: Session): void {
+        if (!this.#state || !session) return;
+
+        this.#handleAuthInvalidate(session);
+        this.#state.sessions.delete(session);
+        this.#eventPublisher.publish("reset", session);
+    }
+
+    async #restoreSession(session: ConnectionSession): Promise<void> {
+        let authRestored = false;
+
+        // Apply selected namespace and database
+        if (session.namespace || session.database) {
+            const what: NamespaceDatabase = {
+                namespace: session.namespace,
+                database: session.database,
+            };
+
+            await this.use(what, session.id);
+        }
+
+        // Apply defined variables
+        for (const [name, value] of Object.entries(session.variables)) {
+            await this.set(name, value, session.id);
+        }
+
+        // Attempt to re-authenticate the existing token
+        if (session.accessToken) {
+            const payload = fastParseJwt(session.accessToken);
+
+            if (payload?.exp) {
+                const now = Math.floor(Date.now() / 1000);
+                const isValid = payload.exp - now > 60;
+
+                if (isValid) {
+                    await this.authenticate(session.accessToken, session.id);
+                    authRestored = true;
+                }
+            }
+        }
+
+        // Renew the session
+        if (!authRestored) {
+            await this.#applyAuthProvider(session.id);
+        }
     }
 }

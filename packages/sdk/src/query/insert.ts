@@ -2,7 +2,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Output } from "../types";
+import type { Output, Session } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { DateTime, Duration, Table, Uuid } from "../value";
@@ -17,6 +17,7 @@ interface InsertOptions {
     timeout?: Duration;
     version?: DateTime;
     transaction: Uuid | undefined;
+    session: Session;
     json: boolean;
 }
 
@@ -128,8 +129,18 @@ export class InsertPromise<T, J extends boolean = false> extends DispatchedPromi
     }
 
     #build(): Query<[T], J> {
-        const { table, what, transaction, json, output, timeout, version, relation, ignore } =
-            this.#options;
+        const {
+            table,
+            what,
+            transaction,
+            session,
+            json,
+            output,
+            timeout,
+            version,
+            relation,
+            ignore,
+        } = this.#options;
 
         const query = surql`INSERT`;
 
@@ -163,6 +174,7 @@ export class InsertPromise<T, J extends boolean = false> extends DispatchedPromi
             query,
             transaction,
             json,
+            session,
         });
     }
 }
