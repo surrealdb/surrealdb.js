@@ -113,7 +113,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#engine = engine;
         this.#nextEngine = undefined;
         this.#authProvider = options.authentication;
-        this.#checkVersion = options.versionCheck ?? true; // TODO ALWAYS CACHE VERSION
+        this.#checkVersion = options.versionCheck ?? true;
         this.#refreshAccess = options.refreshAccess ?? true;
         this.#renewAccess = options.renewAccess ?? true;
         this.#state = {
