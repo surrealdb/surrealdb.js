@@ -164,6 +164,17 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         }
     }
 
+    public hasFeature(feature: Feature): boolean {
+        if (!this.#engine) return false;
+        return this.#engine.features.has(feature);
+    }
+
+    public assertFeature(feature: Feature): void {
+        if (!this.hasFeature(feature)) {
+            throw new UnsupportedFeatureError(feature);
+        }
+    }
+
     async #matchVersion(
         min?: string,
         until?: string,
