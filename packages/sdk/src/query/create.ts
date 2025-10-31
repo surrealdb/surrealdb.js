@@ -2,7 +2,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Doc, Mutation, Output, Values } from "../types";
+import type { Mutation, Output, Values } from "../types";
 import { type BoundQuery, raw, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { DateTime, Duration, RecordId, Table, Uuid } from "../value";
@@ -11,7 +11,7 @@ import { Query } from "./query";
 interface CreateOptions {
     what: RecordId | Table;
     mutation?: Mutation;
-    data?: Doc;
+    data?: unknown;
     output?: Output;
     timeout?: Duration;
     version?: DateTime;

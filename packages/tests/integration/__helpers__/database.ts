@@ -4,12 +4,12 @@ export const testTable: Table<"test"> = new Table("test");
 export const personTable: Table<"person"> = new Table("person");
 export const graphTable: Table<"graph"> = new Table("graph");
 
-export type Person = {
+export interface Person {
     id: RecordId<"person">;
     firstname: string;
     lastname: string;
     age?: number;
-};
+}
 
 export async function insertMockRecords(surreal: Surreal): Promise<void> {
     await surreal.insert([

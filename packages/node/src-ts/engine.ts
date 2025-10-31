@@ -1,9 +1,10 @@
 import {
     ChannelIterator,
     type ConnectionState,
-    ConnectionUnavailable,
+    ConnectionUnavailableError,
     type DriverContext,
     type EngineEvents,
+    type Feature,
     type LiveAction,
     type LiveMessage,
     Publisher,
@@ -43,6 +44,8 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         super(context);
         this.#options = options;
     }
+
+    features = new Set<Feature>(["live-queries"]);
 
     open(state: ConnectionState): void {
         this.#abort?.abort();
@@ -90,7 +93,7 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         request: RpcRequest<Method, Params>,
     ): Promise<Result> {
         if (!this.#active || !this.#engine) {
-            throw new ConnectionUnavailable();
+            throw new ConnectionUnavailableError();
         }
 
         const id = this._context.uniqueId();

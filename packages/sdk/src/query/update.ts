@@ -2,16 +2,16 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Doc, Expr, ExprLike, Mutation, Output, Values } from "../types";
+import type { Expr, ExprLike, Mutation, Output, Values } from "../types";
 import { type BoundQuery, raw, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { Duration, RecordId, RecordIdRange, Table, Uuid } from "../value";
 import { Query } from "./query";
 
 interface UpdateOptions {
-    thing: RecordId | RecordIdRange | Table;
+    what: RecordId | RecordIdRange | Table;
     mutation?: Mutation;
-    data?: Doc;
+    data?: unknown;
     cond?: Expr;
     output?: Output;
     timeout?: Duration;
@@ -155,9 +155,9 @@ export class UpdatePromise<T, I, J extends boolean = false> extends DispatchedPr
     }
 
     #build(): Query<[T], J> {
-        const { thing, data, transaction, json, cond, output, timeout, mutation } = this.#options;
+        const { what, data, transaction, json, cond, output, timeout, mutation } = this.#options;
 
-        const query = surql`UPDATE ${_only(thing)}`;
+        const query = surql`UPDATE ${_only(what)}`;
 
         if (mutation && data) {
             query.append(surql` ${raw(mutation.toUpperCase())} ${data}`);

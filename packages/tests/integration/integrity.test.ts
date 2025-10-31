@@ -63,6 +63,7 @@ describe("data integrity", async () => {
                 neg: number;
                 zero: number;
             };
+            array: number[];
         };
 
         const record = await surreal.create<Result>(id).content({
@@ -129,14 +130,22 @@ describe("data integrity", async () => {
         const smallNumber = Number.MIN_SAFE_INTEGER;
         const tinyNumber = Number.EPSILON;
 
-        await surreal.create(id).content({
+        type Result = {
+            minSafeInteger: number;
+            epsilon: number;
+            verySmall: number;
+            negativeSmall: number;
+            array: number[];
+        };
+
+        await surreal.create<Result>(id).content({
             minSafeInteger: smallNumber,
             epsilon: tinyNumber,
             verySmall: 0.0000000000000001,
             negativeSmall: -0.0000000000000001,
         });
 
-        const result = await surreal.select(id);
+        const result = await surreal.select<Result>(id);
 
         expect(result).toBeDefined();
         expect(result?.minSafeInteger).toBe(smallNumber);
@@ -147,13 +156,19 @@ describe("data integrity", async () => {
         const surreal = await createSurreal();
         const id = new RecordId("test", "zero");
 
-        await surreal.create(id).content({
+        type Result = {
+            zero: number;
+            negativeZero: number;
+            array: number[];
+        };
+
+        await surreal.create<Result>(id).content({
             zero: 0,
             negativeZero: -0,
             array: [0, -0, 0.0],
         });
 
-        const result = await surreal.select(id);
+        const result = await surreal.select<Result>(id);
 
         expect(result).toBeDefined();
         expect(result?.zero).toBe(0);
@@ -171,7 +186,17 @@ describe("data integrity", async () => {
         const surreal = await createSurreal();
         const id = new RecordId("test", "nullish");
 
-        await surreal.create(id).content({
+        type Result = {
+            nullValue: null;
+            undefinedValue: undefined;
+            nested: {
+                null: null;
+                undefined: undefined;
+                mixed: (null | undefined | string)[];
+            };
+        };
+
+        await surreal.create<Result>(id).content({
             nullValue: null,
             undefinedValue: undefined,
             nested: {
@@ -181,7 +206,7 @@ describe("data integrity", async () => {
             },
         });
 
-        const result = await surreal.select(id);
+        const result = await surreal.select<Result>(id);
 
         expect(result).toBeDefined();
         expect(result?.nullValue).toBe(null);

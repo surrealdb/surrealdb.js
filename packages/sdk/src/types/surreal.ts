@@ -23,6 +23,7 @@ export type CodecFactory = (options: CodecOptions) => ValueCodec;
 export type Codecs = Partial<Record<CodecType, CodecFactory>>;
 export type CodecRegistry = Record<CodecType, ValueCodec>;
 export type QueryType = "live" | "kill" | "other";
+export type Feature = "live-queries";
 
 /**
  * The communication contract between the SDK and a SurrealDB datastore.
@@ -58,6 +59,7 @@ export interface SurrealProtocol {
  * An engine responsible for communicating to a SurrealDB datastore
  */
 export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEvents> {
+    features: Set<Feature>;
     open(state: ConnectionState): void;
     close(): Promise<void>;
 }
@@ -80,6 +82,7 @@ export interface DriverOptions {
     codecs?: Codecs;
     codecOptions?: CodecOptions;
     websocketImpl?: typeof WebSocket;
+    fetchImpl?: typeof fetch;
 }
 
 /**
@@ -194,8 +197,14 @@ export interface DriverContext {
 /**
  * Represents a record response
  */
-export type RecordResult<T extends Record<string, unknown>> = Prettify<
-    T["id"] extends RecordId ? T : { id: RecordId } & T
+export type RecordResult<T> = Prettify<
+    T extends object
+        ? T extends { id: infer Id }
+            ? Id extends RecordId
+                ? T
+                : { id: RecordId } & Omit<T, "id">
+            : { id: RecordId } & T
+        : { id: RecordId }
 >;
 
 /**
