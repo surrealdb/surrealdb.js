@@ -60,10 +60,9 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #nextEngine: SurrealEngine | undefined;
     #status: ConnectionStatus = "disconnected";
     #authProvider: AuthProvider | undefined;
-    #authRenewal: ReturnType<typeof setTimeout> | undefined;
     #refreshAccess = false;
     #renewAccess = false;
-    #checkVersion = true;
+    #checkVersion = false;
 
     subscribe<K extends keyof ConnectionEvents>(
         event: K,
@@ -111,7 +110,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#engine = engine;
         this.#nextEngine = undefined;
         this.#authProvider = options.authentication;
-        this.#checkVersion = options.versionCheck ?? true;
+        this.#checkVersion = options.versionCheck ?? true; // TODO ALWAYS CACHE VERSION
         this.#refreshAccess = options.refreshAccess ?? true;
         this.#renewAccess = options.renewAccess ?? true;
         this.#state = {
