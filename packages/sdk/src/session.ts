@@ -17,13 +17,13 @@ import type {
     AccessRecordAuth,
     AnyAuth,
     AnyRecordId,
-    AuthResponse,
     LiveResource,
     NamespaceDatabase,
     Nullable,
     RecordResult,
     Session,
     Token,
+    Tokens,
     Values,
 } from "./types";
 import { BoundQuery } from "./utils";
@@ -152,7 +152,7 @@ export class SurrealSession {
      * @param auth The authentication details to use.
      * @return The authentication tokens.
      */
-    signup(auth: AccessRecordAuth): Promise<AuthResponse> {
+    signup(auth: AccessRecordAuth): Promise<Tokens> {
         return this.#connection.signup(auth, this.#session);
     }
 
@@ -162,7 +162,7 @@ export class SurrealSession {
      * @param auth The authentication details to use.
      * @return The authentication tokens.
      */
-    signin(auth: AnyAuth): Promise<AuthResponse> {
+    signin(auth: AnyAuth): Promise<Tokens> {
         return this.#connection.signin(auth, this.#session);
     }
 

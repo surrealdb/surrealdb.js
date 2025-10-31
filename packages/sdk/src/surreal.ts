@@ -1,6 +1,8 @@
 import { CborCodec } from "./cbor";
 import { ConnectionController } from "./controller";
+import { UnavailableFeatureError, UnsupportedFeatureError } from "./errors";
 import { FlatBufferCodec } from "./flatbuffer/codec";
+import type { Feature } from "./internal/feature";
 import { getIncrementalID } from "./internal/get-incremental-id";
 import { parseEndpoint } from "./internal/http";
 import { SurrealSession } from "./session";
@@ -176,6 +178,27 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
      */
     version(): Promise<VersionInfo> {
         return this.#connection.version();
+    }
+
+    /**
+     * Checks whether a feature is available in the current connection
+     *
+     * @param feature The feature to check
+     */
+    isFeatureSupported(feature: Feature): boolean {
+        try {
+            this.#connection.assertFeature(feature);
+            return true;
+        } catch (error) {
+            if (
+                error instanceof UnavailableFeatureError ||
+                error instanceof UnsupportedFeatureError
+            ) {
+                return false;
+            }
+
+            throw error;
+        }
     }
 
     // =========================================================== //

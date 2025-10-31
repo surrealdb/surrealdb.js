@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { satisfies } from "semver";
+import { SESSIONS_FEATURE } from "../../sdk/src/utils/features";
 import { requestVersion, setupServer } from "./__helpers__";
 
 const { createSurreal, spawn, kill } = await setupServer();
@@ -7,6 +8,12 @@ const version = await requestVersion();
 const is3x = satisfies(version, ">=3.0.0-alpha.1");
 
 describe.if(is3x)("sessions", async () => {
+    test("feature", async () => {
+        const surreal = await createSurreal();
+
+        expect(surreal.isFeatureSupported(SESSIONS_FEATURE)).toBeTrue();
+    });
+
     test("default session is undefined", async () => {
         const surreal = await createSurreal();
 

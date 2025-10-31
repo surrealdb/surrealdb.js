@@ -56,10 +56,9 @@ export type AnyAuth =
 export type Token = string;
 export type AuthOrToken = AnyAuth | Token;
 export type AuthCallable = (session: Session) => AuthOrToken | Promise<AuthOrToken>;
-export type AuthRenewer = boolean | AuthCallable;
 export type AuthProvider = AuthOrToken | AuthCallable;
 
-export type AuthResponse = {
-    token: Token;
+export type Tokens = {
+    access: Token;
     refresh?: Token;
 };

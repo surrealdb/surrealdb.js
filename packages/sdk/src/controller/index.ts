@@ -4,10 +4,12 @@ import {
     AuthenticationError,
     ConnectionUnavailableError,
     SurrealError,
+    UnavailableFeatureError,
     UnsupportedEngineError,
     UnsupportedFeatureError,
     UnsupportedVersionError,
 } from "../errors";
+import type { Feature } from "../internal/feature";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { ReconnectContext } from "../internal/reconnect";
 import { fastParseJwt } from "../internal/tokens";
@@ -16,15 +18,12 @@ import type {
     AnyAuth,
     AuthOrToken,
     AuthProvider,
-    AuthRenewer,
-    AuthResponse,
     ConnectionSession,
     ConnectionState,
     ConnectionStatus,
     ConnectOptions,
     DriverContext,
     EventPublisher,
-    Feature,
     LiveMessage,
     MlExportOptions,
     NamespaceDatabase,
@@ -35,9 +34,11 @@ import type {
     SurrealEngine,
     SurrealProtocol,
     Token,
+    Tokens,
     VersionInfo,
 } from "../types";
 import { type BoundQuery, isVersionSupported, MAXIMUM_VERSION, MINIMUM_VERSION } from "../utils";
+import { REFRESH_TOKENS_FEATURE, SESSIONS_FEATURE } from "../utils/features";
 import { Publisher } from "../utils/publisher";
 import { Uuid } from "../value";
 
@@ -61,8 +62,10 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #nextEngine: SurrealEngine | undefined;
     #status: ConnectionStatus = "disconnected";
     #authProvider: AuthProvider | undefined;
-    #renewAccess: AuthRenewer = false;
-    #checkVersion = true;
+    #cachedVersion: string | undefined;
+    #refreshAccess = false;
+    #renewAccess = false;
+    #checkVersion = false;
 
     subscribe<K extends keyof ConnectionEvents>(
         event: K,
@@ -111,6 +114,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#nextEngine = undefined;
         this.#authProvider = options.authentication;
         this.#checkVersion = options.versionCheck ?? true;
+        this.#refreshAccess = options.refreshAccess ?? true;
         this.#renewAccess = options.renewAccess ?? true;
         this.#state = {
             url,
@@ -164,25 +168,16 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         }
     }
 
-    public hasFeature(feature: Feature): boolean {
-        if (!this.#engine) return false;
-        return this.#engine.features.has(feature);
-    }
-
     public assertFeature(feature: Feature): void {
-        if (!this.hasFeature(feature)) {
+        if (!this.#engine || !this.#cachedVersion) throw new ConnectionUnavailableError();
+
+        if (!this.#engine.features.has(feature)) {
             throw new UnsupportedFeatureError(feature);
         }
-    }
 
-    async #matchVersion(
-        min?: string,
-        until?: string,
-    ): Promise<{ version: string; matches: boolean }> {
-        const { version } = await this.version();
-        const matches = isVersionSupported(version, min, until);
-
-        return { version, matches };
+        if (!feature.supports(this.#cachedVersion)) {
+            throw new UnavailableFeatureError(feature, this.#cachedVersion);
+        }
     }
 
     #instanceEngine(url: URL): SurrealEngine {
@@ -215,10 +210,13 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     async sessions(): Promise<Uuid[]> {
         if (!this.#engine) throw new ConnectionUnavailableError();
+
+        this.assertFeature(SESSIONS_FEATURE);
+
         return this.#engine.sessions();
     }
 
-    async signup(auth: AccessRecordAuth, session: Session): Promise<AuthResponse> {
+    async signup(auth: AccessRecordAuth, session: Session): Promise<Tokens> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
@@ -226,14 +224,14 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         const response = await this.#engine.signup(auth, session);
         const sessionState = this.getSession(session);
 
-        sessionState.accessToken = response.token;
+        sessionState.accessToken = response.access;
         sessionState.refreshToken = response.refresh;
         this.#handleAuthUpdate(session);
 
         return response;
     }
 
-    async signin(auth: AnyAuth, session: Session): Promise<AuthResponse> {
+    async signin(auth: AnyAuth, session: Session): Promise<Tokens> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
@@ -241,7 +239,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         const response = await this.#engine.signin(auth, session);
         const sessionState = this.getSession(session);
 
-        sessionState.accessToken = response.token;
+        sessionState.accessToken = response.access;
         sessionState.refreshToken = response.refresh;
         this.#handleAuthUpdate(session);
 
@@ -309,6 +307,33 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         delete sessionState.variables[name];
     }
 
+    async revoke(tokens: Tokens, session: Session): Promise<void> {
+        if (!this.#engine || !this.#state) {
+            throw new ConnectionUnavailableError();
+        }
+
+        this.assertFeature(REFRESH_TOKENS_FEATURE);
+
+        await this.#engine.revoke(tokens, session);
+    }
+
+    async refresh(tokens: Tokens, session: Session): Promise<Tokens> {
+        if (!this.#engine || !this.#state) {
+            throw new ConnectionUnavailableError();
+        }
+
+        this.assertFeature(REFRESH_TOKENS_FEATURE);
+
+        const response = await this.#engine.refresh(tokens, session);
+        const sessionState = this.getSession(session);
+
+        sessionState.accessToken = response.access;
+        sessionState.refreshToken = response.refresh;
+        this.#handleAuthUpdate(session);
+
+        return response;
+    }
+
     async invalidate(session: Session): Promise<void> {
         if (!this.#engine) throw new ConnectionUnavailableError();
         await this.#engine.invalidate(session);
@@ -366,13 +391,14 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     async #onConnected(): Promise<void> {
         try {
-            // Perform version check
-            if (this.#checkVersion) {
-                const { version, matches } = await this.#matchVersion();
+            const { version } = await this.version();
 
-                if (!matches) {
-                    throw new UnsupportedVersionError(version, MINIMUM_VERSION, MAXIMUM_VERSION);
-                }
+            // Cache the version for feature checks
+            this.#cachedVersion = version;
+
+            // Perform version check
+            if (this.#checkVersion && !isVersionSupported(version)) {
+                throw new UnsupportedVersionError(version, MINIMUM_VERSION, MAXIMUM_VERSION);
             }
 
             // Restore all previous sessions
@@ -458,19 +484,23 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     async #renewAuth(session: Session): Promise<void> {
-        if (this.#renewAccess === false) {
-            this.#handleAuthInvalidate(session);
+        const sessionState = this.getSession(session);
+        const access = sessionState.accessToken;
+        const refresh = sessionState.refreshToken;
+
+        // Attempt to refresh the session using the refresh token
+        if (this.#refreshAccess && access && refresh) {
+            await this.refresh({ access, refresh }, session);
             return;
         }
 
-        if (this.#renewAccess === true) {
+        // Fall back to using the auth provider
+        if (this.#renewAccess) {
             await this.#applyAuthProvider(session);
             return;
         }
 
-        const auth = await this.#renewAccess(session);
-
-        await this.#applyAuthOrToken(auth, session);
+        this.#handleAuthInvalidate(session);
     }
 
     #handleAuthInvalidate(session: Session): void {
@@ -512,11 +542,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     async createSession(clone: Session | null): Promise<Session> {
         if (!this.#state) throw new ConnectionUnavailableError();
 
-        const { matches } = await this.#matchVersion("3.0.0");
-
-        if (!matches) {
-            throw new SurrealError("Sessions are not supported with this version of SurrealDB");
-        }
+        this.assertFeature(SESSIONS_FEATURE);
 
         const sessionId = Uuid.v4();
 

@@ -37,7 +37,7 @@ describe("system auth", async () => {
 
     test("root signin", async () => {
         const res = await surreal.signin(createAuth("root") as AnyAuth);
-        expect(typeof res.token).toBe("string");
+        expect(typeof res.access).toBe("string");
     });
 
     test("invalid credentials", async () => {
@@ -55,7 +55,7 @@ describe("record auth", async () => {
             variables: { id: 123 },
         });
 
-        expect(typeof signup.token).toBe("string");
+        expect(typeof signup.access).toBe("string");
     });
 
     test("record signin", async () => {
@@ -68,7 +68,7 @@ describe("record auth", async () => {
             variables: { id: 123 },
         });
 
-        expect(typeof signin.token).toBe("string");
+        expect(typeof signin.access).toBe("string");
         expect(mockHandler).toBeCalledTimes(1);
     });
 
@@ -153,10 +153,6 @@ describe("session renewal", async () => {
 
         await connect({
             authentication: () => ({
-                access: "user",
-                variables: { id: 456 },
-            }),
-            renewAccess: () => ({
                 access: "user",
                 variables: { id: 456 },
             }),

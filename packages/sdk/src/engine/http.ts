@@ -9,7 +9,8 @@ import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
-import type { ConnectionState, EngineEvents, Feature, SurrealEngine } from "../types/surreal";
+import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
+import { REFRESH_TOKENS_FEATURE, SESSIONS_FEATURE } from "../utils/features";
 import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
 
@@ -29,7 +30,7 @@ const ALWAYS_ALLOW = new Set([
 export class HttpEngine extends RpcEngine implements SurrealEngine {
     #publisher = new Publisher<EngineEvents>();
 
-    features = new Set<Feature>([]);
+    features = new Set([REFRESH_TOKENS_FEATURE, SESSIONS_FEATURE]);
 
     subscribe<K extends keyof EngineEvents>(
         event: K,

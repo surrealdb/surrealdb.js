@@ -1,14 +1,8 @@
+import type { Feature } from "../internal/feature";
 import type { ReconnectContext } from "../internal/reconnect";
 import type { BoundQuery } from "../utils";
 import type { Duration, RecordId, Uuid } from "../value";
-import type {
-    AccessRecordAuth,
-    AnyAuth,
-    AuthProvider,
-    AuthRenewer,
-    AuthResponse,
-    Token,
-} from "./auth";
+import type { AccessRecordAuth, AnyAuth, AuthProvider, Token, Tokens } from "./auth";
 import type { Nullable } from "./helpers";
 import type { Prettify } from "./internal";
 import type { LiveMessage } from "./live";
@@ -24,7 +18,6 @@ export type CodecFactory = (options: CodecOptions) => ValueCodec;
 export type Codecs = Partial<Record<CodecType, CodecFactory>>;
 export type CodecRegistry = Record<CodecType, ValueCodec>;
 export type QueryType = "live" | "kill" | "other";
-export type Feature = "live-queries";
 
 /**
  * The communication contract between the SDK and a SurrealDB datastore.
@@ -39,11 +32,13 @@ export interface SurrealProtocol {
 
     // Session operations
     use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void>;
-    signup(auth: AccessRecordAuth, session: Session): Promise<AuthResponse>;
-    signin(auth: AnyAuth, session: Session): Promise<AuthResponse>;
+    signup(auth: AccessRecordAuth, session: Session): Promise<Tokens>;
+    signin(auth: AnyAuth, session: Session): Promise<Tokens>;
     authenticate(token: Token, session: Session): Promise<void>;
     set(name: string, value: unknown, session: Session): Promise<void>;
     unset(name: string, session: Session): Promise<void>;
+    refresh(tokens: Tokens, session: Session): Promise<Tokens>;
+    revoke(tokens: Tokens, session: Session): Promise<void>;
     invalidate(session: Session): Promise<void>;
     reset(session: Session): Promise<void>;
 
@@ -117,11 +112,11 @@ export interface ConnectOptions {
      */
     versionCheck?: boolean;
     /**
-     * Configure automatic session renewal.
+     * Automatically refresh sessions using a refresh token. This setting is only applicable when
+     * authentication is configured to use refresh tokens.
      *
-     * - When set to `false`, the driver will invalidate the session when the access token expires.
-     * - When set to `true`, the driver will renew the session using the configured `authentication` details.
-     * - When set to a function, the function will be called to renew the session.
+     * Even when this setting is set to `false`, the driver will attempt to renew the session
+     * according to the `renewAccess` setting.
      *
      * Access may be renewed for all sessions, including those created using `startSession()`. Both
      * the `authentication` property as well as `renewAccess` allow you to provide a function which
@@ -129,7 +124,15 @@ export interface ConnectOptions {
      *
      * @default true
      */
-    renewAccess?: AuthRenewer;
+    refreshAccess?: boolean;
+    /**
+     * Automatically renew sessions using the configured authentication details. When a refresh token
+     * is available and `refreshAccess` is set to `true`, the driver will first attempt to renew the session
+     * using the refresh token.
+     *
+     * @default true
+     */
+    renewAccess?: boolean;
     /**
      * Configure reconnect behavior for supported engines (WebSocket).
      *

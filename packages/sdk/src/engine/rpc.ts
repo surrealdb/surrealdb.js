@@ -1,11 +1,10 @@
-import { ConnectionUnavailableError } from "../errors";
+import { ConnectionUnavailableError, UnexpectedServerResponseError } from "../errors";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
 import type {
     AccessRecordAuth,
     AnyAuth,
-    AuthResponse,
     ConnectionState,
     DriverContext,
     LiveMessage,
@@ -19,6 +18,7 @@ import type {
     SqlExportOptions,
     SurrealProtocol,
     Token,
+    Tokens,
     VersionInfo,
 } from "../types";
 import type { BoundQuery } from "../utils";
@@ -62,38 +62,34 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
-    async signup(auth: AccessRecordAuth, session: Session): Promise<AuthResponse> {
+    async signup(auth: AccessRecordAuth, session: Session): Promise<Tokens> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
 
         const sessionState = getSessionFromState(this._state, session);
-        const token: string = await this.send({
+        const response = await this.send({
             method: "signup",
             params: [buildRpcAuth(sessionState, auth)],
             session,
         });
 
-        return {
-            token,
-        };
+        return this.parseTokens(response);
     }
 
-    async signin(auth: AnyAuth, session: Session): Promise<AuthResponse> {
+    async signin(auth: AnyAuth, session: Session): Promise<Tokens> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
 
         const sessionState = getSessionFromState(this._state, session);
-        const token: string = await this.send({
+        const response = await this.send({
             method: "signin",
             params: [buildRpcAuth(sessionState, auth)],
             session,
         });
 
-        return {
-            token,
-        };
+        return this.parseTokens(response);
     }
 
     async authenticate(token: Token, session: Session): Promise<void> {
@@ -116,6 +112,24 @@ export abstract class RpcEngine implements SurrealProtocol {
         await this.send({
             method: "unset",
             params: [name],
+            session,
+        });
+    }
+
+    async refresh(tokens: Tokens, session: Session): Promise<Tokens> {
+        return this.parseTokens(
+            await this.send({
+                method: "refresh",
+                params: [tokens],
+                session,
+            }),
+        );
+    }
+
+    async revoke(tokens: Tokens, session: Session): Promise<void> {
+        await this.send({
+            method: "revoke",
+            params: [tokens],
             session,
         });
     }
@@ -234,6 +248,21 @@ export abstract class RpcEngine implements SurrealProtocol {
     }
 
     abstract liveQuery(id: Uuid): AsyncIterable<LiveMessage>;
+
+    parseTokens(response: unknown): Tokens {
+        if (typeof response === "string") {
+            return {
+                access: response,
+                refresh: undefined,
+            };
+        }
+
+        if (typeof response === "object") {
+            return response as Tokens;
+        }
+
+        throw new UnexpectedServerResponseError(response);
+    }
 
     abstract send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,

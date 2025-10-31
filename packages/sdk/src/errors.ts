@@ -1,4 +1,5 @@
-import type { Feature, Session } from "./types";
+import type { Feature } from "./internal/feature";
+import type { Session } from "./types";
 
 export class SurrealError extends Error {}
 
@@ -151,11 +152,12 @@ export class UnsupportedVersionError extends SurrealError {
     readonly maximum: string;
 
     constructor(version: string, minimum: string, maximum: string) {
-        super();
+        super(
+            `The version "${version}" reported by the engine is not supported by this library, expected a version that satisfies >= ${minimum} < ${maximum}`,
+        );
         this.version = version;
         this.minimum = minimum;
         this.maximum = maximum;
-        this.message = `The version "${version}" reported by the engine is not supported by this library, expected a version that satisfies >= ${minimum} < ${maximum}`;
     }
 }
 
@@ -225,6 +227,22 @@ export class UnsupportedFeatureError extends SurrealError {
     constructor(feature: Feature) {
         super(`The configured engine does not support the feature: ${feature}`);
         this.feature = feature;
+    }
+}
+
+/**
+ * Thrown when a feature is not available in the used version of SurrealDB
+ */
+export class UnavailableFeatureError extends SurrealError {
+    override name = "UnavailableFeatureError";
+
+    readonly feature: Feature;
+    readonly version: string;
+
+    constructor(feature: Feature, version: string) {
+        super(`The version of SurrealDB (${version}) does not support the feature: ${feature}`);
+        this.feature = feature;
+        this.version = version;
     }
 }
 

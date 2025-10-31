@@ -79,7 +79,6 @@ type CreateSurrealOptions = {
     reachable?: boolean;
     unselected?: boolean;
     reconnect?: boolean | Partial<ReconnectOptions>;
-    renewAccess?: boolean;
     driverOptions?: DriverOptions;
     printDiagnostics?: boolean;
 };
@@ -116,7 +115,6 @@ export async function setupServer(): Promise<{
         reachable,
         unselected,
         reconnect,
-        renewAccess,
         driverOptions,
         printDiagnostics,
     }: CreateSurrealOptions = {}) {
@@ -139,7 +137,6 @@ export async function setupServer(): Promise<{
                 namespace: unselected ? undefined : SURREAL_NS,
                 database: unselected ? undefined : SURREAL_DB,
                 authentication: createAuth(auth ?? "root"),
-                renewAccess: renewAccess ?? false,
                 reconnect,
                 ...custom,
             });
