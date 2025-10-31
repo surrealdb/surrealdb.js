@@ -1,3 +1,4 @@
+import type { Feature } from "../internal/feature";
 import type { ReconnectContext } from "../internal/reconnect";
 import type { BoundQuery } from "../utils";
 import type { Duration, RecordId, Uuid } from "../value";
@@ -17,7 +18,6 @@ export type CodecFactory = (options: CodecOptions) => ValueCodec;
 export type Codecs = Partial<Record<CodecType, CodecFactory>>;
 export type CodecRegistry = Record<CodecType, ValueCodec>;
 export type QueryType = "live" | "kill" | "other";
-export type Feature = "live-queries";
 
 /**
  * The communication contract between the SDK and a SurrealDB datastore.

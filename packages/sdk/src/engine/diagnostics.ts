@@ -1,3 +1,4 @@
+import type { Feature } from "../internal/feature";
 import type {
     AccessRecordAuth,
     AnyAuth,
@@ -6,7 +7,6 @@ import type {
     DiagnosticKey,
     DiagnosticResult,
     EngineEvents,
-    Feature,
     LiveMessage,
     MlExportOptions,
     NamespaceDatabase,
