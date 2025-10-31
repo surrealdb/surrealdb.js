@@ -2,7 +2,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Expr, ExprLike } from "../types";
+import type { Expr, ExprLike, Session } from "../types";
 import type { Field, Selection } from "../types/internal";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
@@ -20,6 +20,7 @@ interface SelectOptions {
     timeout?: Duration;
     version?: DateTime;
     transaction: Uuid | undefined;
+    session: Session;
     json: boolean;
 }
 
@@ -171,6 +172,7 @@ export class SelectPromise<T, I, J extends boolean = false> extends DispatchedPr
         const {
             what,
             transaction,
+            session,
             json,
             selection,
             fields,
@@ -222,6 +224,7 @@ export class SelectPromise<T, I, J extends boolean = false> extends DispatchedPr
             query,
             transaction,
             json,
+            session,
         });
     }
 }

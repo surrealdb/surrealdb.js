@@ -7,6 +7,7 @@ const { createSurreal } = await setupServer();
 describe("data integrity", async () => {
     test("invalid date", async () => {
         const surreal = await createSurreal();
+
         const invalid = new Date(NaN);
 
         const execute = async () => {

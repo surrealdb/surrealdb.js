@@ -2,7 +2,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Expr, ExprLike, Mutation, Output, Values } from "../types";
+import type { Expr, ExprLike, Mutation, Output, Session, Values } from "../types";
 import { type BoundQuery, raw, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { Duration, RecordId, RecordIdRange, Table, Uuid } from "../value";
@@ -16,6 +16,7 @@ interface UpsertOptions {
     output?: Output;
     timeout?: Duration;
     transaction: Uuid | undefined;
+    session: Session;
     json: boolean;
 }
 
@@ -155,7 +156,8 @@ export class UpsertPromise<T, I, J extends boolean = false> extends DispatchedPr
     }
 
     #build(): Query<[T], J> {
-        const { what, data, transaction, json, cond, output, timeout, mutation } = this.#options;
+        const { what, data, transaction, session, json, cond, output, timeout, mutation } =
+            this.#options;
 
         const query = surql`UPSERT ${_only(what)}`;
 
@@ -179,6 +181,7 @@ export class UpsertPromise<T, I, J extends boolean = false> extends DispatchedPr
             query,
             transaction,
             json,
+            session,
         });
     }
 }

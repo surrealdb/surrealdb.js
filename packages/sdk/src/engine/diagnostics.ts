@@ -13,6 +13,7 @@ import type {
     NamespaceDatabase,
     Nullable,
     QueryChunk,
+    Session,
     SqlExportOptions,
     SurrealEngine,
     Token,
@@ -79,77 +80,84 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async use(what: Nullable<NamespaceDatabase>): Promise<void> {
+    async sessions(): Promise<Uuid[]> {
+        return this.#diagnose(
+            "sessions",
+            () => this.#delegate.sessions(),
+            (list) => list,
+        );
+    }
+
+    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void> {
         return this.#diagnose(
             "use",
-            () => this.#delegate.use(what),
-            () => ({ requested: what }),
+            () => this.#delegate.use(what, session),
+            () => ({ requested: what, session }),
         );
     }
 
-    async signup(auth: AccessRecordAuth): Promise<AuthResponse> {
+    async signup(auth: AccessRecordAuth, session: Session): Promise<AuthResponse> {
         return this.#diagnose(
             "signup",
-            () => this.#delegate.signup(auth),
-            () => ({ variant: "system_user" }),
+            () => this.#delegate.signup(auth, session),
+            () => ({ variant: "system_user", session }),
         );
     }
 
-    async signin(auth: AnyAuth): Promise<AuthResponse> {
+    async signin(auth: AnyAuth, session: Session): Promise<AuthResponse> {
         return this.#diagnose(
             "signin",
-            () => this.#delegate.signin(auth),
+            () => this.#delegate.signin(auth, session),
             () => {
-                if ("key" in auth) {
-                    return { variant: "bearer_access" };
-                }
+                const variant =
+                    "key" in auth
+                        ? "bearer_access"
+                        : "variables" in auth
+                          ? "record_access"
+                          : "system_user";
 
-                if ("variables" in auth) {
-                    return { variant: "record_access" };
-                }
-
-                return { variant: "system_user" };
+                return { variant, session };
             },
         );
     }
 
-    async authenticate(token: Token): Promise<void> {
+    async authenticate(token: Token, session: Session): Promise<void> {
         return this.#diagnose(
             "authenticate",
-            () => this.#delegate.authenticate(token),
-            () => ({ variant: "token" }),
+            () => this.#delegate.authenticate(token, session),
+            () => ({ variant: "token", session }),
         );
     }
 
-    async set(name: string, value: unknown): Promise<void> {
+    async set(name: string, value: unknown, session: Session): Promise<void> {
         return this.#diagnose(
             "set",
-            () => this.#delegate.set(name, value),
-            () => ({ name, value }),
+            () => this.#delegate.set(name, value, session),
+            () => ({ name, value, session }),
         );
     }
 
-    async unset(name: string): Promise<void> {
+    async unset(name: string, session: Session): Promise<void> {
         return this.#diagnose(
             "unset",
-            () => this.#delegate.unset(name),
-            () => ({ name }),
+            () => this.#delegate.unset(name, session),
+            () => ({ name, session }),
         );
     }
 
-    async invalidate(): Promise<void> {
+    async invalidate(session: Session): Promise<void> {
         return this.#diagnose(
             "invalidate",
-            () => this.#delegate.invalidate(),
-            () => undefined,
+            () => this.#delegate.invalidate(session),
+            () => ({ session }),
         );
     }
 
-    async reset(): Promise<void> {
+    async reset(session: Session): Promise<void> {
         return this.#diagnose(
             "reset",
-            () => this.#delegate.reset(),
-            () => undefined,
+            () => this.#delegate.reset(session),
+            () => ({ session }),
         );
     }
 
@@ -177,14 +185,14 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    query<T>(query: BoundQuery, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
+    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
         const measure = Duration.measure();
         const callback = this.#callback;
         const debugKey = Uuid.v4();
 
         callback({ type: "query", key: debugKey, phase: "before" });
 
-        const delegateResult = this.#delegate.query(query, txn);
+        const delegateResult = this.#delegate.query(query, session, txn);
 
         return {
             async *[Symbol.asyncIterator]() {
@@ -199,6 +207,7 @@ export class DiagnosticsEngine implements SurrealEngine {
                                 params: query.bindings,
                                 transaction: txn,
                                 chunk: chunk,
+                                session,
                             },
                         });
 
@@ -215,6 +224,7 @@ export class DiagnosticsEngine implements SurrealEngine {
                             query: query.query,
                             params: query.bindings,
                             transaction: txn,
+                            session,
                         },
                     });
                 } catch (error) {

@@ -1,15 +1,10 @@
 import type { ConnectionController } from "../controller";
 import { ConnectionUnavailableError, LiveSubscriptionError, SurrealError } from "../errors";
 import { Query } from "../query";
-import type { LiveMessage, LiveResource } from "../types";
+import type { LiveMessage, LiveResource, Session } from "../types";
 import type { Uuid } from "../value";
 import { BoundQuery } from "./bound-query";
 import { ChannelIterator } from "./channel-iterator";
-import type { Publisher } from "./publisher";
-
-type ErrorPublisher = Publisher<{
-    error: [Error];
-}>;
 
 // Kill does not compute paramters yet :(
 function newKill(id: Uuid): BoundQuery {
@@ -83,22 +78,22 @@ export class ManagedLiveSubscription extends LiveSubscription {
     #currentId!: Uuid;
     #controller: ConnectionController;
     #resource: LiveResource;
+    #session: Session;
     #query: Query;
     #killed = false;
-    #publisher: ErrorPublisher;
     #channels: Set<ChannelIterator<LiveMessage>> = new Set();
     #unsubscribe: () => void;
 
     constructor(
-        publisher: ErrorPublisher,
         controller: ConnectionController,
         resource: LiveResource,
+        session: Session,
         query: Query,
     ) {
         super();
-        this.#publisher = publisher;
         this.#controller = controller;
         this.#resource = resource;
+        this.#session = session;
         this.#query = query;
 
         this.#unsubscribe = this.#controller.subscribe("connected", () => {
@@ -139,6 +134,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
             await new Query(this.#controller, {
                 query: newKill(this.id),
                 transaction: undefined,
+                session: this.#session,
                 json: false,
             });
         }
@@ -172,7 +168,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
                 }
             }
         } catch (err: unknown) {
-            this.#publisher.publish("error", new LiveSubscriptionError(err));
+            this.#controller.propagateError(new LiveSubscriptionError(err));
         }
     }
 }
@@ -185,12 +181,14 @@ export class ManagedLiveSubscription extends LiveSubscription {
 export class UnmanagedLiveSubscription extends LiveSubscription {
     #id: Uuid;
     #controller: ConnectionController;
+    #session: Session;
     #killed = false;
     #channels: Set<ChannelIterator<LiveMessage>> = new Set();
 
-    constructor(controller: ConnectionController, id: Uuid) {
+    constructor(controller: ConnectionController, session: Session, id: Uuid) {
         super();
         this.#controller = controller;
+        this.#session = session;
         this.#id = id;
 
         if (this.#controller.status !== "connected") {
@@ -239,6 +237,7 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
             await new Query(this.#controller, {
                 query: newKill(this.id),
                 transaction: undefined,
+                session: this.#session,
                 json: false,
             });
         }

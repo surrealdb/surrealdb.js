@@ -1,4 +1,4 @@
-import type { Feature } from "./types";
+import type { Feature, Session } from "./types";
 
 export class SurrealError extends Error {}
 
@@ -147,14 +147,15 @@ export class UnsupportedVersionError extends SurrealError {
     override name = "UnsupportedVersionError";
 
     readonly version: string;
-    readonly supportedRange: string;
+    readonly minimum: string;
+    readonly maximum: string;
 
-    constructor(version: string, supportedRange: string) {
-        super(
-            `The version "${version}" reported by the engine does not satisfy the supported range: "${supportedRange}"`,
-        );
+    constructor(version: string, minimum: string, maximum: string) {
+        super();
         this.version = version;
-        this.supportedRange = supportedRange;
+        this.minimum = minimum;
+        this.maximum = maximum;
+        this.message = `The version "${version}" reported by the engine is not supported by this library, expected a version that satisfies >= ${minimum} < ${maximum}`;
     }
 }
 
@@ -224,5 +225,20 @@ export class UnsupportedFeatureError extends SurrealError {
     constructor(feature: Feature) {
         super(`The configured engine does not support the feature: ${feature}`);
         this.feature = feature;
+    }
+}
+
+/**
+ * Thrown when a session is invalid
+ */
+export class InvalidSessionError extends SurrealError {
+    override name = "InvalidSessionError";
+    override message = "The provided session is invalid";
+
+    readonly session: Session;
+
+    constructor(session: Session) {
+        super(`Invalid session: ${session}`);
+        this.session = session;
     }
 }

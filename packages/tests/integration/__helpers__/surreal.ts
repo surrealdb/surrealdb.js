@@ -3,7 +3,10 @@ import { rm } from "node:fs/promises";
 import type { Subprocess } from "bun";
 import {
     type AnyAuth,
+    applyDiagnostics,
     type ConnectOptions,
+    createRemoteEngines,
+    type Diagnostic,
     type DriverOptions,
     type ReconnectOptions,
     Surreal,
@@ -33,6 +36,19 @@ export const VERSION_CHECK: boolean = import.meta.env.SURREAL_VERSION_CHECK !== 
 
 declare global {
     var surrealProc: number;
+}
+
+export function printDiagnostic({ key, type, phase, ...other }: Diagnostic): void {
+    const keyString = key.toString();
+    const keySuffix = keyString.slice(keyString.lastIndexOf("-") + 1);
+
+    let line = `[${keySuffix}] ${type}:${phase}`;
+
+    if (phase === "progress" || phase === "after") {
+        line += ` ${JSON.stringify(other)}`;
+    }
+
+    console.log(line);
 }
 
 export function createAuth(auth: PremadeAuth | AnyAuth): AnyAuth | undefined {
@@ -65,6 +81,7 @@ type CreateSurrealOptions = {
     reconnect?: boolean | Partial<ReconnectOptions>;
     renewAccess?: boolean;
     driverOptions?: DriverOptions;
+    printDiagnostics?: boolean;
 };
 
 export async function setupServer(): Promise<{
@@ -101,8 +118,20 @@ export async function setupServer(): Promise<{
         reconnect,
         renewAccess,
         driverOptions,
+        printDiagnostics,
     }: CreateSurrealOptions = {}) {
-        const surreal = new Surreal(driverOptions);
+        const engines = printDiagnostics
+            ? applyDiagnostics(createRemoteEngines(), printDiagnostic)
+            : createRemoteEngines();
+
+        const surreal = new Surreal({
+            ...driverOptions,
+            engines: {
+                ...engines,
+                ...driverOptions?.engines,
+            },
+        });
+
         const port = reachable === false ? SURREAL_PORT_UNREACHABLE : SURREAL_PORT;
 
         const connect = (custom?: ConnectOptions) => {
@@ -151,4 +180,14 @@ async function waitForHealth(): Promise<void> {
     }
 
     throw new Error("Could not resolve health endpoint after 10 seconds.");
+}
+
+export async function requestVersion(): Promise<string> {
+    const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "version"]);
+    const version = await Bun.readableStreamToText(proc.stdout);
+
+    return version
+        .replace(/^surrealdb-/, "")
+        .slice(0, version.indexOf(" "))
+        .trim();
 }
