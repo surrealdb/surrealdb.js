@@ -3,7 +3,7 @@ import { satisfies } from "semver";
 import { type AnyAuth, RecordId, ResponseError } from "surrealdb";
 import { createAuth, requestVersion, setupServer } from "./__helpers__";
 
-const { createSurreal, createIdleSurreal } = await setupServer();
+const { createSurreal, createIdleSurreal, kill, spawn } = await setupServer();
 
 const version = await requestVersion();
 const is3x = satisfies(version, ">=3.0.0-alpha.1");
@@ -59,9 +59,9 @@ describe("record auth", async () => {
     });
 
     test("record signin", async () => {
-        const mockHandler = mock(() => {});
+        const handleAuth = mock(() => {});
 
-        surreal.subscribe("authenticated", mockHandler);
+        surreal.subscribe("auth", handleAuth);
 
         const signin = await surreal.signin({
             access: "user",
@@ -69,7 +69,8 @@ describe("record auth", async () => {
         });
 
         expect(typeof signin.access).toBe("string");
-        expect(mockHandler).toBeCalledTimes(1);
+        expect(handleAuth).toBeCalledTimes(1);
+        expect(handleAuth).toBeCalledWith(signin);
     });
 
     test("info", async () => {
@@ -78,13 +79,14 @@ describe("record auth", async () => {
     });
 
     test("invalidate", async () => {
-        const mockHandler = mock(() => {});
+        const handleAuth = mock(() => {});
 
-        surreal.subscribe("invalidated", mockHandler);
+        surreal.subscribe("auth", handleAuth);
 
         await surreal.invalidate();
 
-        expect(mockHandler).toBeCalledTimes(1);
+        expect(handleAuth).toBeCalledTimes(1);
+        expect(handleAuth).toBeCalledWith(null);
     });
 });
 
@@ -93,19 +95,13 @@ describe("session renewal", async () => {
         auth: "none",
     });
 
-    surreal.subscribe("error", (error) => {
-        console.error("SurrealDB error:", error);
-    });
+    test("invalidateOnExpiry", async () => {
+        const handleAuth = mock(() => {});
 
-    test("disabled", async () => {
-        const authenticateHandler = mock(() => {});
-        const invalidateHandler = mock(() => {});
-
-        surreal.subscribe("authenticated", authenticateHandler);
-        surreal.subscribe("invalidated", invalidateHandler);
+        surreal.subscribe("auth", handleAuth);
 
         await connect({
-            renewAccess: false,
+            invalidateOnExpiry: true,
         });
 
         await surreal.signup({
@@ -117,52 +113,26 @@ describe("session renewal", async () => {
         await Bun.sleep(1500);
 
         // One authentication, one renewal
-        expect(authenticateHandler).toHaveBeenCalled();
-        expect(invalidateHandler).toHaveBeenCalled();
+        expect(handleAuth).toBeCalledTimes(2);
     });
 
-    test("provider", async () => {
-        const authenticateHandler = mock(() => {});
-        const invalidateHandler = mock(() => {});
+    test("reuse existing access", async () => {
+        const handleAuth = mock(() => {});
 
-        surreal.subscribe("authenticated", authenticateHandler);
-        surreal.subscribe("invalidated", invalidateHandler);
-
-        await connect({
-            renewAccess: true,
-            authentication: () => ({
-                access: "user",
-                variables: { id: 456 },
-            }),
-        });
-
-        // Wait at least 1s for token to renew
-        await Bun.sleep(1500);
-
-        // One authentication, one renewal
-        expect(authenticateHandler).toHaveBeenCalled();
-        expect(invalidateHandler).toHaveBeenCalledTimes(0);
-    });
-
-    test("custom", async () => {
-        const authenticateHandler = mock(() => {});
-        const invalidateHandler = mock(() => {});
-
-        surreal.subscribe("authenticated", authenticateHandler);
-        surreal.subscribe("invalidated", invalidateHandler);
+        surreal.subscribe("auth", handleAuth);
 
         await connect({
             authentication: () => ({
-                access: "user",
-                variables: { id: 456 },
+                username: "root",
+                password: "root",
             }),
         });
 
-        // Wait at least 1s for token to renew
-        await Bun.sleep(1500);
+        // Restart the server to force renewal
+        await kill();
+        await spawn();
 
-        // One authentication, one renewal
-        expect(authenticateHandler).toHaveBeenCalled();
-        expect(invalidateHandler).toBeCalledTimes(0);
+        // Should be called only once since the access token is still valid
+        expect(handleAuth).toBeCalledTimes(1);
     });
 });

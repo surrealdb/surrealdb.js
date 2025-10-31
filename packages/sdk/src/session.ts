@@ -26,8 +26,13 @@ import type {
     Tokens,
     Values,
 } from "./types";
-import { BoundQuery } from "./utils";
+import { BoundQuery, Publisher } from "./utils";
 import { type RecordId, type RecordIdRange, Table, type Uuid } from "./value";
+
+export type SessionEvents = {
+    auth: [Tokens | null];
+    using: [NamespaceDatabase];
+};
 
 /**
  * A scoped contextual session attached to a connection to SurrealDB.
@@ -39,12 +44,35 @@ import { type RecordId, type RecordIdRange, Table, type Uuid } from "./value";
  * You can create a new derived session by calling the `forkSession` method.
  */
 export class SurrealSession {
+    readonly #publisher = new Publisher<SessionEvents>();
     readonly #connection: ConnectionController;
     readonly #session: Uuid | undefined;
+
+    readonly #unsubAuth: () => void;
+    readonly #unsubUsing: () => void;
+
+    subscribe<K extends keyof SessionEvents>(
+        event: K,
+        listener: (...payload: SessionEvents[K]) => void,
+    ): () => void {
+        return this.#publisher.subscribe(event, listener);
+    }
 
     constructor(connection: ConnectionController, session: Session) {
         this.#connection = connection;
         this.#session = session;
+
+        this.#unsubAuth = connection.subscribe("auth", (auth, session) => {
+            if (session === this.#session) {
+                this.#publisher.publish("auth", auth);
+            }
+        });
+
+        this.#unsubUsing = connection.subscribe("using", (using, session) => {
+            if (session === this.#session) {
+                this.#publisher.publish("using", using);
+            }
+        });
     }
 
     /**
@@ -119,6 +147,17 @@ export class SurrealSession {
         return SurrealSession.of(this, created);
     }
 
+    /**
+     * Stops the current session and disposes of it. After this method is called, the session cannot be used again,
+     * and `isValid` will return `false`.
+     */
+    async stopSession(): Promise<void> {
+        await this.#connection.stopSession(this.#session);
+
+        this.#unsubAuth();
+        this.#unsubUsing();
+    }
+
     // =========================================================== //
     //                                                             //
     //                       Session Methods                       //
@@ -149,6 +188,10 @@ export class SurrealSession {
      * Sign up to the SurrealDB instance as a new
      * {@link https://surrealdb.com/docs/surrealdb/security/authentication#record-users|record user}.
      *
+     * When this method is called, the `authentication` property passed to `connect()`
+     * will be ignored. You will be reponsible for handling session invalidation
+     * by listening to the `auth` event.
+     *
      * @param auth The authentication details to use.
      * @return The authentication tokens.
      */
@@ -159,6 +202,10 @@ export class SurrealSession {
     /**
      * Authenticate with the SurrealDB using the provided authentication details.
      *
+     * When this method is called, the `authentication` property passed to `connect()`
+     * will be ignored. You will be reponsible for handling session invalidation
+     * by listening to the `auth` event.
+     *
      * @param auth The authentication details to use.
      * @return The authentication tokens.
      */
@@ -167,12 +214,26 @@ export class SurrealSession {
     }
 
     /**
-     * Authenticates the current connection with a JWT token.
+     * Authenticates the current connection using an existing access token or
+     * an access and refresh token combination.
      *
-     * @param token The JWT authentication token.
+     * When authenticating with a refresh token, a new refresh token will be issued
+     * and returned.
+     *
+     * When this method is called, the `authentication` property passed to `connect()`
+     * will be ignored. You will be reponsible for handling session invalidation
+     * by listening to the `auth` event.
+     *
+     * @param token The access token or access and refresh token combination.
      */
-    authenticate(token: Token): Promise<void> {
-        return this.#connection.authenticate(token, this.#session);
+    async authenticate(token: Token | Tokens): Promise<Tokens> {
+        if (typeof token === "object" && token.refresh) {
+            return this.#connection.refresh(token, this.#session);
+        }
+
+        const access = typeof token === "string" ? token : token.access;
+        await this.#connection.authenticate(access, this.#session);
+        return { access };
     }
 
     /**
@@ -204,8 +265,6 @@ export class SurrealSession {
     /**
      * Resets the current session to its initial state, clearing
      * authentication state, variables, and selected namespace/database.
-     *
-     * If this is not the default session, the session will be disposed and cannot be used again.
      */
     async reset(): Promise<void> {
         await this.#connection.reset(this.#session);

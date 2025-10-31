@@ -45,18 +45,14 @@ export type AccessRecordAuth = {
     };
 };
 
-export type AnyAuth =
-    | RootAuth
-    | NamespaceAuth
-    | DatabaseAuth
-    | AccessSystemAuth
-    | AccessBearerAuth
-    | AccessRecordAuth;
+export type SystemAuth = RootAuth | NamespaceAuth | DatabaseAuth;
+export type AccessAuth = AccessSystemAuth | AccessBearerAuth | AccessRecordAuth;
+export type AnyAuth = SystemAuth | AccessAuth;
 
 export type Token = string;
 export type AuthOrToken = AnyAuth | Token;
-export type AuthCallable = (session: Session) => AuthOrToken | Promise<AuthOrToken>;
-export type AuthProvider = AuthOrToken | AuthCallable;
+export type AuthCallable = (session: Session) => SystemAuth | Token | Promise<SystemAuth | Token>;
+export type AuthProvider = SystemAuth | Token | AuthCallable;
 
 export type Tokens = {
     access: Token;
