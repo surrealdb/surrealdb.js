@@ -19,10 +19,7 @@ export class ReconnectContext {
     // Process options as passed by the user
     constructor(input: undefined | Partial<ReconnectOptions> | boolean) {
         if (!input) {
-            this.options = {
-                ...DEFAULT_RECONNECT_OPTIONS,
-                enabled: false,
-            };
+            this.options = DEFAULT_RECONNECT_OPTIONS;
         } else if (input === true) {
             this.options = DEFAULT_RECONNECT_OPTIONS;
         } else {

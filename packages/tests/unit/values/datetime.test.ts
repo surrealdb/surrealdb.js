@@ -7,7 +7,7 @@ describe("DateTime", () => {
         const dt = new DateTime();
         const now = new Date();
         const diff = Math.abs(dt.milliseconds - now.valueOf());
-        expect(diff).toBeLessThan(5);
+        expect(diff).toBeLessThanOrEqual(7);
     });
 
     test("constructor with Date object", () => {

@@ -90,13 +90,13 @@ exports[`diagnostics diagnostic events 1`] = `
         "type": undefined,
       },
       "params": {
-        "bind__5": RecordId {},
-        "bind__6": {
+        "bind__1": RecordId {},
+        "bind__2": {
           "firstname": "John",
           "lastname": "Doe",
         },
       },
-      "query": "CREATE ONLY $bind__5 CONTENT $bind__6",
+      "query": "CREATE ONLY $bind__1 CONTENT $bind__2",
       "session": undefined,
       "transaction": undefined,
     },
@@ -108,13 +108,13 @@ exports[`diagnostics diagnostic events 1`] = `
     "phase": "after",
     "result": {
       "params": {
-        "bind__5": RecordId {},
-        "bind__6": {
+        "bind__1": RecordId {},
+        "bind__2": {
           "firstname": "John",
           "lastname": "Doe",
         },
       },
-      "query": "CREATE ONLY $bind__5 CONTENT $bind__6",
+      "query": "CREATE ONLY $bind__1 CONTENT $bind__2",
       "session": undefined,
       "transaction": undefined,
     },

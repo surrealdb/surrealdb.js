@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { satisfies } from "semver";
-import { SESSIONS_FEATURE } from "../../sdk/src/utils/features";
+import { Features } from "surrealdb";
 import { requestVersion, setupServer } from "./__helpers__";
 
 const { createSurreal, spawn, kill } = await setupServer();
@@ -11,7 +11,7 @@ describe.if(is3x)("sessions", async () => {
     test("feature", async () => {
         const surreal = await createSurreal();
 
-        expect(surreal.isFeatureSupported(SESSIONS_FEATURE)).toBeTrue();
+        expect(surreal.isFeatureSupported(Features.Sessions)).toBeTrue();
     });
 
     test("default session is undefined", async () => {
@@ -53,6 +53,17 @@ describe.if(is3x)("sessions", async () => {
         expect(session.parameters.foo).toEqual("bar");
     });
 
+    test("stopSession()", async () => {
+        const surreal = await createSurreal();
+        const session = await surreal.forkSession();
+
+        expect(session.isValid).toBeTrue();
+
+        await session.stopSession();
+
+        expect(session.isValid).toBeFalse();
+    });
+
     test("request sessions list", async () => {
         const surreal = await createSurreal();
         const session = await surreal.forkSession();
@@ -83,17 +94,6 @@ describe.if(is3x)("sessions", async () => {
         const sessions = await surreal.sessions();
 
         expect(sessions.length).toBe(2);
-    });
-
-    test("reset session", async () => {
-        const surreal = await createSurreal();
-        const session = await surreal.forkSession();
-
-        expect(session.isValid).toBeTrue();
-
-        await session.reset();
-
-        expect(session.isValid).toBeFalse();
     });
 
     test("restore state after reconnect", async () => {

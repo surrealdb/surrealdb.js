@@ -28,6 +28,8 @@ describe("diagnostics", async () => {
 
         await surreal.version();
 
+        resetIncrementalID();
+
         await surreal.create<Person>(new RecordId("person", 1)).content({
             firstname: "John",
             lastname: "Doe",

@@ -4,6 +4,7 @@ import {
     ConnectionUnavailableError,
     type DriverContext,
     type EngineEvents,
+    Features,
     type LiveAction,
     type LiveMessage,
     Publisher,
@@ -14,7 +15,6 @@ import {
     UnexpectedConnectionError,
     type Uuid,
 } from "surrealdb";
-import { LIVE_QUERIES_FEATURE } from "../../sdk/src/utils/features";
 import { type ConnectionOptions, SurrealWasmEngine } from "../wasm/surrealdb";
 
 type LiveChannels = Record<string, [LiveMessage]>;
@@ -43,7 +43,7 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         this.#options = options;
     }
 
-    features = new Set([LIVE_QUERIES_FEATURE]);
+    features = new Set([Features.LiveQueries]);
 
     open(state: ConnectionState): void {
         this.#abort?.abort();
