@@ -37,9 +37,14 @@ import type {
     Tokens,
     VersionInfo,
 } from "../types";
-import { type BoundQuery, isVersionSupported, MAXIMUM_VERSION, MINIMUM_VERSION } from "../utils";
-import { REFRESH_TOKENS_FEATURE, SESSIONS_FEATURE } from "../utils/features";
-import { Publisher } from "../utils/publisher";
+import {
+    type BoundQuery,
+    Features,
+    isVersionSupported,
+    MAXIMUM_VERSION,
+    MINIMUM_VERSION,
+    Publisher,
+} from "../utils";
 import { Uuid } from "../value";
 
 type ConnectionEvents = {
@@ -204,7 +209,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     async sessions(): Promise<Uuid[]> {
         if (!this.#engine) throw new ConnectionUnavailableError();
 
-        this.assertFeature(SESSIONS_FEATURE);
+        this.assertFeature(Features.Sessions);
 
         return this.#engine.sessions();
     }
@@ -259,7 +264,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             throw new ConnectionUnavailableError();
         }
 
-        this.assertFeature(REFRESH_TOKENS_FEATURE);
+        this.assertFeature(Features.RefreshTokens);
 
         const response = await this.#engine.refresh(tokens, session);
         const sessionState = this.getSession(session);
@@ -277,7 +282,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             throw new ConnectionUnavailableError();
         }
 
-        this.assertFeature(REFRESH_TOKENS_FEATURE);
+        this.assertFeature(Features.RefreshTokens);
 
         await this.#engine.revoke(tokens, session);
     }
@@ -595,7 +600,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     async createSession(clone: Session | null): Promise<Session> {
         if (!this.#state) throw new ConnectionUnavailableError();
 
-        this.assertFeature(SESSIONS_FEATURE);
+        this.assertFeature(Features.Sessions);
 
         const sessionId = Uuid.v4();
 

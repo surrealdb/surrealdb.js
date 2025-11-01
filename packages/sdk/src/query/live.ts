@@ -2,8 +2,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { Expr, ExprLike, LiveResource, Session } from "../types";
 import type { Field, Selection } from "../types/internal";
-import { type BoundQuery, surql } from "../utils";
-import { LIVE_QUERIES_FEATURE } from "../utils/features";
+import { type BoundQuery, Features, surql } from "../utils";
 import {
     type LiveSubscription,
     ManagedLiveSubscription,
@@ -103,7 +102,7 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
     protected async dispatch(): Promise<LiveSubscription> {
         await this.#connection.ready();
 
-        this.#connection.assertFeature(LIVE_QUERIES_FEATURE);
+        this.#connection.assertFeature(Features.LiveQueries);
 
         return new ManagedLiveSubscription(
             this.#connection,
@@ -168,7 +167,7 @@ export class UnmanagedLivePromise extends DispatchedPromise<LiveSubscription> {
     protected async dispatch(): Promise<LiveSubscription> {
         await this.#connection.ready();
 
-        this.#connection.assertFeature(LIVE_QUERIES_FEATURE);
+        this.#connection.assertFeature(Features.LiveQueries);
 
         return new UnmanagedLiveSubscription(
             this.#connection,
