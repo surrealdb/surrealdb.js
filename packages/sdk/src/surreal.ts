@@ -1,6 +1,6 @@
 import { CborCodec } from "./cbor";
 import { ConnectionController } from "./controller";
-import { SurrealError, UnavailableFeatureError, UnsupportedFeatureError } from "./errors";
+import { UnavailableFeatureError, UnsupportedFeatureError } from "./errors";
 import { FlatBufferCodec } from "./flatbuffer/codec";
 import type { Feature } from "./internal/feature";
 import { getIncrementalID } from "./internal/get-incremental-id";
@@ -228,13 +228,10 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
     }
 
     /**
-     * **NOTE:** Do not call this method on the root session because it will throw an error.
-     *
-     * Stops the current session and disposes of it. After this method is called, the session cannot be used again,
-     * and `isValid` will return `false`.
+     * Stop the primary session. This is equivalent to calling `close()` on the connection.
      */
     override async stopSession(): Promise<void> {
-        throw new SurrealError("The root session cannot be stopped");
+        await this.close();
     }
 
     // =========================================================== //
