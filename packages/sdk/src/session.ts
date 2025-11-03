@@ -148,11 +148,11 @@ export class SurrealSession {
     }
 
     /**
-     * Stops the current session and disposes of it. After this method is called, the session cannot be used again,
+     * Closes the current session and disposes of it. After this method is called, the session cannot be used again,
      * and `isValid` will return `false`.
      */
-    async stopSession(): Promise<void> {
-        await this.#connection.stopSession(this.#session);
+    async closeSession(): Promise<void> {
+        await this.#connection.destroySession(this.#session);
 
         this.#unsubAuth();
         this.#unsubUsing();

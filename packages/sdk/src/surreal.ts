@@ -230,7 +230,7 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
     /**
      * Stop the primary session. This is equivalent to calling `close()` on the connection.
      */
-    override async stopSession(): Promise<void> {
+    override async closeSession(): Promise<void> {
         await this.close();
     }
 

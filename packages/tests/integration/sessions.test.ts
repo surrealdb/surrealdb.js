@@ -53,13 +53,13 @@ describe.if(is3x)("sessions", async () => {
         expect(session.parameters.foo).toEqual("bar");
     });
 
-    test("stopSession()", async () => {
+    test("closeSession()", async () => {
         const surreal = await createSurreal();
         const session = await surreal.forkSession();
 
         expect(session.isValid).toBeTrue();
 
-        await session.stopSession();
+        await session.closeSession();
 
         expect(session.isValid).toBeFalse();
     });

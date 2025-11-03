@@ -615,7 +615,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return sessionId;
     }
 
-    async stopSession(session: Session): Promise<void> {
+    async destroySession(session: Session): Promise<void> {
         if (!this.#state) throw new ConnectionUnavailableError();
 
         if (!session || !this.#state.sessions.has(session)) {
