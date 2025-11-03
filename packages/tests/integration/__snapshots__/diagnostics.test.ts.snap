@@ -124,12 +124,12 @@ exports[`diagnostics diagnostic events 1`] = `
 ]
 `;
 
-exports[`diagnostics extract query 1`] = `"CREATE ONLY $bind__4 CONTENT $bind__5"`;
+exports[`diagnostics extract query 1`] = `"CREATE ONLY $bind__1 CONTENT $bind__2"`;
 
 exports[`diagnostics extract query 2`] = `
 {
-  "bind__4": RecordId {},
-  "bind__5": {
+  "bind__1": RecordId {},
+  "bind__2": {
     "firstname": "John",
     "lastname": "Doe",
   },
