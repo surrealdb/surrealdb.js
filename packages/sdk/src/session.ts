@@ -158,6 +158,10 @@ export class SurrealSession {
         this.#unsubUsing();
     }
 
+    [Symbol.asyncDispose]() {
+        return this.closeSession();
+    }
+
     // =========================================================== //
     //                                                             //
     //                       Session Methods                       //

@@ -119,4 +119,12 @@ describe.if(is3x)("sessions", async () => {
         expect(foo).toBe("bar");
         expect(hello).toBe("world");
     });
+
+    test("await using", async () => {
+        const surreal = await createSurreal();
+
+        await using session = await surreal.forkSession();
+
+        expect(session.isValid).toBeTrue();
+    });
 });
