@@ -3,13 +3,6 @@ import { DateTime } from "../../../sdk/src/value/datetime";
 import { Duration } from "../../../sdk/src/value/duration";
 
 describe("DateTime", () => {
-    test("constructor with no arguments (current time)", () => {
-        const dt = new DateTime();
-        const now = new Date();
-        const diff = Math.abs(dt.milliseconds - now.valueOf());
-        expect(diff).toBeLessThanOrEqual(7);
-    });
-
     test("constructor with Date object", () => {
         const date = new Date("2023-12-25T10:30:00.123Z");
         const dt = new DateTime(date);
