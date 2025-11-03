@@ -1,6 +1,6 @@
 {
     "name": "@surrealdb/wasm",
-    "version": "2.3.3",
+    "version": "2.3.4",
     "surreal": "2.3.10",
     "type": "module",
     "license": "Apache-2.0",
