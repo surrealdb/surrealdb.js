@@ -154,4 +154,16 @@ describe("session renewal", async () => {
         // Should be called only once since the access token is still valid
         expect(handleAuth).toBeCalledTimes(1);
     });
+
+    test("null result", async () => {
+        const handleAuth = mock(() => {});
+
+        surreal.subscribe("auth", handleAuth);
+
+        await connect({
+            authentication: () => null,
+        });
+
+        expect(handleAuth).toBeCalledTimes(0);
+    });
 });

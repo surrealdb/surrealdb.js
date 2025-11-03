@@ -51,8 +51,9 @@ export type AnyAuth = SystemAuth | AccessAuth;
 
 export type Token = string;
 export type AuthOrToken = AnyAuth | Token;
-export type AuthCallable = (session: Session) => SystemAuth | Token | Promise<SystemAuth | Token>;
-export type AuthProvider = SystemAuth | Token | AuthCallable;
+export type ProvidedAuth = SystemAuth | Token | null;
+export type AuthCallable = (session: Session) => ProvidedAuth | Promise<ProvidedAuth>;
+export type AuthProvider = ProvidedAuth | AuthCallable;
 
 export type Tokens = {
     access: Token;

@@ -464,6 +464,10 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         const computed = typeof provider === "function" ? await provider(session) : provider;
 
+        if (computed === null) {
+            return false;
+        }
+
         if (typeof computed === "string") {
             await this.authenticate(computed, session, true);
         } else {
