@@ -14,6 +14,7 @@ beforeAll(async () => {
     if (is3x) {
         await surreal.query(/* surql */ `
 			DEFINE TABLE user PERMISSIONS FOR select WHERE id = $auth;
+			DEFINE USER test ON ROOT PASSWORD 'test' ROLES OWNER DURATION FOR TOKEN 61s;
 			DEFINE ACCESS user ON DATABASE TYPE RECORD
 				SIGNUP ( CREATE type::record('user', $id) )
 				SIGNIN ( SELECT * FROM type::record('user', $id) )
@@ -22,6 +23,7 @@ beforeAll(async () => {
     } else {
         await surreal.query(/* surql */ `
 			DEFINE TABLE user PERMISSIONS FOR select WHERE id = $auth;
+			DEFINE USER test ON ROOT PASSWORD 'test' ROLES OWNER DURATION FOR TOKEN 61s;
 			DEFINE ACCESS user ON DATABASE TYPE RECORD
 				SIGNUP ( CREATE type::thing('user', $id) )
 				SIGNIN ( SELECT * FROM type::thing('user', $id) )
@@ -93,6 +95,23 @@ describe("record auth", async () => {
 describe("session renewal", async () => {
     const { surreal, connect } = createIdleSurreal({
         auth: "none",
+    });
+
+    test("basic", async () => {
+        const authentication = mock(() => ({
+            username: "test",
+            password: "test",
+        }));
+
+        await connect({
+            authentication,
+        });
+
+        // Wait at least 1s for token to renew
+        await Bun.sleep(1500);
+
+        // Should be called twice in this timeframe
+        expect(authentication).toBeCalledTimes(2);
     });
 
     test("invalidateOnExpiry", async () => {
