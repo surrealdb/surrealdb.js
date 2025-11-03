@@ -95,13 +95,14 @@ export interface ConnectOptions {
      */
     database?: string;
     /**
-     * Authentication details to use when connecting to the datastore. You can provide a static value,
-     * or a function which is called to retrieve the authentication details. Authentication details
-     * may be requested on connect, reconnect, or when the access token expires.
+     * Authentication details to use when connecting as a system user or with a token. You can provide a static value,
+     * or a function which is called to compute the authentication details. Unlike when using the `.signin()` method,
+     * the provided authentication details may be used for all sessions and will be reused when a session expires.
      *
-     * The provided authentication details may be used for all sessions, including those created
-     * using `startSession()`. If you need to use different authentication details for each session,
-     * you can provide a function which is called with the session ID as an argument.
+     * When a callback is specified returning a Promise, the SDK will wait with signaling the connection as connected
+     * until the Promise is resolved.
+     *
+     * When `.signin()`, `.signup()`, or `.authenticate()` is used this property will be ignored for the duration of the session.
      */
     authentication?: AuthProvider;
     /**
@@ -112,27 +113,20 @@ export interface ConnectOptions {
      */
     versionCheck?: boolean;
     /**
-     * Automatically refresh sessions using a refresh token. This setting is only applicable when
-     * authentication is configured to use refresh tokens.
+     * Automatically invalidate sessions when the access token expires.
      *
-     * Even when this setting is set to `false`, the driver will attempt to renew the session
-     * according to the `renewAccess` setting.
+     * When set to `false` (the default), the driver will attempt to renew the session through a
+     * series of steps:
      *
-     * Access may be renewed for all sessions, including those created using `startSession()`. Both
-     * the `authentication` property as well as `renewAccess` allow you to provide a function which
-     * is called with the session ID as an argument.
+     * 1. Attempt to reuse the previous access token
+     * 2. Attempt to issue a new access token using the refresh token
+     * 3. Attempt to invoke the authentication provider
      *
-     * @default true
+     * If none of these steps succeed, the session will be invalidated regardless.
+     *
+     * @default false
      */
-    refreshAccess?: boolean;
-    /**
-     * Automatically renew sessions using the configured authentication details. When a refresh token
-     * is available and `refreshAccess` is set to `true`, the driver will first attempt to renew the session
-     * using the refresh token.
-     *
-     * @default true
-     */
-    renewAccess?: boolean;
+    invalidateOnExpiry?: boolean;
     /**
      * Configure reconnect behavior for supported engines (WebSocket).
      *
@@ -173,6 +167,7 @@ export interface ConnectionSession {
     refreshToken: string | undefined;
     variables: Record<string, unknown>;
     authRenewal: ReturnType<typeof setTimeout> | undefined;
+    authOverriden: boolean;
 }
 
 /**

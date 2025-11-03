@@ -5,30 +5,25 @@ import { FlatBufferCodec } from "./flatbuffer/codec";
 import type { Feature } from "./internal/feature";
 import { getIncrementalID } from "./internal/get-incremental-id";
 import { parseEndpoint } from "./internal/http";
-import { SurrealSession } from "./session";
+import { type SessionEvents, SurrealSession } from "./session";
 import type {
     CodecRegistry,
     ConnectionStatus,
     ConnectOptions,
     DriverOptions,
     EventPublisher,
-    NamespaceDatabase,
     SqlExportOptions,
-    Token,
     VersionInfo,
 } from "./types";
 import { Publisher } from "./utils/publisher";
 import type { Uuid } from "./value";
 
-export type SurrealEvents = {
+export type SurrealEvents = SessionEvents & {
     connecting: [];
     connected: [];
     reconnecting: [];
     disconnected: [];
     error: [Error];
-    authenticated: [Token];
-    invalidated: [];
-    using: [NamespaceDatabase];
 };
 
 /**
@@ -46,7 +41,7 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
     readonly #publisher = new Publisher<SurrealEvents>();
     readonly #connection: ConnectionController;
 
-    subscribe<K extends keyof SurrealEvents>(
+    override subscribe<K extends keyof SurrealEvents>(
         event: K,
         listener: (...payload: SurrealEvents[K]) => void,
     ): () => void {
@@ -88,15 +83,11 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
             this.#publisher.publish("error", error);
         });
 
-        connection.subscribe("authenticated", (token) =>
-            this.#publisher.publish("authenticated", token),
-        );
-
-        connection.subscribe("invalidated", () => {
-            this.#publisher.publish("invalidated");
+        super.subscribe("auth", (token) => {
+            this.#publisher.publish("auth", token);
         });
 
-        connection.subscribe("using", (using) => {
+        super.subscribe("using", (using) => {
             this.#publisher.publish("using", using);
         });
 
@@ -208,7 +199,7 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
     // =========================================================== //
 
     /**
-     * Lists all additional sessions created on the current connection
+     * Lists all sessions created on the current connection.
      *
      * @returns A list of active session IDs
      */
@@ -234,6 +225,13 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
         const created = await this.#connection.createSession(null);
 
         return SurrealSession.of(this, created);
+    }
+
+    /**
+     * Stop the primary session. This is equivalent to calling `close()` on the connection.
+     */
+    override async closeSession(): Promise<void> {
+        await this.close();
     }
 
     // =========================================================== //

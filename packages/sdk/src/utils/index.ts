@@ -3,6 +3,7 @@ export * from "./channel-iterator";
 export * from "./equals";
 export * from "./escape";
 export * from "./expr";
+export * from "./features";
 export * from "./frame";
 export * from "./is-version-supported";
 export * from "./jsonify";

@@ -1,5 +1,11 @@
 import { Feature } from "../internal/feature";
 
-export const LIVE_QUERIES_FEATURE = new Feature("live-queries");
-export const SESSIONS_FEATURE = new Feature("sessions", "3.0.0");
-export const REFRESH_TOKENS_FEATURE = new Feature("refresh-tokens", "3.0.0");
+/**
+ * Available features which may be supported by specific
+ * engines or versions of SurrealDB.
+ */
+export const Features = Object.freeze({
+    LiveQueries: new Feature("live-queries"),
+    Sessions: new Feature("sessions", "3.0.0"),
+    RefreshTokens: new Feature("refresh-tokens", "3.0.0"),
+});

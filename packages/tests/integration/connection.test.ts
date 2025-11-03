@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { RecordId } from "surrealdb";
+import { Features, RecordId } from "surrealdb";
 import { setupServer, VERSION_CHECK } from "./__helpers__";
 
 const { createSurreal, createIdleSurreal } = await setupServer();
@@ -145,5 +145,13 @@ describe("connection", async () => {
 
         expect(current.namespace).toBe("foo");
         expect(current.database).toBe("bar");
+    });
+
+    test("feature support", async () => {
+        const surreal = await createSurreal();
+
+        expect(surreal.isFeatureSupported(Features.LiveQueries)).toBeBoolean();
+        expect(surreal.isFeatureSupported(Features.Sessions)).toBeBoolean();
+        expect(surreal.isFeatureSupported(Features.RefreshTokens)).toBeBoolean();
     });
 });

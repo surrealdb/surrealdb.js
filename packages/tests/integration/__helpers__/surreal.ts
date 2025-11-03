@@ -2,7 +2,6 @@ import { afterAll } from "bun:test";
 import { rm } from "node:fs/promises";
 import type { Subprocess } from "bun";
 import {
-    type AnyAuth,
     applyDiagnostics,
     type ConnectOptions,
     createRemoteEngines,
@@ -10,6 +9,7 @@ import {
     type DriverOptions,
     type ReconnectOptions,
     Surreal,
+    type SystemAuth,
 } from "surrealdb";
 import {
     SURREAL_BIND,
@@ -51,7 +51,7 @@ export function printDiagnostic({ key, type, phase, ...other }: Diagnostic): voi
     console.log(line);
 }
 
-export function createAuth(auth: PremadeAuth | AnyAuth): AnyAuth | undefined {
+export function createAuth(auth: PremadeAuth | SystemAuth): SystemAuth | undefined {
     switch (auth) {
         case "root": {
             return {
