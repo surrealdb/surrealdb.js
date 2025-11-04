@@ -128,6 +128,13 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
         return this.#connection.ready();
     }
 
+    /**
+     * The cached version of the connected SurrealDB instance.
+     */
+    get cachedVersion(): string | undefined {
+        return this.#connection.cachedVersion;
+    }
+
     // =========================================================== //
     //                                                             //
     //                     Connection Methods                      //

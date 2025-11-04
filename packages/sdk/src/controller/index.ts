@@ -89,6 +89,10 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#status;
     }
 
+    public get cachedVersion(): string | undefined {
+        return this.#cachedVersion;
+    }
+
     propagateError(error: Error): void {
         this.#eventPublisher.publish("error", error);
     }
