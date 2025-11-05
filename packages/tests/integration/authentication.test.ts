@@ -1,20 +1,24 @@
-import { beforeAll, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { satisfies } from "semver";
 import { type AnyAuth, RecordId, ResponseError } from "surrealdb";
-import { createAuth, requestVersion, setupServer } from "./__helpers__";
-
-const { createSurreal, createIdleSurreal, kill, spawn } = await setupServer();
+import {
+    createAuth,
+    createIdleSurreal,
+    createSurreal,
+    requestVersion,
+    respawnServer,
+} from "./__helpers__";
 
 const version = await requestVersion();
 const is3x = satisfies(version, ">=3.0.0-alpha.1");
 
-beforeAll(async () => {
+beforeEach(async () => {
     const surreal = await createSurreal();
 
     if (is3x) {
         await surreal.query(/* surql */ `
 			DEFINE TABLE user PERMISSIONS FOR select WHERE id = $auth;
-			DEFINE USER test ON ROOT PASSWORD 'test' ROLES OWNER DURATION FOR TOKEN 61s;
+			DEFINE USER IF NOT EXISTS test ON ROOT PASSWORD 'test' ROLES OWNER DURATION FOR TOKEN 61s;
 			DEFINE ACCESS user ON DATABASE TYPE RECORD
 				SIGNUP ( CREATE type::record('user', $id) )
 				SIGNIN ( SELECT * FROM type::record('user', $id) )
@@ -23,7 +27,7 @@ beforeAll(async () => {
     } else {
         await surreal.query(/* surql */ `
 			DEFINE TABLE user PERMISSIONS FOR select WHERE id = $auth;
-			DEFINE USER test ON ROOT PASSWORD 'test' ROLES OWNER DURATION FOR TOKEN 61s;
+			DEFINE USER IF NOT EXISTS test ON ROOT PASSWORD 'test' ROLES OWNER DURATION FOR TOKEN 61s;
 			DEFINE ACCESS user ON DATABASE TYPE RECORD
 				SIGNUP ( CREATE type::thing('user', $id) )
 				SIGNIN ( SELECT * FROM type::thing('user', $id) )
@@ -35,23 +39,24 @@ beforeAll(async () => {
 });
 
 describe("system auth", async () => {
-    const surreal = await createSurreal();
-
     test("root signin", async () => {
+        const surreal = await createSurreal();
         const res = await surreal.signin(createAuth("root") as AnyAuth);
+
         expect(typeof res.access).toBe("string");
     });
 
     test("invalid credentials", async () => {
+        const surreal = await createSurreal();
         const req = surreal.signin(createAuth("invalid") as AnyAuth);
+
         expect(req.then()).rejects.toBeInstanceOf(ResponseError);
     });
 });
 
 describe("record auth", async () => {
-    const surreal = await createSurreal();
-
     test("record signup", async () => {
+        const surreal = await createSurreal();
         const signup = await surreal.signup({
             access: "user",
             variables: { id: 123 },
@@ -61,7 +66,10 @@ describe("record auth", async () => {
     });
 
     test("record signin", async () => {
+        const surreal = await createSurreal();
         const handleAuth = mock(() => {});
+
+        await surreal.create(new RecordId("user", 123));
 
         surreal.subscribe("auth", handleAuth);
 
@@ -76,12 +84,29 @@ describe("record auth", async () => {
     });
 
     test("info", async () => {
+        const surreal = await createSurreal();
+
+        await surreal.create(new RecordId("user", 123));
+
+        await surreal.signin({
+            access: "user",
+            variables: { id: 123 },
+        });
+
         const info = await surreal.auth<{ id: RecordId<"user"> }>();
         expect(info).toMatchObject({ id: new RecordId("user", 123) });
     });
 
     test("invalidate", async () => {
+        const surreal = await createSurreal();
         const handleAuth = mock(() => {});
+
+        await surreal.create(new RecordId("user", 123));
+
+        await surreal.signin({
+            access: "user",
+            variables: { id: 123 },
+        });
 
         surreal.subscribe("auth", handleAuth);
 
@@ -93,11 +118,11 @@ describe("record auth", async () => {
 });
 
 describe("session renewal", async () => {
-    const { surreal, connect } = createIdleSurreal({
-        auth: "none",
-    });
-
     test("basic", async () => {
+        const { connect } = createIdleSurreal({
+            auth: "none",
+        });
+
         const authentication = mock(() => ({
             username: "test",
             password: "test",
@@ -115,6 +140,10 @@ describe("session renewal", async () => {
     });
 
     test("invalidateOnExpiry", async () => {
+        const { surreal, connect } = createIdleSurreal({
+            auth: "none",
+        });
+
         const handleAuth = mock(() => {});
 
         surreal.subscribe("auth", handleAuth);
@@ -136,6 +165,10 @@ describe("session renewal", async () => {
     });
 
     test("reuse existing access", async () => {
+        const { surreal, connect } = createIdleSurreal({
+            auth: "none",
+        });
+
         const handleAuth = mock(() => {});
 
         surreal.subscribe("auth", handleAuth);
@@ -148,14 +181,17 @@ describe("session renewal", async () => {
         });
 
         // Restart the server to force renewal
-        await kill();
-        await spawn();
+        await respawnServer();
 
         // Should be called only once since the access token is still valid
         expect(handleAuth).toBeCalledTimes(1);
     });
 
     test("null result", async () => {
+        const { surreal, connect } = createIdleSurreal({
+            auth: "none",
+        });
+
         const handleAuth = mock(() => {});
 
         surreal.subscribe("auth", handleAuth);

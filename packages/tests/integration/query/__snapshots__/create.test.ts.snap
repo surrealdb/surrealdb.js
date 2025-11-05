@@ -1,15 +1,29 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`create() compile 1`] = `"CREATE $bind__1 CONTENT $bind__2 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__3"`;
+exports[`create() compile: query-ws 1`] = `"CREATE $bind__4 CONTENT $bind__5 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__6"`;
 
-exports[`create() compile 2`] = `
+exports[`create() compile: bindings-ws 1`] = `
 {
-  "bind__1": Table {},
-  "bind__2": {
+  "bind__4": Table {},
+  "bind__5": {
     "firstname": "Mary",
     "id": RecordId {},
     "lastname": "Doe",
   },
-  "bind__3": DateTime {},
+  "bind__6": DateTime {},
+}
+`;
+
+exports[`create() compile: query-http 1`] = `"CREATE $bind__3 CONTENT $bind__4 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__5"`;
+
+exports[`create() compile: bindings-http 1`] = `
+{
+  "bind__3": Table {},
+  "bind__4": {
+    "firstname": "Mary",
+    "id": RecordId {},
+    "lastname": "Doe",
+  },
+  "bind__5": DateTime {},
 }
 `;

@@ -1,25 +1,23 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { eq, type LiveMessage, RecordId, type Uuid } from "surrealdb";
-import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
-import { insertMockRecords, type Person, personTable, setupServer } from "../__helpers__";
+import {
+    createSurreal,
+    insertMockRecords,
+    type Person,
+    personTable,
+    proto,
+    respawnServer,
+    SURREAL_PROTOCOL,
+} from "../__helpers__";
 
-const { createSurreal, kill, spawn } = await setupServer();
-
-beforeEach(async () => {
-    resetIncrementalID();
-});
-
-describe("live() / liveOf()", async () => {
-    const surreal = await createSurreal({
-        protocol: "ws",
-        reconnect: {
-            enabled: true,
-        },
-    });
-
-    await insertMockRecords(surreal);
-
+describe.if(SURREAL_PROTOCOL === "ws")("live() / liveOf()", async () => {
     test("subscription properties", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+        await insertMockRecords(surreal);
         const subscription = await surreal.live(personTable);
 
         expect(subscription.isAlive).toBeTrue();
@@ -32,6 +30,12 @@ describe("live() / liveOf()", async () => {
     });
 
     test.todo("create action", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+        await insertMockRecords(surreal);
         const subscription = await surreal.live(personTable);
         const { promise, resolve } = Promise.withResolvers();
         const mockHandler = mock(() => resolve());
@@ -61,6 +65,12 @@ describe("live() / liveOf()", async () => {
     });
 
     test.todo("update action", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+        await insertMockRecords(surreal);
         const subscription = await surreal.live(personTable);
         const { promise, resolve } = Promise.withResolvers();
         const mockHandler = mock(() => resolve());
@@ -92,6 +102,12 @@ describe("live() / liveOf()", async () => {
     });
 
     test.todo("delete action", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+        await insertMockRecords(surreal);
         const subscription = await surreal.live(personTable);
         const { promise, resolve } = Promise.withResolvers();
         const mockHandler = mock(() => resolve());
@@ -119,6 +135,12 @@ describe("live() / liveOf()", async () => {
     });
 
     test.todo("reconnect and resume", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+        await insertMockRecords(surreal);
         const subscription = await surreal.live(personTable);
         const { promise, resolve } = Promise.withResolvers();
         const mockHandler = mock(() => resolve());
@@ -128,8 +150,7 @@ describe("live() / liveOf()", async () => {
         const initialId = subscription.id;
 
         // Restart server and wait for reconnection
-        await kill();
-        await spawn();
+        await respawnServer();
         await surreal.ready;
 
         // Make sure we obtained a new live id
@@ -160,6 +181,12 @@ describe("live() / liveOf()", async () => {
     });
 
     test.todo("unmanaged subscription properties", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+        await insertMockRecords(surreal);
         const [liveId] = await surreal.query("LIVE SELECT * FROM person").collect<[Uuid]>();
         const subscription = await surreal.liveOf(liveId);
 
@@ -173,6 +200,12 @@ describe("live() / liveOf()", async () => {
     });
 
     test.todo("unmanaged create action", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+        await insertMockRecords(surreal);
         const [liveId] = await surreal.query("LIVE SELECT * FROM person").collect<[Uuid]>();
         const subscription = await surreal.liveOf(liveId);
         const { promise, resolve } = Promise.withResolvers();
@@ -203,6 +236,12 @@ describe("live() / liveOf()", async () => {
     });
 
     test.todo("iterable", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+        await insertMockRecords(surreal);
         const subscription = await surreal.live(personTable);
         const messages: LiveMessage[] = [];
 
@@ -235,6 +274,12 @@ describe("live() / liveOf()", async () => {
     });
 
     test.todo("iterable survives reconnect", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+        await insertMockRecords(surreal);
         const subscription = await surreal.live(personTable);
         const initialId = subscription.id;
         const messages: LiveMessage[] = [];
@@ -245,8 +290,7 @@ describe("live() / liveOf()", async () => {
             await Bun.sleep(100);
 
             // Restart server and wait for reconnection
-            await kill();
-            await spawn();
+            await respawnServer();
             await surreal.ready;
 
             await surreal.create(new RecordId("person", 5)).content({
@@ -279,6 +323,11 @@ describe("live() / liveOf()", async () => {
     });
 
     test("compile", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
         const builder = surreal
             .live<Person>(personTable)
             .fields("age", "test", "lastname")
@@ -287,7 +336,7 @@ describe("live() / liveOf()", async () => {
 
         const { query, bindings } = builder.compile();
 
-        expect(query).toMatchSnapshot();
-        expect(bindings).toMatchSnapshot();
+        expect(query).toMatchSnapshot(proto("query"));
+        expect(bindings).toMatchSnapshot(proto("bindings"));
     });
 });

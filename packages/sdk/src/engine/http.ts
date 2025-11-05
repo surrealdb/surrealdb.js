@@ -41,7 +41,9 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
 
     open(state: ConnectionState): void {
         this._state = state;
-        this.#publisher.publish("connected");
+        setTimeout(() => {
+            this.#publisher.publish("connected");
+        });
     }
 
     async close(): Promise<void> {
@@ -94,19 +96,21 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             },
         });
 
+        let response: RpcResponse<Result>;
+
         try {
-            const response = this._context.codecs.cbor.decode<RpcResponse<Result>>(
+            response = this._context.codecs.cbor.decode<RpcResponse<Result>>(
                 new Uint8Array(buffer),
             );
-
-            if (response.error) {
-                throw new ResponseError(response.error);
-            }
-
-            return response.result;
         } catch (error) {
             throw new UnexpectedServerResponseError(error);
         }
+
+        if (response.error) {
+            throw new ResponseError(response.error);
+        }
+
+        return response.result;
     }
 
     override liveQuery(): AsyncIterable<LiveMessage> {

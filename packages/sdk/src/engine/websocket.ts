@@ -66,7 +66,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         const { reconnect } = state;
 
         (async () => {
-            while (true) {
+            while (!this.#terminated) {
                 // Open a new socket and await until closure
                 const error = await this.createSocket(() => {
                     this.#active = true;
@@ -122,12 +122,16 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
     async close(): Promise<void> {
         if (this.#terminated) return;
+        const socketState = this.#socket?.readyState;
+
         this._state = undefined;
         this.#terminated = true;
         this.#socket?.close();
 
-        if (this.#active) {
+        if (socketState === WebSocket.OPEN || socketState === WebSocket.CLOSING) {
             await this.#publisher.subscribeFirst("disconnected");
+        } else {
+            this.#publisher.publish("disconnected");
         }
     }
 
