@@ -1,21 +1,21 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`select() compile 1`] = `"SELECT type::fields($bind__1) FROM ONLY $bind__2 WHERE age = $bind__3 START $bind__4 LIMIT $bind__5 FETCH type::fields($bind__6) TIMEOUT TIMEOUT 1s VERSION $bind__7"`;
+exports[`select() compile 1`] = `"SELECT type::fields($bind__4) FROM ONLY $bind__5 WHERE age = $bind__6 START $bind__7 LIMIT $bind__8 FETCH type::fields($bind__9) TIMEOUT TIMEOUT 1s VERSION $bind__10"`;
 
 exports[`select() compile 2`] = `
 {
-  "bind__1": [
+  "bind__10": DateTime {},
+  "bind__4": [
     "age",
     "test",
     "lastname",
   ],
-  "bind__2": RecordId {},
-  "bind__3": 30,
-  "bind__4": 1,
-  "bind__5": 1,
-  "bind__6": [
+  "bind__5": RecordId {},
+  "bind__6": 30,
+  "bind__7": 1,
+  "bind__8": 1,
+  "bind__9": [
     "foo",
   ],
-  "bind__7": DateTime {},
 }
 `;

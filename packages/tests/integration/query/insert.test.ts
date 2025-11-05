@@ -3,9 +3,8 @@ import { DateTime, Duration, RecordId } from "surrealdb";
 import { createSurreal, type Person } from "../__helpers__";
 
 describe("insert()", async () => {
-    const surreal = await createSurreal();
-
     test("single", async () => {
+        const surreal = await createSurreal();
         const [single] = await surreal.insert<Person>({
             id: new RecordId("person", 1),
             firstname: "John",
@@ -20,6 +19,7 @@ describe("insert()", async () => {
     });
 
     test("multiple", async () => {
+        const surreal = await createSurreal();
         const multiple = await surreal.insert<Person>([
             {
                 id: new RecordId("person", 3),
@@ -48,6 +48,7 @@ describe("insert()", async () => {
     });
 
     test("compile", async () => {
+        const surreal = await createSurreal();
         const builder = surreal
             .insert<Person>([
                 {

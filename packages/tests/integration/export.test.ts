@@ -17,21 +17,22 @@ beforeEach(async () => {
 });
 
 describe("export", async () => {
-    const surreal = await createSurreal();
-
     test.if(is2x)("basic 2.x", async () => {
+        const surreal = await createSurreal();
         const res = await surreal.export();
 
         expect(res).toMatchSnapshot();
     });
 
     test.if(is3x)("basic 3.x", async () => {
+        const surreal = await createSurreal();
         const res = await surreal.export();
 
         expect(res).toMatchSnapshot();
     });
 
     test.if(is2x)("filter tables 2.x", async () => {
+        const surreal = await createSurreal();
         const res = await surreal.export({
             tables: ["foo"],
         });
@@ -40,6 +41,7 @@ describe("export", async () => {
     });
 
     test.if(is3x)("filter tables 3.x", async () => {
+        const surreal = await createSurreal();
         const res = await surreal.export({
             tables: ["foo"],
         });
@@ -48,6 +50,7 @@ describe("export", async () => {
     });
 
     test.if(is2x)("filter functions 2.x", async () => {
+        const surreal = await createSurreal();
         const res = await surreal.export({
             functions: true,
             tables: false,
@@ -57,6 +60,7 @@ describe("export", async () => {
     });
 
     test.if(is3x)("filter functions 3.x", async () => {
+        const surreal = await createSurreal();
         const res = await surreal.export({
             functions: true,
             tables: false,

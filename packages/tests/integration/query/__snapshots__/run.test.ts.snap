@@ -1,13 +1,13 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`run() compile 1`] = `"array::add($bind__1, $bind__2, )"`;
+exports[`run() compile 1`] = `"array::add($bind__4, $bind__5, )"`;
 
 exports[`run() compile 2`] = `
 {
-  "bind__1": [
+  "bind__4": [
     1,
     2,
   ],
-  "bind__2": 3,
+  "bind__5": 3,
 }
 `;

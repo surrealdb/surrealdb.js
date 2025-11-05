@@ -97,6 +97,7 @@ describe.if(is3x)("sessions", async () => {
 
     test("restore state after reconnect", async () => {
         const surreal = await createSurreal({
+            // printDiagnostics: true,
             reconnect: {
                 enabled: true,
             },

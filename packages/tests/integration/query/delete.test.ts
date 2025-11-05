@@ -3,11 +3,9 @@ import { DateTime, Duration, RecordId } from "surrealdb";
 import { createSurreal, insertMockRecords, type Person, personTable } from "../__helpers__";
 
 describe("delete()", async () => {
-    const surreal = await createSurreal();
-
-    await insertMockRecords(surreal);
-
     test("single", async () => {
+        const surreal = await createSurreal();
+        await insertMockRecords(surreal);
         const single = await surreal.delete<Person>(new RecordId("person", 1));
 
         expect(single).toStrictEqual({
@@ -18,9 +16,16 @@ describe("delete()", async () => {
     });
 
     test("multiple", async () => {
+        const surreal = await createSurreal();
+        await insertMockRecords(surreal);
         const multiple = await surreal.delete<Person>(personTable);
 
         expect(multiple).toStrictEqual([
+            {
+                id: new RecordId("person", 1),
+                firstname: "John",
+                lastname: "Doe",
+            },
             {
                 id: new RecordId("person", 2),
                 firstname: "Mary",
@@ -30,6 +35,7 @@ describe("delete()", async () => {
     });
 
     test("compile", async () => {
+        const surreal = await createSurreal();
         const builder = surreal
             .delete<Person>(personTable)
             .output("diff")

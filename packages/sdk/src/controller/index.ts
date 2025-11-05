@@ -540,14 +540,18 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
                 const isValid = payload.exp - now > 60;
 
                 if (isValid) {
-                    await this.authenticate(sessionState.accessToken, session, true);
-                    return;
+                    try {
+                        await this.authenticate(sessionState.accessToken, session, true);
+                        return;
+                    } catch {
+                        // Access token was not valid
+                    }
                 }
             }
         }
 
         // Attempt to issue a new access token
-        if (!sessionState.refreshToken) {
+        if (sessionState.refreshToken) {
             const tokens = this.#getTokens(session);
 
             if (tokens) {

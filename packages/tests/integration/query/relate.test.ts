@@ -10,11 +10,12 @@ type Edge = {
 };
 
 describe("relate()", async () => {
-    const surreal = await createSurreal();
-    const { version } = await surreal.version();
+    const checkSurreal = await createSurreal();
+    const { version } = await checkSurreal.version();
     const skip = version === "surrealdb-1.4.2";
 
     test.skipIf(skip)("single with id", async () => {
+        const surreal = await createSurreal();
         const single = await surreal.relate<Edge>(
             new RecordId("edge", "in"),
             new RecordId("graph", 1),
@@ -31,6 +32,7 @@ describe("relate()", async () => {
     });
 
     test.skipIf(skip)("single with table", async () => {
+        const surreal = await createSurreal();
         const single = await surreal.relate<Edge>(
             new RecordId("edge", "in"),
             graphTable,
@@ -47,6 +49,7 @@ describe("relate()", async () => {
     });
 
     test.skipIf(skip)("multiple", async () => {
+        const surreal = await createSurreal();
         const from = [new RecordId("edge", "in1")];
         const to = [new RecordId("edge", "out1"), new RecordId("edge", "out2")];
 
@@ -56,6 +59,7 @@ describe("relate()", async () => {
     });
 
     test.skipIf(skip)("compile", async () => {
+        const surreal = await createSurreal();
         const builder = surreal
             .relate(new RecordId("edge", "in"), graphTable, new RecordId("edge", "out"))
             .unique()
