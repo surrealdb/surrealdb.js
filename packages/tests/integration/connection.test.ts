@@ -1,8 +1,13 @@
 import { describe, expect, mock, test } from "bun:test";
 import { Features, RecordId } from "surrealdb";
-import { setupServer, VERSION_CHECK } from "./__helpers__";
-
-const { createSurreal, createIdleSurreal } = await setupServer();
+import {
+    createIdleSurreal,
+    createSurreal,
+    killServer,
+    SURREAL_PROTOCOL,
+    spawnServer,
+    VERSION_CHECK,
+} from "./__helpers__";
 
 describe("connection", async () => {
     test.todoIf(!VERSION_CHECK)("check version", async () => {
@@ -55,6 +60,30 @@ describe("connection", async () => {
         expect(surreal.status).toBe("connected");
         await surreal.close();
         expect(surreal.status).toBe("disconnected");
+    });
+
+    test("close on disconnected", async () => {
+        const { surreal } = createIdleSurreal();
+
+        await surreal.close();
+        await surreal.close();
+        await surreal.close();
+    });
+
+    test("multiple close calls", async () => {
+        const surreal = await createSurreal();
+
+        await surreal.close();
+        await surreal.close();
+        await surreal.close();
+    });
+
+    test("close after kill", async () => {
+        const surreal = await createSurreal();
+
+        await killServer();
+        await surreal.close();
+        await spawnServer();
     });
 
     test("connected event version", async () => {
@@ -129,8 +158,8 @@ describe("connection", async () => {
         });
     });
 
-    test("use seperately", async () => {
-        const surreal = await createSurreal();
+    test.todoIf(SURREAL_PROTOCOL === "http")("use seperately", async () => {
+        const surreal = await createSurreal({ unselected: true });
 
         await surreal.use({
             namespace: "foo",

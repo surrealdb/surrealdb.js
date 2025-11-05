@@ -1,6 +1,5 @@
-import { afterAll } from "bun:test";
 import { rm } from "node:fs/promises";
-import type { Subprocess } from "bun";
+import { type Subprocess, sleep } from "bun";
 import {
     applyDiagnostics,
     type ConnectOptions,
@@ -18,7 +17,7 @@ import {
     SURREAL_NS,
     SURREAL_PASS,
     SURREAL_PORT,
-    SURREAL_PORT_UNREACHABLE,
+    SURREAL_PROTOCOL,
     SURREAL_USER,
 } from "./env.ts";
 
@@ -29,15 +28,24 @@ export type IdleSurreal = {
     connect: (custom?: ConnectOptions) => Promise<true>;
 };
 
-export const DEFAULT_PROTOCOL: Protocol =
-    import.meta.env.SURREAL_DEFAULT_PROTOCOL === "http" ? "http" : "ws";
-
 export const VERSION_CHECK: boolean = import.meta.env.SURREAL_VERSION_CHECK !== "false";
 
-declare global {
-    var surrealProc: number;
-}
+type CreateSurrealOptions = {
+    auth?: PremadeAuth;
+    unselected?: boolean;
+    reconnect?: boolean | Partial<ReconnectOptions>;
+    driverOptions?: DriverOptions;
+    printDiagnostics?: boolean;
+};
 
+let folder: undefined | string;
+let server: undefined | Subprocess;
+
+export const connections: Surreal[] = [];
+
+/**
+ * Print a formatted diagnostic message.
+ */
 export function printDiagnostic({ key, type, phase, ...other }: Diagnostic): void {
     const keyString = key.toString();
     const keySuffix = keyString.slice(keyString.lastIndexOf("-") + 1);
@@ -51,6 +59,9 @@ export function printDiagnostic({ key, type, phase, ...other }: Diagnostic): voi
     console.log(line);
 }
 
+/**
+ * Create testing authentication.
+ */
 export function createAuth(auth: PremadeAuth | SystemAuth): SystemAuth | undefined {
     switch (auth) {
         case "root": {
@@ -73,112 +84,9 @@ export function createAuth(auth: PremadeAuth | SystemAuth): SystemAuth | undefin
     }
 }
 
-type CreateSurrealOptions = {
-    protocol?: Protocol;
-    auth?: PremadeAuth;
-    reachable?: boolean;
-    unselected?: boolean;
-    reconnect?: boolean | Partial<ReconnectOptions>;
-    driverOptions?: DriverOptions;
-    printDiagnostics?: boolean;
-};
-
-export async function setupServer(): Promise<{
-    spawn: () => Promise<void>;
-    kill: () => Promise<void>;
-    createSurreal: (options?: CreateSurrealOptions) => Promise<Surreal>;
-    createIdleSurreal: (options?: CreateSurrealOptions) => IdleSurreal;
-}> {
-    const folder = `test.db/${Math.random().toString(36).substring(2, 7)}`;
-    let proc: undefined | Subprocess;
-
-    async function spawn() {
-        proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "start", `rocksdb:${folder}`], {
-            env: {
-                SURREAL_BIND,
-                SURREAL_USER,
-                SURREAL_PASS,
-            },
-        });
-
-        await waitForHealth();
-    }
-
-    async function kill() {
-        proc?.kill();
-        await Bun.sleep(1000);
-    }
-
-    function createIdleSurreal({
-        protocol,
-        auth,
-        reachable,
-        unselected,
-        reconnect,
-        driverOptions,
-        printDiagnostics,
-    }: CreateSurrealOptions = {}) {
-        const engines = printDiagnostics
-            ? applyDiagnostics(createRemoteEngines(), printDiagnostic)
-            : createRemoteEngines();
-
-        const surreal = new Surreal({
-            ...driverOptions,
-            engines: {
-                ...engines,
-                ...driverOptions?.engines,
-            },
-        });
-
-        const port = reachable === false ? SURREAL_PORT_UNREACHABLE : SURREAL_PORT;
-
-        const connect = (custom?: ConnectOptions) => {
-            return surreal.connect(`${protocol ?? DEFAULT_PROTOCOL}://127.0.0.1:${port}/rpc`, {
-                namespace: unselected ? undefined : SURREAL_NS,
-                database: unselected ? undefined : SURREAL_DB,
-                authentication: createAuth(auth ?? "root"),
-                reconnect,
-                ...custom,
-            });
-        };
-
-        return { surreal, connect } as IdleSurreal;
-    }
-
-    async function createSurreal(opts: CreateSurrealOptions = {}) {
-        const { surreal, connect } = createIdleSurreal(opts);
-        await connect();
-        return surreal;
-    }
-
-    afterAll(async () => {
-        await kill();
-        await rm(folder, { recursive: true, force: true });
-    });
-
-    await spawn();
-
-    return { createSurreal, createIdleSurreal, spawn, kill };
-}
-
-async function waitForHealth(): Promise<void> {
-    const startAt = Date.now();
-
-    while (Date.now() - startAt < 10_000) {
-        try {
-            const response = await fetch(`http://127.0.0.1:${SURREAL_PORT}/health`);
-
-            if (response.ok) {
-                return;
-            }
-        } catch {
-            await new Promise((r) => setTimeout(r, 100));
-        }
-    }
-
-    throw new Error("Could not resolve health endpoint after 10 seconds.");
-}
-
+/**
+ * Request the version of the SurrealDB server.
+ */
 export async function requestVersion(): Promise<string> {
     const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "version"]);
     const version = await Bun.readableStreamToText(proc.stdout);
@@ -187,4 +95,118 @@ export async function requestVersion(): Promise<string> {
         .replace(/^surrealdb-/, "")
         .slice(0, version.indexOf(" "))
         .trim();
+}
+
+/**
+ * Spawn a new SurrealDB server.
+ */
+export async function spawnServer(): Promise<void> {
+    if (folder || server) {
+        throw new Error("Server already running");
+    }
+
+    console.log("Spawning server...");
+
+    folder = `test.db/${Math.random().toString(36).substring(2, 7)}`;
+    server = Bun.spawn([SURREAL_EXECUTABLE_PATH, "start", `rocksdb:${folder}`], {
+        stdout: "inherit",
+        stderr: "inherit",
+        env: {
+            SURREAL_BIND,
+            SURREAL_USER,
+            SURREAL_PASS,
+        },
+    });
+
+    const startAt = Date.now();
+
+    while (Date.now() - startAt < 10_000) {
+        try {
+            const response = await fetch(`http://127.0.0.1:${SURREAL_PORT}/health`);
+
+            if (response.ok) {
+                console.log("Server spawned successfully");
+                return;
+            }
+        } catch {
+            await sleep(100);
+        }
+    }
+
+    throw new Error("Could not resolve health endpoint after 10 seconds.");
+}
+
+/**
+ * Kill an active SurrealDB server.
+ */
+export async function killServer(): Promise<void> {
+    if (!folder || !server) {
+        throw new Error("Server not running");
+    }
+
+    console.log("Killing server...");
+
+    server.kill();
+
+    await sleep(1000);
+    await rm(folder, { recursive: true, force: true });
+
+    folder = undefined;
+    server = undefined;
+
+    console.log("Server killed");
+}
+
+/**
+ * Respawn an active SurrealDB server.
+ */
+export async function respawnServer(): Promise<void> {
+    await killServer();
+    await spawnServer();
+}
+
+/**
+ * Create an idle SurrealDB connection.
+ */
+export function createIdleSurreal({
+    auth,
+    unselected,
+    reconnect,
+    driverOptions,
+    printDiagnostics,
+}: CreateSurrealOptions = {}) {
+    const engines = printDiagnostics
+        ? applyDiagnostics(createRemoteEngines(), printDiagnostic)
+        : createRemoteEngines();
+
+    const surreal = new Surreal({
+        ...driverOptions,
+        engines: {
+            ...engines,
+            ...driverOptions?.engines,
+        },
+    });
+
+    connections.push(surreal);
+
+    const connect = (custom?: ConnectOptions) => {
+        return surreal.connect(`${SURREAL_PROTOCOL}://127.0.0.1:${SURREAL_PORT}/rpc`, {
+            namespace: unselected ? undefined : SURREAL_NS,
+            database: unselected ? undefined : SURREAL_DB,
+            authentication: createAuth(auth ?? "root"),
+            reconnect,
+            ...custom,
+        });
+    };
+
+    return { surreal, connect } as IdleSurreal;
+}
+
+/**
+ * Create a new SurrealDB connection.
+ */
+export async function createSurreal(opts: CreateSurrealOptions = {}) {
+    const { surreal, connect } = createIdleSurreal(opts);
+    await connect();
+    return surreal;
 }

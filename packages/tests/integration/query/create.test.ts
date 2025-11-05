@@ -1,18 +1,10 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { DateTime, Duration, RecordId } from "surrealdb";
-import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
-import { type Person, personTable, setupServer } from "../__helpers__";
-
-const { createSurreal } = await setupServer();
-
-beforeEach(async () => {
-    resetIncrementalID();
-});
+import { createSurreal, type Person, personTable, proto } from "../__helpers__";
 
 describe("create()", async () => {
-    const surreal = await createSurreal();
-
     test("single", async () => {
+        const surreal = await createSurreal();
         const single = await surreal.create<Person>(new RecordId("person", 1)).content({
             firstname: "John",
             lastname: "Doe",
@@ -26,6 +18,7 @@ describe("create()", async () => {
     });
 
     test("multiple", async () => {
+        const surreal = await createSurreal();
         const multiple = await surreal.create<Person>(personTable).content({
             id: new RecordId("person", 2),
             firstname: "Mary",
@@ -42,6 +35,7 @@ describe("create()", async () => {
     });
 
     test("compile", async () => {
+        const surreal = await createSurreal();
         const builder = surreal
             .create<Person>(personTable)
             .content({
@@ -55,7 +49,7 @@ describe("create()", async () => {
 
         const { query, bindings } = builder.compile();
 
-        expect(query).toMatchSnapshot();
-        expect(bindings).toMatchSnapshot();
+        expect(query).toMatchSnapshot(proto("query"));
+        expect(bindings).toMatchSnapshot(proto("bindings"));
     });
 });

@@ -1,20 +1,11 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { Duration, eq, RecordId } from "surrealdb";
-import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
-import { insertMockRecords, type Person, setupServer } from "../__helpers__";
-
-const { createSurreal } = await setupServer();
-
-beforeEach(async () => {
-    resetIncrementalID();
-});
+import { createSurreal, insertMockRecords, type Person, proto } from "../__helpers__";
 
 describe("update()", async () => {
-    const surreal = await createSurreal();
-
-    await insertMockRecords(surreal);
-
     test("single", async () => {
+        const surreal = await createSurreal();
+        await insertMockRecords(surreal);
         const single = await surreal.update<Person>(new RecordId("person", 1));
 
         expect(single).toStrictEqual({
@@ -25,6 +16,8 @@ describe("update()", async () => {
     });
 
     test("content", async () => {
+        const surreal = await createSurreal();
+        await insertMockRecords(surreal);
         const single = await surreal.update<Person>(new RecordId("person", 1)).content({
             firstname: "Peter",
             lastname: "Schoenveter",
@@ -38,6 +31,8 @@ describe("update()", async () => {
     });
 
     test("merge", async () => {
+        const surreal = await createSurreal();
+        await insertMockRecords(surreal);
         const single = await surreal.update<Person>(new RecordId("person", 1)).merge({
             firstname: "Bob",
         });
@@ -45,11 +40,13 @@ describe("update()", async () => {
         expect(single).toStrictEqual({
             id: new RecordId("person", 1),
             firstname: "Bob",
-            lastname: "Schoenveter",
+            lastname: "Doe",
         });
     });
 
     test("replace", async () => {
+        const surreal = await createSurreal();
+        await insertMockRecords(surreal);
         const single = await surreal.update<Person>(new RecordId("person", 1)).replace({
             firstname: "Jason",
             lastname: "Gibson",
@@ -63,6 +60,7 @@ describe("update()", async () => {
     });
 
     test("compile", async () => {
+        const surreal = await createSurreal();
         const builder = surreal
             .update<Person>(new RecordId("person", 1))
             .content({
@@ -75,7 +73,7 @@ describe("update()", async () => {
 
         const { query, bindings } = builder.compile();
 
-        expect(query).toMatchSnapshot();
-        expect(bindings).toMatchSnapshot();
+        expect(query).toMatchSnapshot(proto("query"));
+        expect(bindings).toMatchSnapshot(proto("bindings"));
     });
 });

@@ -1,22 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { ConnectionUnavailableError } from "surrealdb";
-import { setupServer } from "../__helpers__";
+import { createIdleSurreal, createSurreal, SURREAL_PROTOCOL } from "../__helpers__";
 
-const { createSurreal, createIdleSurreal } = await setupServer();
-
-describe("HTTP protocol", () => {
+describe.if(SURREAL_PROTOCOL === "http")("HTTP protocol", () => {
     test("basic connection", async () => {
-        const surreal = await createSurreal({
-            protocol: "http",
-        });
+        const surreal = await createSurreal();
 
         await surreal.ready;
     });
 
     test("execute query", async () => {
-        const surreal = await createSurreal({
-            protocol: "http",
-        });
+        const surreal = await createSurreal();
 
         const [result] = await surreal.query("INFO FOR ROOT").collect();
 
@@ -24,9 +18,7 @@ describe("HTTP protocol", () => {
     });
 
     test("status events", async () => {
-        const { surreal, connect } = createIdleSurreal({
-            protocol: "http",
-        });
+        const { surreal, connect } = createIdleSurreal();
 
         let phase = 0;
 
@@ -56,9 +48,7 @@ describe("HTTP protocol", () => {
     });
 
     test("connection unavailable", async () => {
-        const { surreal } = createIdleSurreal({
-            protocol: "ws",
-        });
+        const { surreal } = createIdleSurreal();
 
         expect(async () => {
             await surreal.ready;

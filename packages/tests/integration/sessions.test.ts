@@ -1,13 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { satisfies } from "semver";
 import { Features } from "surrealdb";
-import { requestVersion, setupServer } from "./__helpers__";
+import { createSurreal, requestVersion, respawnServer, SURREAL_PROTOCOL } from "./__helpers__";
 
-const { createSurreal, spawn, kill } = await setupServer();
 const version = await requestVersion();
 const is3x = satisfies(version, ">=3.0.0-alpha.1");
 
-describe.if(is3x)("sessions", async () => {
+describe.if(is3x && SURREAL_PROTOCOL === "http")("sessions", async () => {
     test("feature", async () => {
         const surreal = await createSurreal();
 
@@ -70,6 +69,9 @@ describe.if(is3x)("sessions", async () => {
 
         expect(surreal.session).not.toEqual(session.session);
 
+        // guarantee session existence
+        await session.set("foo", "bar");
+
         const sessions = await surreal.sessions();
 
         expect(sessions.length).toBe(1);
@@ -98,6 +100,7 @@ describe.if(is3x)("sessions", async () => {
 
     test("restore state after reconnect", async () => {
         const surreal = await createSurreal({
+            // printDiagnostics: true,
             reconnect: {
                 enabled: true,
             },
@@ -109,8 +112,7 @@ describe.if(is3x)("sessions", async () => {
 
         await session.set("hello", "world");
 
-        await kill();
-        await spawn();
+        await respawnServer();
 
         const [foo, hello] = await session
             .query("RETURN $foo; RETURN $hello")

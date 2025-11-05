@@ -1,20 +1,11 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { BoundIncluded, DateTime, Duration, eq, RecordId, RecordIdRange } from "surrealdb";
-import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
-import { insertMockRecords, type Person, personTable, setupServer } from "../__helpers__";
-
-const { createSurreal } = await setupServer();
-
-beforeEach(async () => {
-    resetIncrementalID();
-});
+import { createSurreal, insertMockRecords, type Person, personTable, proto } from "../__helpers__";
 
 describe("select()", async () => {
-    const surreal = await createSurreal();
-
-    await insertMockRecords(surreal);
-
     test("single", async () => {
+        const surreal = await createSurreal();
+        await insertMockRecords(surreal);
         const single = await surreal.select<Person>(new RecordId("person", 1));
 
         expect(single).toStrictEqual({
@@ -25,6 +16,8 @@ describe("select()", async () => {
     });
 
     test("multiple", async () => {
+        const surreal = await createSurreal();
+        await insertMockRecords(surreal);
         const multiple = await surreal.select<Person>(personTable);
 
         expect(multiple).toStrictEqual([
@@ -42,6 +35,8 @@ describe("select()", async () => {
     });
 
     test("range", async () => {
+        const surreal = await createSurreal();
+        await insertMockRecords(surreal);
         const range = await surreal.select<Person>(
             new RecordIdRange(personTable, new BoundIncluded(1), new BoundIncluded(2)),
         );
@@ -61,6 +56,7 @@ describe("select()", async () => {
     });
 
     test("compile", async () => {
+        const surreal = await createSurreal();
         const builder = surreal
             .select<Person>(new RecordId("person", 1))
             .fields("age", "test", "lastname")
@@ -73,7 +69,7 @@ describe("select()", async () => {
 
         const { query, bindings } = builder.compile();
 
-        expect(query).toMatchSnapshot();
-        expect(bindings).toMatchSnapshot();
+        expect(query).toMatchSnapshot(proto("query"));
+        expect(bindings).toMatchSnapshot(proto("bindings"));
     });
 });

@@ -1,36 +1,23 @@
-import { beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { RecordId, surql } from "surrealdb";
-import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
-import { type Person, setupServer } from "../__helpers__";
-
-const { createSurreal } = await setupServer();
-
-beforeEach(async () => {
-    resetIncrementalID();
-});
-
-beforeAll(async () => {
-    const surreal = await createSurreal();
-
-    await surreal.query(/* surql */ `
-		CREATE |foo:1..100| CONTENT { hello: "world" };
-	`);
-});
+import { createSurreal, type Person, proto } from "../__helpers__";
 
 describe("query()", async () => {
-    const surreal = await createSurreal();
-
     test("direct query", async () => {
+        const surreal = await createSurreal();
         await surreal.query(`UPSERT hello:world CONTENT { hello: "world" }`);
     });
 
     test("collect query results", async () => {
+        const surreal = await createSurreal();
+        await surreal.query(`UPSERT hello:world CONTENT { hello: "world" }`);
         const [result] = await surreal.query(`RETURN hello:world.hello`).collect<["world"]>();
 
         expect(result).toEqual("world");
     });
 
     test("collect specific query results", async () => {
+        const surreal = await createSurreal();
         const [first, third] = await surreal
             .query(`RETURN 1; RETURN 2; RETURN 3`)
             .collect<[1, 3]>(0, 2);
@@ -40,6 +27,10 @@ describe("query()", async () => {
     });
 
     test("stream query results", async () => {
+        const surreal = await createSurreal();
+        await surreal.query(/* surql */ `
+		CREATE |foo:1..100| CONTENT { hello: "world" };
+	`);
         const stream = surreal.query(`SELECT * FROM foo;`).stream();
 
         let valueCount = 0;
@@ -65,6 +56,7 @@ describe("query()", async () => {
     });
 
     test("stream single result query", async () => {
+        const surreal = await createSurreal();
         const stream = surreal.query(`RETURN { foo: "bar" }`).stream();
 
         let valueCount = 0;
@@ -88,6 +80,7 @@ describe("query()", async () => {
     });
 
     test("bound query", async () => {
+        const surreal = await createSurreal();
         const record = new RecordId("hello", "world");
         const query = surql`
 			RETURN ${record}
@@ -99,14 +92,16 @@ describe("query()", async () => {
     });
 
     test("inner query", async () => {
+        const surreal = await createSurreal();
         const record = new RecordId("hello", "world");
         const { query, bindings } = surreal.query(surql`RETURN ${record}`).inner;
 
-        expect(query).toMatchSnapshot();
-        expect(bindings).toMatchSnapshot();
+        expect(query).toMatchSnapshot(proto("query"));
+        expect(bindings).toMatchSnapshot(proto("bindings"));
     });
 
     test("pre compiled", async () => {
+        const surreal = await createSurreal();
         const compiled = surreal
             .create<Person>(new RecordId("person", 2))
             .content({

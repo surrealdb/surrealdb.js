@@ -1,22 +1,22 @@
 import { describe, expect, test } from "bun:test";
 import { ConnectionUnavailableError } from "surrealdb";
-import { setupServer } from "../__helpers__";
+import {
+    createIdleSurreal,
+    createSurreal,
+    killServer,
+    SURREAL_PROTOCOL,
+    spawnServer,
+} from "../__helpers__";
 
-const { createSurreal, createIdleSurreal, kill, spawn } = await setupServer();
-
-describe("WebSocket protocol", () => {
+describe.if(SURREAL_PROTOCOL === "ws")("WebSocket protocol", () => {
     test("basic connection", async () => {
-        const surreal = await createSurreal({
-            protocol: "ws",
-        });
+        const surreal = await createSurreal();
 
         await surreal.ready;
     });
 
     test("execute query", async () => {
-        const surreal = await createSurreal({
-            protocol: "ws",
-        });
+        const surreal = await createSurreal();
 
         const [result] = await surreal.query("INFO FOR ROOT").collect();
 
@@ -24,9 +24,7 @@ describe("WebSocket protocol", () => {
     });
 
     test("status events", async () => {
-        const { surreal, connect } = createIdleSurreal({
-            protocol: "ws",
-        });
+        const { surreal, connect } = createIdleSurreal();
 
         let phase = 0;
 
@@ -56,9 +54,7 @@ describe("WebSocket protocol", () => {
     });
 
     test("connection unavailable", async () => {
-        const { surreal } = createIdleSurreal({
-            protocol: "ws",
-        });
+        const { surreal } = createIdleSurreal();
 
         expect(async () => {
             await surreal.ready;
@@ -67,7 +63,6 @@ describe("WebSocket protocol", () => {
 
     test("reconnect on disconnect", async () => {
         const surreal = await createSurreal({
-            protocol: "ws",
             reconnect: {
                 enabled: true,
             },
@@ -79,8 +74,8 @@ describe("WebSocket protocol", () => {
         surreal.subscribe("reconnecting", () => reconnectPromise.resolve());
         surreal.subscribe("connected", () => connectedPromise.resolve());
 
-        await kill();
-        spawn();
+        await killServer();
+        spawnServer(); // do not await
 
         await reconnectPromise.promise;
         await connectedPromise.promise;

@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { satisfies } from "semver";
 import { RecordId } from "surrealdb";
-import { requestVersion, setupServer } from "./__helpers__";
+import { createSurreal, requestVersion } from "./__helpers__";
 
-const { createSurreal } = await setupServer();
 const version = await requestVersion();
 const is3x = satisfies(version, ">=3.0.0-alpha.1");
 
