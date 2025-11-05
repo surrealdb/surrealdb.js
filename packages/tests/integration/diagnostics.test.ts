@@ -1,13 +1,7 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { applyDiagnostics, createRemoteEngines, type Diagnostic, RecordId } from "surrealdb";
 import { resetIncrementalID } from "../../sdk/src/internal/get-incremental-id";
-import { type Person, setupServer } from "./__helpers__";
-
-const { createSurreal } = await setupServer();
-
-beforeEach(() => {
-    resetIncrementalID();
-});
+import { createSurreal, type Person } from "./__helpers__";
 
 describe("diagnostics", async () => {
     test("diagnostic events", async () => {

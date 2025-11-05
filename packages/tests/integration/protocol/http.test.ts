@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ConnectionUnavailableError } from "surrealdb";
-import { setupServer } from "../__helpers__";
-
-const { createSurreal, createIdleSurreal } = await setupServer();
+import { createIdleSurreal, createSurreal } from "../__helpers__";
 
 describe("HTTP protocol", () => {
     test("basic connection", async () => {

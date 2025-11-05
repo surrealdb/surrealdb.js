@@ -1,12 +1,5 @@
-import { beforeEach, describe, expect, test } from "bun:test";
-import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
-import { setupServer } from "../__helpers__";
-
-const { createSurreal } = await setupServer();
-
-beforeEach(async () => {
-    resetIncrementalID();
-});
+import { describe, expect, test } from "bun:test";
+import { createSurreal } from "../__helpers__";
 
 describe("run()", async () => {
     const surreal = await createSurreal();

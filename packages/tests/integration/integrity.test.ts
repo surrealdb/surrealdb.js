@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { InvalidDateError, RecordId } from "surrealdb";
-import { setupServer, testTable } from "./__helpers__";
-
-const { createSurreal } = await setupServer();
+import { createSurreal, testTable } from "./__helpers__";
 
 describe("data integrity", async () => {
     test("invalid date", async () => {

@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ConnectionUnavailableError } from "surrealdb";
-import { setupServer } from "../__helpers__";
-
-const { createSurreal, createIdleSurreal, kill, spawn } = await setupServer();
+import { createIdleSurreal, createSurreal, killServer, spawnServer } from "../__helpers__";
 
 describe("WebSocket protocol", () => {
     test("basic connection", async () => {
@@ -79,8 +77,8 @@ describe("WebSocket protocol", () => {
         surreal.subscribe("reconnecting", () => reconnectPromise.resolve());
         surreal.subscribe("connected", () => connectedPromise.resolve());
 
-        await kill();
-        spawn();
+        await killServer();
+        spawnServer(); // do not await
 
         await reconnectPromise.promise;
         await connectedPromise.promise;

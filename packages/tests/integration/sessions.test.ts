@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { satisfies } from "semver";
 import { Features } from "surrealdb";
-import { requestVersion, setupServer } from "./__helpers__";
+import { createSurreal, requestVersion, respawnServer } from "./__helpers__";
 
-const { createSurreal, spawn, kill } = await setupServer();
 const version = await requestVersion();
 const is3x = satisfies(version, ">=3.0.0-alpha.1");
 
@@ -109,8 +108,7 @@ describe.if(is3x)("sessions", async () => {
 
         await session.set("hello", "world");
 
-        await kill();
-        await spawn();
+        await respawnServer();
 
         const [foo, hello] = await session
             .query("RETURN $foo; RETURN $hello")

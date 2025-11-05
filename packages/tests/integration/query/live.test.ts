@@ -1,13 +1,12 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { eq, type LiveMessage, RecordId, type Uuid } from "surrealdb";
-import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
-import { insertMockRecords, type Person, personTable, setupServer } from "../__helpers__";
-
-const { createSurreal, kill, spawn } = await setupServer();
-
-beforeEach(async () => {
-    resetIncrementalID();
-});
+import {
+    createSurreal,
+    insertMockRecords,
+    type Person,
+    personTable,
+    respawnServer,
+} from "../__helpers__";
 
 describe("live() / liveOf()", async () => {
     const surreal = await createSurreal({
@@ -128,8 +127,7 @@ describe("live() / liveOf()", async () => {
         const initialId = subscription.id;
 
         // Restart server and wait for reconnection
-        await kill();
-        await spawn();
+        await respawnServer();
         await surreal.ready;
 
         // Make sure we obtained a new live id
@@ -245,8 +243,7 @@ describe("live() / liveOf()", async () => {
             await Bun.sleep(100);
 
             // Restart server and wait for reconnection
-            await kill();
-            await spawn();
+            await respawnServer();
             await surreal.ready;
 
             await surreal.create(new RecordId("person", 5)).content({

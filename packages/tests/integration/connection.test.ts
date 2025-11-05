@@ -1,8 +1,10 @@
-import { describe, expect, mock, test } from "bun:test";
+import { beforeAll, describe, expect, mock, test } from "bun:test";
 import { Features, RecordId } from "surrealdb";
-import { setupServer, VERSION_CHECK } from "./__helpers__";
+import { createIdleSurreal, createSurreal, VERSION_CHECK } from "./__helpers__";
 
-const { createSurreal, createIdleSurreal } = await setupServer();
+beforeAll(async () => {
+    console.log("BBBBB");
+});
 
 describe("connection", async () => {
     test.todoIf(!VERSION_CHECK)("check version", async () => {

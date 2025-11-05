@@ -1,14 +1,18 @@
-import { beforeAll, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { satisfies } from "semver";
 import { type AnyAuth, RecordId, ResponseError } from "surrealdb";
-import { createAuth, requestVersion, setupServer } from "./__helpers__";
-
-const { createSurreal, createIdleSurreal, kill, spawn } = await setupServer();
+import {
+    createAuth,
+    createIdleSurreal,
+    createSurreal,
+    requestVersion,
+    respawnServer,
+} from "./__helpers__";
 
 const version = await requestVersion();
 const is3x = satisfies(version, ">=3.0.0-alpha.1");
 
-beforeAll(async () => {
+beforeEach(async () => {
     const surreal = await createSurreal();
 
     if (is3x) {
@@ -148,8 +152,7 @@ describe("session renewal", async () => {
         });
 
         // Restart the server to force renewal
-        await kill();
-        await spawn();
+        await respawnServer();
 
         // Should be called only once since the access token is still valid
         expect(handleAuth).toBeCalledTimes(1);

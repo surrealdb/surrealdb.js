@@ -1,13 +1,6 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { Duration, eq, RecordId } from "surrealdb";
-import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
-import { insertMockRecords, type Person, setupServer } from "../__helpers__";
-
-const { createSurreal } = await setupServer();
-
-beforeEach(async () => {
-    resetIncrementalID();
-});
+import { createSurreal, insertMockRecords, type Person } from "../__helpers__";
 
 describe("update()", async () => {
     const surreal = await createSurreal();

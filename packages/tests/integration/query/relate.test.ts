@@ -1,13 +1,6 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { DateTime, Duration, RecordId } from "surrealdb";
-import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
-import { graphTable, setupServer } from "../__helpers__";
-
-const { createSurreal } = await setupServer();
-
-beforeEach(async () => {
-    resetIncrementalID();
-});
+import { createSurreal, graphTable } from "../__helpers__";
 
 type Edge = {
     id: RecordId<"graph">;

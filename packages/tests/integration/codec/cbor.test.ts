@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { RecordId } from "surrealdb";
-import { setupServer } from "../__helpers__";
-
-const { createSurreal } = await setupServer();
+import { createSurreal } from "../__helpers__";
 
 describe("cbor codec", async () => {
     test("value encode visitor", async () => {
