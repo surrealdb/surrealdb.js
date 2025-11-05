@@ -90,6 +90,7 @@ export async function setupServer(): Promise<{
     createIdleSurreal: (options?: CreateSurrealOptions) => IdleSurreal;
 }> {
     const folder = `test.db/${Math.random().toString(36).substring(2, 7)}`;
+    const connections: Surreal[] = [];
     let proc: undefined | Subprocess;
 
     async function spawn() {
@@ -130,6 +131,8 @@ export async function setupServer(): Promise<{
             },
         });
 
+        connections.push(surreal);
+
         const port = reachable === false ? SURREAL_PORT_UNREACHABLE : SURREAL_PORT;
 
         const connect = (custom?: ConnectOptions) => {
@@ -154,6 +157,10 @@ export async function setupServer(): Promise<{
     afterAll(async () => {
         await kill();
         await rm(folder, { recursive: true, force: true });
+
+        for (const connection of connections) {
+            await connection.close();
+        }
     });
 
     await spawn();
