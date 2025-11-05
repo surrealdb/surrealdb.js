@@ -59,26 +59,16 @@ describe("connection", async () => {
 
     test("connected event version", async () => {
         const { surreal, connect } = createIdleSurreal();
-        const handleConnected = mock((version: string) => {
-            console.log("HANDLE CONNECTED", version);
-        });
+        const handleConnected = mock((_version: string) => {});
 
-        try {
-            surreal.subscribe("connected", handleConnected);
+        surreal.subscribe("connected", handleConnected);
 
-            await connect();
-        } catch (error) {
-            console.log("ERROR", error);
-        }
+        await connect();
 
-        // console.log("SURREAL", surreal);
+        const { version } = await surreal.version();
 
-        // const { version } = await surreal.version();
-
-        // console.log("V", version);
-
-        // expect(handleConnected).toHaveBeenCalledTimes(1);
-        // expect(handleConnected).toHaveBeenCalledWith(version);
+        expect(handleConnected).toHaveBeenCalledTimes(1);
+        expect(handleConnected).toHaveBeenCalledWith(version);
     });
 
     test("access token", async () => {

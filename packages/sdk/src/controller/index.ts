@@ -159,10 +159,10 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             return;
         }
 
-        const [error] = await this.#eventPublisher.subscribeFirst("connected", "error");
+        const [result] = await this.#eventPublisher.subscribeFirst("connected", "error");
 
-        if (error) {
-            throw error;
+        if (result instanceof Error) {
+            throw result;
         }
     }
 
