@@ -214,7 +214,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.sessions();
     }
 
-    async signup(auth: AccessRecordAuth, session: Session): Promise<Tokens> {
+    async signup(auth: AccessRecordAuth, session: Session, skipOverride = false): Promise<Tokens> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
@@ -224,13 +224,13 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         sessionState.accessToken = response.access;
         sessionState.refreshToken = response.refresh;
-        sessionState.authOverriden = true;
+        sessionState.authOverriden = sessionState.authOverriden || !skipOverride;
         this.#handleAuthChanged(session);
 
         return response;
     }
 
-    async signin(auth: AnyAuth, session: Session): Promise<Tokens> {
+    async signin(auth: AnyAuth, session: Session, skipOverride = false): Promise<Tokens> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
@@ -240,13 +240,13 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         sessionState.accessToken = response.access;
         sessionState.refreshToken = response.refresh;
-        sessionState.authOverriden = true;
+        sessionState.authOverriden = sessionState.authOverriden || !skipOverride;
         this.#handleAuthChanged(session);
 
         return response;
     }
 
-    async authenticate(token: Token, session: Session): Promise<void> {
+    async authenticate(token: Token, session: Session, skipOverride = false): Promise<void> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
@@ -255,11 +255,11 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         const sessionState = this.getSession(session);
 
         sessionState.accessToken = token;
-        sessionState.authOverriden = true;
+        sessionState.authOverriden = sessionState.authOverriden || !skipOverride;
         this.#handleAuthChanged(session);
     }
 
-    async refresh(tokens: Tokens, session: Session): Promise<Tokens> {
+    async refresh(tokens: Tokens, session: Session, skipOverride = false): Promise<Tokens> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
@@ -271,7 +271,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         sessionState.accessToken = response.access;
         sessionState.refreshToken = response.refresh;
-        sessionState.authOverriden = true;
+        sessionState.authOverriden = sessionState.authOverriden || !skipOverride;
         this.#handleAuthChanged(session);
 
         return response;
@@ -464,10 +464,14 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         const computed = typeof provider === "function" ? await provider(session) : provider;
 
+        if (computed === null) {
+            return false;
+        }
+
         if (typeof computed === "string") {
-            await this.authenticate(computed, session);
+            await this.authenticate(computed, session, true);
         } else {
-            await this.signin(computed, session);
+            await this.signin(computed, session, true);
         }
 
         return true;
@@ -536,7 +540,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
                 const isValid = payload.exp - now > 60;
 
                 if (isValid) {
-                    await this.authenticate(sessionState.accessToken, session);
+                    await this.authenticate(sessionState.accessToken, session, true);
                     return;
                 }
             }
@@ -548,7 +552,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
             if (tokens) {
                 try {
-                    await this.refresh(tokens, session);
+                    await this.refresh(tokens, session, true);
                     return;
                 } catch {
                     // Refresh token was not valid
