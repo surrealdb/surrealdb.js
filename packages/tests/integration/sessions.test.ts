@@ -6,7 +6,7 @@ import { createSurreal, requestVersion, respawnServer, SURREAL_PROTOCOL } from "
 const version = await requestVersion();
 const is3x = satisfies(version, ">=3.0.0-alpha.1");
 
-describe.if(is3x).todoIf(SURREAL_PROTOCOL === "http")("sessions", async () => {
+describe.if(is3x && SURREAL_PROTOCOL === "http")("sessions", async () => {
     test("feature", async () => {
         const surreal = await createSurreal();
 
