@@ -20,7 +20,7 @@ import type { Uuid } from "./value";
 
 export type SurrealEvents = SessionEvents & {
     connecting: [];
-    connected: [];
+    connected: [string];
     reconnecting: [];
     disconnected: [];
     error: [Error];
@@ -67,8 +67,8 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
             this.#publisher.publish("connecting");
         });
 
-        connection.subscribe("connected", () => {
-            this.#publisher.publish("connected");
+        connection.subscribe("connected", (version) => {
+            this.#publisher.publish("connected", version);
         });
 
         connection.subscribe("disconnected", () => {
