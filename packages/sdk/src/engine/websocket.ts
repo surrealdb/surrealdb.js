@@ -45,7 +45,12 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     #active = false;
     #terminated = false;
 
-    features = new Set([Features.LiveQueries, Features.RefreshTokens, Features.Sessions]);
+    features = new Set([
+        Features.LiveQueries,
+        Features.RefreshTokens,
+        Features.Sessions,
+        Features.Transactions,
+    ]);
 
     subscribe<K extends keyof EngineEvents>(
         event: K,
