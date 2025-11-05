@@ -49,7 +49,7 @@ import { Uuid } from "../value";
 
 type ConnectionEvents = {
     connecting: [];
-    connected: [];
+    connected: [string];
     disconnected: [];
     reconnecting: [];
     error: [Error];
@@ -87,10 +87,6 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     public get status(): ConnectionStatus {
         return this.#status;
-    }
-
-    public get cachedVersion(): string | undefined {
-        return this.#cachedVersion;
     }
 
     propagateError(error: Error): void {
@@ -416,7 +412,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             }
 
             this.#status = "connected";
-            this.#eventPublisher.publish("connected");
+            this.#eventPublisher.publish("connected", version);
         } catch (err: unknown) {
             this.#eventPublisher.publish("error", err as Error);
             this.#engine?.close();
