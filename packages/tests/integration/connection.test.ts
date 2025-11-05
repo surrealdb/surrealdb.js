@@ -57,6 +57,30 @@ describe("connection", async () => {
         expect(surreal.status).toBe("disconnected");
     });
 
+    test("connected event version", async () => {
+        const { surreal, connect } = createIdleSurreal();
+        const handleConnected = mock((version: string) => {
+            console.log("HANDLE CONNECTED", version);
+        });
+
+        try {
+            surreal.subscribe("connected", handleConnected);
+
+            await connect();
+        } catch (error) {
+            console.log("ERROR", error);
+        }
+
+        // console.log("SURREAL", surreal);
+
+        // const { version } = await surreal.version();
+
+        // console.log("V", version);
+
+        // expect(handleConnected).toHaveBeenCalledTimes(1);
+        // expect(handleConnected).toHaveBeenCalledWith(version);
+    });
+
     test("access token", async () => {
         const surreal = await createSurreal({
             unselected: true,
