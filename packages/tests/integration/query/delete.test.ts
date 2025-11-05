@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DateTime, Duration, RecordId } from "surrealdb";
-import { createSurreal, insertMockRecords, type Person, personTable } from "../__helpers__";
+import { createSurreal, insertMockRecords, type Person, personTable, proto } from "../__helpers__";
 
 describe("delete()", async () => {
     test("single", async () => {
@@ -44,7 +44,7 @@ describe("delete()", async () => {
 
         const { query, bindings } = builder.compile();
 
-        expect(query).toMatchSnapshot();
-        expect(bindings).toMatchSnapshot();
+        expect(query).toMatchSnapshot(proto("query"));
+        expect(bindings).toMatchSnapshot(proto("bindings"));
     });
 });

@@ -1,8 +1,8 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`update() compile 1`] = `"UPDATE ONLY $bind__4 CONTENT $bind__5 WHERE age = $bind__6 RETURN DIFF TIMEOUT TIMEOUT 1s"`;
+exports[`update() compile: query-ws 1`] = `"UPDATE ONLY $bind__4 CONTENT $bind__5 WHERE age = $bind__6 RETURN DIFF TIMEOUT TIMEOUT 1s"`;
 
-exports[`update() compile 2`] = `
+exports[`update() compile: bindings-ws 1`] = `
 {
   "bind__4": RecordId {},
   "bind__5": {
@@ -10,5 +10,18 @@ exports[`update() compile 2`] = `
     "lastname": "Doe",
   },
   "bind__6": 30,
+}
+`;
+
+exports[`update() compile: query-http 1`] = `"UPDATE ONLY $bind__3 CONTENT $bind__4 WHERE age = $bind__5 RETURN DIFF TIMEOUT TIMEOUT 1s"`;
+
+exports[`update() compile: bindings-http 1`] = `
+{
+  "bind__3": RecordId {},
+  "bind__4": {
+    "firstname": "John",
+    "lastname": "Doe",
+  },
+  "bind__5": 30,
 }
 `;

@@ -5,6 +5,7 @@ import type { NamespaceDatabase, QueryChunk, Session, VersionInfo } from "./surr
 
 type AuthVariant = "system_user" | "token" | "record_access" | "bearer_access";
 type SessionInfo = { session: Session };
+type OpenInfo = { url: URL };
 type AuthInfo = { variant: AuthVariant };
 type UseInfo = { requested: Nullable<NamespaceDatabase> };
 type SetInfo = { name: string; value: unknown };
@@ -24,7 +25,7 @@ type DiagnosticMap = {
     signup: AuthInfo & SessionInfo;
     signin: AuthInfo & SessionInfo;
     authenticate: AuthInfo & SessionInfo;
-    open: undefined;
+    open: OpenInfo;
     close: undefined;
     health: undefined;
     use: UseInfo & SessionInfo;

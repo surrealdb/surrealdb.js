@@ -1,8 +1,8 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`select() compile 1`] = `"SELECT type::fields($bind__4) FROM ONLY $bind__5 WHERE age = $bind__6 START $bind__7 LIMIT $bind__8 FETCH type::fields($bind__9) TIMEOUT TIMEOUT 1s VERSION $bind__10"`;
+exports[`select() compile: query-ws 1`] = `"SELECT type::fields($bind__4) FROM ONLY $bind__5 WHERE age = $bind__6 START $bind__7 LIMIT $bind__8 FETCH type::fields($bind__9) TIMEOUT TIMEOUT 1s VERSION $bind__10"`;
 
-exports[`select() compile 2`] = `
+exports[`select() compile: bindings-ws 1`] = `
 {
   "bind__10": DateTime {},
   "bind__4": [
@@ -17,5 +17,25 @@ exports[`select() compile 2`] = `
   "bind__9": [
     "foo",
   ],
+}
+`;
+
+exports[`select() compile: query-http 1`] = `"SELECT type::fields($bind__3) FROM ONLY $bind__4 WHERE age = $bind__5 START $bind__6 LIMIT $bind__7 FETCH type::fields($bind__8) TIMEOUT TIMEOUT 1s VERSION $bind__9"`;
+
+exports[`select() compile: bindings-http 1`] = `
+{
+  "bind__3": [
+    "age",
+    "test",
+    "lastname",
+  ],
+  "bind__4": RecordId {},
+  "bind__5": 30,
+  "bind__6": 1,
+  "bind__7": 1,
+  "bind__8": [
+    "foo",
+  ],
+  "bind__9": DateTime {},
 }
 `;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createSurreal } from "../__helpers__";
+import { createSurreal, proto } from "../__helpers__";
 
 describe("run()", async () => {
     test("run", async () => {
@@ -13,7 +13,7 @@ describe("run()", async () => {
         const builder = surreal.run<number[]>("array::add", [[1, 2], 3]);
         const { query, bindings } = builder.compile();
 
-        expect(query).toMatchSnapshot();
-        expect(bindings).toMatchSnapshot();
+        expect(query).toMatchSnapshot(proto("query"));
+        expect(bindings).toMatchSnapshot(proto("bindings"));
     });
 });

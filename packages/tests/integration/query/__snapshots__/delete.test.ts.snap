@@ -1,10 +1,19 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`delete() compile 1`] = `"DELETE $bind__4 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__5"`;
+exports[`delete() compile: query-ws 1`] = `"DELETE $bind__4 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__5"`;
 
-exports[`delete() compile 2`] = `
+exports[`delete() compile: bindings-ws 1`] = `
 {
   "bind__4": Table {},
   "bind__5": DateTime {},
+}
+`;
+
+exports[`delete() compile: query-http 1`] = `"DELETE $bind__3 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__4"`;
+
+exports[`delete() compile: bindings-http 1`] = `
+{
+  "bind__3": Table {},
+  "bind__4": DateTime {},
 }
 `;

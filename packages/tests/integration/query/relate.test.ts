@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DateTime, Duration, RecordId } from "surrealdb";
-import { createSurreal, graphTable } from "../__helpers__";
+import { createSurreal, graphTable, proto } from "../__helpers__";
 
 type Edge = {
     id: RecordId<"graph">;
@@ -69,7 +69,7 @@ describe("relate()", async () => {
 
         const { query, bindings } = builder.compile();
 
-        expect(query).toMatchSnapshot();
-        expect(bindings).toMatchSnapshot();
+        expect(query).toMatchSnapshot(proto("query"));
+        expect(bindings).toMatchSnapshot(proto("bindings"));
     });
 });

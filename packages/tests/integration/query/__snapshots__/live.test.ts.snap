@@ -1,8 +1,8 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`live() / liveOf() compile 1`] = `"LIVE SELECT type::fields($bind__4) FROM $bind__5 WHERE age = $bind__6 FETCH type::fields($bind__7)"`;
+exports[`live() / liveOf() compile: query-ws 1`] = `"LIVE SELECT type::fields($bind__4) FROM $bind__5 WHERE age = $bind__6 FETCH type::fields($bind__7)"`;
 
-exports[`live() / liveOf() compile 2`] = `
+exports[`live() / liveOf() compile: bindings-ws 1`] = `
 {
   "bind__4": [
     "age",

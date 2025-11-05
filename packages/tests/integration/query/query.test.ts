@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { RecordId, surql } from "surrealdb";
-import { createSurreal, type Person } from "../__helpers__";
+import { createSurreal, type Person, proto } from "../__helpers__";
 
 describe("query()", async () => {
     test("direct query", async () => {
@@ -96,8 +96,8 @@ describe("query()", async () => {
         const record = new RecordId("hello", "world");
         const { query, bindings } = surreal.query(surql`RETURN ${record}`).inner;
 
-        expect(query).toMatchSnapshot();
-        expect(bindings).toMatchSnapshot();
+        expect(query).toMatchSnapshot(proto("query"));
+        expect(bindings).toMatchSnapshot(proto("bindings"));
     });
 
     test("pre compiled", async () => {

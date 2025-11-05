@@ -4,6 +4,7 @@ import {
     createIdleSurreal,
     createSurreal,
     killServer,
+    SURREAL_PROTOCOL,
     spawnServer,
     VERSION_CHECK,
 } from "./__helpers__";
@@ -157,8 +158,8 @@ describe("connection", async () => {
         });
     });
 
-    test("use seperately", async () => {
-        const surreal = await createSurreal();
+    test.todoIf(SURREAL_PROTOCOL === "http")("use seperately", async () => {
+        const surreal = await createSurreal({ unselected: true });
 
         await surreal.use({
             namespace: "foo",

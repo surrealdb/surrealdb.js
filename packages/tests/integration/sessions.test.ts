@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { satisfies } from "semver";
 import { Features } from "surrealdb";
-import { createSurreal, requestVersion, respawnServer } from "./__helpers__";
+import { createSurreal, requestVersion, respawnServer, SURREAL_PROTOCOL } from "./__helpers__";
 
 const version = await requestVersion();
 const is3x = satisfies(version, ">=3.0.0-alpha.1");
 
-describe.if(is3x)("sessions", async () => {
+describe.if(is3x).todoIf(SURREAL_PROTOCOL === "http")("sessions", async () => {
     test("feature", async () => {
         const surreal = await createSurreal();
 
@@ -68,6 +68,9 @@ describe.if(is3x)("sessions", async () => {
         const session = await surreal.forkSession();
 
         expect(surreal.session).not.toEqual(session.session);
+
+        // guarantee session existence
+        await session.set("foo", "bar");
 
         const sessions = await surreal.sessions();
 

@@ -52,7 +52,9 @@ export class DiagnosticsEngine implements SurrealEngine {
         this.#diagnose(
             "open",
             () => Promise.resolve(this.#delegate.open(state)),
-            () => undefined,
+            () => ({
+                url: state.url,
+            }),
         );
     }
 

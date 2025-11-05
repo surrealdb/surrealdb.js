@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DateTime, Duration, RecordId } from "surrealdb";
-import { createSurreal, type Person, personTable } from "../__helpers__";
+import { createSurreal, type Person, personTable, proto } from "../__helpers__";
 
 describe("create()", async () => {
     test("single", async () => {
@@ -49,7 +49,7 @@ describe("create()", async () => {
 
         const { query, bindings } = builder.compile();
 
-        expect(query).toMatchSnapshot();
-        expect(bindings).toMatchSnapshot();
+        expect(query).toMatchSnapshot(proto("query"));
+        expect(bindings).toMatchSnapshot(proto("bindings"));
     });
 });

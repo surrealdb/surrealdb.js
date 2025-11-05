@@ -11,7 +11,9 @@ exports[`diagnostics diagnostic events 1`] = `
     "duration": Duration {},
     "key": Uuid {},
     "phase": "after",
-    "result": undefined,
+    "result": {
+      "url": URL {},
+    },
     "success": true,
     "type": "open",
   },

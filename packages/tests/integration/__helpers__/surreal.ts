@@ -17,6 +17,7 @@ import {
     SURREAL_NS,
     SURREAL_PASS,
     SURREAL_PORT,
+    SURREAL_PROTOCOL,
     SURREAL_USER,
 } from "./env.ts";
 
@@ -27,13 +28,9 @@ export type IdleSurreal = {
     connect: (custom?: ConnectOptions) => Promise<true>;
 };
 
-export const DEFAULT_PROTOCOL: Protocol =
-    import.meta.env.SURREAL_DEFAULT_PROTOCOL === "http" ? "http" : "ws";
-
 export const VERSION_CHECK: boolean = import.meta.env.SURREAL_VERSION_CHECK !== "false";
 
 type CreateSurrealOptions = {
-    protocol?: Protocol;
     auth?: PremadeAuth;
     unselected?: boolean;
     reconnect?: boolean | Partial<ReconnectOptions>;
@@ -172,7 +169,6 @@ export async function respawnServer(): Promise<void> {
  * Create an idle SurrealDB connection.
  */
 export function createIdleSurreal({
-    protocol,
     auth,
     unselected,
     reconnect,
@@ -194,7 +190,7 @@ export function createIdleSurreal({
     connections.push(surreal);
 
     const connect = (custom?: ConnectOptions) => {
-        return surreal.connect(`${protocol ?? DEFAULT_PROTOCOL}://127.0.0.1:${SURREAL_PORT}/rpc`, {
+        return surreal.connect(`${SURREAL_PROTOCOL}://127.0.0.1:${SURREAL_PORT}/rpc`, {
             namespace: unselected ? undefined : SURREAL_NS,
             database: unselected ? undefined : SURREAL_DB,
             authentication: createAuth(auth ?? "root"),

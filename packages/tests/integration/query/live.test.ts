@@ -5,13 +5,14 @@ import {
     insertMockRecords,
     type Person,
     personTable,
+    proto,
     respawnServer,
+    SURREAL_PROTOCOL,
 } from "../__helpers__";
 
-describe("live() / liveOf()", async () => {
+describe.if(SURREAL_PROTOCOL === "ws")("live() / liveOf()", async () => {
     test("subscription properties", async () => {
         const surreal = await createSurreal({
-            protocol: "ws",
             reconnect: {
                 enabled: true,
             },
@@ -30,7 +31,6 @@ describe("live() / liveOf()", async () => {
 
     test.todo("create action", async () => {
         const surreal = await createSurreal({
-            protocol: "ws",
             reconnect: {
                 enabled: true,
             },
@@ -66,7 +66,6 @@ describe("live() / liveOf()", async () => {
 
     test.todo("update action", async () => {
         const surreal = await createSurreal({
-            protocol: "ws",
             reconnect: {
                 enabled: true,
             },
@@ -104,7 +103,6 @@ describe("live() / liveOf()", async () => {
 
     test.todo("delete action", async () => {
         const surreal = await createSurreal({
-            protocol: "ws",
             reconnect: {
                 enabled: true,
             },
@@ -138,7 +136,6 @@ describe("live() / liveOf()", async () => {
 
     test.todo("reconnect and resume", async () => {
         const surreal = await createSurreal({
-            protocol: "ws",
             reconnect: {
                 enabled: true,
             },
@@ -185,7 +182,6 @@ describe("live() / liveOf()", async () => {
 
     test.todo("unmanaged subscription properties", async () => {
         const surreal = await createSurreal({
-            protocol: "ws",
             reconnect: {
                 enabled: true,
             },
@@ -205,7 +201,6 @@ describe("live() / liveOf()", async () => {
 
     test.todo("unmanaged create action", async () => {
         const surreal = await createSurreal({
-            protocol: "ws",
             reconnect: {
                 enabled: true,
             },
@@ -242,7 +237,6 @@ describe("live() / liveOf()", async () => {
 
     test.todo("iterable", async () => {
         const surreal = await createSurreal({
-            protocol: "ws",
             reconnect: {
                 enabled: true,
             },
@@ -281,7 +275,6 @@ describe("live() / liveOf()", async () => {
 
     test.todo("iterable survives reconnect", async () => {
         const surreal = await createSurreal({
-            protocol: "ws",
             reconnect: {
                 enabled: true,
             },
@@ -331,7 +324,6 @@ describe("live() / liveOf()", async () => {
 
     test("compile", async () => {
         const surreal = await createSurreal({
-            protocol: "ws",
             reconnect: {
                 enabled: true,
             },
@@ -344,7 +336,7 @@ describe("live() / liveOf()", async () => {
 
         const { query, bindings } = builder.compile();
 
-        expect(query).toMatchSnapshot();
-        expect(bindings).toMatchSnapshot();
+        expect(query).toMatchSnapshot(proto("query"));
+        expect(bindings).toMatchSnapshot(proto("bindings"));
     });
 });
