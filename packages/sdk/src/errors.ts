@@ -225,7 +225,7 @@ export class UnsupportedFeatureError extends SurrealError {
     readonly feature: Feature;
 
     constructor(feature: Feature) {
-        super(`The configured engine does not support the feature: ${feature}`);
+        super(`The configured engine does not support the feature: ${feature.name}`);
         this.feature = feature;
     }
 }
@@ -240,7 +240,9 @@ export class UnavailableFeatureError extends SurrealError {
     readonly version: string;
 
     constructor(feature: Feature, version: string) {
-        super(`The version of SurrealDB (${version}) does not support the feature: ${feature}`);
+        super(
+            `The version of SurrealDB (${version}) does not support the feature: ${feature.name} (>= ${feature.sinceVersion} < ${feature.untilVersion})`,
+        );
         this.feature = feature;
         this.version = version;
     }
