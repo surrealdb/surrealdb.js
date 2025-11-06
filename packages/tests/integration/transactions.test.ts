@@ -11,10 +11,6 @@ interface Person {
     name: string;
 }
 
-console.log(SURREAL_PROTOCOL);
-console.log(is3x);
-console.log(version);
-
 describe.if(is3x && SURREAL_PROTOCOL === "ws")("transactions", async () => {
     test("feature", async () => {
         const surreal = await createSurreal();
