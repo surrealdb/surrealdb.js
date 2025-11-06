@@ -30,7 +30,7 @@ const ALWAYS_ALLOW = new Set([
 export class HttpEngine extends RpcEngine implements SurrealEngine {
     #publisher = new Publisher<EngineEvents>();
 
-    features = new Set([Features.RefreshTokens, Features.Sessions]);
+    features = new Set([Features.RefreshTokens]);
 
     subscribe<K extends keyof EngineEvents>(
         event: K,

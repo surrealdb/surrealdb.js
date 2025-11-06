@@ -67,4 +67,4 @@ jobs:
       - name: Run tests
         run: bun run test
         env:
-          SURREAL_DEFAULT_PROTOCOL: ${{ matrix.engine }}
+          SURREAL_PROTOCOL: ${{ matrix.engine }}
