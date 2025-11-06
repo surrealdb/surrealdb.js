@@ -179,6 +179,30 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
+    async begin(session: Session): Promise<Uuid> {
+        return this.#diagnose(
+            "begin",
+            () => this.#delegate.begin(session),
+            () => ({ session }),
+        );
+    }
+
+    async commit(txn: Uuid, session: Session): Promise<void> {
+        return this.#diagnose(
+            "commit",
+            () => this.#delegate.commit(txn, session),
+            () => ({ txn, session }),
+        );
+    }
+
+    async cancel(txn: Uuid, session: Session): Promise<void> {
+        return this.#diagnose(
+            "cancel",
+            () => this.#delegate.cancel(txn, session),
+            () => ({ txn, session }),
+        );
+    }
+
     async importSql(data: string): Promise<void> {
         return this.#diagnose(
             "importSql",

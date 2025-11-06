@@ -42,6 +42,11 @@ export interface SurrealProtocol {
     invalidate(session: Session): Promise<void>;
     reset(session: Session): Promise<void>;
 
+    // Transaction operations
+    begin(session: Session): Promise<Uuid>;
+    commit(txn: Uuid, session: Session): Promise<void>;
+    cancel(txn: Uuid, session: Session): Promise<void>;
+
     // Data management operations
     importSql(data: string): Promise<void>;
     exportSql(options: Partial<SqlExportOptions>): Promise<string>;

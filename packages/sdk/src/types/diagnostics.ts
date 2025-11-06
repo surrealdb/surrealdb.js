@@ -11,6 +11,7 @@ type UseInfo = { requested: Nullable<NamespaceDatabase> };
 type SetInfo = { name: string; value: unknown };
 type UnsetInfo = { name: string };
 type LiveQueryInfo = { id: Uuid; message?: LiveMessage };
+type TransactionInfo = { txn: Uuid };
 type QueryInfo = {
     query: string;
     params: Record<string, unknown>;
@@ -35,6 +36,9 @@ type DiagnosticMap = {
     revoke: SessionInfo;
     invalidate: SessionInfo;
     reset: SessionInfo;
+    begin: SessionInfo;
+    commit: TransactionInfo & SessionInfo;
+    cancel: TransactionInfo & SessionInfo;
     sessions: Uuid[];
     importSql: undefined;
     exportSql: undefined;

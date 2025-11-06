@@ -148,6 +148,31 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
+    async begin(session: Session): Promise<Uuid> {
+        const result = await this.send({
+            method: "begin",
+            session,
+        });
+
+        return result as Uuid;
+    }
+
+    async commit(txn: Uuid, session: Session): Promise<void> {
+        await this.send({
+            method: "commit",
+            params: [txn],
+            session,
+        });
+    }
+
+    async cancel(txn: Uuid, session: Session): Promise<void> {
+        await this.send({
+            method: "cancel",
+            params: [txn],
+            session,
+        });
+    }
+
     async importSql(data: string): Promise<void> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
@@ -204,11 +229,12 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
-    async *query<T>(query: BoundQuery, session: Session): AsyncIterable<QueryChunk<T>> {
+    async *query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
         const responses: RpcQueryResult[] = await this.send({
             method: "query",
             params: [query.query, query.bindings],
             session,
+            txn,
         });
 
         let index = 0;

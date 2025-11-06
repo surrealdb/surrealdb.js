@@ -1,11 +1,10 @@
-import { CborCodec } from "./cbor";
-import { ConnectionController } from "./controller";
-import { UnavailableFeatureError, UnsupportedFeatureError } from "./errors";
-import { FlatBufferCodec } from "./flatbuffer/codec";
-import type { Feature } from "./internal/feature";
-import { getIncrementalID } from "./internal/get-incremental-id";
-import { parseEndpoint } from "./internal/http";
-import { type SessionEvents, SurrealSession } from "./session";
+import { CborCodec } from "../cbor";
+import { ConnectionController } from "../controller";
+import { UnavailableFeatureError, UnsupportedFeatureError } from "../errors";
+import { FlatBufferCodec } from "../flatbuffer/codec";
+import type { Feature } from "../internal/feature";
+import { getIncrementalID } from "../internal/get-incremental-id";
+import { parseEndpoint } from "../internal/http";
 import type {
     CodecRegistry,
     ConnectionStatus,
@@ -14,9 +13,10 @@ import type {
     EventPublisher,
     SqlExportOptions,
     VersionInfo,
-} from "./types";
-import { Publisher } from "./utils/publisher";
-import type { Uuid } from "./value";
+} from "../types";
+import { Publisher } from "../utils/publisher";
+import type { Uuid } from "../value";
+import { type SessionEvents, SurrealSession } from "./session";
 
 export type SurrealEvents = SessionEvents & {
     connecting: [];

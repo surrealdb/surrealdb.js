@@ -1,3 +1,4 @@
+import type { Uuid } from "../value";
 import type { QueryType, Session } from "./surreal";
 
 export type RpcQueryResult<T = unknown> = RpcQueryResultOk<T> | RpcQueryResultErr;
@@ -21,6 +22,7 @@ export type RpcRequest<
     method: Method;
     session?: Session;
     params?: Params;
+    txn?: Uuid;
 };
 
 export type RpcResponse<Result = unknown> = RpcSuccessResponse<Result> | RpcErrorResponse;
