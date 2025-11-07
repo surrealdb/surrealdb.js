@@ -15,7 +15,8 @@ import {
     UnexpectedConnectionError,
     type Uuid,
 } from "surrealdb";
-import { type ConnectionOptions, SurrealWasmEngine } from "../wasm/surrealdb";
+import type { ConnectionOptions } from "../wasm/surrealdb";
+import type { Broker } from "./engine-common";
 
 type LiveChannels = Record<string, [LiveMessage]>;
 
@@ -31,15 +32,15 @@ interface LivePayload {
  * WebAssembly build of SurrealDB.
  */
 export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
-    #engine: SurrealWasmEngine | undefined;
+    #broker: Broker;
     #publisher = new Publisher<EngineEvents>();
     #subscriptions = new Publisher<LiveChannels>();
-    #active = false;
     #abort: AbortController | undefined;
     #options: ConnectionOptions | undefined;
 
-    constructor(context: DriverContext, options?: ConnectionOptions) {
+    constructor(broker: Broker, context: DriverContext, options?: ConnectionOptions) {
         super(context);
+        this.#broker = broker;
         this.#options = options;
     }
 
@@ -48,7 +49,6 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
     open(state: ConnectionState): void {
         this.#abort?.abort();
         this.#abort = new AbortController();
-        this.#active = true;
         this._state = state;
         this.#initialize(state, this.#abort.signal);
     }
@@ -57,9 +57,7 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         this._state = undefined;
         this.#abort?.abort();
         this.#abort = undefined;
-        this.#active = false;
-        this.#engine?.free();
-        this.#engine = undefined;
+        await this.#broker.close();
         this.#publisher.publish("disconnected");
     }
 
@@ -89,49 +87,36 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
     override async send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,
     ): Promise<Result> {
-        if (!this.#active || !this.#engine) {
+        if (!this.#broker.isConnected) {
             throw new ConnectionUnavailableError();
         }
 
         const id = this._context.uniqueId();
         const payload = this._context.codecs.cbor.encode({ id, ...request });
 
-        const response = await this.#engine.execute(payload);
-        const result = this._context.codecs.cbor.decode<Result>(response);
-
-        return result;
+        const response = await this.#broker.execute(payload);
+        return this._context.codecs.cbor.decode<Result>(response);
     }
 
     async #initialize(state: ConnectionState, signal: AbortSignal) {
         try {
-            this.#engine = await SurrealWasmEngine.connect(state.url.toString(), this.#options);
-
-            const reader = this.#engine.notifications().getReader();
+            await this.#broker.connect(state.url.toString(), this.#options);
 
             if (signal.aborted) {
                 return;
             }
 
-            (async () => {
-                while (this.#active) {
-                    const { done, value } = await reader.read();
-
-                    if (done) {
-                        break;
-                    }
-
-                    const payload = this._context.codecs.cbor.decode<LivePayload>(value);
-
-                    if (payload.id) {
-                        this.#subscriptions.publish(payload.id.toString(), {
-                            queryId: payload.id,
-                            action: payload.action,
-                            recordId: payload.record,
-                            value: payload.result,
-                        });
-                    }
+            this.#broker.readNotifications((data) => {
+                const payload = this._context.codecs.cbor.decode<LivePayload>(data);
+                if (payload.id) {
+                    this.#subscriptions.publish(payload.id.toString(), {
+                        queryId: payload.id,
+                        action: payload.action,
+                        recordId: payload.record,
+                        value: payload.result,
+                    });
                 }
-            })();
+            });
 
             this.#publisher.publish("connected");
         } catch (err) {
