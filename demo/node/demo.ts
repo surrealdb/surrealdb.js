@@ -5,7 +5,7 @@ const surreal = new Surreal({
     engines: createNodeEngines(),
 });
 
-await surreal.connect("surrealkv+versioned://test.db");
+await surreal.connect("mem://");
 
 await surreal.use({
     namespace: "test",
