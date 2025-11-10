@@ -41,17 +41,17 @@ export const createWasmEngines = (options?: ConnectionOptions): Engines => {
  * @example
  * ```ts
  * import { Surreal, createRemoteEngines } from "surrealdb";
- * import { createWasmWebWrokerEngines } from "@surrealdb/wasm";
+ * import { createWasmWebWorkerEngines } from "@surrealdb/wasm";
  *
  * const db = new Surreal({
  *     engines: {
  *         ...createRemoteEngines(),
- *         ...createWasmWebWrokerEngines(),
+ *         ...createWasmWebWorkerEngines(),
  *     },
  * });
  * ```
  */
-export const createWasmWebWrokerEngines = (options?: ConnectionOptions): Engines => {
+export const createWasmWebWorkerEngines = (options?: ConnectionOptions): Engines => {
     const broker = new WebAssemblyEngineWebWorkerBroker();
     return {
         mem: (ctx) => new WebAssemblyEngine(broker, ctx, options),
