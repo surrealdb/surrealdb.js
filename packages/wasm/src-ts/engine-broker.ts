@@ -15,7 +15,7 @@ export class WebAssemblyEngineBroker implements Broker {
         this.#engine = await SurrealWasmEngine.connect(url.toString(), options);
     }
 
-    readNotifications(onNotification: (data: Uint8Array<ArrayBufferLike>) => void) {
+    readNotifications(onNotification: (data: Uint8Array) => void) {
         void readNotifications({
             shouldKeepWorking: () => this.#active,
             notify: onNotification,
@@ -23,7 +23,7 @@ export class WebAssemblyEngineBroker implements Broker {
         return Promise.resolve();
     }
 
-    execute(payload: Uint8Array<ArrayBufferLike>) {
+    execute(payload: Uint8Array) {
         if (!this.#active || !this.#engine) {
             throw new ConnectionUnavailableError();
         }

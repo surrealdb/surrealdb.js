@@ -64,7 +64,7 @@ export class WebAssemblyEngineWebWorkerBroker implements Broker {
         });
     }
 
-    async readNotifications(onNotification: (data: Uint8Array<ArrayBufferLike>) => void) {
+    async readNotifications(onNotification: (data: Uint8Array) => void) {
         if (this.#instanceId === undefined) {
             throw new ConnectionUnavailableError();
         }
@@ -75,13 +75,13 @@ export class WebAssemblyEngineWebWorkerBroker implements Broker {
         });
     }
 
-    execute(payload: Uint8Array<ArrayBufferLike>) {
+    execute(payload: Uint8Array) {
         if (this.#instanceId === undefined) {
             throw new ConnectionUnavailableError();
         }
 
         return this.#post(Request.EXECUTE, { instanceId: this.#instanceId, payload }, [
-            payload.buffer,
+            payload.buffer as ArrayBuffer,
         ]);
     }
 

@@ -4,8 +4,8 @@ import { type ConnectionOptions, SurrealWasmEngine } from "../wasm/surrealdb";
 export interface Broker {
     isConnected: boolean;
     connect(url: string, options: ConnectionOptions | undefined): Promise<void>;
-    readNotifications(onNotification: (data: Uint8Array<ArrayBufferLike>) => void): Promise<void>;
-    execute(payload: Uint8Array<ArrayBufferLike>): Promise<Uint8Array<ArrayBufferLike>>;
+    readNotifications(onNotification: (data: Uint8Array) => void): Promise<void>;
+    execute(payload: Uint8Array): Promise<Uint8Array>;
     close(): Promise<void>;
 }
 
@@ -24,7 +24,7 @@ export function readNotifications<Context>({
     notify,
 }: {
     shouldKeepWorking: (context: Context) => boolean;
-    notify: (value: Uint8Array<ArrayBufferLike>) => void;
+    notify: (value: Uint8Array) => void;
 }) {
     return async (context: Context, engine: SurrealWasmEngine | undefined) => {
         if (engine === undefined) {
@@ -46,7 +46,7 @@ export function readNotifications<Context>({
 
 export async function execute<
     Context extends {
-        payload: Uint8Array<ArrayBufferLike>;
+        payload: Uint8Array;
     },
 >(context: Context, engine: SurrealWasmEngine | undefined) {
     if (engine === undefined) {

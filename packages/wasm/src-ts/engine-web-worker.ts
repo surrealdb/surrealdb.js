@@ -21,7 +21,7 @@ export type ResponseHandlers = {
     [Response.READY]: (promiseId: number) => void;
     [Response.ERROR]: (promiseId: number, data: Error) => void;
     [Response.RESPONSE]: (promiseId: number, data: unknown) => void;
-    [Response.NOTIFICATION]: (promiseId: unknown, data: Uint8Array<ArrayBufferLike>) => void;
+    [Response.NOTIFICATION]: (promiseId: unknown, data: Uint8Array) => void;
 };
 
 export interface RequestHandlers {
@@ -38,10 +38,10 @@ export interface RequestHandlers {
     [Request.EXECUTE]: (
         config: {
             instanceId: number;
-            payload: Uint8Array<ArrayBufferLike>;
+            payload: Uint8Array;
         },
         engine: SurrealWasmEngine | undefined,
-    ) => Promise<Uint8Array<ArrayBufferLike>>;
+    ) => Promise<Uint8Array>;
     [Request.CLOSE]: (
         config: { instanceId: number },
         engine: SurrealWasmEngine | undefined,
@@ -75,7 +75,7 @@ self.addEventListener("message", async (event) => {
                 data: result,
                 promiseId: data.promiseId,
             },
-            result instanceof Uint8Array ? { transfer: [result.buffer] } : undefined,
+            result instanceof Uint8Array ? { transfer: [result.buffer as ArrayBuffer] } : undefined,
         );
     } catch (error) {
         self.postMessage({
@@ -106,7 +106,7 @@ handlers[Request.READ_NOTIFICATIONS] = readNotifications({
     notify: (value) =>
         self.postMessage(
             { response: Response.NOTIFICATION, data: value },
-            { transfer: [value.buffer] },
+            { transfer: [value.buffer as ArrayBuffer] },
         ),
 });
 
