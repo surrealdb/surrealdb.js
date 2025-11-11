@@ -1,7 +1,18 @@
 import { ConnectionUnavailableError } from "surrealdb";
 import type { ConnectionOptions } from "../wasm/surrealdb";
 import type { Broker } from "./engine-common";
-import { Request, type Requests, Response, type ResponseHandlers } from "./engine-web-worker";
+import {
+    Request,
+    type RequestHandlers,
+    Response,
+    type ResponseHandlers,
+} from "./engine-web-worker-contract";
+
+type Requests = {
+    [R in keyof RequestHandlers]: (
+        params: Parameters<RequestHandlers[R]>[0],
+    ) => ReturnType<RequestHandlers[R]> extends Promise<infer R> ? R : void;
+};
 
 export class WebAssemblyEngineWebWorkerBroker implements Broker {
     #worker: Worker | undefined;
