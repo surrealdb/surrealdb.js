@@ -35,7 +35,7 @@ export class WebAssemblyEngineWebWorkerBroker implements Broker {
     }
 
     async connect(url: string, options: ConnectionOptions | undefined) {
-        const worker = new Worker("./worker.ts");
+        const worker = new Worker("./engine-web-worker.ts");
         this.#worker = worker;
         this.#handlers[Response.READY] = () => this.#onWorkerReady(worker);
         this.#handlers[Response.ERROR] = (promiseId, data) => {
