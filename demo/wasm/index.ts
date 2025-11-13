@@ -1,4 +1,4 @@
-import { createWasmEngines } from "@surrealdb/wasm";
+import { createWasmWorkerEngines } from "@surrealdb/wasm";
 import * as surrealdb from "surrealdb";
 import { createRemoteEngines, Surreal } from "surrealdb";
 
@@ -14,7 +14,7 @@ if (typeof window !== "undefined") {
 
     window.surreal = new Surreal({
         engines: {
-            ...createWasmEngines(),
+            ...createWasmWorkerEngines(),
             ...createRemoteEngines(),
         },
     });

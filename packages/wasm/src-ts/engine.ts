@@ -16,7 +16,7 @@ import {
     type Uuid,
 } from "surrealdb";
 import type { ConnectionOptions } from "../wasm/surrealdb";
-import type { Broker } from "./engine-common";
+import type { EngineBroker } from "./common";
 
 type LiveChannels = Record<string, [LiveMessage]>;
 
@@ -32,13 +32,13 @@ interface LivePayload {
  * WebAssembly build of SurrealDB.
  */
 export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
-    #broker: Broker;
+    #broker: EngineBroker;
     #publisher = new Publisher<EngineEvents>();
     #subscriptions = new Publisher<LiveChannels>();
     #abort: AbortController | undefined;
     #options: ConnectionOptions | undefined;
 
-    constructor(broker: Broker, context: DriverContext, options?: ConnectionOptions) {
+    constructor(broker: EngineBroker, context: DriverContext, options?: ConnectionOptions) {
         super(context);
         this.#broker = broker;
         this.#options = options;
@@ -100,14 +100,9 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
 
     async #initialize(state: ConnectionState, signal: AbortSignal) {
         try {
-            await this.#broker.connect(state.url.toString(), this.#options);
-
-            if (signal.aborted) {
-                return;
-            }
-
-            this.#broker.readNotifications((data) => {
+            await this.#broker.connect(state.url.toString(), this.#options, (data) => {
                 const payload = this._context.codecs.cbor.decode<LivePayload>(data);
+
                 if (payload.id) {
                     this.#subscriptions.publish(payload.id.toString(), {
                         queryId: payload.id,
@@ -117,6 +112,10 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
                     });
                 }
             });
+
+            if (signal.aborted) {
+                return;
+            }
 
             this.#publisher.publish("connected");
         } catch (err) {

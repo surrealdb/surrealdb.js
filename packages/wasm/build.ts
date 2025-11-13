@@ -44,6 +44,18 @@ await bundle.write({
     file: "./dist/surrealdb-wasm.mjs",
 });
 
+// Generate the worker script
+const worker = await rolldown({
+    input: "./src-ts/worker/worker-agent.ts",
+    external: ["surrealdb"],
+});
+
+// ESModule only (we require top level await)
+await worker.write({
+    format: "esm",
+    file: "./dist/worker-agent.mjs",
+});
+
 // TS Declaration
 const task = Bun.spawn(
     [
