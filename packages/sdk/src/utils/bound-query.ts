@@ -1,3 +1,6 @@
+import { SurrealError } from "../errors";
+import { surql } from "./tagged-template";
+
 /**
  * A bound query represents a query string combined with bindings.
  */
@@ -70,13 +73,22 @@ export class BoundQuery<R extends unknown[] = unknown[]> {
      */
     append(query: string, bindings?: Record<string, unknown>): this;
 
-    // Shadow implementation
-    append(other: BoundQuery<R> | string, bindings?: Record<string, unknown>): this {
-        const _query = other instanceof BoundQuery ? other.query : other;
-        const _bindings = other instanceof BoundQuery ? other.bindings : bindings;
+    /**
+     * Append a query string and bindings through a template literal tags.
+     * Interpolated values are automatically stored as bindings with unique names.
+     *
+     * @param strings The template string segments
+     * @param values The interpolated values
+     * @returns The current BoundQuery instance
+     */
+    append(strings: TemplateStringsArray, ...values: unknown[]): this;
 
-        if (_bindings) {
-            for (const key of Object.keys(_bindings)) {
+    // Shadow implementation
+    append(other: BoundQuery<R> | string | TemplateStringsArray, ...values: unknown[]): this {
+        const _other = this.#extractQuery(other, values);
+
+        if (_other.#bindings) {
+            for (const key of Object.keys(_other.#bindings)) {
                 if (key in this.#bindings) {
                     throw new Error(
                         `Parameter conflict: '${key}' already exists in this BoundQuery`,
@@ -84,23 +96,30 @@ export class BoundQuery<R extends unknown[] = unknown[]> {
                 }
             }
 
-            Object.assign(this.#bindings, _bindings);
+            Object.assign(this.#bindings, _other.#bindings);
         }
 
-        this.#query += _query;
+        this.#query += _other.query;
 
         return this;
     }
 
-    /**
-     * Creates a new BoundQuery by combining this one with another. Unlike `append`, this method
-     * will create a new instance.
-     *
-     * @param other The BoundQuery to combine with
-     * @returns A new BoundQuery instance
-     */
-    combine(other: BoundQuery<R>): BoundQuery<R> {
-        const combined = new BoundQuery(this.query, this.bindings);
-        return combined.append(other);
+    #extractQuery(
+        other: BoundQuery<R> | string | TemplateStringsArray,
+        values: unknown[],
+    ): BoundQuery<R> {
+        if (other instanceof BoundQuery) {
+            return other;
+        }
+
+        if (typeof other === "string") {
+            return new BoundQuery(other, values[0] as Record<string, unknown>);
+        }
+
+        if (Array.isArray(other)) {
+            return surql(other, ...values);
+        }
+
+        throw new SurrealError("Invalid query component");
     }
 }

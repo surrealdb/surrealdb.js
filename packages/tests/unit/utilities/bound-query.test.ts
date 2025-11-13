@@ -41,4 +41,13 @@ describe("BoundQuery", () => {
         expect(query.query).toBe("SELECT * FROM $id WHERE active = $value");
         expect(query.bindings).toMatchObject({ id: new RecordId("user", 123), value: true });
     });
+
+    test("append template literal", () => {
+        const query = new BoundQuery("SELECT * FROM $id", { id: new RecordId("user", 123) });
+
+        query.append` WHERE active = ${true}`;
+
+        expect(query.query).toBe("SELECT * FROM $id WHERE active = $bind__1");
+        expect(query.bindings).toMatchObject({ id: new RecordId("user", 123), bind__1: true });
+    });
 });
