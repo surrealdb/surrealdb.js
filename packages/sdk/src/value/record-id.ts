@@ -9,13 +9,39 @@ import { Value } from "./value";
 export type RecordIdValue = string | number | Uuid | bigint | unknown[] | Record<string, unknown>;
 
 /**
- * A SurrealQL record ID value.
+ * To prevent narrowing of primitive literals we have to widen the type.
+ * @example
+ * ```ts
+ * new TypedRecordId("test", "123"); // TypedRecordId<"test", string>
+ * new TypedRecordId("test", 123); // TypedRecordId<"test", number>
+ * ```
+ *
+ * Without widening the type would be:
+ * ```ts
+ * new TypedRecordId("test", "123"); // TypedRecordId<"test", "123">
+ * new TypedRecordId("test", 123); // TypedRecordId<"test", 123>
+ * ```
+ *
+ * Thus preventing us from declaring record ids in arrays or using them
+ * interchangeably.
  */
-export class RecordId<Tb extends string = string> extends Value {
-    readonly #table: Table<Tb>;
-    readonly #id: RecordIdValue;
+export type WidenRecordIdValue<T> = T extends string
+    ? string
+    : T extends number
+      ? number
+      : T extends bigint
+        ? bigint
+        : T;
 
-    constructor(table: Tb | Table<Tb>, id: RecordIdValue) {
+/**
+ * A SurrealQL record ID value.
+ * @internal
+ */
+class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdValue> extends Value {
+    readonly #table: Table<Tb>;
+    readonly #id: Id;
+
+    constructor(table: Tb | Table<Tb>, id: Id) {
         super();
 
         if (!isValidTable(table)) throw new SurrealError("tb part is not valid");
@@ -53,7 +79,23 @@ export class RecordId<Tb extends string = string> extends Value {
     /**
      * The ID part value
      */
-    get id(): RecordIdValue {
+    get id(): Id {
         return this.#id;
     }
 }
+
+export interface RecordIdConstructor {
+    new <T extends string = string, I extends RecordIdValue = RecordIdValue>(
+        table: T | Table<T>,
+        id: I,
+    ): RecordId<T, WidenRecordIdValue<I>>;
+}
+
+/**
+ * A SurrealQL record ID value.
+ */
+interface _RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdValue>
+    extends RecordId<Tb, Id> {}
+const _RecordId = RecordId as RecordIdConstructor;
+
+export { _RecordId as RecordId };
