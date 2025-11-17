@@ -11,7 +11,6 @@ import {
     UnsupportedVersionError,
 } from "../errors";
 import type { Feature } from "../internal/feature";
-import { getSessionFromState } from "../internal/get-session-from-state";
 import { ReconnectContext } from "../internal/reconnect";
 import { fastParseJwt } from "../internal/tokens";
 import type {
@@ -45,6 +44,7 @@ import {
     MINIMUM_VERSION,
     Publisher,
 } from "../utils";
+import { getSessionFromState } from "../utils/get-session-from-state";
 import { Uuid } from "../value";
 
 type ConnectionEvents = {

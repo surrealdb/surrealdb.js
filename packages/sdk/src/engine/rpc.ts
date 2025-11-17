@@ -1,6 +1,4 @@
 import { ConnectionUnavailableError, UnexpectedServerResponseError } from "../errors";
-import { buildRpcAuth } from "../internal/build-rpc-auth";
-import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
 import type {
     AccessRecordAuth,
@@ -21,7 +19,9 @@ import type {
     Tokens,
     VersionInfo,
 } from "../types";
-import type { BoundQuery } from "../utils";
+import { type BoundQuery, chunkedRpcResponse } from "../utils";
+import { buildRpcAuth } from "../utils/build-rpc-auth";
+import { getSessionFromState } from "../utils/get-session-from-state";
 import { Duration, type Uuid } from "../value";
 
 /**
@@ -237,38 +237,7 @@ export abstract class RpcEngine implements SurrealProtocol {
             txn,
         });
 
-        let index = 0;
-
-        for (const response of responses) {
-            const chunk: QueryChunk<T> = {
-                query: index++,
-                batch: 0,
-                kind: "single",
-                stats: {
-                    bytesReceived: -1,
-                    bytesScanned: -1,
-                    recordsReceived: -1,
-                    recordsScanned: -1,
-                    duration: new Duration(response.time),
-                },
-            };
-
-            if (response.status === "OK") {
-                chunk.type = response.type;
-
-                if (Array.isArray(response.result)) {
-                    chunk.kind = "batched-final";
-                    chunk.result = response.result as T[];
-                } else {
-                    chunk.result = [response.result] as T[];
-                }
-            } else {
-                chunk.error = {
-                    code: Number(response.result) || 0,
-                    message: String(response.result),
-                };
-            }
-
+        for await (const chunk of chunkedRpcResponse<T>(responses)) {
             yield chunk;
         }
     }

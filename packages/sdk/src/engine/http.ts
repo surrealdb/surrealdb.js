@@ -5,12 +5,12 @@ import {
     SurrealError,
     UnexpectedServerResponseError,
 } from "../errors";
-import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
 import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
 import { Features } from "../utils";
+import { getSessionFromState } from "../utils/get-session-from-state";
 import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
 

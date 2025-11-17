@@ -1,5 +1,5 @@
 {
-    "name": "@surrealdb/wasm",
+    "name": "@surrealdb/bridge",
     "version": "2.3.4",
     "surreal": "2.3.10",
     "type": "module",
@@ -23,12 +23,10 @@
         "deploy": "bun run ../../scripts/publish.ts"
     },
     "peerDependencies": {
-        "surrealdb": "^2.0.0-0",
-        "@surrealdb/bridge": "workspace:*"
+        "surrealdb": "^2.0.0-0"
     },
     "devDependencies": {
-        "surrealdb": "^2.0.0-0",
-        "@surrealdb/bridge": "workspace:*"
+        "surrealdb": "^2.0.0-0"
     },
     "exports": {
         ".": {

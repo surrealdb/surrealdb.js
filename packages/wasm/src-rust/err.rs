@@ -1,5 +1,7 @@
 use wasm_bindgen::JsValue;
 
+pub type Result<T, E = Error> = core::result::Result<T, E>;
+
 #[derive(Debug)]
 pub struct Error(JsValue);
 
@@ -9,14 +11,8 @@ impl From<Error> for JsValue {
 	}
 }
 
-impl From<surrealdb::Error> for Error {
-	fn from(v: surrealdb::Error) -> Self {
-		Self(JsValue::from(v.to_string()))
-	}
-}
-
-impl From<surrealdb::err::Error> for Error {
-	fn from(v: surrealdb::err::Error) -> Self {
+impl From<anyhow::Error> for Error {
+	fn from(v: anyhow::Error) -> Self {
 		Self(JsValue::from(v.to_string()))
 	}
 }
@@ -36,5 +32,17 @@ impl From<&str> for Error {
 impl From<String> for Error {
 	fn from(v: String) -> Self {
 		Self(JsValue::from(v))
+	}
+}
+
+impl From<uuid::Error> for Error {
+	fn from(v: uuid::Error) -> Self {
+		Self(JsValue::from(v.to_string()))
+	}
+}
+
+impl From<surrealdb_core::rpc::RpcError> for Error {
+	fn from(v: surrealdb_core::rpc::RpcError) -> Self {
+		Self(JsValue::from(v.to_string()))
 	}
 }

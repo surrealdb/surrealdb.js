@@ -1,6 +1,6 @@
-import type { Engines } from "surrealdb";
-import init, { type ConnectionOptions } from "../wasm/surrealdb";
-import { WebAssemblyEngine } from "./engine";
+import { type ConnectionOptions, SurrealBridgedEngine } from "@surrealdb/bridge";
+import type { DriverContext, Engines } from "surrealdb";
+import init, { SurrealWasmEngine } from "../wasm/surrealdb";
 
 const wasmUrl = new URL("../wasm/surrealdb_bg.wasm", import.meta.url);
 const wasmCode = await (await fetch(wasmUrl)).arrayBuffer();
@@ -29,4 +29,8 @@ export const createWasmEngines = (options?: ConnectionOptions): Engines => ({
     indxdb: (ctx) => new WebAssemblyEngine(ctx, options),
 });
 
-export * from "./engine";
+export class WebAssemblyEngine extends SurrealBridgedEngine<SurrealWasmEngine> {
+    constructor(context: DriverContext, options?: ConnectionOptions) {
+        super(SurrealWasmEngine, context, options);
+    }
+}

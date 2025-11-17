@@ -1,0 +1,21 @@
+[package]
+name = "surrealdb-bridge"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "src-rust/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anyhow.workspace = true
+async-channel.workspace = true
+dashmap.workspace = true
+surrealdb-core.workspace = true
+surrealdb-types.workspace = true
+tokio = { workspace = true, features = ["sync"] }
+uuid.workspace = true
+serde = { workspace = true, features = ["derive"] }
+
+[build-dependencies]
+cargo-lock.workspace = true

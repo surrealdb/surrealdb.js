@@ -23,7 +23,8 @@
         "noImplicitOverride": true,
 
         "paths": {
-            "surrealdb": ["./packages/sdk/src"]
+            "surrealdb": ["./packages/sdk/src"],
+            "@surrealdb/bridge": ["./packages/bridge/src-ts"]
         }
     }
 }

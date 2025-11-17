@@ -29,10 +29,12 @@ Temporary Items
 npm
 node_modules
 dist
+packages/bridge/target
 packages/wasm/wasm
 packages/wasm/target
 packages/node/target
 packages/node/napi
+target/
 
 # -----------------------------------
 # Files

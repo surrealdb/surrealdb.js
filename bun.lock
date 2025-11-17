@@ -36,9 +36,19 @@
         "vite": "^7.1.2",
       },
     },
+    "packages/bridge": {
+      "name": "@surrealdb/bridge",
+      "version": "2.3.4",
+      "devDependencies": {
+        "surrealdb": "^2.0.0-0",
+      },
+      "peerDependencies": {
+        "surrealdb": "^2.0.0-0",
+      },
+    },
     "packages/node": {
       "name": "@surrealdb/node",
-      "version": "2.3.2",
+      "version": "2.3.4",
       "devDependencies": {
         "@napi-rs/cli": "^3.1.5",
         "dedent": "^1.7.0",
@@ -50,7 +60,7 @@
     },
     "packages/sdk": {
       "name": "surrealdb",
-      "version": "2.0.0-alpha.9",
+      "version": "2.0.0-alpha.13",
       "dependencies": {
         "@surrealdb/cbor": "2.0.0-alpha.4",
         "uuidv7": "^1.0.1",
@@ -77,11 +87,13 @@
     },
     "packages/wasm": {
       "name": "@surrealdb/wasm",
-      "version": "2.3.2",
+      "version": "2.3.4",
       "devDependencies": {
+        "@surrealdb/bridge": "workspace:*",
         "surrealdb": "^2.0.0-0",
       },
       "peerDependencies": {
+        "@surrealdb/bridge": "workspace:*",
         "surrealdb": "^2.0.0-0",
       },
     },
@@ -396,6 +408,8 @@
     "@rollup/rollup-win32-ia32-msvc": ["@rollup/rollup-win32-ia32-msvc@4.50.0", "", { "os": "win32", "cpu": "ia32" }, "sha512-XzNOVg/YnDOmFdDKcxxK410PrcbcqZkBmz+0FicpW5jtjKQxcW1BZJEQOF0NJa6JO7CZhett8GEtRN/wYLYJuw=="],
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.50.0", "", { "os": "win32", "cpu": "x64" }, "sha512-xMmiWRR8sp72Zqwjgtf3QbZfF1wdh8X2ABu3EaozvZcyHJeU0r+XAnXdKgs4cCAp6ORoYoCygipYP1mjmbjrsg=="],
+
+    "@surrealdb/bridge": ["@surrealdb/bridge@workspace:packages/bridge"],
 
     "@surrealdb/cbor": ["@surrealdb/cbor@2.0.0-alpha.4", "", {}, "sha512-l/hNZ3ZCOJq8rzwx1y5ZV/8b2bYCWdhGqRVY33Pu50NAHyAW5qLsMn3ZBkZow77mAKwNCsbDsRGnyYEuU95mjw=="],
 

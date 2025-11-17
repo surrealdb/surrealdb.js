@@ -1,0 +1,24 @@
+[package]
+name = "surrealdb-js"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = ["packages/wasm", "packages/node", "packages/bridge"]
+
+[workspace.package]
+version = "3.0.0-alpha.13"
+
+[workspace.dependencies]
+surrealdb-bridge = { path = "packages/bridge" }
+
+anyhow = "1.0.100"
+arc-swap = "1.7.1"
+async-channel = "2.5.0"
+dashmap = "6.1.0"
+surrealdb-core = "3.0.0-alpha.13"
+surrealdb-types = "3.0.0-alpha.13"
+tokio = "1.48.0"
+uuid = "1.18.1"
+cargo-lock = "11.0.0"
+serde = "1.0.197"

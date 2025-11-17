@@ -12,7 +12,7 @@ await Bun.spawn([
     "wasm-bindgen",
     "--target",
     "web",
-    "target/wasm32-unknown-unknown/release/surrealdb.wasm",
+    "../../target/wasm32-unknown-unknown/release/surrealdb.wasm",
     "--out-dir",
     "wasm",
 ]).exited;
