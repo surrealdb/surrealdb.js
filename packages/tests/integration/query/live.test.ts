@@ -1,5 +1,13 @@
 import { describe, expect, mock, test } from "bun:test";
-import { eq, type LiveMessage, RecordId, type Uuid } from "surrealdb";
+import {
+    BoundIncluded,
+    eq,
+    type LiveMessage,
+    RecordId,
+    RecordIdRange,
+    StringRecordId,
+    type Uuid,
+} from "surrealdb";
 import {
     createSurreal,
     insertMockRecords,
@@ -27,6 +35,152 @@ describe.if(SURREAL_PROTOCOL === "ws")("live() / liveOf()", async () => {
         await subscription.kill();
 
         expect(subscription.isAlive).toBeFalse();
+    });
+
+    test.todo("RecordId", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+        await insertMockRecords(surreal);
+        const subscription = await surreal.live(new RecordId("person", 3));
+        const { promise, resolve } = Promise.withResolvers();
+        const mockHandler = mock(() => resolve());
+
+        subscription.subscribe(mockHandler);
+
+        await surreal.create(new RecordId("person", 3)).content({
+            firstname: "John",
+            lastname: "Doe",
+        });
+
+        await promise;
+
+        expect(mockHandler).toBeCalledTimes(1);
+        expect(mockHandler).toBeCalledWith({
+            action: "CREATE",
+            queryId: subscription.id,
+            recordId: new RecordId("person", 3),
+            value: {
+                id: new RecordId("person", 3),
+                firstname: "John",
+                lastname: "Doe",
+            },
+        });
+
+        await subscription.kill();
+    });
+
+    test.todo("RecordIdRange", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+        await insertMockRecords(surreal);
+        const subscription = await surreal.live(
+            new RecordIdRange(
+                personTable,
+                new BoundIncluded("person:3"),
+                new BoundIncluded("person:3"),
+            ),
+        );
+        const { promise, resolve } = Promise.withResolvers();
+        const mockHandler = mock(() => resolve());
+
+        subscription.subscribe(mockHandler);
+
+        await surreal.create(new RecordId("person", 3)).content({
+            firstname: "John",
+            lastname: "Doe",
+        });
+
+        await promise;
+
+        expect(mockHandler).toBeCalledTimes(1);
+        expect(mockHandler).toBeCalledWith({
+            action: "CREATE",
+            queryId: subscription.id,
+            recordId: new RecordId("person", 3),
+            value: {
+                id: new RecordId("person", 3),
+                firstname: "John",
+                lastname: "Doe",
+            },
+        });
+
+        await subscription.kill();
+    });
+
+    test.todo("StringRecordId", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+        await insertMockRecords(surreal);
+        const subscription = await surreal.live(new StringRecordId("person:3"));
+        const { promise, resolve } = Promise.withResolvers();
+        const mockHandler = mock(() => resolve());
+
+        subscription.subscribe(mockHandler);
+
+        await surreal.create(new RecordId("person", 3)).content({
+            firstname: "John",
+            lastname: "Doe",
+        });
+
+        await promise;
+
+        expect(mockHandler).toBeCalledTimes(1);
+        expect(mockHandler).toBeCalledWith({
+            action: "CREATE",
+            queryId: subscription.id,
+            recordId: new RecordId("person", 3),
+            value: {
+                id: new RecordId("person", 3),
+                firstname: "John",
+                lastname: "Doe",
+            },
+        });
+
+        await subscription.kill();
+    });
+
+    test.todo("Table", async () => {
+        const surreal = await createSurreal({
+            reconnect: {
+                enabled: true,
+            },
+        });
+        await insertMockRecords(surreal);
+        const subscription = await surreal.live(personTable);
+        const { promise, resolve } = Promise.withResolvers();
+        const mockHandler = mock(() => resolve());
+
+        subscription.subscribe(mockHandler);
+
+        await surreal.create(new RecordId("person", 3)).content({
+            firstname: "John",
+            lastname: "Doe",
+        });
+
+        await promise;
+
+        expect(mockHandler).toBeCalledTimes(1);
+        expect(mockHandler).toBeCalledWith({
+            action: "CREATE",
+            queryId: subscription.id,
+            recordId: new RecordId("person", 3),
+            value: {
+                id: new RecordId("person", 3),
+                firstname: "John",
+                lastname: "Doe",
+            },
+        });
+
+        await subscription.kill();
     });
 
     test.todo("create action", async () => {
