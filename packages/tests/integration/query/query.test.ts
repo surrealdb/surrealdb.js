@@ -117,4 +117,21 @@ describe("query()", async () => {
             lastname: "Doe",
         });
     });
+
+    test("native dates", async () => {
+        const surreal = await createSurreal({
+            driverOptions: {
+                codecOptions: {
+                    useNativeDates: true,
+                },
+            },
+        });
+
+        const [date] = await surreal
+            .query(`<datetime>"2025-11-20T10:19:31.833294Z"`)
+            .collect<[Date]>();
+
+        expect(date).toBeValidDate();
+        expect(date.toISOString()).toBe("2025-11-20T10:19:31.833Z");
+    });
 });
