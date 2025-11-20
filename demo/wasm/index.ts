@@ -13,6 +13,9 @@ if (typeof window !== "undefined") {
     Object.assign(window, surrealdb);
 
     window.surreal = new Surreal({
+        codecOptions: {
+            useNativeDates: true,
+        },
         engines: {
             ...createWasmWorkerEngines(),
             ...createRemoteEngines(),
