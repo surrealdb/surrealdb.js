@@ -32,6 +32,10 @@
         ".": {
             "import": "./dist/surrealdb-wasm.mjs",
             "types": "./dist/surrealdb-wasm.d.ts"
+        },
+        "./worker": {
+            "import": "./dist/worker-agent.mjs",
+            "types": "./dist/worker-agent.d.ts"
         }
     },
     "files": [
