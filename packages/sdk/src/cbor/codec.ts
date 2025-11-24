@@ -20,6 +20,7 @@ import {
     Table,
     Uuid,
 } from "../value";
+import type { DateTimeTuple } from "../value/datetime";
 import { FileRef } from "../value/file";
 import { cborToRange, rangeToCbor } from "./utils";
 
@@ -148,8 +149,8 @@ export class CborCodec implements ValueCodec {
     };
 
     protected tagged: Record<number, Replacer> = {
-        [TAG_SPEC_DATETIME]: (v) => this.#decodeValue(this.#resolveDate(v)),
-        [TAG_CUSTOM_DATETIME]: (v) => this.#decodeValue(this.#resolveDate(v)),
+        [TAG_SPEC_DATETIME]: (v) => this.#decodeValue(this.#resolveSpecDate(v)),
+        [TAG_CUSTOM_DATETIME]: (v) => this.#decodeValue(this.#resolveCustomDate(v)),
         [TAG_SPEC_UUID]: (v) => this.#decodeValue(new Uuid(v)),
         [TAG_STRING_UUID]: (v) => this.#decodeValue(new Uuid(v)),
         [TAG_NONE]: (_v) => this.#decodeValue(undefined),
@@ -178,9 +179,14 @@ export class CborCodec implements ValueCodec {
         [TAG_GEOMETRY_COLLECTION]: (v) => this.#decodeValue(new GeometryCollection(v)),
     };
 
-    // biome-ignore lint/suspicious/noExplicitAny: Adhering to type
-    #resolveDate(v: any): unknown {
+    #resolveSpecDate(v: string): unknown {
         return this.#options.useNativeDates ? new Date(v) : new DateTime(v);
+    }
+
+    #resolveCustomDate(v: DateTimeTuple): unknown {
+        return this.#options.useNativeDates
+            ? new Date(Number(v[0]) * 1000 + Number(v[1]) / 1000000)
+            : new DateTime(v);
     }
 
     #encodeValue(v: unknown): unknown {
