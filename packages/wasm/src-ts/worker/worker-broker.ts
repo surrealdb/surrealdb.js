@@ -4,7 +4,9 @@ import type { ConnectionOptions } from "../../wasm/surrealdb";
 import type { EngineBroker } from "../common";
 import { RequestType, ResponseType, type WorkerMessage } from "./worker-contract";
 
-const WORKER_URL = new URL("./worker-agent.mjs", import.meta.url);
+export interface WasmWorkerOptions extends ConnectionOptions {
+    createWorker?: () => Worker;
+}
 
 type PromiseResolver<T> = {
     resolve: (value: T) => void;
@@ -24,11 +26,15 @@ export class WorkerEngineBroker implements EngineBroker {
 
     async connect(
         url: string,
-        options: ConnectionOptions | undefined,
+        options: WasmWorkerOptions | undefined,
         onNotification: (data: Uint8Array) => void,
     ) {
         this.#handleNotification = onNotification;
-        this.#worker = new Worker(WORKER_URL, { type: "module" });
+        this.#worker =
+            options?.createWorker?.() ??
+            new Worker(new URL(/* @vite-ignore */ "./worker-agent.mjs", import.meta.url), {
+                type: "module",
+            });
         this.#ready = new Promise<void>((resolve) => {
             this.#markReady = resolve;
         });
@@ -39,7 +45,13 @@ export class WorkerEngineBroker implements EngineBroker {
 
         await this.#send({
             type: RequestType.CONNECT,
-            data: { url, options },
+            data: {
+                url,
+                options: {
+                    ...options,
+                    createWorker: undefined,
+                },
+            },
         });
     }
 
