@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { satisfies } from "semver";
-import { type AnyAuth, RecordId, ResponseError } from "surrealdb";
+import { type AnyAuth, DateTime, RecordId, ResponseError, surql } from "surrealdb";
 import {
     createAuth,
     createIdleSurreal,
@@ -23,6 +23,16 @@ beforeEach(async () => {
 				SIGNUP ( CREATE type::record('user', $id) )
 				SIGNIN ( SELECT * FROM type::record('user', $id) )
 				DURATION FOR TOKEN 61s;
+
+            DEFINE ACCESS user_with_refresh ON DATABASE 
+                TYPE RECORD
+                    SIGNUP ( CREATE type::record('user', $id) )
+                    SIGNIN ( SELECT * FROM type::record('user', $id) )
+                    WITH REFRESH
+				DURATION FOR TOKEN 61s;
+
+            DEFINE USER IF NOT EXISTS test ON DATABASE PASSWORD 'test' ROLES OWNER DURATION FOR TOKEN 61s;
+            DEFINE ACCESS bearer ON DATABASE TYPE BEARER FOR USER DURATION FOR GRANT 60s FOR TOKEN 60s;
 		`);
     } else {
         await surreal.query(/* surql */ `
@@ -201,5 +211,74 @@ describe("session renewal", async () => {
         });
 
         expect(handleAuth).toBeCalledTimes(0);
+    });
+});
+
+describe.if(is3x)("bearer access", async () => {
+    test("record signup with refresh", async () => {
+        const surreal = await createSurreal();
+
+        const res1 = await surreal.signup({
+            access: "user_with_refresh",
+            variables: {
+                id: 123,
+            },
+        });
+
+        expect(res1.access).toBeString();
+        expect(res1.refresh).toBeString();
+
+        const res2 = await surreal.authenticate(res1);
+        expect(res2.access).toBeString();
+        expect(res2.refresh).toBeString();
+        expect(res2.refresh).not.toBe(res1.refresh);
+        expect(res2.access).not.toBe(res1.access);
+    });
+
+    test("system user", async () => {
+        const surreal = await createSurreal({
+            auth: "root",
+        });
+
+        interface BearerGrant {
+            ac: string;
+            creation: DateTime;
+            expiration: DateTime;
+            grant: {
+                id: string;
+                key: string;
+            };
+            id: string;
+            subject: {
+                user: string;
+            };
+            type: "bearer";
+        }
+
+        const [grant] = await surreal.query<[BearerGrant]>(surql`
+            ACCESS bearer GRANT FOR USER test;
+        `)
+            .collect();
+
+        expect(grant.ac).toBe("bearer");
+        expect(grant.creation).toBeInstanceOf(DateTime);
+        expect(grant.expiration).toBeInstanceOf(DateTime);
+        expect(grant.grant.id).toBeString();
+        expect(grant.grant.key).toBeString();
+        expect(grant.id).toBeString();
+        expect(grant.subject.user).toBe("test");
+        expect(grant.type).toBe("bearer");
+
+        const diff = grant.expiration.diff(grant.creation);
+        expect(diff.seconds).toBe(60n);
+
+        const res = await surreal.signin({
+            namespace: "test",
+            database: "test",
+            access: "bearer",
+            key: grant.grant.key,
+        });
+
+        expect(res.access).toBeString();
     });
 });

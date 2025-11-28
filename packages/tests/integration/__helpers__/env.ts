@@ -5,7 +5,7 @@ const port = await getPort();
 if (typeof port !== "number") throw new Error("Could not claim port");
 
 export const SURREAL_EXECUTABLE_PATH: string =
-    process.env.SURREAL_EXECUTABLE_PATH || "/usr/local/bin/surreal";
+    process.env.SURREAL_EXECUTABLE_PATH || Bun.which('surreal') || '/usr/local/bin/surreal';
 export const SURREAL_PROTOCOL: Protocol =
     import.meta.env.SURREAL_PROTOCOL === "http" ? "http" : "ws";
 export const SURREAL_PORT: string = port.toString();
