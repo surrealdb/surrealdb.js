@@ -255,7 +255,8 @@ describe.if(is3x)("bearer access", async () => {
             type: "bearer";
         }
 
-        const [grant] = await surreal.query<[BearerGrant]>(surql`
+        const [grant] = await surreal
+            .query<[BearerGrant]>(surql`
             ACCESS bearer GRANT FOR USER test;
         `)
             .collect();
