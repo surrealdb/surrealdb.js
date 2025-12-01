@@ -42,6 +42,22 @@ export class LocalEngineBroker implements EngineBroker {
         return this.#engine.execute(payload);
     }
 
+    async importSql(data: string): Promise<void> {
+        if (!this.#active || !this.#engine) {
+            throw new ConnectionUnavailableError();
+        }
+
+        return this.#engine.import(data);
+    }
+
+    async exportSql(options: Uint8Array): Promise<string> {
+        if (!this.#active || !this.#engine) {
+            throw new ConnectionUnavailableError();
+        }
+
+        return this.#engine.export(options);
+    }
+
     async close() {
         this.#active = false;
         this.#cancelNotifications?.();

@@ -8,6 +8,8 @@ export interface EngineBroker {
         onNotification: (data: Uint8Array) => void,
     ): Promise<void>;
     execute(payload: Uint8Array): Promise<Uint8Array>;
+    importSql(data: string): Promise<void>;
+    exportSql(options: Uint8Array): Promise<string>;
     close(): Promise<void>;
 }
 
