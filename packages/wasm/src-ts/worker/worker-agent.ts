@@ -4,6 +4,8 @@ import { initializeLibrary, readNotifications } from "../common";
 import {
     type ConnectRequest,
     type ExecuteRequest,
+    type ExportSqlRequest,
+    type ImportSqlRequest,
     type RequestMessage,
     RequestType,
     ResponseType,
@@ -43,6 +45,22 @@ async function handleExecute(request: ExecuteRequest): Promise<Uint8Array> {
     return instance.execute(request.payload);
 }
 
+async function handleImportSql(request: ImportSqlRequest): Promise<void> {
+    if (!instance) {
+        throw new ConnectionUnavailableError();
+    }
+
+    return instance.import(request.data);
+}
+
+async function handleExportSql(request: ExportSqlRequest): Promise<string> {
+    if (!instance) {
+        throw new ConnectionUnavailableError();
+    }
+
+    return instance.export(request.options);
+}
+
 function handleClose(): void {
     cancelNotifications?.();
     cancelNotifications = undefined;
@@ -66,8 +84,17 @@ self.addEventListener("message", async (event) => {
             }
 
             case RequestType.EXECUTE: {
-                const executeRequest = message.data;
-                result = await handleExecute(executeRequest);
+                result = await handleExecute(message.data);
+                break;
+            }
+
+            case RequestType.IMPORT_SQL: {
+                result = await handleImportSql(message.data);
+                break;
+            }
+
+            case RequestType.EXPORT_SQL: {
+                result = await handleExportSql(message.data);
                 break;
             }
 

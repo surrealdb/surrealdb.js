@@ -11,6 +11,7 @@ import {
     type RecordId,
     RpcEngine,
     type RpcRequest,
+    type SqlExportOptions,
     type SurrealEngine,
     UnexpectedConnectionError,
     type Uuid,
@@ -102,6 +103,24 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         const result = this._context.codecs.cbor.decode<Result>(response);
 
         return result;
+    }
+
+    override async importSql(data: string): Promise<void> {
+        if (!this.#active || !this.#engine) {
+            throw new ConnectionUnavailableError();
+        }
+
+        return this.#engine.import(data);
+    }
+
+    override async exportSql(options: Partial<SqlExportOptions>): Promise<string> {
+        if (!this.#active || !this.#engine) {
+            throw new ConnectionUnavailableError();
+        }
+
+        const payload = new Uint8Array(this._context.codecs.cbor.encode(options));
+
+        return this.#engine.export(payload);
     }
 
     async #initialize(state: ConnectionState, signal: AbortSignal) {

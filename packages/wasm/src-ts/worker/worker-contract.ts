@@ -3,6 +3,8 @@ import type { ConnectionOptions } from "../../wasm/surrealdb";
 export const RequestType = {
     CONNECT: "connect",
     EXECUTE: "execute",
+    IMPORT_SQL: "importSql",
+    EXPORT_SQL: "exportSql",
     CLOSE: "close",
 } as const;
 
@@ -26,9 +28,19 @@ export interface ExecuteRequest {
     payload: Uint8Array;
 }
 
+export interface ImportSqlRequest {
+    data: string;
+}
+
+export interface ExportSqlRequest {
+    options: Uint8Array;
+}
+
 export type RequestData =
     | { type: typeof RequestType.CONNECT; data: ConnectRequest }
     | { type: typeof RequestType.EXECUTE; data: ExecuteRequest }
+    | { type: typeof RequestType.IMPORT_SQL; data: ImportSqlRequest }
+    | { type: typeof RequestType.EXPORT_SQL; data: ExportSqlRequest }
     | { type: typeof RequestType.CLOSE; data: undefined };
 
 export type RequestMessage = RequestData & {

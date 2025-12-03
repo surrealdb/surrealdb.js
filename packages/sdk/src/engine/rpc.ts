@@ -192,7 +192,7 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
-    async exportSql(options: SqlExportOptions): Promise<string> {
+    async exportSql(options: Partial<SqlExportOptions>): Promise<string> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
