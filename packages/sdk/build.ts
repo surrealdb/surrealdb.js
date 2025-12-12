@@ -2,6 +2,7 @@ import { rolldown } from "rolldown";
 
 const bundle = await rolldown({
     input: "./src/index.ts",
+    external: ["node:util"],
 });
 
 // ESModule
