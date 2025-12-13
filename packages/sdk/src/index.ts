@@ -5,7 +5,3 @@ export * from "./errors";
 export * from "./types";
 export * from "./utils";
 export * from "./value";
-
-import { setUpCustomInspectors } from "./inspect";
-
-setUpCustomInspectors();

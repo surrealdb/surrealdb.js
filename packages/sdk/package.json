@@ -36,6 +36,10 @@
     "main": "./dist/surrealdb.mjs",
     "exports": {
         ".": {
+            "node": {
+                "import": "./dist/surrealdb.node.mjs",
+                "require": "./dist/surrealdb.node.cjs"
+            },
             "require": "./dist/surrealdb.cjs",
             "import": "./dist/surrealdb.mjs",
             "types": "./dist/surrealdb.d.ts"
