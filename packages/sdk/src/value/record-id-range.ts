@@ -1,15 +1,17 @@
 import { SurrealError } from "../errors";
 import { getRangeJoin } from "../internal/range";
 import { isValidIdBound, isValidTable } from "../internal/validation";
+import type { WidenRecordIdValue } from "../types/internal";
 import { equals } from "../utils/equals";
 import { escapeIdent, escapeRangeBound } from "../utils/escape";
 import type { Bound } from "../utils/range";
-import type { RecordIdValue, WidenRecordIdValue } from "./record-id";
+import type { RecordIdValue } from "./record-id";
 import { Table } from "./table";
 import { Value } from "./value";
 
 /**
  * A SurrealQL record ID range value.
+ *
  * @internal
  */
 class RecordIdRange<
@@ -80,7 +82,7 @@ class RecordIdRange<
     }
 }
 
-export interface RecordIdRangeConstructor {
+interface RecordIdRangeConstructor {
     new <T extends string = string, I extends RecordIdValue = RecordIdValue>(
         table: T | Table<T>,
         beg: Bound<I>,

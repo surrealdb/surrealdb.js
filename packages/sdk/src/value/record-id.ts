@@ -1,5 +1,6 @@
 import { SurrealError } from "../errors";
 import { isValidIdPart, isValidTable } from "../internal/validation";
+import type { WidenRecordIdValue } from "../types/internal";
 import { equals } from "../utils/equals";
 import { escapeIdent, escapeIdPart } from "../utils/escape";
 import { Table } from "./table";
@@ -9,32 +10,8 @@ import { Value } from "./value";
 export type RecordIdValue = string | number | Uuid | bigint | unknown[] | Record<string, unknown>;
 
 /**
- * To prevent narrowing of primitive literals we have to widen the type.
- * @example
- * ```ts
- * new TypedRecordId("test", "123"); // TypedRecordId<"test", string>
- * new TypedRecordId("test", 123); // TypedRecordId<"test", number>
- * ```
- *
- * Without widening the type would be:
- * ```ts
- * new TypedRecordId("test", "123"); // TypedRecordId<"test", "123">
- * new TypedRecordId("test", 123); // TypedRecordId<"test", 123>
- * ```
- *
- * Thus preventing us from declaring record ids in arrays or using them
- * interchangeably.
- */
-export type WidenRecordIdValue<T> = T extends string
-    ? string
-    : T extends number
-      ? number
-      : T extends bigint
-        ? bigint
-        : T;
-
-/**
  * A SurrealQL record ID value.
+ *
  * @internal
  */
 class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdValue> extends Value {
@@ -84,7 +61,7 @@ class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdVa
     }
 }
 
-export interface RecordIdConstructor {
+interface RecordIdConstructor {
     new <T extends string = string, I extends RecordIdValue = RecordIdValue>(
         table: T | Table<T>,
         id: I,
