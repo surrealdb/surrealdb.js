@@ -29,6 +29,27 @@ describe("query()", async () => {
 		expect(third).toEqual(3);
 	});
 
+	test("collect query responses", async () => {
+		const surreal = await createSurreal();
+		await surreal.query(`UPSERT hello:world CONTENT { hello: "world" }`);
+		const [result] = await surreal.query(`RETURN hello:world.hello`).responses<["world"]>();
+
+		expect(result.success).toEqual(true);
+		expect(result.success && result.result).toEqual("world");
+	});
+
+	test("collect specific query responses", async () => {
+		const surreal = await createSurreal();
+		const [first, third] = await surreal
+			.query(`RETURN 1; RETURN 2; RETURN 3`)
+			.responses<[1, 3]>(0, 2);
+
+		expect(first.success).toEqual(true);
+		expect(first.success && first.result).toEqual(1);
+		expect(third.success).toEqual(true);
+		expect(third.success && third.result).toEqual(3);
+	});
+
 	test("stream query results", async () => {
 		const surreal = await createSurreal();
 		await surreal.query(/* surql */ `
