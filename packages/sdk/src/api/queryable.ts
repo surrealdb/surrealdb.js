@@ -86,7 +86,7 @@ export abstract class SurrealQueryable {
     /**
      * Create a new live subscription to a specific table, record id, or record id range
      *
-     * @param what The table, record id, or record id range to subscribe to
+     * @param what The table to subscribe to
      * @returns A new live subscription object
      */
     live<T>(what: LiveResource): ManagedLivePromise<T> {
