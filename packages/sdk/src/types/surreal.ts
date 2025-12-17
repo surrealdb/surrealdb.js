@@ -1,7 +1,7 @@
 import type { Feature } from "../internal/feature";
 import type { ReconnectContext } from "../internal/reconnect";
 import type { BoundQuery } from "../utils";
-import type { Duration, RecordId, Uuid } from "../value";
+import type { Duration, RecordId, RecordIdValue, Uuid } from "../value";
 import type { AccessRecordAuth, AnyAuth, AuthProvider, Token, Tokens } from "./auth";
 import type { Nullable } from "./helpers";
 import type { Prettify } from "./internal";
@@ -222,7 +222,9 @@ export type RecordResult<T> = Prettify<
         ? T extends { id: infer Id }
             ? Id extends RecordId
                 ? T
-                : { id: RecordId } & Omit<T, "id">
+                : Id extends RecordIdValue
+                  ? { id: RecordId<string, Id> } & Omit<T, "id">
+                  : { id: RecordId } & Omit<T, "id">
             : { id: RecordId } & T
         : { id: RecordId }
 >;

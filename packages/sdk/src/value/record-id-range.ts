@@ -1,6 +1,7 @@
 import { SurrealError } from "../errors";
 import { getRangeJoin } from "../internal/range";
 import { isValidIdBound, isValidTable } from "../internal/validation";
+import type { WidenRecordIdValue } from "../types/internal";
 import { equals } from "../utils/equals";
 import { escapeIdent, escapeRangeBound } from "../utils/escape";
 import type { Bound } from "../utils/range";
@@ -10,13 +11,18 @@ import { Value } from "./value";
 
 /**
  * A SurrealQL record ID range value.
+ *
+ * @internal
  */
-export class RecordIdRange<Tb extends string = string> extends Value {
+class RecordIdRange<
+    Tb extends string = string,
+    Id extends RecordIdValue = RecordIdValue,
+> extends Value {
     readonly #table: Table<Tb>;
-    readonly #beg: Bound<RecordIdValue>;
-    readonly #end: Bound<RecordIdValue>;
+    readonly #beg: Bound<Id>;
+    readonly #end: Bound<Id>;
 
-    constructor(table: Tb | Table<Tb>, beg: Bound<RecordIdValue>, end: Bound<RecordIdValue>) {
+    constructor(table: Tb | Table<Tb>, beg: Bound<Id>, end: Bound<Id>) {
         super();
 
         if (!isValidTable(table)) throw new SurrealError("tb part is not valid");
@@ -64,14 +70,31 @@ export class RecordIdRange<Tb extends string = string> extends Value {
     /**
      * The range bound beginning
      */
-    get begin(): Bound<RecordIdValue> {
+    get begin(): Bound<Id> {
         return this.#beg;
     }
 
     /**
      * The range bound ending
      */
-    get end(): Bound<RecordIdValue> {
+    get end(): Bound<Id> {
         return this.#end;
     }
 }
+
+interface RecordIdRangeConstructor {
+    new <T extends string = string, I extends RecordIdValue = RecordIdValue>(
+        table: T | Table<T>,
+        beg: Bound<I>,
+        end: Bound<I>,
+    ): RecordIdRange<T, WidenRecordIdValue<I>>;
+}
+
+/**
+ * A SurrealQL record ID range value.
+ */
+interface _RecordIdRange<Tb extends string = string, Id extends RecordIdValue = RecordIdValue>
+    extends RecordIdRange<Tb, Id> {}
+const _RecordIdRange = RecordIdRange as RecordIdRangeConstructor;
+
+export { _RecordIdRange as RecordIdRange };
