@@ -81,6 +81,7 @@ describe("record id", () => {
         new RecordId<"table", { a: number; b: number; c: number }>("table", { a: 1, b: 2, c: 3 });
         new RecordId<"table", Record<string, number>>("table", { a: 1, b: 2, c: 3 });
         new RecordId<"table", Record<string, string>>("table", { a: "1", b: "2", c: "3" });
+        // biome-ignore lint/suspicious/noExplicitAny: false positive
         new RecordId<"table", Record<string, any>>("table", { a: 1, b: "2", c: true });
         // @ts-expect-error
         new RecordId<"table", string>("table", 123);

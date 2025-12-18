@@ -1,20 +1,19 @@
 import { rolldown } from "rolldown";
 
+// Primary
 const bundle = await rolldown({
     input: "./src/index.ts",
 });
+await bundle.write({ format: "esm", file: "./dist/surrealdb.mjs" });
+await bundle.write({ format: "cjs", file: "./dist/surrealdb.cjs" });
 
-// ESModule
-await bundle.write({
-    format: "esm",
-    file: "./dist/surrealdb.mjs",
+// Server-side bundle (Node/Bun/Deno)
+const serverBundle = await rolldown({
+    input: "./src/index.server.ts",
+    external: ["node:util", "surrealdb"],
 });
-
-// CommonJS
-await bundle.write({
-    format: "cjs",
-    file: "./dist/surrealdb.cjs",
-});
+await serverBundle.write({ format: "esm", file: "./dist/surrealdb.server.mjs" });
+await serverBundle.write({ format: "cjs", file: "./dist/surrealdb.server.cjs" });
 
 // TS Declarations
 const task = Bun.spawn(
