@@ -293,3 +293,30 @@ export interface QueryChunk<T> {
         message: string;
     };
 }
+
+/**
+ * A single successful response from a query
+ */
+export type QueryResponseSuccess<T = unknown> = {
+    success: true;
+    stats?: QueryStats;
+    type: "live" | "kill" | "other";
+    result: T;
+};
+
+/**
+ * A single failure response from a query
+ */
+export type QueryResponseFailure = {
+    success: false;
+    stats?: QueryStats;
+    error: {
+        code: number;
+        message: string;
+    };
+};
+
+/**
+ * A single response from a query
+ */
+export type QueryResponse<T = unknown> = QueryResponseSuccess<T> | QueryResponseFailure;
