@@ -8,12 +8,12 @@ await bundle.write({ format: "esm", file: "./dist/surrealdb.mjs" });
 await bundle.write({ format: "cjs", file: "./dist/surrealdb.cjs" });
 
 // Server-side bundle (Node/Bun/Deno)
-const nodeBundle = await rolldown({
-    input: "./src/index.node.ts",
-    external: ["node:util"],
+const serverBundle = await rolldown({
+    input: "./src/index.server.ts",
+    external: ["node:util", "surrealdb"],
 });
-await nodeBundle.write({ format: "esm", file: "./dist/surrealdb.node.mjs" });
-await nodeBundle.write({ format: "cjs", file: "./dist/surrealdb.node.cjs" });
+await serverBundle.write({ format: "esm", file: "./dist/surrealdb.server.mjs" });
+await serverBundle.write({ format: "cjs", file: "./dist/surrealdb.server.cjs" });
 
 // TS Declarations
 const task = Bun.spawn(

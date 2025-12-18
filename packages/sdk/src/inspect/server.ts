@@ -1,6 +1,6 @@
 import { type InspectOptions, inspect } from "node:util";
-import { BoundQuery } from "../utils";
 import {
+    BoundQuery,
     DateTime,
     Decimal,
     Duration,
@@ -19,7 +19,7 @@ import {
     StringRecordId,
     Table,
     Uuid,
-} from "../value";
+} from "surrealdb";
 
 const colors = {
     black: "\x1b[30m",
@@ -58,7 +58,7 @@ function colorize(color: string, text: string) {
     return `${color}${text}${colors.reset}`;
 }
 
-const ColorsMap = new Map<new (...args: any[]) => any, string>([
+const ColorsMap = new Map<AnyConstructor, string>([
     [DateTime, colors.bright.purple],
     [Decimal, colors.bright.yellow],
     [Duration, colors.bright.cyan],
@@ -78,7 +78,10 @@ const ColorsMap = new Map<new (...args: any[]) => any, string>([
     [Uuid, colors.bright.green],
 ]);
 
-function createCustomInspect<Cls extends new (...args: any[]) => any>(
+// biome-ignore lint/suspicious/noExplicitAny: false positive
+type AnyConstructor = new (...args: any[]) => any;
+
+function createCustomInspect<Cls extends AnyConstructor>(
     cls: Cls,
     format: (inst: InstanceType<Cls>, options: InspectOptions) => string,
 ) {
