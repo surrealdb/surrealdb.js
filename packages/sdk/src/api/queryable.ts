@@ -41,7 +41,10 @@ export abstract class SurrealQueryable {
      * @param bindings Assigns variables which can be used in the query
      * @returns A `Query` instance which can be used to execute or configure the query
      */
-    query(query: string, bindings?: Record<string, unknown>): Query;
+    query<R extends unknown[] = unknown[]>(
+        query: string,
+        bindings?: Record<string, unknown>,
+    ): Query<R>;
 
     /**
      * Runs a set of SurrealQL statements against the database.
@@ -83,7 +86,7 @@ export abstract class SurrealQueryable {
     /**
      * Create a new live subscription to a specific table, record id, or record id range
      *
-     * @param what The table, record id, or record id range to subscribe to
+     * @param what The table to subscribe to
      * @returns A new live subscription object
      */
     live<T>(what: LiveResource): ManagedLivePromise<T> {

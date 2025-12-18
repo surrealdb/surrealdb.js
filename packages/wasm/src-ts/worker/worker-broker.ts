@@ -69,6 +69,24 @@ export class WorkerEngineBroker implements EngineBroker {
         );
     }
 
+    async importSql(data: string): Promise<void> {
+        if (!this.#worker) {
+            throw new ConnectionUnavailableError();
+        }
+
+        return this.#send<void>({ type: RequestType.IMPORT_SQL, data: { data } });
+    }
+
+    async exportSql(options: Uint8Array): Promise<string> {
+        if (!this.#worker) {
+            throw new ConnectionUnavailableError();
+        }
+
+        return this.#send<string>({ type: RequestType.EXPORT_SQL, data: { options } }, [
+            options.buffer as ArrayBuffer,
+        ]);
+    }
+
     async close() {
         if (this.#worker) {
             await this.#send<void>({

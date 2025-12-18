@@ -1,5 +1,6 @@
 import { SurrealError } from "../errors";
 import { isValidIdPart, isValidTable } from "../internal/validation";
+import type { WidenRecordIdValue } from "../types/internal";
 import { equals } from "../utils/equals";
 import { escapeIdent, escapeIdPart } from "../utils/escape";
 import { Table } from "./table";
@@ -10,12 +11,14 @@ export type RecordIdValue = string | number | Uuid | bigint | unknown[] | Record
 
 /**
  * A SurrealQL record ID value.
+ *
+ * @internal
  */
-export class RecordId<Tb extends string = string> extends Value {
+class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdValue> extends Value {
     readonly #table: Table<Tb>;
-    readonly #id: RecordIdValue;
+    readonly #id: Id;
 
-    constructor(table: Tb | Table<Tb>, id: RecordIdValue) {
+    constructor(table: Tb | Table<Tb>, id: Id) {
         super();
 
         if (!isValidTable(table)) throw new SurrealError("tb part is not valid");
@@ -53,7 +56,23 @@ export class RecordId<Tb extends string = string> extends Value {
     /**
      * The ID part value
      */
-    get id(): RecordIdValue {
+    get id(): Id {
         return this.#id;
     }
 }
+
+interface RecordIdConstructor {
+    new <T extends string = string, I extends RecordIdValue = RecordIdValue>(
+        table: T | Table<T>,
+        id: I,
+    ): RecordId<T, WidenRecordIdValue<I>>;
+}
+
+/**
+ * A SurrealQL record ID value.
+ */
+interface _RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdValue>
+    extends RecordId<Tb, Id> {}
+const _RecordId = RecordId as RecordIdConstructor;
+
+export { _RecordId as RecordId };
