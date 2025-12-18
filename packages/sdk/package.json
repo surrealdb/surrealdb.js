@@ -1,54 +1,54 @@
 {
-    "name": "surrealdb",
-    "version": "2.0.0-alpha.14",
-    "type": "module",
-    "license": "Apache-2.0",
-    "description": "The official SurrealDB SDK for JavaScript.",
-    "homepage": "https://github.com/surrealdb/surrealdb.js",
-    "keywords": [
-        "surrealdb",
-        "surrealdb.js",
-        "query builder",
-        "orm"
-    ],
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/surrealdb/surrealdb.js.git"
-    },
-    "scripts": {
-        "build": "bun run build.ts",
-        "deploy": "bun run ../../scripts/publish.ts"
-    },
-    "devDependencies": {
-        "@types/bun": "^1.2.21",
-        "@types/node": "^24.3.0",
-        "compare-versions": "^6.1.1"
-    },
-    "peerDependencies": {
-        "typescript": "^5.0.0",
-        "tslib": "^2.6.3"
-    },
-    "dependencies": {
-        "@surrealdb/cbor": "2.0.0-alpha.4",
-        "uuidv7": "^1.0.1"
-    },
-    "types": "./dist/surrealdb.d.ts",
-    "main": "./dist/surrealdb.mjs",
-    "exports": {
-        ".": {
-            "node": {
-                "import": "./dist/surrealdb.server.mjs",
-                "require": "./dist/surrealdb.server.cjs"
-            },
-            "require": "./dist/surrealdb.cjs",
-            "import": "./dist/surrealdb.mjs",
-            "types": "./dist/surrealdb.d.ts"
-        }
-    },
-    "files": [
-        "dist",
-        "README.md",
-        "LICENCE",
-        "SECURITY.md"
-    ]
+	"name": "surrealdb",
+	"version": "2.0.0-alpha.15",
+	"type": "module",
+	"license": "Apache-2.0",
+	"description": "The official SurrealDB SDK for JavaScript.",
+	"homepage": "https://github.com/surrealdb/surrealdb.js",
+	"keywords": [
+		"surrealdb",
+		"surrealdb.js",
+		"query builder",
+		"orm"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/surrealdb/surrealdb.js.git"
+	},
+	"scripts": {
+		"build": "bun run build.ts",
+		"deploy": "bun run ../../scripts/publish.ts"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.2.21",
+		"@types/node": "^24.3.0",
+		"compare-versions": "^6.1.1"
+	},
+	"peerDependencies": {
+		"typescript": "^5.0.0",
+		"tslib": "^2.6.3"
+	},
+	"dependencies": {
+		"@surrealdb/cbor": "2.0.0-alpha.4",
+		"uuidv7": "^1.0.1"
+	},
+	"types": "./dist/surrealdb.d.ts",
+	"main": "./dist/surrealdb.mjs",
+	"exports": {
+		".": {
+			"node": {
+				"import": "./dist/surrealdb.server.mjs",
+				"require": "./dist/surrealdb.server.cjs"
+			},
+			"require": "./dist/surrealdb.cjs",
+			"import": "./dist/surrealdb.mjs",
+			"types": "./dist/surrealdb.d.ts"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"LICENCE",
+		"SECURITY.md"
+	]
 }
