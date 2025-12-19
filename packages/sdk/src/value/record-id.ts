@@ -66,13 +66,19 @@ interface RecordIdConstructor {
         table: T | Table<T>,
         id: I,
     ): RecordId<T, WidenRecordIdValue<I>>;
+    new <R extends RecordId<string, RecordIdValue>>(
+        table: R["table"]["name"],
+        id: R["id"],
+    ): RecordId<R["table"]["name"], R["id"]>;
 }
 
 /**
  * A SurrealQL record ID value.
  */
-interface _RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdValue>
-    extends RecordId<Tb, Id> {}
+type _RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdValue> = RecordId<
+    Tb,
+    Id
+>;
 const _RecordId = RecordId as RecordIdConstructor;
 
 export { _RecordId as RecordId };
