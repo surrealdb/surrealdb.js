@@ -7,6 +7,7 @@ import type { Nullable } from "./helpers";
 import type { Prettify } from "./internal";
 import type { LiveMessage } from "./live";
 import type { EventPublisher } from "./publisher";
+import type { RpcProtocolVersion } from "./rpc";
 
 export type Session = Uuid | undefined;
 export type CodecType = "cbor" | "flatbuffer" | (string & {});
@@ -183,6 +184,13 @@ export interface ConnectionState {
     reconnect: ReconnectContext;
     rootSession: ConnectionSession;
     sessions: Map<Uuid, ConnectionSession>;
+    /**
+     * The RPC protocol version to use for this connection.
+     * Set after version detection during connection establishment.
+     * - Version 1: SurrealDB v2.x
+     * - Version 2: SurrealDB v3.x
+     */
+    rpcVersion?: RpcProtocolVersion;
 }
 
 /**

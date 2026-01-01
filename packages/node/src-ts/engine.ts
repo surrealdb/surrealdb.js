@@ -97,7 +97,12 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         }
 
         const id = this._context.uniqueId();
-        const payload = this._context.codecs.cbor.encode({ id, ...request });
+        const rpcVersion = this._state?.rpcVersion;
+        const payload = this._context.codecs.cbor.encode({
+            id,
+            ...(rpcVersion ? { version: rpcVersion } : {}),
+            ...request,
+        });
 
         const response = await this.#engine.execute(payload);
         const result = this._context.codecs.cbor.decode<Result>(response);

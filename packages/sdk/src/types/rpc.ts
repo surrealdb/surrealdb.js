@@ -15,6 +15,13 @@ export type RpcQueryResultErr = {
     result: string;
 };
 
+/**
+ * RPC protocol version to use when communicating with SurrealDB.
+ * - Version 1: Default for SurrealDB v2.x
+ * - Version 2: Required for SurrealDB v3.x (introduces new auth response format, statement options)
+ */
+export type RpcProtocolVersion = 1 | 2;
+
 export type RpcRequest<
     Method extends string = string,
     Params extends unknown[] | undefined = unknown[],
@@ -23,6 +30,11 @@ export type RpcRequest<
     session?: Session;
     params?: Params;
     txn?: Uuid;
+    /**
+     * RPC protocol version. When omitted, defaults to version 1.
+     * Set to 2 for SurrealDB v3.x servers.
+     */
+    version?: RpcProtocolVersion;
 };
 
 export type RpcResponse<Result = unknown> = RpcSuccessResponse<Result> | RpcErrorResponse;

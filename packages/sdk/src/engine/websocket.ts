@@ -145,8 +145,9 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             }
 
             const id = this._context.uniqueId();
+            const rpcVersion = this._state?.rpcVersion;
             const call: Call<Result> = {
-                request: { id, ...request },
+                request: { id, ...(rpcVersion ? { version: rpcVersion } : {}), ...request },
                 resolve,
                 reject,
             };

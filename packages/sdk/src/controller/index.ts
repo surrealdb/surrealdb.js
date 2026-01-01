@@ -40,6 +40,7 @@ import type {
 import {
     type BoundQuery,
     Features,
+    getRpcProtocolVersion,
     isVersionSupported,
     MAXIMUM_VERSION,
     MINIMUM_VERSION,
@@ -422,6 +423,11 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             // Perform version check
             if (this.#checkVersion && !isVersionSupported(version)) {
                 throw new UnsupportedVersionError(version, MINIMUM_VERSION, MAXIMUM_VERSION);
+            }
+
+            // Set the RPC protocol version based on the detected SurrealDB version
+            if (this.#state) {
+                this.#state.rpcVersion = getRpcProtocolVersion(version);
             }
 
             // Restore all previous sessions

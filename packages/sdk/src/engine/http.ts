@@ -89,9 +89,11 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         }
 
         const id = this._context.uniqueId();
+        const rpcVersion = this._state.rpcVersion;
         const buffer = await fetchSurreal(this._context, this._state, session, {
             body: {
                 id,
+                ...(rpcVersion ? { version: rpcVersion } : {}),
                 ...request,
             },
         });
