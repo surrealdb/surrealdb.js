@@ -12,6 +12,7 @@ describe("Duration", () => {
         expect(new Duration("1h").toString()).toBe("1h");
         expect(new Duration("1d").toString()).toBe("1d");
         expect(new Duration("1w").toString()).toBe("1w");
+        expect(new Duration("1y").toString()).toBe("1y");
 
         // Normalization to smallest units
         expect(new Duration("7d").toString()).toBe("1w");
@@ -19,34 +20,37 @@ describe("Duration", () => {
         expect(new Duration("1000ms").toString()).toBe("1s");
         expect(new Duration("1000000us").toString()).toBe("1s");
         expect(new Duration("1000000000ns").toString()).toBe("1s");
+        expect(new Duration("365d").toString()).toBe("1y");
     });
 
     test("component getters and constructors", () => {
-        const dur = new Duration("1w");
+        const dur = new Duration("1y");
 
-        expect(dur.nanoseconds).toEqual(604800000000000n);
-        expect(dur.microseconds).toEqual(604800000000n);
-        expect(dur.milliseconds).toEqual(604800000n);
-        expect(dur.seconds).toEqual(604800n);
-        expect(dur.minutes).toEqual(10080n);
-        expect(dur.hours).toEqual(168n);
-        expect(dur.days).toEqual(7n);
-        expect(dur.weeks).toEqual(1n);
+        expect(dur.nanoseconds).toEqual(31536000000000000n);
+        expect(dur.microseconds).toEqual(31536000000000n);
+        expect(dur.milliseconds).toEqual(31536000000n);
+        expect(dur.seconds).toEqual(31536000n);
+        expect(dur.minutes).toEqual(525600n);
+        expect(dur.hours).toEqual(8760n);
+        expect(dur.days).toEqual(365n);
+        expect(dur.weeks).toEqual(52n);
+        expect(dur.years).toEqual(1n);
 
-        expect(Duration.nanoseconds(604800000000000)).toMatchObject(dur);
-        expect(Duration.microseconds(604800000000)).toMatchObject(dur);
-        expect(Duration.milliseconds(604800000)).toMatchObject(dur);
-        expect(Duration.seconds(604800)).toMatchObject(dur);
-        expect(Duration.minutes(10080)).toMatchObject(dur);
-        expect(Duration.hours(168)).toMatchObject(dur);
-        expect(Duration.days(7)).toMatchObject(dur);
-        expect(Duration.weeks(1)).toMatchObject(dur);
+        expect(Duration.nanoseconds(31536000000000000n)).toMatchObject(dur);
+        expect(Duration.microseconds(31536000000000n)).toMatchObject(dur);
+        expect(Duration.milliseconds(31536000000n)).toMatchObject(dur);
+        expect(Duration.seconds(31536000)).toMatchObject(dur);
+        expect(Duration.minutes(525600)).toMatchObject(dur);
+        expect(Duration.hours(8760)).toMatchObject(dur);
+        expect(Duration.days(365)).toMatchObject(dur);
+        expect(Duration.weeks(52).add(Duration.days(1))).toMatchObject(dur);
+        expect(Duration.years(1)).toMatchObject(dur);
     });
 
     test("bigint duration", () => {
         const dur = Duration.milliseconds(28382400000000000n);
         expect(dur.milliseconds).toEqual(28382400000000000n);
-        expect(dur.toString()).toEqual("46928571w3d");
+        expect(dur.toString()).toEqual("900000y");
     });
 
     test("compact and fromCompact", () => {
