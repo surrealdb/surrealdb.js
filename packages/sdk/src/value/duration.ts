@@ -13,6 +13,7 @@ const MINUTE = 60n * SECOND;
 const HOUR = 60n * MINUTE;
 const DAY = 24n * HOUR;
 const WEEK = 7n * DAY;
+const YEAR = 365n * DAY;
 
 // Unit string to nanosecond mapping
 const UNITS = new Map([
@@ -26,6 +27,7 @@ const UNITS = new Map([
     ["h", HOUR],
     ["d", DAY],
     ["w", WEEK],
+    ["y", YEAR],
 ]);
 
 // Reversed mapping of nanoseconds to unit string
@@ -325,6 +327,13 @@ export class Duration extends Value {
     }
 
     /**
+     * Total whole years in the duration
+     */
+    get years(): bigint {
+        return this.#seconds / (YEAR / SECOND);
+    }
+
+    /**
      * Creates a Duration from nanoseconds
      *
      * @param ns Nanoseconds value
@@ -410,6 +419,17 @@ export class Duration extends Value {
     static weeks(w: number | bigint): Duration {
         const n = typeof w === "bigint" ? w : BigInt(Math.floor(w));
         return new Duration([n * (WEEK / SECOND), 0n]);
+    }
+
+    /**
+     * Creates a Duration from years
+     *
+     * @param y Years value
+     * @returns The resulting duration
+     */
+    static years(y: number | bigint): Duration {
+        const n = typeof y === "bigint" ? y : BigInt(Math.floor(y));
+        return new Duration([n * (YEAR / SECOND), 0n]);
     }
 
     /**
