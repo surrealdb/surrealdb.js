@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { InvalidDateError, RecordId } from "surrealdb";
+import { InvalidDateError, RecordId, surql } from "surrealdb";
 import { createSurreal, testTable } from "./__helpers__";
 
 describe("data integrity", async () => {
@@ -214,5 +214,39 @@ describe("data integrity", async () => {
         if (result?.nested && typeof result.nested === "object" && result.nested !== null) {
             expect((result.nested as { null?: unknown }).null).toBe(null);
         }
+    });
+
+    test("bigint downcast to number if it's in the safe integer range", async () => {
+        const surreal = await createSurreal();
+        const id = new RecordId("test", "bigint-downcast");
+
+        type Result = {
+            number: number;
+            bigintDowncasted: bigint;
+            bigintNotDowncasted: bigint;
+        };
+        await surreal.create<Result>(id).content({
+            number: 123,
+            bigintDowncasted: 123n,
+            bigintNotDowncasted: 9007199254740993n,
+        });
+
+        const result = await surreal.select<Result>(id);
+
+        expect(result).toBeDefined();
+        expect(result?.number).toBe(123);
+        expect(result?.bigintDowncasted).toBe(123 as never);
+        expect(result?.bigintNotDowncasted).toBe(9007199254740993n);
+    });
+
+    test("record ids match no matter the number size", async () => {
+        expect(new RecordId("test", 123).equals(new RecordId("test", 123n))).toBe(true);
+        expect(new RecordId("test", 123n).equals(new RecordId("test", 123))).toBe(true);
+        expect(
+            new RecordId("test", [123456, 123456n]).equals(new RecordId("test", [123456n, 123456])),
+        ).toBe(true);
+        expect(
+            new RecordId("test", [123456, 123456n]).equals(new RecordId("test", [123456n, 123456])),
+        ).toBe(true);
     });
 });

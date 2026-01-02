@@ -8,6 +8,12 @@ import { Value } from "../value/value";
  * @returns Whether the two values are recursively equal
  */
 export function equals(x: unknown, y: unknown): boolean {
+    if (typeof x === "bigint" && typeof y === "number") {
+        return x <= Number.MAX_SAFE_INTEGER ? Number(x) === y : x === BigInt(y);
+    }
+    if (typeof x === "number" && typeof y === "bigint") {
+        return y <= Number.MAX_SAFE_INTEGER ? x === Number(y) : BigInt(x) === y;
+    }
     if (Object.is(x, y)) return true;
     if (x instanceof Date && y instanceof Date) {
         return x.getTime() === y.getTime();
