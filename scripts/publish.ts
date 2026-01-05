@@ -66,6 +66,7 @@ const publishCmd = [
     "publish",
     `${safeName}-${version}.tgz`,
     "--provenance",
+    "--verbose",
     "--access",
     "public",
     "--tag",
@@ -76,6 +77,8 @@ if (values["dry-run"]) {
     console.log("🔍 Preparing dry run release...");
     publishCmd.push("--dry-run");
 }
+
+console.log(Object.keys(import.meta.env));
 
 console.log(`🚀 Publishing ${name}@${version} to ${channel} in NPM...`);
 
