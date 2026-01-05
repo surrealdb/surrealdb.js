@@ -126,5 +126,8 @@ jobs:
           name: sdk-artifacts
           path: packages/sdk/dist/
 
+      - name: NPM version
+        run: npm --version
+
       - name: Publish all packages
         run: bun run deploy:sdk ${{ github.event.inputs.continue == 'true' && '--continue' || '' }}
