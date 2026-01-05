@@ -43,26 +43,51 @@ if (values.channel) {
     channel = values.channel;
 }
 
-// Prepare command
-const npmCmd = ["bun", "publish", "--access", "public", "--tag", channel];
+// Packing
+const safeName = name.replaceAll("@", "-");
+const packCmd = ["bun", "pm", "pack"];
+
+console.log(`📦 Packing ${name}@${version}...`);
+
+const packCode = await Bun.spawn(packCmd, {
+    stdout: "inherit",
+    stderr: "inherit",
+}).exited;
+
+if (values.continue && packCode !== 0) {
+    console.log("❌ Pack failed, but continuing...");
+    process.exit(0);
+}
+
+// Publishing
+const publishCmd = [
+    "npm",
+    "publish",
+    `${safeName}-${version}.tgz`,
+    "--provenance",
+    "--loglevel",
+    "silly",
+    "--access",
+    "public",
+    "--tag",
+    channel,
+];
 
 if (values["dry-run"]) {
     console.log("🔍 Preparing dry run release...");
-    npmCmd.push("--dry-run");
+    publishCmd.push("--dry-run");
 }
 
-// NPM
-console.log(`📦 Publishing ${name}@${version} to ${channel} in NPM...`);
+console.log(`🚀 Publishing ${name}@${version} to ${channel} in NPM...`);
 
-const code = await Bun.spawn(npmCmd, {
+const publishCode = await Bun.spawn(publishCmd, {
     stdout: "inherit",
     stderr: "inherit",
-    env: import.meta.env,
 }).exited;
 
-if (values.continue && code !== 0) {
+if (values.continue && publishCode !== 0) {
     console.log("❌ Publish failed, but continuing...");
     process.exit(0);
 }
 
-process.exit(code);
+process.exit(publishCode);
