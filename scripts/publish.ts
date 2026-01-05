@@ -44,7 +44,7 @@ if (values.channel) {
 }
 
 // Packing
-const packCmd = ["bun", "pm", "pack", "--filename", "publish.tgz"];
+const packCmd = ["bun", "pm", "pack", "--destination", "./publish.tgz"];
 
 console.log(`📦 Packing ${name}@${version}...`);
 
