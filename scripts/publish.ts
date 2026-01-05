@@ -59,13 +59,17 @@ if (values.continue && packCode !== 0) {
     process.exit(0);
 }
 
+// Env
+console.log("🌲 Env: ", Object.keys(Bun.env));
+
 // Publishing
 const publishCmd = [
     "npm",
     "publish",
     `${safeName}-${version}.tgz`,
     "--provenance",
-    "--verbose",
+    "--loglevel",
+    "silly",
     "--access",
     "public",
     "--tag",
@@ -76,8 +80,6 @@ if (values["dry-run"]) {
     console.log("🔍 Preparing dry run release...");
     publishCmd.push("--dry-run");
 }
-
-console.log("🌲 Env: ", Object.keys(Bun.env));
 
 console.log(`🚀 Publishing ${name}@${version} to ${channel} in NPM...`);
 
