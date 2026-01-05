@@ -59,9 +59,6 @@ if (values.continue && packCode !== 0) {
     process.exit(0);
 }
 
-// Env
-console.log("🌲 Env: ", Object.keys(Bun.env));
-
 // Publishing
 const publishCmd = [
     "npm",
