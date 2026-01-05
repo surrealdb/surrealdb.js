@@ -43,26 +43,50 @@ if (values.channel) {
     channel = values.channel;
 }
 
-// Prepare command
-const npmCmd = ["bun", "publish", "--access", "public", "--tag", channel];
+// Packing
+const packCmd = ["bun", "pm", "pack", "--filename", "publish.tgz"];
 
-if (values["dry-run"]) {
-    console.log("🔍 Preparing dry run release...");
-    npmCmd.push("--dry-run");
-}
+console.log(`📦 Packing ${name}@${version}...`);
 
-// NPM
-console.log(`📦 Publishing ${name}@${version} to ${channel} in NPM...`);
-
-const code = await Bun.spawn(npmCmd, {
+const packCode = await Bun.spawn(packCmd, {
     stdout: "inherit",
     stderr: "inherit",
     env: import.meta.env,
 }).exited;
 
-if (values.continue && code !== 0) {
+if (values.continue && packCode !== 0) {
+    console.log("❌ Pack failed, but continuing...");
+    process.exit(0);
+}
+
+// Publishing
+const publishCmd = [
+    "npm",
+    "publish",
+    "./publish.tgz",
+    "--provenance",
+    "--access",
+    "public",
+    "--tag",
+    channel,
+];
+
+if (values["dry-run"]) {
+    console.log("🔍 Preparing dry run release...");
+    publishCmd.push("--dry-run");
+}
+
+console.log(`🚀 Publishing ${name}@${version} to ${channel} in NPM...`);
+
+const publishCode = await Bun.spawn(publishCmd, {
+    stdout: "inherit",
+    stderr: "inherit",
+    env: import.meta.env,
+}).exited;
+
+if (values.continue && publishCode !== 0) {
     console.log("❌ Publish failed, but continuing...");
     process.exit(0);
 }
 
-process.exit(code);
+process.exit(publishCode);
