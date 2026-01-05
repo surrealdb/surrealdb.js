@@ -44,7 +44,8 @@ if (values.channel) {
 }
 
 // Packing
-const packCmd = ["bun", "pm", "pack", "--destination", "./publish.tgz"];
+const safeName = name.replaceAll("@", "-");
+const packCmd = ["bun", "pm", "pack"];
 
 console.log(`📦 Packing ${name}@${version}...`);
 
@@ -63,7 +64,7 @@ if (values.continue && packCode !== 0) {
 const publishCmd = [
     "npm",
     "publish",
-    "./publish.tgz",
+    `${safeName}-${version}.tgz`,
     "--provenance",
     "--access",
     "public",
