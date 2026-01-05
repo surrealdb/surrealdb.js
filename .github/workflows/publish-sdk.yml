@@ -96,14 +96,8 @@ jobs:
         run: |
           tree packages/sdk -I src
 
-      - name: Setup NPM authentication
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-
       - name: Dry run publish all packages
         run: bun run deploy:sdk --dry-run ${{ github.event.inputs.continue == 'true' && '--continue' || '' }}
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # Actual publish (only if not dry run)
   publish:
@@ -132,11 +126,5 @@ jobs:
           name: sdk-artifacts
           path: packages/sdk/dist/
 
-      - name: Setup NPM authentication
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-
       - name: Publish all packages
         run: bun run deploy:sdk ${{ github.event.inputs.continue == 'true' && '--continue' || '' }}
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
