@@ -279,6 +279,10 @@ jobs:
         with:
           bun-version: 1.2.21
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
       - name: Code Checkout
         uses: actions/checkout@v4
 
