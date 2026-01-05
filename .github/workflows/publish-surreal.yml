@@ -304,5 +304,8 @@ jobs:
           path: packages/node/dist/
           merge-multiple: true
 
+      - name: NPM version
+        run: npm --version
+
       - name: Publish all packages
         run: bun run deploy:surreal ${{ github.event.inputs.continue == 'true' && '--continue' || '' }}
