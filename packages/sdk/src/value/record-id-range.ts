@@ -88,13 +88,23 @@ interface RecordIdRangeConstructor {
         beg: Bound<I>,
         end: Bound<I>,
     ): RecordIdRange<T, WidenRecordIdValue<I>>;
+    new <R extends RecordIdRange<string, RecordIdValue>>(
+        table: R["table"]["name"],
+        beg: R["begin"],
+        end: R["end"],
+    ): RecordIdRange<
+        R["table"]["name"],
+        R["begin"] extends Bound<infer I> ? (I extends RecordIdValue ? I : never) : never
+    >;
 }
 
 /**
  * A SurrealQL record ID range value.
  */
-interface _RecordIdRange<Tb extends string = string, Id extends RecordIdValue = RecordIdValue>
-    extends RecordIdRange<Tb, Id> {}
+type _RecordIdRange<
+    Tb extends string = string,
+    Id extends RecordIdValue = RecordIdValue,
+> = RecordIdRange<Tb, Id>;
 const _RecordIdRange = RecordIdRange as RecordIdRangeConstructor;
 
 export { _RecordIdRange as RecordIdRange };
