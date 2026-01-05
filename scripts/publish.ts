@@ -52,7 +52,6 @@ console.log(`📦 Packing ${name}@${version}...`);
 const packCode = await Bun.spawn(packCmd, {
     stdout: "inherit",
     stderr: "inherit",
-    env: import.meta.env,
 }).exited;
 
 if (values.continue && packCode !== 0) {
@@ -78,14 +77,13 @@ if (values["dry-run"]) {
     publishCmd.push("--dry-run");
 }
 
-console.log(Object.keys(import.meta.env));
+console.log(Object.keys(Bun.env));
 
 console.log(`🚀 Publishing ${name}@${version} to ${channel} in NPM...`);
 
 const publishCode = await Bun.spawn(publishCmd, {
     stdout: "inherit",
     stderr: "inherit",
-    env: import.meta.env,
 }).exited;
 
 if (values.continue && publishCode !== 0) {
