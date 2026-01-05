@@ -131,17 +131,5 @@ jobs:
           name: sdk-artifacts
           path: packages/sdk/dist/
 
-      - name: NPM version
-        run: npm --version
-
-      - name: Check OIDC env
-        run: |
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL=${ACTIONS_ID_TOKEN_REQUEST_URL:-<missing>}"
-          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
-            echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN=<present> len=${#ACTIONS_ID_TOKEN_REQUEST_TOKEN}"
-          else
-            echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN=<missing>"
-          fi
-
       - name: Publish all packages
         run: bun run deploy:sdk ${{ github.event.inputs.continue == 'true' && '--continue' || '' }}

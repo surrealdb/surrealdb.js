@@ -77,7 +77,7 @@ if (values["dry-run"]) {
     publishCmd.push("--dry-run");
 }
 
-console.log(Object.keys(Bun.env));
+console.log("🌲 Env: ", Object.keys(Bun.env));
 
 console.log(`🚀 Publishing ${name}@${version} to ${channel} in NPM...`);
 
