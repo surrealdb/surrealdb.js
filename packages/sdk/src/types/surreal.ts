@@ -64,6 +64,7 @@ export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEve
     features: Set<Feature>;
     open(state: ConnectionState): void;
     close(): Promise<void>;
+    ready(): void;
 }
 
 /**

@@ -51,6 +51,10 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         this.#publisher.publish("disconnected");
     }
 
+    ready(): void {
+        // No-op for HTTP engine - no pending calls to resend
+    }
+
     override async send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,
     ): Promise<Result> {

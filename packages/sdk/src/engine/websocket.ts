@@ -72,10 +72,6 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                     this.#active = true;
                     reconnect.reset();
 
-                    for (const { request } of this.#calls.values()) {
-                        this.#socket?.send(this._context.codecs.cbor.encode(request));
-                    }
-
                     this.#publisher.publish("connected");
                 });
 
@@ -132,6 +128,12 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             await this.#publisher.subscribeFirst("disconnected");
         } else {
             this.#publisher.publish("disconnected");
+        }
+    }
+
+    ready(): void {
+        for (const { request } of this.#calls.values()) {
+            this.#socket?.send(this._context.codecs.cbor.encode(request));
         }
     }
 

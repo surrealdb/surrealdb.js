@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { InvalidDateError, RecordId, surql } from "surrealdb";
+import { InvalidDateError, RecordId } from "surrealdb";
 import { createSurreal, testTable } from "./__helpers__";
 
 describe("data integrity", async () => {
