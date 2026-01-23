@@ -33,8 +33,9 @@ export function toSurqlString(input: unknown): string {
 
         if (input instanceof Geometry) return toSurqlString(input.toJSON());
 
+        if (input instanceof Decimal) return `${input.toJSON()}dec`;
+
         if (
-            input instanceof Decimal ||
             input instanceof Duration ||
             input instanceof Future ||
             input instanceof Range ||
