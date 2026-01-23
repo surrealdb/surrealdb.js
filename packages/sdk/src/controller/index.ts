@@ -429,6 +429,9 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
                 await this.#restoreSession(session);
             }
 
+            // Signal engine that sessions are restored and pending calls can be sent
+            this.#engine?.ready();
+
             this.#status = "connected";
             this.#eventPublisher.publish("connected", version);
         } catch (err: unknown) {
