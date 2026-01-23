@@ -11,10 +11,18 @@ export function isValidIdPart(v: unknown): v is RecordIdValue {
         case "bigint":
             return true;
         case "object":
-            return Array.isArray(v) || v !== null;
+            if (v === null) return false;
+            if (Array.isArray(v)) return true;
+            return isPlainObject(v);
         default:
             return false;
     }
+}
+
+export function isPlainObject(v: unknown): v is Record<string, unknown> {
+    if (v === null || typeof v !== "object") return false;
+    const proto = Object.getPrototypeOf(v);
+    return proto === null || proto === Object.prototype;
 }
 
 export function isValidIdBound(bound: unknown): bound is Bound<RecordIdValue> {
