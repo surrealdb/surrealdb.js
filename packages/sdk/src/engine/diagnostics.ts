@@ -66,6 +66,10 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
+    ready(): void {
+        this.#delegate.ready();
+    }
+
     async health(): Promise<void> {
         return this.#diagnose(
             "health",
