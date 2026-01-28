@@ -1441,6 +1441,10 @@ name = "hashbrown"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
+dependencies = [
+ "ahash 0.8.12",
+ "allocator-api2",
+]
 
 [[package]]
 name = "hashbrown"
@@ -3581,9 +3585,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "surrealdb"
-version = "2.4.0"
+version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4636ac0af4dd619a66d55d8b5c0d1a0965ac1fe417c6a39dbc1d3db16588b969"
+checksum = "62b7720b39ce2985efbfa10858b7397ffd95655a9bab6d9dfaa03622bbdc3bc2"
 dependencies = [
  "arrayvec",
  "async-channel",
@@ -3619,9 +3623,9 @@ dependencies = [
 
 [[package]]
 name = "surrealdb-core"
-version = "2.4.0"
+version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b99720b7f5119785b065d235705ca95f568a9a89745d1221871e845eedf424d"
+checksum = "c48e42c81713be2f9b3dae64328999eafe8b8060dd584059445a908748b39787"
 dependencies = [
  "addr",
  "affinitypool",
@@ -3651,6 +3655,7 @@ dependencies = [
  "geo",
  "geo-types",
  "getrandom 0.3.3",
+ "hashbrown 0.14.5",
  "hex",
  "http",
  "ipnet",
