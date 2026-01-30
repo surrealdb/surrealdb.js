@@ -98,7 +98,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         return this.#diagnose(
             "attach",
             () => this.#delegate.attach(session),
-            (id) => id
+            (id) => id,
         );
     }
 
@@ -106,7 +106,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         return this.#diagnose(
             "detach",
             () => this.#delegate.detach(session),
-            () => undefined
+            () => undefined,
         );
     }
 
