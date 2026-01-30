@@ -54,6 +54,20 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
+    async attach(session: Session): Promise<Uuid> {
+        return await this.send({
+            method: "attach",
+            session,
+        });
+    }
+
+    async detach(session: Uuid): Promise<void> {
+        return await this.send({
+            method: "detach",
+            session,
+        });
+    }
+
     async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void> {
         await this.send({
             method: "use",
