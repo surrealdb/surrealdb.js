@@ -214,12 +214,12 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.sessions();
     }
 
-    async attach(session: Session): Promise<Uuid> {
+    async attach(session: Uuid): Promise<void> {
         if (!this.#engine) throw new ConnectionUnavailableError();
 
         this.assertFeature(Features.Sessions);
 
-        return this.#engine.attach(session);
+        await this.#engine.attach(session);
     }
 
     async detach(session: Uuid): Promise<void> {
@@ -443,7 +443,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             // Restore all previous sessions
             for (const session of this.#allSessions()) {
                 // Ensure the session exists on the server
-                if (session.id) this.attach(session.id);
+                if (session.id) await this.attach(session.id);
                 await this.#restoreSession(session);
             }
 

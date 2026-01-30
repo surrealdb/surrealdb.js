@@ -94,11 +94,11 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async attach(session: Session): Promise<Uuid> {
-        return this.#diagnose(
+    async attach(session: Uuid): Promise<void> {
+        this.#diagnose(
             "attach",
             () => this.#delegate.attach(session),
-            (id) => id,
+            () => undefined,
         );
     }
 

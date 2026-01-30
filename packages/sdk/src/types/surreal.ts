@@ -29,7 +29,7 @@ export interface SurrealProtocol {
     health(): Promise<void>;
     version(): Promise<VersionInfo>;
     sessions(): Promise<Uuid[]>;
-    attach(session: Session): Promise<Uuid>;
+    attach(session: Uuid): Promise<void>;
     detach(session: Uuid): Promise<void>;
 
     // Session operations
