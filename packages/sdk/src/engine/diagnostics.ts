@@ -94,6 +94,22 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
+    async attach(session: Uuid): Promise<void> {
+        this.#diagnose(
+            "attach",
+            () => this.#delegate.attach(session),
+            () => undefined,
+        );
+    }
+
+    async detach(session: Uuid): Promise<void> {
+        return this.#diagnose(
+            "detach",
+            () => this.#delegate.detach(session),
+            () => undefined,
+        );
+    }
+
     async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void> {
         return this.#diagnose(
             "use",

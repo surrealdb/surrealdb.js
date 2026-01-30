@@ -20,6 +20,7 @@ describe.if(is3x && SURREAL_PROTOCOL === "ws")("transactions", async () => {
 
     test("committed transaction", async () => {
         const surreal = await createSurreal();
+        await surreal.query(/* surql */ `DEFINE TABLE person SCHEMALESS`);
         const txn = await surreal.beginTransaction();
 
         const created = await txn.create<Person>(new RecordId("person", "john")).content({
@@ -45,6 +46,7 @@ describe.if(is3x && SURREAL_PROTOCOL === "ws")("transactions", async () => {
 
     test("cancelled transaction", async () => {
         const surreal = await createSurreal();
+        await surreal.query(/* surql */ `DEFINE TABLE person SCHEMALESS`);
         const txn = await surreal.beginTransaction();
 
         const created = await txn.create<Person>(new RecordId("person", "john")).content({

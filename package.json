@@ -18,6 +18,8 @@
         "qc": "biome check .",
         "qa": "biome check . --write",
         "qau": "biome check . --write --unsafe",
+        "qts": "tsc --noEmit",
+        "qtsw": "tsc --noEmit --watch",
         "demo:wasm": "bun run --cwd demo/wasm demo",
         "demo:node": "bun run --cwd demo/node demo"
     },

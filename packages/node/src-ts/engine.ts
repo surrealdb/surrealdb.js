@@ -40,6 +40,8 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
     #abort: AbortController | undefined;
     #options: ConnectionOptions | undefined;
 
+    ready(): void {}
+
     constructor(context: DriverContext, options?: ConnectionOptions) {
         super(context);
         this.#options = options;

@@ -172,6 +172,7 @@ describe("connection", async () => {
         expect(surreal.namespace).toBe("foo");
         expect(surreal.database).toBe("bar");
 
+        await surreal.query(/* surql */ `DEFINE TABLE person SCHEMALESS`);
         await surreal.select(new RecordId("person", 1));
     });
 
