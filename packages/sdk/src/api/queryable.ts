@@ -16,6 +16,7 @@ import {
 import type { AnyRecordId, LiveResource, RecordResult, Session, Values } from "../types";
 import { BoundQuery } from "../utils";
 import { type RecordId, type RecordIdRange, Table, type Uuid } from "../value";
+import { SurrealApi } from "./api";
 
 /**
  * Represents a scope capable of executing SurrealDB queries.
@@ -25,10 +26,16 @@ export abstract class SurrealQueryable {
     readonly #transaction: Uuid | undefined;
     readonly #session: Session;
 
+    /**
+     * Access to the user defined APIs.
+     */
+    readonly api: SurrealApi;
+
     constructor(connection: ConnectionController, session: Session, transaction?: Uuid) {
         this.#connection = connection;
         this.#session = session;
         this.#transaction = transaction;
+        this.api = new SurrealApi(this.#connection, this.#session, this.#transaction);
     }
 
     /**
