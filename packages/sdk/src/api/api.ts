@@ -9,6 +9,7 @@ import type {
     SurrealApiPutPaths,
     SurrealApiTracePaths,
 } from "../types";
+import { Features } from "../utils";
 import type { Uuid } from "../value";
 
 export type Headers = Record<string, string>;
@@ -76,6 +77,8 @@ export class SurrealApi {
         path: string,
         request?: ApiRequest<Req>,
     ): ApiPromise<Req, Res> {
+        this.#connection.assertFeature(Features.Api);
+
         return new ApiPromise(this.#connection, {
             path,
             transaction: this.#transaction,
