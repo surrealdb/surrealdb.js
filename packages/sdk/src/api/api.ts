@@ -24,8 +24,12 @@ export interface ApiRequest<T> {
 }
 
 type Paths<T> = Extract<keyof T, string> | (string & {});
-type ReqFor<T> = T extends keyof SurrealApiGetPaths ? SurrealApiGetPaths[T][0] : unknown;
-type ResFor<T> = T extends keyof SurrealApiGetPaths ? SurrealApiGetPaths[T][1] : unknown;
+type ReqFor<T, P> = T extends keyof P ? (P[T] extends [infer Req] ? Req : unknown) : unknown;
+type ResFor<T, P> = T extends keyof P
+    ? P[T] extends [unknown, infer Res]
+        ? Res
+        : unknown
+    : unknown;
 
 /**
  * Exposes a set of methods to interact with user defined APIs.
@@ -91,7 +95,7 @@ export class SurrealApi {
      * @param path The path of the API to invoke.
      * @returns The response from the API.
      */
-    get<P extends string = Paths<SurrealApiGetPaths>, Res = ResFor<P>>(
+    get<P extends string = Paths<SurrealApiGetPaths>, Res = ResFor<P, SurrealApiGetPaths>>(
         path: P,
     ): ApiPromise<void, Res> {
         return this.invoke<void, Res>(path, {
@@ -106,10 +110,11 @@ export class SurrealApi {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    post<P extends string = Paths<SurrealApiPostPaths>, Req = ReqFor<P>, Res = ResFor<P>>(
-        path: P,
-        body?: Req,
-    ): ApiPromise<Req, Res> {
+    post<
+        P extends string = Paths<SurrealApiPostPaths>,
+        Req = ReqFor<P, SurrealApiPostPaths>,
+        Res = ResFor<P, SurrealApiPostPaths>,
+    >(path: P, body?: Req): ApiPromise<Req, Res> {
         return this.invoke<Req, Res>(path, {
             method: "post",
             body,
@@ -123,10 +128,11 @@ export class SurrealApi {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    put<P extends string = Paths<SurrealApiPutPaths>, Req = ReqFor<P>, Res = ResFor<P>>(
-        path: P,
-        body?: Req,
-    ): ApiPromise<Req, Res> {
+    put<
+        P extends string = Paths<SurrealApiPutPaths>,
+        Req = ReqFor<P, SurrealApiPutPaths>,
+        Res = ResFor<P, SurrealApiPutPaths>,
+    >(path: P, body?: Req): ApiPromise<Req, Res> {
         return this.invoke<Req, Res>(path, {
             method: "put",
             body,
@@ -140,10 +146,11 @@ export class SurrealApi {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    delete<P extends string = Paths<SurrealApiDeletePaths>, Req = ReqFor<P>, Res = ResFor<P>>(
-        path: P,
-        body?: Req,
-    ): ApiPromise<Req, Res> {
+    delete<
+        P extends string = Paths<SurrealApiDeletePaths>,
+        Req = ReqFor<P, SurrealApiDeletePaths>,
+        Res = ResFor<P, SurrealApiDeletePaths>,
+    >(path: P, body?: Req): ApiPromise<Req, Res> {
         return this.invoke<Req, Res>(path, {
             method: "delete",
             body,
@@ -157,10 +164,11 @@ export class SurrealApi {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    patch<P extends string = Paths<SurrealApiPatchPaths>, Req = ReqFor<P>, Res = ResFor<P>>(
-        path: P,
-        body?: Req,
-    ): ApiPromise<Req, Res> {
+    patch<
+        P extends string = Paths<SurrealApiPatchPaths>,
+        Req = ReqFor<P, SurrealApiPatchPaths>,
+        Res = ResFor<P, SurrealApiPatchPaths>,
+    >(path: P, body?: Req): ApiPromise<Req, Res> {
         return this.invoke<Req, Res>(path, {
             method: "patch",
             body,
@@ -174,10 +182,11 @@ export class SurrealApi {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    trace<P extends string = Paths<SurrealApiTracePaths>, Req = ReqFor<P>, Res = ResFor<P>>(
-        path: P,
-        body?: Req,
-    ): ApiPromise<Req, Res> {
+    trace<
+        P extends string = Paths<SurrealApiTracePaths>,
+        Req = ReqFor<P, SurrealApiTracePaths>,
+        Res = ResFor<P, SurrealApiTracePaths>,
+    >(path: P, body?: Req): ApiPromise<Req, Res> {
         return this.invoke<Req, Res>(path, {
             method: "trace",
             body,

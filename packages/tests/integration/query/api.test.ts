@@ -4,7 +4,7 @@ import { createSurreal, defineMockApi, proto } from "../__helpers__";
 
 declare module "surrealdb" {
     interface SurrealApiGetPaths {
-        "/identity": [Payload, Payload];
+        "/identity": [];
     }
 }
 
