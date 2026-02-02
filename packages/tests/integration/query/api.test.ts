@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { satisfies } from "semver";
 import { UnsuccessfulApiError } from "surrealdb";
-import { createSurreal, defineMockApi, proto } from "../__helpers__";
+import { createSurreal, defineMockApi, proto, requestVersion } from "../__helpers__";
 
 declare module "surrealdb" {
     interface SurrealApiGetPaths {
@@ -12,7 +13,10 @@ type Payload = {
     foo: string;
 };
 
-describe("api", async () => {
+const version = await requestVersion();
+const is3x = satisfies(version, ">=3.0.0-alpha.1");
+
+describe.if(is3x)("api", async () => {
     test("invoke", async () => {
         const surreal = await createSurreal();
         await defineMockApi(surreal);
