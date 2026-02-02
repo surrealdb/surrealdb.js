@@ -84,14 +84,10 @@ describe.if(is3x)("api", async () => {
         const surreal = await createSurreal();
         await defineMockApi(surreal);
 
-        const body: Payload = {
-            foo: "bar",
-        };
-
-        const res = await surreal.api.get("/identity").value();
+        const res = await surreal.api.get("/identity");
 
         expect(res).toMatchObject({
-            body,
+            body: undefined,
             headers: {},
             status: 200,
         });
