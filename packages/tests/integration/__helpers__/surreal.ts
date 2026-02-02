@@ -108,18 +108,16 @@ export async function spawnServer(): Promise<void> {
     console.log("Spawning server...");
 
     folder = `test.db/${Math.random().toString(36).substring(2, 7)}`;
-    server = Bun.spawn(
-        [SURREAL_EXECUTABLE_PATH, "start", `rocksdb:${folder}`, "--allow-experimental=*"],
-        {
-            stdout: "inherit",
-            stderr: "inherit",
-            env: {
-                SURREAL_BIND,
-                SURREAL_USER,
-                SURREAL_PASS,
-            },
+    server = Bun.spawn([SURREAL_EXECUTABLE_PATH, "start", `rocksdb:${folder}`], {
+        stdout: "inherit",
+        stderr: "inherit",
+        env: {
+            SURREAL_BIND,
+            SURREAL_USER,
+            SURREAL_PASS,
+            SURREAL_CAPS_ALLOW_EXPERIMENTAL: "*",
         },
-    );
+    });
 
     const startAt = Date.now();
 
