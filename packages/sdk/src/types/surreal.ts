@@ -29,6 +29,8 @@ export interface SurrealProtocol {
     health(): Promise<void>;
     version(): Promise<VersionInfo>;
     sessions(): Promise<Uuid[]>;
+    attach(session: Uuid): Promise<void>;
+    detach(session: Uuid): Promise<void>;
 
     // Session operations
     use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void>;
