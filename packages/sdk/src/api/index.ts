@@ -1,3 +1,4 @@
+export * from "./api";
 export * from "./queryable";
 export * from "./session";
 export * from "./surreal";

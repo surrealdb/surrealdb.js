@@ -1,3 +1,4 @@
+export * from "./api";
 export * from "./auth";
 export * from "./diagnostics";
 export * from "./expression";

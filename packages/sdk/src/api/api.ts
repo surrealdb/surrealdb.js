@@ -1,6 +1,14 @@
 import type { ConnectionController } from "../controller";
 import { ApiPromise } from "../query/api";
-import type { Session } from "../types";
+import type {
+    Session,
+    SurrealApiDeletePaths,
+    SurrealApiGetPaths,
+    SurrealApiPatchPaths,
+    SurrealApiPostPaths,
+    SurrealApiPutPaths,
+    SurrealApiTracePaths,
+} from "../types";
 import type { Uuid } from "../value";
 
 export type Headers = Record<string, string>;
@@ -14,6 +22,10 @@ export interface ApiRequest<T> {
     headers?: Headers;
     query?: Record<string, string>;
 }
+
+type Paths<T> = Extract<keyof T, string> | (string & {});
+type ReqFor<T> = T extends keyof SurrealApiGetPaths ? SurrealApiGetPaths[T][0] : unknown;
+type ResFor<T> = T extends keyof SurrealApiGetPaths ? SurrealApiGetPaths[T][1] : unknown;
 
 /**
  * Exposes a set of methods to interact with user defined APIs.
@@ -77,13 +89,13 @@ export class SurrealApi {
      * Invoke a user defined GET API.
      *
      * @param path The path of the API to invoke.
-     * @param options The request to send to the API.
      * @returns The response from the API.
      */
-    get<Req = unknown, Res = unknown>(path: string, body?: Req): ApiPromise<Req, Res> {
-        return this.invoke<Req, Res>(path, {
+    get<P extends string = Paths<SurrealApiGetPaths>, Res = ResFor<P>>(
+        path: P,
+    ): ApiPromise<void, Res> {
+        return this.invoke<void, Res>(path, {
             method: "get",
-            body,
         });
     }
 
@@ -91,10 +103,13 @@ export class SurrealApi {
      * Invoke a user defined POST API.
      *
      * @param path The path of the API to invoke.
-     * @param options The request to send to the API.
+     * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    post<Req = unknown, Res = unknown>(path: string, body?: Req): ApiPromise<Req, Res> {
+    post<P extends string = Paths<SurrealApiPostPaths>, Req = ReqFor<P>, Res = ResFor<P>>(
+        path: P,
+        body?: Req,
+    ): ApiPromise<Req, Res> {
         return this.invoke<Req, Res>(path, {
             method: "post",
             body,
@@ -105,10 +120,13 @@ export class SurrealApi {
      * Invoke a user defined PUT API.
      *
      * @param path The path of the API to invoke.
-     * @param options The request to send to the API.
+     * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    put<Req = unknown, Res = unknown>(path: string, body?: Req): ApiPromise<Req, Res> {
+    put<P extends string = Paths<SurrealApiPutPaths>, Req = ReqFor<P>, Res = ResFor<P>>(
+        path: P,
+        body?: Req,
+    ): ApiPromise<Req, Res> {
         return this.invoke<Req, Res>(path, {
             method: "put",
             body,
@@ -119,10 +137,13 @@ export class SurrealApi {
      * Invoke a user defined DELETE API.
      *
      * @param path The path of the API to invoke.
-     * @param options The request to send to the API.
+     * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    delete<Req = unknown, Res = unknown>(path: string, body?: Req): ApiPromise<Req, Res> {
+    delete<P extends string = Paths<SurrealApiDeletePaths>, Req = ReqFor<P>, Res = ResFor<P>>(
+        path: P,
+        body?: Req,
+    ): ApiPromise<Req, Res> {
         return this.invoke<Req, Res>(path, {
             method: "delete",
             body,
@@ -133,10 +154,13 @@ export class SurrealApi {
      * Invoke a user defined PATCH API.
      *
      * @param path The path of the API to invoke.
-     * @param options The request to send to the API.
+     * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    patch<Req = unknown, Res = unknown>(path: string, body?: Req): ApiPromise<Req, Res> {
+    patch<P extends string = Paths<SurrealApiPatchPaths>, Req = ReqFor<P>, Res = ResFor<P>>(
+        path: P,
+        body?: Req,
+    ): ApiPromise<Req, Res> {
         return this.invoke<Req, Res>(path, {
             method: "patch",
             body,
@@ -147,10 +171,13 @@ export class SurrealApi {
      * Invoke a user defined TRACE API.
      *
      * @param path The path of the API to invoke.
-     * @param options The request to send to the API.
+     * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    trace<Req = unknown, Res = unknown>(path: string, body?: Req): ApiPromise<Req, Res> {
+    trace<P extends string = Paths<SurrealApiTracePaths>, Req = ReqFor<P>, Res = ResFor<P>>(
+        path: P,
+        body?: Req,
+    ): ApiPromise<Req, Res> {
         return this.invoke<Req, Res>(path, {
             method: "trace",
             body,

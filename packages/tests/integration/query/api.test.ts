@@ -2,6 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { UnsuccessfulApiError } from "surrealdb";
 import { createSurreal, defineMockApi, proto } from "../__helpers__";
 
+declare module "surrealdb" {
+    interface SurrealApiGetPaths {
+        "/identity": [Payload, Payload];
+    }
+}
+
 type Payload = {
     foo: string;
 };
@@ -78,7 +84,7 @@ describe("api", async () => {
             foo: "bar",
         };
 
-        const res = await surreal.api.get<Payload, Payload>("/identity", body);
+        const res = await surreal.api.get("/identity").value();
 
         expect(res).toMatchObject({
             body,
