@@ -1,18 +1,9 @@
 import type { ConnectionController } from "../controller";
+import { normalizePath } from "../internal/normalize-path";
 import { ApiPromise } from "../query/api";
-import type {
-    Session,
-    SurrealApiDeletePaths,
-    SurrealApiGetPaths,
-    SurrealApiPatchPaths,
-    SurrealApiPostPaths,
-    SurrealApiPutPaths,
-    SurrealApiTracePaths,
-} from "../types";
+import type { Session } from "../types";
 import { Features } from "../utils";
 import type { Uuid } from "../value";
-
-export type Headers = Record<string, string>;
 
 /**
  * The request information for an api request.
@@ -20,31 +11,77 @@ export type Headers = Record<string, string>;
 export interface ApiRequest<T> {
     body?: T;
     method?: string;
-    headers?: Headers;
+    headers?: Record<string, string>;
     query?: Record<string, string>;
 }
 
-type Paths<T> = Extract<keyof T, string> | (string & {});
-type ReqFor<T, P> = T extends keyof P ? (P[T] extends [infer Req] ? Req : unknown) : unknown;
-type ResFor<T, P> = T extends keyof P
-    ? P[T] extends [unknown, infer Res]
-        ? Res
-        : unknown
+type HttpMethod = "get" | "post" | "put" | "delete" | "patch" | "trace";
+type MethodDef = [unknown, unknown] | [];
+type ValidPaths<TPaths> = Extract<keyof TPaths, string>;
+
+/** A definition for a single API path */
+export type PathDef = Partial<Record<HttpMethod, MethodDef>>;
+
+/** Default paths type - allows any string with unknown bodies */
+export type DefaultPaths = { [path: string]: PathDef };
+
+// Extract method tuple for a path and method */
+type ExtractMethod<TPaths, P extends string, M extends HttpMethod> = P extends keyof TPaths
+    ? M extends keyof TPaths[P]
+        ? TPaths[P][M]
+        : never
+    : never;
+
+// Extract request body (index 0 of method tuple) */
+type RequestBody<TPaths, P extends string, M extends HttpMethod> = ExtractMethod<
+    TPaths,
+    P,
+    M
+> extends [infer Req, unknown]
+    ? Req
+    : unknown;
+
+// Extract response body (index 1 of method tuple) */
+type ResponseBody<TPaths, P extends string, M extends HttpMethod> = ExtractMethod<
+    TPaths,
+    P,
+    M
+> extends [unknown, infer Res]
+    ? Res
     : unknown;
 
 /**
  * Exposes a set of methods to interact with user defined APIs.
+ *
+ * @example
+ * ```ts
+ * type MyPaths = {
+ *     "/users": { get: [void, User[]] };
+ *     "/projects": { get: [void, Project[]] };
+ *     [K: `/users/${number}`]: { get: [void, User] };
+ * };
+ *
+ * const api = db.api<MyPaths>();
+ * api.get("/users");  // Returns ApiPromise<void, User[]>
+ * ```
  */
-export class SurrealApi {
+export class SurrealApi<TPaths = DefaultPaths> {
     readonly #connection: ConnectionController;
     readonly #transaction: Uuid | undefined;
+    readonly #prefix: string;
     readonly #session: Session;
-    readonly #headers: Headers;
+    readonly #headers: Record<string, string>;
 
-    constructor(connection: ConnectionController, session: Session, transaction?: Uuid) {
+    constructor(
+        connection: ConnectionController,
+        session: Session,
+        transaction?: Uuid,
+        prefix?: string,
+    ) {
         this.#connection = connection;
         this.#session = session;
         this.#transaction = transaction;
+        this.#prefix = prefix ?? "";
         this.#headers = {};
     }
 
@@ -80,7 +117,7 @@ export class SurrealApi {
         this.#connection.assertFeature(Features.Api);
 
         return new ApiPromise(this.#connection, {
-            path,
+            path: normalizePath(this.#prefix, path),
             transaction: this.#transaction,
             session: this.#session,
             value: false,
@@ -98,10 +135,8 @@ export class SurrealApi {
      * @param path The path of the API to invoke.
      * @returns The response from the API.
      */
-    get<P extends string = Paths<SurrealApiGetPaths>, Res = ResFor<P, SurrealApiGetPaths>>(
-        path: P,
-    ): ApiPromise<void, Res> {
-        return this.invoke<void, Res>(path, {
+    get<P extends ValidPaths<TPaths>>(path: P): ApiPromise<void, ResponseBody<TPaths, P, "get">> {
+        return this.invoke(path, {
             method: "get",
         });
     }
@@ -113,12 +148,11 @@ export class SurrealApi {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    post<
-        P extends string = Paths<SurrealApiPostPaths>,
-        Req = ReqFor<P, SurrealApiPostPaths>,
-        Res = ResFor<P, SurrealApiPostPaths>,
-    >(path: P, body?: Req): ApiPromise<Req, Res> {
-        return this.invoke<Req, Res>(path, {
+    post<P extends ValidPaths<TPaths>>(
+        path: P,
+        body?: RequestBody<TPaths, P, "post">,
+    ): ApiPromise<RequestBody<TPaths, P, "post">, ResponseBody<TPaths, P, "post">> {
+        return this.invoke(path, {
             method: "post",
             body,
         });
@@ -131,12 +165,11 @@ export class SurrealApi {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    put<
-        P extends string = Paths<SurrealApiPutPaths>,
-        Req = ReqFor<P, SurrealApiPutPaths>,
-        Res = ResFor<P, SurrealApiPutPaths>,
-    >(path: P, body?: Req): ApiPromise<Req, Res> {
-        return this.invoke<Req, Res>(path, {
+    put<P extends ValidPaths<TPaths>>(
+        path: P,
+        body?: RequestBody<TPaths, P, "put">,
+    ): ApiPromise<RequestBody<TPaths, P, "put">, ResponseBody<TPaths, P, "put">> {
+        return this.invoke(path, {
             method: "put",
             body,
         });
@@ -149,12 +182,11 @@ export class SurrealApi {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    delete<
-        P extends string = Paths<SurrealApiDeletePaths>,
-        Req = ReqFor<P, SurrealApiDeletePaths>,
-        Res = ResFor<P, SurrealApiDeletePaths>,
-    >(path: P, body?: Req): ApiPromise<Req, Res> {
-        return this.invoke<Req, Res>(path, {
+    delete<P extends ValidPaths<TPaths>>(
+        path: P,
+        body?: RequestBody<TPaths, P, "delete">,
+    ): ApiPromise<RequestBody<TPaths, P, "delete">, ResponseBody<TPaths, P, "delete">> {
+        return this.invoke(path, {
             method: "delete",
             body,
         });
@@ -167,12 +199,11 @@ export class SurrealApi {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    patch<
-        P extends string = Paths<SurrealApiPatchPaths>,
-        Req = ReqFor<P, SurrealApiPatchPaths>,
-        Res = ResFor<P, SurrealApiPatchPaths>,
-    >(path: P, body?: Req): ApiPromise<Req, Res> {
-        return this.invoke<Req, Res>(path, {
+    patch<P extends ValidPaths<TPaths>>(
+        path: P,
+        body?: RequestBody<TPaths, P, "patch">,
+    ): ApiPromise<RequestBody<TPaths, P, "patch">, ResponseBody<TPaths, P, "patch">> {
+        return this.invoke(path, {
             method: "patch",
             body,
         });
@@ -185,12 +216,11 @@ export class SurrealApi {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    trace<
-        P extends string = Paths<SurrealApiTracePaths>,
-        Req = ReqFor<P, SurrealApiTracePaths>,
-        Res = ResFor<P, SurrealApiTracePaths>,
-    >(path: P, body?: Req): ApiPromise<Req, Res> {
-        return this.invoke<Req, Res>(path, {
+    trace<P extends ValidPaths<TPaths>>(
+        path: P,
+        body?: RequestBody<TPaths, P, "trace">,
+    ): ApiPromise<RequestBody<TPaths, P, "trace">, ResponseBody<TPaths, P, "trace">> {
+        return this.invoke(path, {
             method: "trace",
             body,
         });

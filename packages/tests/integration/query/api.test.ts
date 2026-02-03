@@ -3,11 +3,9 @@ import { satisfies } from "semver";
 import { UnsuccessfulApiError } from "surrealdb";
 import { createSurreal, defineMockApi, proto, requestVersion } from "../__helpers__";
 
-declare module "surrealdb" {
-    interface SurrealApiGetPaths {
-        "/identity": [];
-    }
-}
+type ExamplePaths = {
+    "/identity": { get: [unknown, Payload] };
+};
 
 type Payload = {
     foo: string;
@@ -19,13 +17,14 @@ const is3x = satisfies(version, ">=3.0.0-alpha.1");
 describe.if(is3x)("api", async () => {
     test("invoke", async () => {
         const surreal = await createSurreal();
+        const api = surreal.api();
         await defineMockApi(surreal);
 
         const body: Payload = {
             foo: "bar",
         };
 
-        const res = await surreal.api.invoke<Payload, Payload>("/identity", { body });
+        const res = await api.invoke<Payload, Payload>("/identity", { body });
 
         expect(res).toMatchObject({
             body,
@@ -36,11 +35,12 @@ describe.if(is3x)("api", async () => {
 
     test("global headers", async () => {
         const surreal = await createSurreal();
+        const api = surreal.api();
         await defineMockApi(surreal);
 
-        surreal.api.header("X-Test", "test");
+        api.header("X-Test", "test");
 
-        const res = await surreal.api.invoke<Payload, Payload>("/identity");
+        const res = await api.invoke<Payload, Payload>("/identity");
 
         expect(res).toMatchObject({
             status: 200,
@@ -54,7 +54,8 @@ describe.if(is3x)("api", async () => {
         const surreal = await createSurreal();
         await defineMockApi(surreal);
 
-        const res = await surreal.api
+        const res = await surreal
+            .api()
             .invoke<Payload, Payload>("/identity")
             .header("X-Test", "test");
 
@@ -70,11 +71,16 @@ describe.if(is3x)("api", async () => {
         const surreal = await createSurreal();
         await defineMockApi(surreal);
 
-        const res = await surreal.api.invoke<Payload, Payload>("/params").query("foo", "bar");
+        const res = await surreal
+            .api()
+            .invoke<Payload, Payload>("/params")
+            .query("hello", "world")
+            .query("foo", "bar");
 
         expect(res).toMatchObject({
             body: {
                 foo: "bar",
+                hello: "world",
             },
             status: 200,
         });
@@ -82,9 +88,10 @@ describe.if(is3x)("api", async () => {
 
     test("method specific", async () => {
         const surreal = await createSurreal();
+        const api = surreal.api<ExamplePaths>();
         await defineMockApi(surreal);
 
-        const res = await surreal.api.get("/identity");
+        const res = await api.get("/identity");
 
         expect(res).toMatchObject({
             body: undefined,
@@ -95,6 +102,7 @@ describe.if(is3x)("api", async () => {
 
     test("value", async () => {
         const surreal = await createSurreal();
+        const api = surreal.api();
         await defineMockApi(surreal);
 
         const body: Payload = {
@@ -102,19 +110,33 @@ describe.if(is3x)("api", async () => {
         };
 
         // Successful
-        const res = await surreal.api.invoke<Payload, Payload>("/identity", { body }).value();
+        const res = await api.invoke<Payload, Payload>("/identity", { body }).value();
 
         expect(res.foo).toEqual("bar");
 
         // Unsuccessful
         expect(async () => {
-            await surreal.api.invoke<Payload, Payload>("/error", { body }).value();
+            await api.invoke<Payload, Payload>("/error", { body }).value();
         }).toThrow(UnsuccessfulApiError);
+    });
+
+    test("prefix", async () => {
+        const surreal = await createSurreal();
+        const api = surreal.api<ExamplePaths>("/nested");
+        await defineMockApi(surreal);
+
+        const res = await api.invoke("/path");
+
+        expect(res).toMatchObject({
+            body: "nested",
+            headers: {},
+            status: 200,
+        });
     });
 
     test("compile", async () => {
         const surreal = await createSurreal();
-        const builder = surreal.api.invoke<Payload, Payload>("/identity", {});
+        const builder = surreal.api().invoke<Payload, Payload>("/identity", {});
         const { query, bindings } = builder.compile();
 
         expect(query).toMatchSnapshot(proto("query"));

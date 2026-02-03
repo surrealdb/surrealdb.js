@@ -39,6 +39,16 @@ export async function defineMockApi(surreal: Surreal): Promise<void> {
     `);
 
     await surreal.query(surql`
+		DEFINE API '/nested/path'
+			FOR get
+				THEN {
+					RETURN {
+						body: "nested"
+					}
+				};
+	`);
+
+    await surreal.query(surql`
 		DEFINE API '/params'
 			FOR get
 				THEN {
