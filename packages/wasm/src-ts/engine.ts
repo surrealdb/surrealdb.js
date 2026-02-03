@@ -64,6 +64,10 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         this.#publisher.publish("disconnected");
     }
 
+    ready(): void {
+        // No-op for WebAssembly engine - no pending calls to resend
+    }
+
     subscribe<K extends keyof EngineEvents>(
         event: K,
         listener: (...payload: EngineEvents[K]) => void,

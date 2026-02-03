@@ -260,6 +260,7 @@ export interface SqlExportOptions {
     versions: boolean;
     records: boolean;
     sequences: boolean;
+    v3: boolean;
 }
 
 /**
