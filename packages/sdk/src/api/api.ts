@@ -17,7 +17,11 @@ export interface ApiRequest<T> {
 
 type HttpMethod = "get" | "post" | "put" | "delete" | "patch" | "trace";
 type MethodDef = [unknown, unknown] | [];
-type ValidPaths<TPaths> = Extract<keyof TPaths, string>;
+
+/** Extract paths that have a specific HTTP method defined */
+type ValidPaths<TPaths, M extends HttpMethod> = {
+    [K in Extract<keyof TPaths, string>]: M extends keyof TPaths[K] ? K : never;
+}[Extract<keyof TPaths, string>];
 
 /** A definition for a single API path */
 export type PathDef = Partial<Record<HttpMethod, MethodDef>>;
@@ -135,7 +139,9 @@ export class SurrealApi<TPaths = DefaultPaths> {
      * @param path The path of the API to invoke.
      * @returns The response from the API.
      */
-    get<P extends ValidPaths<TPaths>>(path: P): ApiPromise<void, ResponseBody<TPaths, P, "get">> {
+    get<P extends ValidPaths<TPaths, "get">>(
+        path: P,
+    ): ApiPromise<void, ResponseBody<TPaths, P, "get">> {
         return this.invoke(path, {
             method: "get",
         });
@@ -148,7 +154,7 @@ export class SurrealApi<TPaths = DefaultPaths> {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    post<P extends ValidPaths<TPaths>>(
+    post<P extends ValidPaths<TPaths, "post">>(
         path: P,
         body?: RequestBody<TPaths, P, "post">,
     ): ApiPromise<RequestBody<TPaths, P, "post">, ResponseBody<TPaths, P, "post">> {
@@ -165,7 +171,7 @@ export class SurrealApi<TPaths = DefaultPaths> {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    put<P extends ValidPaths<TPaths>>(
+    put<P extends ValidPaths<TPaths, "put">>(
         path: P,
         body?: RequestBody<TPaths, P, "put">,
     ): ApiPromise<RequestBody<TPaths, P, "put">, ResponseBody<TPaths, P, "put">> {
@@ -182,7 +188,7 @@ export class SurrealApi<TPaths = DefaultPaths> {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    delete<P extends ValidPaths<TPaths>>(
+    delete<P extends ValidPaths<TPaths, "delete">>(
         path: P,
         body?: RequestBody<TPaths, P, "delete">,
     ): ApiPromise<RequestBody<TPaths, P, "delete">, ResponseBody<TPaths, P, "delete">> {
@@ -199,7 +205,7 @@ export class SurrealApi<TPaths = DefaultPaths> {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    patch<P extends ValidPaths<TPaths>>(
+    patch<P extends ValidPaths<TPaths, "patch">>(
         path: P,
         body?: RequestBody<TPaths, P, "patch">,
     ): ApiPromise<RequestBody<TPaths, P, "patch">, ResponseBody<TPaths, P, "patch">> {
@@ -216,7 +222,7 @@ export class SurrealApi<TPaths = DefaultPaths> {
      * @param body The request body to send to the API.
      * @returns The response from the API.
      */
-    trace<P extends ValidPaths<TPaths>>(
+    trace<P extends ValidPaths<TPaths, "trace">>(
         path: P,
         body?: RequestBody<TPaths, P, "trace">,
     ): ApiPromise<RequestBody<TPaths, P, "trace">, ResponseBody<TPaths, P, "trace">> {
