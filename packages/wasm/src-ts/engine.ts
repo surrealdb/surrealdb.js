@@ -39,8 +39,6 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
     #abort: AbortController | undefined;
     #options: ConnectionOptions | undefined;
 
-    ready(): void {}
-
     constructor(broker: EngineBroker, context: DriverContext, options?: ConnectionOptions) {
         super(context);
         this.#broker = broker;

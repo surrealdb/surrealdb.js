@@ -16,6 +16,7 @@ import {
 import type { AnyRecordId, LiveResource, RecordResult, Session, Values } from "../types";
 import { BoundQuery } from "../utils";
 import { type RecordId, type RecordIdRange, Table, type Uuid } from "../value";
+import { type DefaultPaths, SurrealApi } from "./api";
 
 /**
  * Represents a scope capable of executing SurrealDB queries.
@@ -29,6 +30,37 @@ export abstract class SurrealQueryable {
         this.#connection = connection;
         this.#session = session;
         this.#transaction = transaction;
+    }
+
+    /**
+     * Access user defined APIs defined on the database.
+     *
+     * Path types can be passed to this method in order to
+     * provide type safety when invoking APIs.
+     *
+     * An optional prefix can be provided to prepend to API paths.
+     *
+     * @example
+     * ```ts
+     * type MyPaths = {
+     *     "/users": { get: [void, User[]] };
+     *     [K: `/users/${number}`]: { get: [void, User] };
+     * };
+     *
+     * // Type-safe path and response
+     * const api = db.api<MyPaths>();
+     * api.get("/users"); // User[]
+     *
+     * // Prefix to invoke GET /users/:id
+     * const usersApi = db.api<MyPaths>("/users");
+     * api.get(userId); // User
+     * ```
+     *
+     * @param prefix An optional path prefix to prepend to API paths.
+     * @returns A new `SurrealApi` instance.
+     */
+    api<TPaths = DefaultPaths>(prefix?: string): SurrealApi<TPaths> {
+        return new SurrealApi(this.#connection, this.#session, this.#transaction, prefix);
     }
 
     /**

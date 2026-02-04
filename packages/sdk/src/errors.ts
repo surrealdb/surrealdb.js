@@ -1,4 +1,5 @@
 import type { Feature } from "./internal/feature";
+import type { ApiResponse } from "./query/api";
 import type { Session } from "./types";
 
 export class SurrealError extends Error {}
@@ -260,5 +261,23 @@ export class InvalidSessionError extends SurrealError {
     constructor(session: Session) {
         super(`Invalid session: ${session}`);
         this.session = session;
+    }
+}
+
+/**
+ * Thrown when an API request was unsuccessful
+ */
+export class UnsuccessfulApiError extends SurrealError {
+    override name = "UnsuccessfulApiError";
+
+    readonly path: string;
+    readonly method: string;
+    readonly response: ApiResponse<unknown>;
+
+    constructor(path: string, method: string, response: ApiResponse<unknown>) {
+        super(`The ${method.toUpperCase()} ${path} request failed with status ${response.status}`);
+        this.path = path;
+        this.method = method;
+        this.response = response;
     }
 }

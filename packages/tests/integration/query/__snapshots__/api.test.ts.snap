@@ -1,0 +1,15 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`api compile: query-ws 1`] = `"api::invoke($bind__4, $bind__5)"`;
+
+exports[`api compile: bindings-ws 1`] = `
+{
+  "bind__4": "/identity",
+  "bind__5": {
+    "body": undefined,
+    "headers": {},
+    "method": "get",
+    "query": {},
+  },
+}
+`;

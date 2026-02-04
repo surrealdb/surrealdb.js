@@ -115,6 +115,7 @@ export async function spawnServer(): Promise<void> {
             SURREAL_BIND,
             SURREAL_USER,
             SURREAL_PASS,
+            SURREAL_CAPS_ALLOW_EXPERIMENTAL: "*",
         },
     });
 
