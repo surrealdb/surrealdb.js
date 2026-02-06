@@ -33,7 +33,7 @@ export interface SurrealProtocol {
     detach(session: Uuid): Promise<void>;
 
     // Session operations
-    use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void>;
+    use(what: Nullable<NamespaceDatabase>, session: Session): Promise<NamespaceDatabase>;
     signup(auth: AccessRecordAuth, session: Session): Promise<Tokens>;
     signin(auth: AnyAuth, session: Session): Promise<Tokens>;
     authenticate(token: Token, session: Session): Promise<void>;

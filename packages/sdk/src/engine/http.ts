@@ -15,6 +15,7 @@ import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
 
 const ALWAYS_ALLOW = new Set([
+    "use",
     "signin",
     "signup",
     "authenticate",
@@ -69,6 +70,12 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             case "unset":
             case "reset":
             case "invalidate": {
+                // if this is an empty use call, then that means we are
+                // to try and retrieve a default namespace and database
+                if (request.method === "use" && isEmptyUseParams(request.params)) {
+                    break;
+                }
+
                 return undefined as unknown as Result;
             }
         }
@@ -120,4 +127,12 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
     override liveQuery(): AsyncIterable<LiveMessage> {
         throw new SurrealError("Live queries are not available over HTTP");
     }
+}
+
+function isEmptyUseParams(params?: unknown[]): boolean {
+    return (
+        Array.isArray(params) &&
+        typeof params[0] === "undefined" &&
+        typeof params[1] === "undefined"
+    );
 }

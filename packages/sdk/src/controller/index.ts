@@ -303,7 +303,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         await this.#engine.revoke(tokens, session);
     }
 
-    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void> {
+    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<NamespaceDatabase> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
@@ -312,9 +312,10 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             throw new SurrealError("Cannot unset namespace without unsetting database");
         }
 
-        await this.#engine.use(what, session);
+        const res = await this.#engine.use(what, session);
 
-        const { namespace, database } = what;
+        const namespace = res.namespace ?? what.namespace;
+        const database = res.database ?? what.database;
         const sessionState = this.getSession(session);
 
         if (namespace === null) sessionState.namespace = undefined;
@@ -328,6 +329,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         };
 
         this.#eventPublisher.publish("using", selected, session);
+        return selected;
     }
 
     async set(name: string, value: unknown, session: Session): Promise<void> {

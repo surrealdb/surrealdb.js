@@ -181,13 +181,8 @@ export class SurrealSession extends SurrealQueryable {
      * @param db Switches to a specific database
      * @returns The newly selected namespace and database
      */
-    async use(what: Nullable<NamespaceDatabase>): Promise<NamespaceDatabase> {
-        await this.#connection.use(what, this.#session);
-
-        return {
-            namespace: this.namespace,
-            database: this.database,
-        };
+    async use(what?: Nullable<NamespaceDatabase>): Promise<NamespaceDatabase> {
+        return await this.#connection.use(what ?? {}, this.#session);
     }
 
     /**

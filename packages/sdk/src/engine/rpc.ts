@@ -68,12 +68,15 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
-    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void> {
-        await this.send({
+    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<NamespaceDatabase> {
+        const res = await this.send({
             method: "use",
             params: [what.namespace, what.database],
             session,
         });
+
+        // 2.x will not return anything so lets fall back to an empty object
+        return res ?? {};
     }
 
     async signup(auth: AccessRecordAuth, session: Session): Promise<Tokens> {
