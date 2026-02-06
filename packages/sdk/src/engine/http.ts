@@ -72,7 +72,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             case "invalidate": {
                 // if this is an empty use call, then that means we are
                 // to try and retrieve a default namespace and database
-                if (request.method === "use" && !isNonEmptyUse(request.params)) {
+                if (request.method === "use" && isEmptyUseParams(request.params)) {
                     break;
                 }
 
@@ -129,12 +129,10 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
     }
 }
 
-function isNonEmptyUse(params?: unknown[]): params is [string | null, string | null] {
-    if (Array.isArray(params)) {
-        const typeNs = typeof params[0];
-        const typeDb = typeof params[1];
-        return typeNs === "string" || typeNs === null || typeDb === "string" || typeDb === null;
-    }
-
-    return false;
+function isEmptyUseParams(params?: unknown[]): boolean {
+    return (
+        Array.isArray(params) &&
+        typeof params[0] === "undefined" &&
+        typeof params[1] === "undefined"
+    );
 }
