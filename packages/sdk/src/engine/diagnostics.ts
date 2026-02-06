@@ -110,7 +110,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void> {
+    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<NamespaceDatabase> {
         return this.#diagnose(
             "use",
             () => this.#delegate.use(what, session),
