@@ -7,14 +7,21 @@ import {
 } from "../errors";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
+import type { Nullable } from "../types";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
-import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
+import type {
+    ConnectionState,
+    EngineEvents,
+    NamespaceDatabase,
+    SurrealEngine,
+} from "../types/surreal";
 import { Features } from "../utils";
 import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
 
 const ALWAYS_ALLOW = new Set([
+    "use",
     "signin",
     "signup",
     "authenticate",
@@ -69,6 +76,12 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             case "unset":
             case "reset":
             case "invalidate": {
+                // if this is an empty use call, then that means we are
+                // to try and retrieve a default namespace and database
+                if (request.method === "use" && !isNonEmptyUse(request.params?.[0])) {
+                    break;
+                }
+
                 return undefined as unknown as Result;
             }
         }
@@ -120,4 +133,10 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
     override liveQuery(): AsyncIterable<LiveMessage> {
         throw new SurrealError("Live queries are not available over HTTP");
     }
+}
+
+function isNonEmptyUse(param: unknown): param is Nullable<NamespaceDatabase> {
+    return (
+        typeof param === "object" && param !== null && ("namespace" in param || "database" in param)
+    );
 }
