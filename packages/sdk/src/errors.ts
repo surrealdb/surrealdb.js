@@ -9,7 +9,7 @@ export class SurrealError extends Error {}
  */
 export class CallTerminatedError extends SurrealError {
     override name = "CallTerminatedError";
-    override message = "The call has been termined because the connection was closed";
+    override message = "The call has been terminated because the connection was closed";
 }
 
 /**
