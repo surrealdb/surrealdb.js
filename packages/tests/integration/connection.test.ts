@@ -1,13 +1,18 @@
 import { describe, expect, mock, test } from "bun:test";
+import { satisfies } from "semver";
 import { Features, RecordId } from "surrealdb";
 import {
     createIdleSurreal,
     createSurreal,
     killServer,
+    requestVersion,
     SURREAL_PROTOCOL,
     spawnServer,
     VERSION_CHECK,
 } from "./__helpers__";
+
+const version = await requestVersion();
+const is3x = satisfies(version, ">=3.0.0-alpha.1");
 
 describe("connection", async () => {
     test.todoIf(!VERSION_CHECK)("check version", async () => {
@@ -48,6 +53,17 @@ describe("connection", async () => {
 
         expect(surreal.namespace).toBe("test-ns");
         expect(surreal.database).toBe("test-db");
+    });
+
+    test.if(is3x)("can select default namespace and database", async () => {
+        const surreal = await createSurreal({
+            unselected: true,
+        });
+
+        const { namespace, database } = await surreal.use();
+
+        expect(namespace).toBe("main");
+        expect(database).toBe("main");
     });
 
     test("connection status", async () => {
