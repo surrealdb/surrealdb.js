@@ -9,11 +9,7 @@ import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
-import type {
-    ConnectionState,
-    EngineEvents,
-    SurrealEngine,
-} from "../types/surreal";
+import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
 import { Features } from "../utils";
 import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
@@ -137,7 +133,7 @@ function isNonEmptyUse(params?: unknown[]): params is [string | null, string | n
     if (Array.isArray(params)) {
         const typeNs = typeof params[0];
         const typeDb = typeof params[1];
-        return typeNs === 'string' || typeNs === null || typeDb === 'string' || typeDb === null;
+        return typeNs === "string" || typeNs === null || typeDb === "string" || typeDb === null;
     }
 
     return false;
