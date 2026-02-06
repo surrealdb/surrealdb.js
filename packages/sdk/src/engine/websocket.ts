@@ -119,13 +119,14 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
     async close(): Promise<void> {
         if (this.#terminated) return;
+        const WebSocketImpl = this._context.options.websocketImpl ?? globalThis.WebSocket;
         const socketState = this.#socket?.readyState;
 
         this._state = undefined;
         this.#terminated = true;
         this.#socket?.close();
 
-        if (socketState === WebSocket.OPEN || socketState === WebSocket.CLOSING) {
+        if (socketState === WebSocketImpl.OPEN || socketState === WebSocketImpl.CLOSING) {
             await this.#publisher.subscribeFirst("disconnected");
         } else {
             this.#publisher.publish("disconnected");
