@@ -90,6 +90,7 @@ export function createAuth(auth: PremadeAuth | SystemAuth): SystemAuth | undefin
 export async function requestVersion(): Promise<string> {
     const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "version"]);
     const version = await Bun.readableStreamToText(proc.stdout);
+    console.log("version raw", version);
 
     return version
         .replace(/^surrealdb-/, "")

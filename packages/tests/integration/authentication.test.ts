@@ -11,6 +11,8 @@ import {
 
 const version = await requestVersion();
 const is3x = satisfies(version, ">=3.0.0-alpha.1");
+console.log(version);
+console.log(is3x);
 
 beforeEach(async () => {
     const surreal = await createSurreal();
