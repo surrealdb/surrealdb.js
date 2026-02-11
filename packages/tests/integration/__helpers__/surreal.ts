@@ -188,6 +188,10 @@ export function createIdleSurreal({
         },
     });
 
+    surreal.subscribe("connected", (version) => {
+        console.log("connected to version: ", version);
+    });
+
     connections.push(surreal);
 
     const connect = (custom?: ConnectOptions) => {
