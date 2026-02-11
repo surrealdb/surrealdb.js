@@ -87,15 +87,16 @@ export function createAuth(auth: PremadeAuth | SystemAuth): SystemAuth | undefin
 /**
  * Request the version of the SurrealDB server.
  */
+const VERSION_REGEX = /(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)/;
+
 export async function requestVersion(): Promise<string> {
     const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "version"]);
-    const version = await Bun.readableStreamToText(proc.stdout);
-    console.log("version raw", version);
-
-    return version
-        .replace(/^surrealdb-/, "")
-        .slice(0, version.indexOf(" "))
-        .trim();
+    const output = await Bun.readableStreamToText(proc.stdout);
+    const match = output.match(VERSION_REGEX);
+    if (!match) {
+        throw new Error(`Could not parse SurrealDB version from output: ${output}`);
+    }
+    return match[1];
 }
 
 /**
