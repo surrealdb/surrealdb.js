@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Decimal, RecordId, Uuid } from "surrealdb";
 
 describe("record ids", () => {
-    test.only("valid id part", () => {
+    test("valid id part", () => {
         expect(() => new RecordId("table", "b")).not.toThrow();
         expect(() => new RecordId("table", 123)).not.toThrow();
         expect(() => new RecordId("table", 9223372036854775807n)).not.toThrow();
