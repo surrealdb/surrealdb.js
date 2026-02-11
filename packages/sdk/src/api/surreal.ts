@@ -128,6 +128,13 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
         return this.#connection.ready();
     }
 
+    /**
+     * Returns the url of the database used for the current connection
+     */
+    get url(): URL | undefined {
+        return this.#connection.state?.url;
+    }
+
     // =========================================================== //
     //                                                             //
     //                     Connection Methods                      //

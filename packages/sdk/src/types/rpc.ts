@@ -23,6 +23,7 @@ export type RpcRequest<
     session?: Session;
     params?: Params;
     txn?: Uuid;
+    traceparent?: string;
 };
 
 export type RpcResponse<Result = unknown> = RpcSuccessResponse<Result> | RpcErrorResponse;
