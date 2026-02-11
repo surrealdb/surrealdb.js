@@ -41,7 +41,10 @@ export abstract class RpcEngine implements SurrealProtocol {
     }
 
     async version(): Promise<VersionInfo> {
-        const version: string = await this.send({ method: "version" });
+        const raw: string = await this.send({ method: "version" });
+        const version = raw.startsWith("surrealdb-")
+            ? raw.slice("surrealdb-".length).trim()
+            : raw.trim();
 
         return {
             version,
