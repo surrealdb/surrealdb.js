@@ -125,8 +125,13 @@ describe.if(is3x && SURREAL_PROTOCOL === "ws")("sessions", async () => {
     test("await using", async () => {
         const surreal = await createSurreal();
 
-        await using session = await surreal.forkSession();
-
-        expect(session.isValid).toBeTrue();
+        let session: Awaited<ReturnType<typeof surreal.forkSession>>;
+        {
+            await using s = await surreal.forkSession();
+            expect(s.isValid).toBeTrue();
+            session = s;
+        }
+        // Block exited — disposal has run; session was dropped
+        expect(session.isValid).toBeFalse();
     });
 });
