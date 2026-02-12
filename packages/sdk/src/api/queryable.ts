@@ -148,7 +148,7 @@ export abstract class SurrealQueryable {
      *
      * @param recordId The record ID to select
      */
-    select<T>(recordId: RecordId): SelectPromise<RecordResult<T> | undefined, T>;
+    select<T>(recordId: AnyRecordId): SelectPromise<RecordResult<T> | undefined, T>;
 
     /**
      * Select all records based on the provided Record ID range
@@ -165,7 +165,7 @@ export abstract class SurrealQueryable {
     select<T>(table: Table): SelectPromise<RecordResult<T>[], T>;
 
     // Shadow implementation
-    select(what: RecordId | RecordIdRange | Table): unknown {
+    select(what: AnyRecordId | RecordIdRange | Table): unknown {
         return new SelectPromise(this.#connection, {
             what,
             transaction: this.#transaction,
@@ -179,7 +179,7 @@ export abstract class SurrealQueryable {
      *
      * @param recordId The record id of the record to create
      */
-    create<T>(recordId: RecordId): CreatePromise<RecordResult<T>, T>;
+    create<T>(recordId: AnyRecordId): CreatePromise<RecordResult<T>, T>;
 
     /**
      * Create a new record in the specified table
@@ -189,7 +189,7 @@ export abstract class SurrealQueryable {
     create<T>(table: Table): CreatePromise<RecordResult<T>[], T>;
 
     // Shadow implementation
-    create(what: RecordId | Table): unknown {
+    create(what: AnyRecordId | Table): unknown {
         return new CreatePromise(this.#connection, {
             what,
             transaction: this.#transaction,
@@ -287,7 +287,7 @@ export abstract class SurrealQueryable {
      *
      * @param recordId The record ID to update
      */
-    update<T>(recordId: RecordId): UpdatePromise<RecordResult<T>, T>;
+    update<T>(recordId: AnyRecordId): UpdatePromise<RecordResult<T>, T>;
 
     /**
      * Updates all records based on the provided Record ID range
@@ -304,7 +304,7 @@ export abstract class SurrealQueryable {
     update<T>(table: Table): UpdatePromise<RecordResult<T>[], T>;
 
     // Shadow implementation
-    update(what: RecordId | RecordIdRange | Table): unknown {
+    update(what: AnyRecordId | RecordIdRange | Table): unknown {
         return new UpdatePromise(this.#connection, {
             what,
             transaction: this.#transaction,
@@ -321,7 +321,7 @@ export abstract class SurrealQueryable {
      * @param recordId The record ID to upsert
      * @param data The record data to upsert
      */
-    upsert<T>(recordId: RecordId): UpsertPromise<RecordResult<T>, T>;
+    upsert<T>(recordId: AnyRecordId): UpsertPromise<RecordResult<T>, T>;
 
     /**
      * Upserts all records based on the provided Record ID range
@@ -344,7 +344,7 @@ export abstract class SurrealQueryable {
     upsert<T>(table: Table): UpsertPromise<RecordResult<T>[], T>;
 
     // Shadow implementation
-    upsert(what: RecordId | RecordIdRange | Table): unknown {
+    upsert(what: AnyRecordId | RecordIdRange | Table): unknown {
         return new UpsertPromise(this.#connection, {
             what,
             transaction: this.#transaction,
@@ -358,7 +358,7 @@ export abstract class SurrealQueryable {
      *
      * @param recordId The record ID to delete
      */
-    delete<T>(recordId: RecordId): DeletePromise<RecordResult<T>>;
+    delete<T>(recordId: AnyRecordId): DeletePromise<RecordResult<T>>;
 
     /**
      * Deletes all records based on the provided Record ID range
@@ -375,7 +375,7 @@ export abstract class SurrealQueryable {
     delete<T>(table: Table): DeletePromise<RecordResult<T>[]>;
 
     // Shadow implementation
-    delete(what: RecordId | RecordIdRange | Table): unknown {
+    delete(what: AnyRecordId | RecordIdRange | Table): unknown {
         return new DeletePromise(this.#connection, {
             what,
             output: "before",

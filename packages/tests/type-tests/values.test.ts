@@ -1,11 +1,13 @@
 import { describe, expectTypeOf, test } from "bun:test";
 import {
+    type AnyRecordId,
     type Bound,
     BoundExcluded,
     BoundIncluded,
     RecordId,
     RecordIdRange,
     type RecordIdValue,
+    StringRecordId,
     Uuid,
 } from "surrealdb";
 
@@ -159,5 +161,13 @@ describe("record id range", () => {
         );
         // @ts-expect-error
         new RecordIdRange<"table", string>("table", new BoundIncluded(123), new BoundExcluded(321));
+    });
+});
+
+describe("StringRecordId", () => {
+    test("is accepted as AnyRecordId for select/update/delete", () => {
+        const stringId = new StringRecordId("person:1");
+        expectTypeOf(stringId).toMatchTypeOf<AnyRecordId>();
+        const _acceptsStringRecordId: AnyRecordId = stringId;
     });
 });
