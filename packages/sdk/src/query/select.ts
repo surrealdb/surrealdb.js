@@ -2,15 +2,15 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Expr, ExprLike, Session } from "../types";
+import type { AnyRecordId, Expr, ExprLike, Session } from "../types";
 import type { Field, Selection } from "../types/internal";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
-import type { DateTime, Duration, RecordId, RecordIdRange, Table, Uuid } from "../value";
+import type { DateTime, Duration, RecordIdRange, Table, Uuid } from "../value";
 import { Query } from "./query";
 
 interface SelectOptions {
-    what: RecordId | RecordIdRange | Table;
+    what: AnyRecordId | RecordIdRange | Table;
     fields?: string[];
     selection?: Selection;
     start?: number;

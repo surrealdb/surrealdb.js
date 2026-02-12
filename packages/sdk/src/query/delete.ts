@@ -2,14 +2,14 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Output, Session } from "../types";
+import type { AnyRecordId, Output, Session } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
-import type { DateTime, Duration, RecordId, RecordIdRange, Table, Uuid } from "../value";
+import type { DateTime, Duration, RecordIdRange, Table, Uuid } from "../value";
 import { Query } from "./query";
 
 interface DeleteOptions {
-    what: RecordId | RecordIdRange | Table;
+    what: AnyRecordId | RecordIdRange | Table;
     output?: Output;
     timeout?: Duration;
     version?: DateTime;
