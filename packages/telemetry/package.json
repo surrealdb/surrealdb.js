@@ -1,0 +1,43 @@
+{
+    "name": "@surrealdb/opentelemetry",
+    "version": "0.1.0",
+    "type": "module",
+    "license": "Apache-2.0",
+    "description": "OpenTelemetry instrumentation for `surrealdb` database client for SurrealDB",
+    "homepage": "https://github.com/surrealdb/surrealdb.js",
+    "keywords": [
+        "surrealdb",
+        "surrealdb.js",
+        "otel",
+        "telemetry"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/surrealdb/surrealdb.js.git"
+    },
+    "scripts": {
+        "build": "bun run build.ts",
+        "deploy": "bun run ../../scripts/publish.ts"
+    },
+    "peerDependencies": {
+        "@opentelemetry/api": "^1.9.0",
+        "@opentelemetry/instrumentation": "^0.211.0",
+        "@opentelemetry/semantic-conventions": "^1.39.0"
+    },
+    "devDependencies": {
+        "surrealdb": "^2.0.0-0"
+    },
+    "main": "./dist/surrealdb-telemetry.mjs",
+    "types": "./dist/surrealdb-telemetry.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/surrealdb-telemetry.mjs",
+            "types": "./dist/surrealdb-telemetry.d.ts"
+        }
+    },
+    "files": [
+        "dist",
+        "LICENCE",
+        "SECURITY.md"
+    ]
+}

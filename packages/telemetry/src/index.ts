@@ -1,0 +1,1 @@
+export { SurrealDBInstrumentation } from "./instrumentation";

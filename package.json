@@ -8,6 +8,7 @@
     "scripts": {
         "build": "turbo build",
         "build:sdk": "turbo build --filter=surrealdb",
+        "build:opentelemetry": "turbo build --filter=@surrealdb/opentelemetry",
         "build:wasm": "turbo build --filter=@surrealdb/wasm",
         "build:node": "turbo build --filter=@surrealdb/node --",
         "test": "bun run build:sdk && cd packages/tests && bun test --preload ./global.ts",

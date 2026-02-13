@@ -4,8 +4,8 @@ import { rolldown } from "rolldown";
 const bundle = await rolldown({
     input: "./src/index.ts",
 });
-await bundle.write({ format: "esm", file: "./dist/surrealdb.mjs" });
-await bundle.write({ format: "cjs", file: "./dist/surrealdb.cjs" });
+await bundle.write({ format: "esm", file: "./dist/surrealdb.mjs", inlineDynamicImports: true });
+await bundle.write({ format: "cjs", file: "./dist/surrealdb.cjs", inlineDynamicImports: true });
 
 // Server-side bundle (Node/Bun/Deno)
 const serverBundle = await rolldown({

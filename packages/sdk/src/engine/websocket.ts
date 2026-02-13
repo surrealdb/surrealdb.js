@@ -6,6 +6,7 @@ import {
     UnexpectedConnectionError,
     UnexpectedServerResponseError,
 } from "../errors";
+import { getCurrentTraceparent } from "../telemetry";
 import type { LiveAction, LiveMessage, RpcRequest, RpcResponse } from "../types";
 import { LIVE_ACTIONS } from "../types/live";
 import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
@@ -139,9 +140,11 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         }
     }
 
-    override send<Method extends string, Params extends unknown[] | undefined, Result>(
+    override async send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,
     ): Promise<Result> {
+        const traceparent = await getCurrentTraceparent();
+
         return new Promise((resolve, reject) => {
             if (!this.#active) {
                 reject(new ConnectionUnavailableError());
@@ -150,7 +153,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
             const id = this._context.uniqueId();
             const call: Call<Result> = {
-                request: { id, ...request },
+                request: { id, ...request, traceparent },
                 resolve,
                 reject,
             };
