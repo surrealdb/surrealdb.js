@@ -4,7 +4,8 @@ import {
     AuthenticationError,
     ConnectionUnavailableError,
     InvalidSessionError,
-    SurrealError,
+    MissingNamespaceDatabaseError,
+    ServerError,
     UnavailableFeatureError,
     UnsupportedEngineError,
     UnsupportedFeatureError,
@@ -309,7 +310,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         }
 
         if (what.namespace === null && what.database !== null) {
-            throw new SurrealError("Cannot unset namespace without unsetting database");
+            throw new MissingNamespaceDatabaseError();
         }
 
         const res = await this.#engine.use(what, session);
@@ -584,8 +585,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
                     try {
                         await this.authenticate(sessionState.accessToken, session, true);
                         return;
-                    } catch {
-                        // Access token was not valid
+                    } catch (err) {
+                        if (!(err instanceof ServerError)) throw err;
                     }
                 }
             }
@@ -599,8 +600,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
                 try {
                     await this.refresh(tokens, session, true);
                     return;
-                } catch {
-                    // Refresh token was not valid
+                } catch (err) {
+                    if (!(err instanceof ServerError)) throw err;
                 }
             }
         }

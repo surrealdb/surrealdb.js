@@ -1,4 +1,4 @@
-import { SurrealError } from "../errors";
+import { MissingNamespaceDatabaseError } from "../errors";
 import type { AnyAuth, ConnectionSession } from "../types";
 
 export function buildRpcAuth(session: ConnectionSession, auth: AnyAuth): Record<string, unknown> {
@@ -17,9 +17,7 @@ export function buildRpcAuth(session: ConnectionSession, auth: AnyAuth): Record<
         const database = auth.database ?? session.database;
 
         if (!database || !namespace) {
-            throw new SurrealError(
-                "Namespace and database must be provided or selected for record authentication",
-            );
+            throw new MissingNamespaceDatabaseError();
         }
 
         return {
@@ -40,7 +38,7 @@ export function buildRpcAuth(session: ConnectionSession, auth: AnyAuth): Record<
     };
 
     if (database && !namespace) {
-        throw new SurrealError("Database authentication requires a namespace to be provided");
+        throw new MissingNamespaceDatabaseError();
     }
 
     if (access) result.ac = access;

@@ -1,3 +1,4 @@
+import type { RpcErrorObject } from "../internal/parse-error";
 import type { Uuid } from "../value";
 import type { QueryType, Session } from "./surreal";
 
@@ -13,6 +14,9 @@ export type RpcQueryResultErr = {
     status: "ERR";
     time: string;
     result: string;
+    kind?: string;
+    details?: Record<string, unknown> | string | null;
+    cause?: RpcErrorObject;
 };
 
 export type RpcRequest<
@@ -34,8 +38,5 @@ export type RpcSuccessResponse<Result = unknown> = {
 
 export type RpcErrorResponse = {
     result?: never;
-    error: {
-        code: number;
-        message: string;
-    };
+    error: RpcErrorObject;
 };

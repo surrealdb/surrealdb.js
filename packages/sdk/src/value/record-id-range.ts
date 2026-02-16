@@ -1,4 +1,4 @@
-import { SurrealError } from "../errors";
+import { InvalidRecordIdError } from "../errors";
 import { getRangeJoin } from "../internal/range";
 import { isValidIdBound, isValidTable } from "../internal/validation";
 import type { WidenRecordIdValue } from "../types/internal";
@@ -25,9 +25,9 @@ class RecordIdRange<
     constructor(table: Tb | Table<Tb>, beg: Bound<Id>, end: Bound<Id>) {
         super();
 
-        if (!isValidTable(table)) throw new SurrealError("tb part is not valid");
-        if (!isValidIdBound(beg)) throw new SurrealError("Begin part is not valid");
-        if (!isValidIdBound(end)) throw new SurrealError("End part is not valid");
+        if (!isValidTable(table)) throw new InvalidRecordIdError("Table part is not valid");
+        if (!isValidIdBound(beg)) throw new InvalidRecordIdError("Begin bound is not valid");
+        if (!isValidIdBound(end)) throw new InvalidRecordIdError("End bound is not valid");
 
         this.#table = table instanceof Table ? table : new Table(table);
         this.#beg = beg;

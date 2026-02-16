@@ -1,5 +1,4 @@
 import type { ConnectionController } from "../controller";
-import { ResponseError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
 import type { QueryResponse, Session } from "../types";
@@ -86,7 +85,7 @@ export class Query<
 
         for await (const chunk of chunks) {
             if (chunk.error) {
-                throw new ResponseError(chunk.error);
+                throw chunk.error;
             }
 
             if (queryIndexes?.has(chunk.query) === false) {
@@ -200,7 +199,7 @@ export class Query<
         for await (const chunk of chunks) {
             if (queryIndexes?.has(chunk.query) === false) {
                 if (chunk.error) {
-                    throw new ResponseError(chunk.error);
+                    throw chunk.error;
                 }
 
                 continue;

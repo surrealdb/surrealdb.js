@@ -1,5 +1,5 @@
 import type { ConnectionController } from "../controller";
-import { SurrealError } from "../errors";
+import { ExpressionError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { Session } from "../types";
@@ -80,14 +80,14 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
         const { name, version, args, transaction, session, json } = this.#options;
 
         if (!NAME_REGEX.test(name)) {
-            throw new SurrealError("Invalid function name");
+            throw new ExpressionError("Invalid function name");
         }
 
         const query = new BoundQuery(name);
 
         if (version) {
             if (!VERSION_REGEX.test(version)) {
-                throw new SurrealError("Invalid function version");
+                throw new ExpressionError("Invalid function version");
             }
 
             query.append(`<${version}>`);

@@ -2,10 +2,10 @@ import {
     CallTerminatedError,
     ConnectionUnavailableError,
     ReconnectExhaustionError,
-    ResponseError,
     UnexpectedConnectionError,
     UnexpectedServerResponseError,
 } from "../errors";
+import { parseRpcError } from "../internal/parse-error";
 import type { LiveAction, LiveMessage, RpcRequest, RpcResponse } from "../types";
 import { LIVE_ACTIONS } from "../types/live";
 import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
@@ -273,7 +273,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 const { resolve, reject } = this.#calls.get(id) ?? {};
 
                 if (response.error) {
-                    reject?.(new ResponseError(response.error));
+                    reject?.(parseRpcError(response.error));
                 } else {
                     resolve?.(response.result);
                 }

@@ -1,4 +1,4 @@
-import { ResponseError } from "../errors";
+import type { ServerError } from "../errors";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { QueryStats, QueryType } from "../types";
 
@@ -86,15 +86,12 @@ export class ValueFrame<T, J extends boolean> extends Frame<T, J> {
  */
 export class ErrorFrame<T, J extends boolean> extends Frame<T, J> {
     readonly stats: QueryStats | undefined;
-    readonly error: {
-        code: number;
-        message: string;
-    };
+    readonly error: ServerError;
 
     constructor(
         query: number,
         stats: QueryStats | undefined,
-        error: { code: number; message: string },
+        error: ServerError,
     ) {
         super(query);
         this.stats = stats;
@@ -106,10 +103,10 @@ export class ErrorFrame<T, J extends boolean> extends Frame<T, J> {
     }
 
     /**
-     * Throw an error corresponding to this error frame
+     * Throw the server error corresponding to this error frame
      */
     throw(): never {
-        throw new ResponseError(this.error);
+        throw this.error;
     }
 }
 

@@ -1,4 +1,4 @@
-import { SurrealError } from "../errors";
+import { InvalidDurationError } from "../errors";
 import { escapeRegex } from "../internal/escape-regex";
 import { Value } from "./value";
 
@@ -166,7 +166,7 @@ export class Duration extends Value {
                 const amount = BigInt(match[1]);
                 const unit = match[2];
                 const factor = UNITS.get(unit);
-                if (!factor) throw new SurrealError(`Invalid duration unit: ${unit}`);
+                if (!factor) throw new InvalidDurationError(`Invalid duration unit: ${unit}`);
 
                 if (factor >= SECOND) {
                     // Accumulate seconds
@@ -179,7 +179,7 @@ export class Duration extends Value {
                 // Slice the processed segment off
                 left = left.slice(match[0].length);
             } else {
-                throw new SurrealError("Could not match a next duration part");
+                throw new InvalidDurationError("Could not match a next duration part");
             }
         }
 
@@ -246,11 +246,11 @@ export class Duration extends Value {
         if (typeof divisor === "object" && divisor instanceof Duration) {
             const a = this.#seconds * SECOND + this.#nanoseconds;
             const b = divisor.#seconds * SECOND + divisor.#nanoseconds;
-            if (b === 0n) throw new SurrealError("Division by zero duration");
+            if (b === 0n) throw new InvalidDurationError("Division by zero duration");
             return a / b;
         }
         const divisorBig = typeof divisor === "bigint" ? divisor : BigInt(Math.floor(divisor));
-        if (divisorBig === 0n) throw new SurrealError("Division by zero");
+        if (divisorBig === 0n) throw new InvalidDurationError("Division by zero");
         const totalNs = this.#seconds * SECOND + this.#nanoseconds;
         const resultNs = totalNs / divisorBig;
         return new Duration([resultNs / SECOND, resultNs % SECOND]);
@@ -265,7 +265,7 @@ export class Duration extends Value {
     mod(mod: Duration): Duration {
         const a = this.#seconds * SECOND + this.#nanoseconds;
         const b = mod.#seconds * SECOND + mod.#nanoseconds;
-        if (b === 0n) throw new SurrealError("Modulo by zero duration");
+        if (b === 0n) throw new InvalidDurationError("Modulo by zero duration");
         const resultNs = a % b;
         return new Duration([resultNs / SECOND, resultNs % SECOND]);
     }

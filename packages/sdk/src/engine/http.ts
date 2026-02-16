@@ -1,10 +1,10 @@
 import {
     ConnectionUnavailableError,
     MissingNamespaceDatabaseError,
-    ResponseError,
-    SurrealError,
     UnexpectedServerResponseError,
+    UnsupportedFeatureError,
 } from "../errors";
+import { parseRpcError } from "../internal/parse-error";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
 import type { LiveMessage } from "../types/live";
@@ -13,6 +13,7 @@ import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surr
 import { Features } from "../utils";
 import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
+
 
 const ALWAYS_ALLOW = new Set([
     "use",
@@ -118,14 +119,14 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         }
 
         if (response.error) {
-            throw new ResponseError(response.error);
+            throw parseRpcError(response.error);
         }
 
         return response.result;
     }
 
     override liveQuery(): AsyncIterable<LiveMessage> {
-        throw new SurrealError("Live queries are not available over HTTP");
+        throw new UnsupportedFeatureError(Features.LiveQueries);
     }
 }
 

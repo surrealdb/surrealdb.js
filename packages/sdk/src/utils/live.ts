@@ -1,5 +1,5 @@
 import type { ConnectionController } from "../controller";
-import { ConnectionUnavailableError, LiveSubscriptionError, SurrealError } from "../errors";
+import { ConnectionUnavailableError, LiveSubscriptionError } from "../errors";
 import { Query } from "../query";
 import type { LiveMessage, LiveResource, Session } from "../types";
 import type { Uuid } from "../value";
@@ -142,7 +142,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
 
     public [Symbol.asyncIterator](): AsyncIterator<LiveMessage> {
         if (this.#killed) {
-            throw new SurrealError("Subscription has been killed");
+            throw new LiveSubscriptionError("Subscription has been killed");
         }
 
         const channel = new ChannelIterator<LiveMessage>(() => {
@@ -245,7 +245,7 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
 
     public [Symbol.asyncIterator](): AsyncIterator<LiveMessage> {
         if (this.#killed) {
-            throw new SurrealError("Subscription has been killed");
+            throw new LiveSubscriptionError("Subscription has been killed");
         }
 
         const channel = new ChannelIterator<LiveMessage>(() => {
