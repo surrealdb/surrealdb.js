@@ -28,7 +28,7 @@ describe("parseRpcError (new format)", () => {
             code: -32002,
             kind: "NotAllowed",
             message: "Token has expired",
-            details: { Auth: "TokenExpired" },
+            details: { kind: "Auth", details: { kind: "TokenExpired" } },
         });
 
         expect(err).toBeInstanceOf(ServerError);
@@ -36,8 +36,7 @@ describe("parseRpcError (new format)", () => {
         expect(err.kind).toBe("NotAllowed");
         expect(err.code).toBe(-32002);
         expect(err.message).toBe("Token has expired");
-        expect(err.details).toEqual({ Auth: "TokenExpired" });
-        expect(err.cause).toBeUndefined();
+        expect(err.details).toEqual({ kind: "Auth", details: { kind: "TokenExpired" } });
 
         const notAllowed = err as NotAllowedError;
         expect(notAllowed.isTokenExpired).toBe(true);
@@ -52,7 +51,7 @@ describe("parseRpcError (new format)", () => {
             code: -32002,
             kind: "NotAllowed",
             message: "Invalid credentials",
-            details: { Auth: "InvalidAuth" },
+            details: { kind: "Auth", details: { kind: "InvalidAuth" } },
         }) as NotAllowedError;
 
         expect(err.isInvalidAuth).toBe(true);
@@ -64,7 +63,7 @@ describe("parseRpcError (new format)", () => {
             code: -32602,
             kind: "NotAllowed",
             message: "Method not allowed",
-            details: { Method: { name: "begin" } },
+            details: { kind: "Method", details: { name: "begin" } },
         }) as NotAllowedError;
 
         expect(err.methodName).toBe("begin");
@@ -76,7 +75,7 @@ describe("parseRpcError (new format)", () => {
             code: -32602,
             kind: "NotAllowed",
             message: "Scripting is blocked",
-            details: { Scripting: {} },
+            details: { kind: "Scripting" },
         }) as NotAllowedError;
 
         expect(err.isScriptingBlocked).toBe(true);
@@ -87,7 +86,7 @@ describe("parseRpcError (new format)", () => {
             code: -32602,
             kind: "NotAllowed",
             message: "Function not allowed",
-            details: { Function: { name: "fn::custom" } },
+            details: { kind: "Function", details: { name: "fn::custom" } },
         }) as NotAllowedError;
 
         expect(err.functionName).toBe("fn::custom");
@@ -98,7 +97,7 @@ describe("parseRpcError (new format)", () => {
             code: -32000,
             kind: "NotFound",
             message: "Table not found",
-            details: { Table: { name: "users" } },
+            details: { kind: "Table", details: { name: "users" } },
         });
 
         expect(err).toBeInstanceOf(NotFoundError);
@@ -115,7 +114,7 @@ describe("parseRpcError (new format)", () => {
             code: -32000,
             kind: "NotFound",
             message: "Record not found",
-            details: { Record: { id: "users:123" } },
+            details: { kind: "Record", details: { id: "users:123" } },
         }) as NotFoundError;
 
         expect(err.recordId).toBe("users:123");
@@ -127,7 +126,7 @@ describe("parseRpcError (new format)", () => {
             code: -32601,
             kind: "NotFound",
             message: "Method not found",
-            details: { Method: { name: "unknown_method" } },
+            details: { kind: "Method", details: { name: "unknown_method" } },
         }) as NotFoundError;
 
         expect(err.methodName).toBe("unknown_method");
@@ -138,7 +137,7 @@ describe("parseRpcError (new format)", () => {
             code: -32000,
             kind: "NotFound",
             message: "Namespace not found",
-            details: { Namespace: { name: "test" } },
+            details: { kind: "Namespace", details: { name: "test" } },
         }) as NotFoundError;
 
         expect(err.namespaceName).toBe("test");
@@ -149,7 +148,7 @@ describe("parseRpcError (new format)", () => {
             code: -32000,
             kind: "NotFound",
             message: "Database not found",
-            details: { Database: { name: "test" } },
+            details: { kind: "Database", details: { name: "test" } },
         }) as NotFoundError;
 
         expect(err.databaseName).toBe("test");
@@ -160,7 +159,7 @@ describe("parseRpcError (new format)", () => {
             code: -32000,
             kind: "AlreadyExists",
             message: "Record already exists",
-            details: { Record: { id: "users:123" } },
+            details: { kind: "Record", details: { id: "users:123" } },
         });
 
         expect(err).toBeInstanceOf(AlreadyExistsError);
@@ -174,18 +173,18 @@ describe("parseRpcError (new format)", () => {
             code: -32000,
             kind: "AlreadyExists",
             message: "Table already exists",
-            details: { Table: { name: "users" } },
+            details: { kind: "Table", details: { name: "users" } },
         }) as AlreadyExistsError;
 
         expect(err.tableName).toBe("users");
     });
 
-    test("Validation with Parse details (string variant)", () => {
+    test("Validation with Parse details", () => {
         const err = parseRpcError({
             code: -32700,
             kind: "Validation",
             message: "Parse error",
-            details: "Parse",
+            details: { kind: "Parse" },
         });
 
         expect(err).toBeInstanceOf(ValidationError);
@@ -199,7 +198,7 @@ describe("parseRpcError (new format)", () => {
             code: -32603,
             kind: "Validation",
             message: "Invalid parameter",
-            details: { InvalidParameter: { name: "limit" } },
+            details: { kind: "InvalidParameter", details: { name: "limit" } },
         }) as ValidationError;
 
         expect(err.parameterName).toBe("limit");
@@ -211,7 +210,7 @@ describe("parseRpcError (new format)", () => {
             code: -32003,
             kind: "Query",
             message: "Query not executed",
-            details: { NotExecuted: {} },
+            details: { kind: "NotExecuted" },
         });
 
         expect(err).toBeInstanceOf(QueryError);
@@ -227,7 +226,7 @@ describe("parseRpcError (new format)", () => {
             code: -32004,
             kind: "Query",
             message: "Query timed out",
-            details: { TimedOut: { duration: { secs: 5, nanos: 0 } } },
+            details: { kind: "TimedOut", details: { duration: { secs: 5, nanos: 0 } } },
         }) as QueryError;
 
         expect(err.isTimedOut).toBe(true);
@@ -239,7 +238,7 @@ describe("parseRpcError (new format)", () => {
             code: -32005,
             kind: "Query",
             message: "Query cancelled",
-            details: { Cancelled: {} },
+            details: { kind: "Cancelled" },
         }) as QueryError;
 
         expect(err.isCancelled).toBe(true);
@@ -250,7 +249,7 @@ describe("parseRpcError (new format)", () => {
             code: -32604,
             kind: "Configuration",
             message: "Live queries not supported",
-            details: { LiveQueryNotSupported: {} },
+            details: { kind: "LiveQueryNotSupported" },
         });
 
         expect(err).toBeInstanceOf(ConfigurationError);
@@ -263,7 +262,7 @@ describe("parseRpcError (new format)", () => {
             code: -32008,
             kind: "Serialization",
             message: "Deserialization failed",
-            details: { Deserialization: {} },
+            details: { kind: "Deserialization" },
         });
 
         expect(err).toBeInstanceOf(SerializationError);
@@ -422,7 +421,6 @@ describe("parseRpcError (old format, kind derived from code)", () => {
         expect(err.code).toBe(-32002);
         expect(err.message).toBe("Invalid credentials");
         expect(err.details).toBeUndefined();
-        expect(err.cause).toBeUndefined();
     });
 });
 
@@ -437,7 +435,7 @@ describe("parseQueryError", () => {
             time: "1ms",
             result: "Table not found",
             kind: "NotFound",
-            details: { Table: { name: "users" } },
+            details: { kind: "Table", details: { name: "users" } },
         });
 
         expect(err).toBeInstanceOf(NotFoundError);
@@ -460,111 +458,6 @@ describe("parseQueryError", () => {
         expect(err.message).toBe("There was a problem with the database: Table not found");
         expect(err.details).toBeUndefined();
     });
-
-    test("with cause chain", () => {
-        const err = parseQueryError({
-            status: "ERR",
-            time: "1ms",
-            result: "Permission denied",
-            kind: "NotAllowed",
-            details: { Auth: "TokenExpired" },
-            cause: {
-                code: -32000,
-                kind: "Internal",
-                message: "Session expired",
-            },
-        });
-
-        expect(err).toBeInstanceOf(NotAllowedError);
-        expect(err.cause).toBeInstanceOf(InternalError);
-        expect(err.cause?.message).toBe("Session expired");
-    });
-});
-
-// =========================================================== //
-//  Cause chain traversal                                       //
-// =========================================================== //
-
-describe("cause chain", () => {
-    test("deep cause chain is parsed recursively", () => {
-        const err = parseRpcError({
-            code: -32000,
-            kind: "NotAllowed",
-            message: "Top level",
-            cause: {
-                code: -32000,
-                kind: "NotFound",
-                message: "Middle",
-                cause: {
-                    code: -32000,
-                    kind: "Internal",
-                    message: "Root cause",
-                },
-            },
-        });
-
-        expect(err).toBeInstanceOf(NotAllowedError);
-        expect(err.cause).toBeInstanceOf(NotFoundError);
-        expect(err.cause?.cause).toBeInstanceOf(InternalError);
-        expect(err.cause?.cause?.message).toBe("Root cause");
-        expect(err.cause?.cause?.cause).toBeUndefined();
-    });
-
-    test("hasKind traverses the chain", () => {
-        const err = parseRpcError({
-            code: -32000,
-            kind: "NotAllowed",
-            message: "Top",
-            cause: {
-                code: -32000,
-                kind: "NotFound",
-                message: "Nested",
-            },
-        });
-
-        expect(err.hasKind("NotAllowed")).toBe(true);
-        expect(err.hasKind("NotFound")).toBe(true);
-        expect(err.hasKind("Internal")).toBe(false);
-    });
-
-    test("findCause returns matching error in chain", () => {
-        const err = parseRpcError({
-            code: -32000,
-            kind: "NotAllowed",
-            message: "Top",
-            cause: {
-                code: -32000,
-                kind: "NotFound",
-                message: "Nested not found",
-                details: { Table: { name: "users" } },
-            },
-        });
-
-        const found = err.findCause("NotFound");
-        expect(found).toBeInstanceOf(NotFoundError);
-        expect(found?.message).toBe("Nested not found");
-        expect((found as NotFoundError).tableName).toBe("users");
-    });
-
-    test("findCause returns this if kind matches", () => {
-        const err = parseRpcError({
-            code: -32000,
-            kind: "NotFound",
-            message: "Self",
-        });
-
-        expect(err.findCause("NotFound")).toBe(err);
-    });
-
-    test("findCause returns undefined when not found", () => {
-        const err = parseRpcError({
-            code: -32000,
-            kind: "NotFound",
-            message: "No match",
-        });
-
-        expect(err.findCause("AlreadyExists")).toBeUndefined();
-    });
 });
 
 // =========================================================== //
@@ -577,14 +470,14 @@ describe("unknown error kinds", () => {
             code: -32000,
             kind: "FutureErrorKind",
             message: "Some new error",
-            details: { SomeNewDetail: { foo: "bar" } },
+            details: { kind: "SomeNewDetail", details: { foo: "bar" } },
         });
 
         expect(err).toBeInstanceOf(ServerError);
         expect(err).not.toBeInstanceOf(InternalError);
         expect(err.kind).toBe("FutureErrorKind");
         expect(err.message).toBe("Some new error");
-        expect(err.details).toEqual({ SomeNewDetail: { foo: "bar" } });
+        expect(err.details).toEqual({ kind: "SomeNewDetail", details: { foo: "bar" } });
     });
 
     test("unknown kind does not lose information", () => {

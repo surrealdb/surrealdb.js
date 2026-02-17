@@ -15,8 +15,7 @@ export type RpcQueryResultErr = {
     time: string;
     result: string;
     kind?: string;
-    details?: Record<string, unknown> | string | null;
-    cause?: RpcErrorObject;
+    details?: Record<string, unknown> | null;
 };
 
 export type RpcRequest<

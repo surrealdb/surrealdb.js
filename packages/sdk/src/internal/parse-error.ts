@@ -13,15 +13,13 @@ import {
 } from "../errors";
 
 /**
- * Raw error object shape from the server (RPC-level errors and recursive cause).
- * Used for both top-level RPC errors and the `cause` chain.
+ * Raw error object shape from the server (RPC-level errors).
  */
 export interface RpcErrorObject {
     code: number;
     message: string;
     kind?: string;
-    details?: Record<string, unknown> | string | null;
-    cause?: RpcErrorObject;
+    details?: Record<string, unknown> | null;
 }
 
 /**
@@ -33,8 +31,7 @@ export interface RpcQueryResultErrRaw {
     time: string;
     result: string;
     kind?: string;
-    details?: Record<string, unknown> | string | null;
-    cause?: RpcErrorObject;
+    details?: Record<string, unknown> | null;
 }
 
 /**
@@ -105,7 +102,7 @@ function createServerError(options: ServerErrorOptions): ServerError {
 /**
  * Parse an RPC-level error object into a `ServerError` (or subclass).
  * Handles both old format (`{ code, message }`) and new format
- * (`{ code, kind, message, details?, cause? }`).
+ * (`{ code, kind, message, details? }`).
  */
 export function parseRpcError(raw: RpcErrorObject): ServerError {
     return createServerError({
@@ -113,7 +110,6 @@ export function parseRpcError(raw: RpcErrorObject): ServerError {
         code: raw.code,
         message: raw.message,
         details: raw.details,
-        cause: raw.cause ? parseRpcError(raw.cause) : undefined,
     });
 }
 
@@ -128,6 +124,5 @@ export function parseQueryError(raw: RpcQueryResultErrRaw): ServerError {
         code: 0,
         message: raw.result,
         details: raw.details,
-        cause: raw.cause ? parseRpcError(raw.cause) : undefined,
     });
 }

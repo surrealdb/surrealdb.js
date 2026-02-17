@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        surrealdb: ["v2.0.5", "v2.1.8", "v2.2.7", "v2.3.7", "v3.0.0-beta.3", "nightly"]
+        surrealdb: ["v2.0.5", "v2.1.8", "v2.2.7", "v2.3.7", "v3.0.0", "nightly"]
         engine: ["ws", "http"]
     steps:
       - name: Install SurrealDB ${{ matrix.surrealdb }} over ${{ matrix.engine }} engine
@@ -73,4 +73,3 @@ jobs:
         run: bun run test
         env:
           SURREAL_PROTOCOL: ${{ matrix.engine }}
-          SURREAL_STRUCTURED_ERROR_TESTS: ${{ matrix.surrealdb == 'nightly' && 'true' || '' }}

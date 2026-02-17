@@ -136,47 +136,110 @@ export interface ServerErrorOptions {
     kind: string;
     code?: number;
     message: string;
-    details?: Record<string, unknown> | string | null;
-    cause?: ServerError;
+    details?: Record<string, unknown> | null;
 }
 
-/**
- * Checks if the given value exists under `key` in a details object.
- * Handles both serde externally-tagged enum formats:
- * - Unit variants: `"VariantName"` (top-level string)
- * - Struct/newtype variants: `{ "VariantName": ... }` (object key)
- */
-function hasDetailKey(
-    details: Record<string, unknown> | string | null | undefined,
-    key: string,
-): boolean {
-    if (details == null) return false;
-    if (typeof details === "string") return details === key;
-    return key in details;
-}
+// =========================================================== //
+//  Typed error detail types (mirrors Rust `ErrorDetails` tree) //
+// =========================================================== //
 
 /**
- * Gets the value under `key` from a details object.
- * Returns `undefined` if the key is not present or details is a string/null.
+ * Base shape for error details on the wire. All detail objects
+ * follow the `{ kind, details? }` pattern.
  */
-function getDetailValue(
-    details: Record<string, unknown> | string | null | undefined,
-    key: string,
-): unknown {
-    if (details == null || typeof details !== "object") return undefined;
-    return details[key];
+export interface ErrorDetail {
+    readonly kind: string;
+    readonly details?: Record<string, unknown>;
 }
 
-/**
- * Checks if a serde variant matches a given key, handling both serialization forms:
- * - String: `"VariantName"` (unit variant)
- * - Object: `{ "VariantName": ... }` (struct/newtype variant, possibly empty `{}`)
- */
-function matchesVariant(value: unknown, key: string): boolean {
-    if (value === key) return true;
-    if (value && typeof value === "object" && value !== null && key in value) return true;
-    return false;
-}
+/** Auth failure details, nested inside `NotAllowedErrorDetail`. */
+export type AuthErrorDetail =
+    | { readonly kind: "TokenExpired" }
+    | { readonly kind: "SessionExpired" }
+    | { readonly kind: "InvalidAuth" }
+    | { readonly kind: "UnexpectedAuth" }
+    | { readonly kind: "MissingUserOrPass" }
+    | { readonly kind: "NoSigninTarget" }
+    | { readonly kind: "InvalidPass" }
+    | { readonly kind: "TokenMakingFailed" }
+    | { readonly kind: "InvalidSignup" }
+    | { readonly kind: "InvalidRole"; readonly details: { readonly name: string } }
+    | {
+          readonly kind: "NotAllowed";
+          readonly details: {
+              readonly actor: string;
+              readonly action: string;
+              readonly resource: string;
+          };
+      };
+
+/** Validation error details. */
+export type ValidationErrorDetail =
+    | { readonly kind: "Parse" }
+    | { readonly kind: "InvalidRequest" }
+    | { readonly kind: "InvalidParams" }
+    | { readonly kind: "NamespaceEmpty" }
+    | { readonly kind: "DatabaseEmpty" }
+    | { readonly kind: "InvalidParameter"; readonly details: { readonly name: string } }
+    | { readonly kind: "InvalidContent"; readonly details: { readonly value: string } }
+    | { readonly kind: "InvalidMerge"; readonly details: { readonly value: string } };
+
+/** Configuration error details. */
+export type ConfigurationErrorDetail =
+    | { readonly kind: "LiveQueryNotSupported" }
+    | { readonly kind: "BadLiveQueryConfig" }
+    | { readonly kind: "BadGraphqlConfig" };
+
+/** Query error details. */
+export type QueryErrorDetail =
+    | { readonly kind: "NotExecuted" }
+    | {
+          readonly kind: "TimedOut";
+          readonly details: {
+              readonly duration: { readonly secs: number; readonly nanos: number };
+          };
+      }
+    | { readonly kind: "Cancelled" };
+
+/** Serialization error details. */
+export type SerializationErrorDetail =
+    | { readonly kind: "Serialization" }
+    | { readonly kind: "Deserialization" };
+
+/** Not-allowed error details. */
+export type NotAllowedErrorDetail =
+    | { readonly kind: "Scripting" }
+    | { readonly kind: "Auth"; readonly details: AuthErrorDetail }
+    | { readonly kind: "Method"; readonly details: { readonly name: string } }
+    | { readonly kind: "Function"; readonly details: { readonly name: string } }
+    | { readonly kind: "Target"; readonly details: { readonly name: string } };
+
+/** Not-found error details. */
+export type NotFoundErrorDetail =
+    | { readonly kind: "Method"; readonly details: { readonly name: string } }
+    | { readonly kind: "Session"; readonly details: { readonly id: string | null } }
+    | { readonly kind: "Table"; readonly details: { readonly name: string } }
+    | { readonly kind: "Record"; readonly details: { readonly id: string } }
+    | { readonly kind: "Namespace"; readonly details: { readonly name: string } }
+    | { readonly kind: "Database"; readonly details: { readonly name: string } }
+    | { readonly kind: "Transaction" };
+
+/** Already-exists error details. */
+export type AlreadyExistsErrorDetail =
+    | { readonly kind: "Session"; readonly details: { readonly id: string } }
+    | { readonly kind: "Table"; readonly details: { readonly name: string } }
+    | { readonly kind: "Record"; readonly details: { readonly id: string } }
+    | { readonly kind: "Namespace"; readonly details: { readonly name: string } }
+    | { readonly kind: "Database"; readonly details: { readonly name: string } };
+
+/** Connection error details. */
+export type ConnectionErrorDetail =
+    | { readonly kind: "Uninitialised" }
+    | { readonly kind: "AlreadyConnected" };
+
+// =========================================================== //
+//  ServerError base class and subclasses                       //
+// =========================================================== //
 
 /**
  * Base class for all errors originating from the SurrealDB server.
@@ -185,8 +248,7 @@ function matchesVariant(value: unknown, key: string): boolean {
  * Server errors carry structured information:
  * - `kind` — the error category (e.g. `"NotAllowed"`, `"NotFound"`)
  * - `code` — legacy JSON-RPC numeric error code (0 when unavailable)
- * - `details` — kind-specific structured details from the server
- * - `cause` — the underlying server error, if any (recursive chain)
+ * - `details` — kind-specific structured details from the server (`{ kind, details? }` format)
  *
  * Use `instanceof` on subclasses (e.g. `NotFoundError`, `NotAllowedError`)
  * for type-safe matching, or check the `kind` property directly.
@@ -202,35 +264,18 @@ export class ServerError extends SurrealError {
     /** Legacy JSON-RPC error code. 0 when not available (e.g. query result errors). */
     readonly code: number;
 
-    /** Kind-specific structured details. `undefined` when not provided by the server. */
-    readonly details: Record<string, unknown> | string | undefined;
-
-    /** The underlying cause error from the server, if any. */
-    override readonly cause: ServerError | undefined;
+    /**
+     * Kind-specific structured details using the `{ kind, details? }` wire format.
+     * `undefined` when not provided by the server. Subclasses narrow this type
+     * to their specific detail union (e.g. `NotAllowedErrorDetail`).
+     */
+    readonly details: ErrorDetail | undefined;
 
     constructor(options: ServerErrorOptions) {
         super(options.message);
         this.kind = options.kind;
         this.code = options.code ?? 0;
-        this.details = options.details ?? undefined;
-        this.cause = options.cause;
-    }
-
-    /**
-     * Check if this error or any error in the cause chain matches the given kind.
-     */
-    hasKind(kind: string): boolean {
-        if (this.kind === kind) return true;
-        return this.cause?.hasKind(kind) ?? false;
-    }
-
-    /**
-     * Find the first error in the cause chain (including this error) that
-     * matches the given kind.
-     */
-    findCause(kind: string): ServerError | undefined {
-        if (this.kind === kind) return this;
-        return this.cause?.findCause(kind);
+        this.details = (options.details ?? undefined) as ErrorDetail | undefined;
     }
 }
 
@@ -239,21 +284,20 @@ export class ServerError extends SurrealError {
  */
 export class ValidationError extends ServerError {
     override readonly kind = "Validation" as const;
+    declare readonly details: ValidationErrorDetail | undefined;
     override get name() {
         return "ValidationError";
     }
 
     /** True if this is a SurrealQL parse error. */
     get isParseError(): boolean {
-        return hasDetailKey(this.details, "Parse");
+        return this.details?.kind === "Parse";
     }
 
     /** The name of the invalid parameter, if applicable. */
     get parameterName(): string | undefined {
-        const v = getDetailValue(this.details, "InvalidParameter");
-        return v && typeof v === "object" && v !== null && "name" in v
-            ? String((v as { name: string }).name)
-            : undefined;
+        if (this.details?.kind !== "InvalidParameter") return undefined;
+        return this.details.details?.name;
     }
 }
 
@@ -262,13 +306,14 @@ export class ValidationError extends ServerError {
  */
 export class ConfigurationError extends ServerError {
     override readonly kind = "Configuration" as const;
+    declare readonly details: ConfigurationErrorDetail | undefined;
     override get name() {
         return "ConfigurationError";
     }
 
     /** True if live queries are not supported by the server configuration. */
     get isLiveQueryNotSupported(): boolean {
-        return hasDetailKey(this.details, "LiveQueryNotSupported");
+        return this.details?.kind === "LiveQueryNotSupported";
     }
 }
 
@@ -287,32 +332,30 @@ export class ThrownError extends ServerError {
  */
 export class QueryError extends ServerError {
     override readonly kind = "Query" as const;
+    declare readonly details: QueryErrorDetail | undefined;
     override get name() {
         return "QueryError";
     }
 
     /** True if the query was not executed (e.g. due to a prior error in the batch). */
     get isNotExecuted(): boolean {
-        return hasDetailKey(this.details, "NotExecuted");
+        return this.details?.kind === "NotExecuted";
     }
 
     /** True if the query timed out. */
     get isTimedOut(): boolean {
-        return hasDetailKey(this.details, "TimedOut");
+        return this.details?.kind === "TimedOut";
     }
 
     /** True if the query was cancelled. */
     get isCancelled(): boolean {
-        return hasDetailKey(this.details, "Cancelled");
+        return this.details?.kind === "Cancelled";
     }
 
     /** The timeout duration, if this is a timeout error. Returns `{ secs, nanos }` or undefined. */
     get timeout(): { secs: number; nanos: number } | undefined {
-        const v = getDetailValue(this.details, "TimedOut");
-        if (v && typeof v === "object" && v !== null && "duration" in v) {
-            return (v as { duration: { secs: number; nanos: number } }).duration;
-        }
-        return undefined;
+        if (this.details?.kind !== "TimedOut") return undefined;
+        return this.details.details?.duration;
     }
 }
 
@@ -321,13 +364,14 @@ export class QueryError extends ServerError {
  */
 export class SerializationError extends ServerError {
     override readonly kind = "Serialization" as const;
+    declare readonly details: SerializationErrorDetail | undefined;
     override get name() {
         return "SerializationError";
     }
 
     /** True if this is a deserialization error (as opposed to serialization). */
     get isDeserialization(): boolean {
-        return hasDetailKey(this.details, "Deserialization");
+        return this.details?.kind === "Deserialization";
     }
 }
 
@@ -336,41 +380,36 @@ export class SerializationError extends ServerError {
  */
 export class NotAllowedError extends ServerError {
     override readonly kind = "NotAllowed" as const;
+    declare readonly details: NotAllowedErrorDetail | undefined;
     override get name() {
         return "NotAllowedError";
     }
 
     /** True if the auth token has expired. */
     get isTokenExpired(): boolean {
-        const auth = getDetailValue(this.details, "Auth");
-        return matchesVariant(auth, "TokenExpired");
+        return this.details?.kind === "Auth" && this.details.details?.kind === "TokenExpired";
     }
 
     /** True if authentication credentials are invalid. */
     get isInvalidAuth(): boolean {
-        const auth = getDetailValue(this.details, "Auth");
-        return matchesVariant(auth, "InvalidAuth");
+        return this.details?.kind === "Auth" && this.details.details?.kind === "InvalidAuth";
     }
 
     /** True if scripting is blocked. */
     get isScriptingBlocked(): boolean {
-        return hasDetailKey(this.details, "Scripting");
+        return this.details?.kind === "Scripting";
     }
 
     /** The method name that is not allowed, if applicable. */
     get methodName(): string | undefined {
-        const v = getDetailValue(this.details, "Method");
-        return v && typeof v === "object" && v !== null && "name" in v
-            ? String((v as { name: string }).name)
-            : undefined;
+        if (this.details?.kind !== "Method") return undefined;
+        return this.details.details?.name;
     }
 
     /** The function name that is not allowed, if applicable. */
     get functionName(): string | undefined {
-        const v = getDetailValue(this.details, "Function");
-        return v && typeof v === "object" && v !== null && "name" in v
-            ? String((v as { name: string }).name)
-            : undefined;
+        if (this.details?.kind !== "Function") return undefined;
+        return this.details.details?.name;
     }
 }
 
@@ -379,48 +418,39 @@ export class NotAllowedError extends ServerError {
  */
 export class NotFoundError extends ServerError {
     override readonly kind = "NotFound" as const;
+    declare readonly details: NotFoundErrorDetail | undefined;
     override get name() {
         return "NotFoundError";
     }
 
     /** The table name that was not found, if applicable. */
     get tableName(): string | undefined {
-        const v = getDetailValue(this.details, "Table");
-        return v && typeof v === "object" && v !== null && "name" in v
-            ? String((v as { name: string }).name)
-            : undefined;
+        if (this.details?.kind !== "Table") return undefined;
+        return this.details.details?.name;
     }
 
     /** The record ID that was not found, if applicable. */
     get recordId(): string | undefined {
-        const v = getDetailValue(this.details, "Record");
-        return v && typeof v === "object" && v !== null && "id" in v
-            ? String((v as { id: string }).id)
-            : undefined;
+        if (this.details?.kind !== "Record") return undefined;
+        return this.details.details?.id;
     }
 
     /** The RPC method name that was not found, if applicable. */
     get methodName(): string | undefined {
-        const v = getDetailValue(this.details, "Method");
-        return v && typeof v === "object" && v !== null && "name" in v
-            ? String((v as { name: string }).name)
-            : undefined;
+        if (this.details?.kind !== "Method") return undefined;
+        return this.details.details?.name;
     }
 
     /** The namespace name that was not found, if applicable. */
     get namespaceName(): string | undefined {
-        const v = getDetailValue(this.details, "Namespace");
-        return v && typeof v === "object" && v !== null && "name" in v
-            ? String((v as { name: string }).name)
-            : undefined;
+        if (this.details?.kind !== "Namespace") return undefined;
+        return this.details.details?.name;
     }
 
     /** The database name that was not found, if applicable. */
     get databaseName(): string | undefined {
-        const v = getDetailValue(this.details, "Database");
-        return v && typeof v === "object" && v !== null && "name" in v
-            ? String((v as { name: string }).name)
-            : undefined;
+        if (this.details?.kind !== "Database") return undefined;
+        return this.details.details?.name;
     }
 }
 
@@ -429,24 +459,21 @@ export class NotFoundError extends ServerError {
  */
 export class AlreadyExistsError extends ServerError {
     override readonly kind = "AlreadyExists" as const;
+    declare readonly details: AlreadyExistsErrorDetail | undefined;
     override get name() {
         return "AlreadyExistsError";
     }
 
     /** The record ID that already exists, if applicable. */
     get recordId(): string | undefined {
-        const v = getDetailValue(this.details, "Record");
-        return v && typeof v === "object" && v !== null && "id" in v
-            ? String((v as { id: string }).id)
-            : undefined;
+        if (this.details?.kind !== "Record") return undefined;
+        return this.details.details?.id;
     }
 
     /** The table name that already exists, if applicable. */
     get tableName(): string | undefined {
-        const v = getDetailValue(this.details, "Table");
-        return v && typeof v === "object" && v !== null && "name" in v
-            ? String((v as { name: string }).name)
-            : undefined;
+        if (this.details?.kind !== "Table") return undefined;
+        return this.details.details?.name;
     }
 }
 

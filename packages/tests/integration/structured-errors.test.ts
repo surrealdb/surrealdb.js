@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { satisfies } from "compare-versions";
 import {
     AlreadyExistsError,
     type AnyAuth,
@@ -7,9 +8,10 @@ import {
     ThrownError,
     ValidationError,
 } from "surrealdb";
-import { createSurreal } from "./__helpers__";
+import { createSurreal, requestVersion } from "./__helpers__";
 
-const structured = import.meta.env.SURREAL_STRUCTURED_ERROR_TESTS === "true";
+const version = await requestVersion();
+const structured = satisfies(version, ">=3.0.0");
 
 describe.if(structured)("structured server errors", () => {
     // --------------------------------------------------------- //
@@ -33,10 +35,9 @@ describe.if(structured)("structured server errors", () => {
             expect(e.kind).toBe("NotAllowed");
             expect(e.code).toBe(-32002);
             expect(e.message).toBe("There was a problem with authentication");
-            expect(e.details).toEqual({ Auth: { InvalidAuth: {} } });
+            expect(e.details).toEqual({ kind: "Auth", details: { kind: "InvalidAuth" } });
             expect(e.isInvalidAuth).toBe(true);
             expect(e.isTokenExpired).toBe(false);
-            expect(e.cause).toBeUndefined();
         }
     });
 
@@ -64,7 +65,6 @@ describe.if(structured)("structured server errors", () => {
                     `1 | SEL ECT * FORM person\n` +
                     `  |     ^^^\n`,
             );
-            expect(e.cause).toBeUndefined();
         }
     });
 
@@ -138,7 +138,6 @@ describe.if(structured)("structured server errors", () => {
             expect(e.code).toBe(0);
             expect(e.message).toBe("An error occurred: custom user error");
             expect(e.details).toBeUndefined();
-            expect(e.cause).toBeUndefined();
         }
     });
 
@@ -163,12 +162,11 @@ describe.if(structured)("structured server errors", () => {
             expect(e.kind).toBe("AlreadyExists");
             expect(e.code).toBe(0);
             expect(e.message).toBe("Database record `person:dup` already exists");
-            expect(e.details).toEqual({ Record: { id: "person:dup" } });
+            expect(e.details).toEqual({ kind: "Record", details: { id: "person:dup" } });
 
             const ae = e as AlreadyExistsError;
             expect(ae.recordId).toBe("person:dup");
             expect(ae.tableName).toBeUndefined();
-            expect(e.cause).toBeUndefined();
         }
     });
 
