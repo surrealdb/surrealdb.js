@@ -162,6 +162,17 @@ function getDetailValue(details: Record<string, unknown> | string | null | undef
 }
 
 /**
+ * Checks if a serde variant matches a given key, handling both serialization forms:
+ * - String: `"VariantName"` (unit variant)
+ * - Object: `{ "VariantName": ... }` (struct/newtype variant, possibly empty `{}`)
+ */
+function matchesVariant(value: unknown, key: string): boolean {
+    if (value === key) return true;
+    if (value && typeof value === "object" && value !== null && key in value) return true;
+    return false;
+}
+
+/**
  * Base class for all errors originating from the SurrealDB server.
  * Replaces the former `ResponseError` class.
  *
@@ -314,13 +325,13 @@ export class NotAllowedError extends ServerError {
     /** True if the auth token has expired. */
     get isTokenExpired(): boolean {
         const auth = getDetailValue(this.details, "Auth");
-        return auth === "TokenExpired";
+        return matchesVariant(auth, "TokenExpired");
     }
 
     /** True if authentication credentials are invalid. */
     get isInvalidAuth(): boolean {
         const auth = getDetailValue(this.details, "Auth");
-        return auth === "InvalidAuth";
+        return matchesVariant(auth, "InvalidAuth");
     }
 
     /** True if scripting is blocked. */
