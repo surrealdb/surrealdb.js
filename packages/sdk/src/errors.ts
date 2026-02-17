@@ -146,7 +146,10 @@ export interface ServerErrorOptions {
  * - Unit variants: `"VariantName"` (top-level string)
  * - Struct/newtype variants: `{ "VariantName": ... }` (object key)
  */
-function hasDetailKey(details: Record<string, unknown> | string | null | undefined, key: string): boolean {
+function hasDetailKey(
+    details: Record<string, unknown> | string | null | undefined,
+    key: string,
+): boolean {
     if (details == null) return false;
     if (typeof details === "string") return details === key;
     return key in details;
@@ -156,7 +159,10 @@ function hasDetailKey(details: Record<string, unknown> | string | null | undefin
  * Gets the value under `key` from a details object.
  * Returns `undefined` if the key is not present or details is a string/null.
  */
-function getDetailValue(details: Record<string, unknown> | string | null | undefined, key: string): unknown {
+function getDetailValue(
+    details: Record<string, unknown> | string | null | undefined,
+    key: string,
+): unknown {
     if (details == null || typeof details !== "object") return undefined;
     return details[key];
 }
@@ -233,7 +239,9 @@ export class ServerError extends SurrealError {
  */
 export class ValidationError extends ServerError {
     override readonly kind = "Validation" as const;
-    override get name() { return "ValidationError"; }
+    override get name() {
+        return "ValidationError";
+    }
 
     /** True if this is a SurrealQL parse error. */
     get isParseError(): boolean {
@@ -254,7 +262,9 @@ export class ValidationError extends ServerError {
  */
 export class ConfigurationError extends ServerError {
     override readonly kind = "Configuration" as const;
-    override get name() { return "ConfigurationError"; }
+    override get name() {
+        return "ConfigurationError";
+    }
 
     /** True if live queries are not supported by the server configuration. */
     get isLiveQueryNotSupported(): boolean {
@@ -267,7 +277,9 @@ export class ConfigurationError extends ServerError {
  */
 export class ThrownError extends ServerError {
     override readonly kind = "Thrown" as const;
-    override get name() { return "ThrownError"; }
+    override get name() {
+        return "ThrownError";
+    }
 }
 
 /**
@@ -275,7 +287,9 @@ export class ThrownError extends ServerError {
  */
 export class QueryError extends ServerError {
     override readonly kind = "Query" as const;
-    override get name() { return "QueryError"; }
+    override get name() {
+        return "QueryError";
+    }
 
     /** True if the query was not executed (e.g. due to a prior error in the batch). */
     get isNotExecuted(): boolean {
@@ -307,7 +321,9 @@ export class QueryError extends ServerError {
  */
 export class SerializationError extends ServerError {
     override readonly kind = "Serialization" as const;
-    override get name() { return "SerializationError"; }
+    override get name() {
+        return "SerializationError";
+    }
 
     /** True if this is a deserialization error (as opposed to serialization). */
     get isDeserialization(): boolean {
@@ -320,7 +336,9 @@ export class SerializationError extends ServerError {
  */
 export class NotAllowedError extends ServerError {
     override readonly kind = "NotAllowed" as const;
-    override get name() { return "NotAllowedError"; }
+    override get name() {
+        return "NotAllowedError";
+    }
 
     /** True if the auth token has expired. */
     get isTokenExpired(): boolean {
@@ -361,7 +379,9 @@ export class NotAllowedError extends ServerError {
  */
 export class NotFoundError extends ServerError {
     override readonly kind = "NotFound" as const;
-    override get name() { return "NotFoundError"; }
+    override get name() {
+        return "NotFoundError";
+    }
 
     /** The table name that was not found, if applicable. */
     get tableName(): string | undefined {
@@ -409,7 +429,9 @@ export class NotFoundError extends ServerError {
  */
 export class AlreadyExistsError extends ServerError {
     override readonly kind = "AlreadyExists" as const;
-    override get name() { return "AlreadyExistsError"; }
+    override get name() {
+        return "AlreadyExistsError";
+    }
 
     /** The record ID that already exists, if applicable. */
     get recordId(): string | undefined {
@@ -434,7 +456,9 @@ export class AlreadyExistsError extends ServerError {
  */
 export class InternalError extends ServerError {
     override readonly kind = "Internal" as const;
-    override get name() { return "InternalError"; }
+    override get name() {
+        return "InternalError";
+    }
 }
 
 /**
@@ -628,10 +652,6 @@ export class UnsuccessfulApiError extends SurrealError {
  */
 export class InvalidRecordIdError extends SurrealError {
     override name = "InvalidRecordIdError";
-
-    constructor(message: string) {
-        super(message);
-    }
 }
 
 /**
@@ -639,10 +659,6 @@ export class InvalidRecordIdError extends SurrealError {
  */
 export class InvalidDurationError extends SurrealError {
     override name = "InvalidDurationError";
-
-    constructor(message: string) {
-        super(message);
-    }
 }
 
 /**
@@ -650,10 +666,6 @@ export class InvalidDurationError extends SurrealError {
  */
 export class InvalidDecimalError extends SurrealError {
     override name = "InvalidDecimalError";
-
-    constructor(message: string) {
-        super(message);
-    }
 }
 
 /**
@@ -661,8 +673,4 @@ export class InvalidDecimalError extends SurrealError {
  */
 export class InvalidTableError extends SurrealError {
     override name = "InvalidTableError";
-
-    constructor(message: string) {
-        super(message);
-    }
 }

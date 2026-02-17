@@ -4,16 +4,15 @@ import {
     UnexpectedServerResponseError,
     UnsupportedFeatureError,
 } from "../errors";
-import { parseRpcError } from "../internal/parse-error";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
+import { parseRpcError } from "../internal/parse-error";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
 import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
 import { Features } from "../utils";
 import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
-
 
 const ALWAYS_ALLOW = new Set([
     "use",

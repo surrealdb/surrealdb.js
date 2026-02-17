@@ -16,7 +16,7 @@ import {
 
 // The parse functions are internal, so we test them via the exported types
 // by importing from the internal module directly.
-import { parseRpcError, parseQueryError } from "../../../sdk/src/internal/parse-error";
+import { parseQueryError, parseRpcError } from "../../../sdk/src/internal/parse-error";
 
 // =========================================================== //
 //  Error parsing: new format (kind present)                    //
@@ -457,9 +457,7 @@ describe("parseQueryError", () => {
         expect(err).toBeInstanceOf(InternalError);
         expect(err.kind).toBe("Internal");
         expect(err.code).toBe(0);
-        expect(err.message).toBe(
-            "There was a problem with the database: Table not found",
-        );
+        expect(err.message).toBe("There was a problem with the database: Table not found");
         expect(err.details).toBeUndefined();
     });
 

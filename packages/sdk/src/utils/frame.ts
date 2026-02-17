@@ -88,11 +88,7 @@ export class ErrorFrame<T, J extends boolean> extends Frame<T, J> {
     readonly stats: QueryStats | undefined;
     readonly error: ServerError;
 
-    constructor(
-        query: number,
-        stats: QueryStats | undefined,
-        error: ServerError,
-    ) {
+    constructor(query: number, stats: QueryStats | undefined, error: ServerError) {
         super(query);
         this.stats = stats;
         this.error = error;

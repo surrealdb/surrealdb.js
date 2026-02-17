@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
-    type AnyAuth,
     AlreadyExistsError,
-    InternalError,
+    type AnyAuth,
     NotAllowedError,
     ServerError,
     ThrownError,
@@ -60,10 +59,10 @@ describe.if(structured)("structured server errors", () => {
             expect(e.code).toBe(-32000);
             expect(e.message).toBe(
                 `Parse error: Unexpected token \`an identifier\`, expected Eof\n` +
-                ` --> [1:5]\n` +
-                `  |\n` +
-                `1 | SEL ECT * FORM person\n` +
-                `  |     ^^^\n`,
+                    ` --> [1:5]\n` +
+                    `  |\n` +
+                    `1 | SEL ECT * FORM person\n` +
+                    `  |     ^^^\n`,
             );
             expect(e.cause).toBeUndefined();
         }
@@ -103,9 +102,7 @@ describe.if(structured)("structured server errors", () => {
     test("non-existent function", async () => {
         const surreal = await createSurreal();
 
-        const responses = await surreal
-            .query("RETURN fn::does_not_exist()")
-            .responses();
+        const responses = await surreal.query("RETURN fn::does_not_exist()").responses();
 
         const res = responses[0];
         expect(res.success).toBe(false);
@@ -128,9 +125,7 @@ describe.if(structured)("structured server errors", () => {
     test("user throw", async () => {
         const surreal = await createSurreal();
 
-        const responses = await surreal
-            .query(`THROW "custom user error"`)
-            .responses();
+        const responses = await surreal.query(`THROW "custom user error"`).responses();
 
         const res = responses[0];
         expect(res.success).toBe(false);
@@ -156,9 +151,7 @@ describe.if(structured)("structured server errors", () => {
 
         await surreal.query(`CREATE person:dup SET name = "first"`);
 
-        const responses = await surreal
-            .query(`CREATE person:dup SET name = "second"`)
-            .responses();
+        const responses = await surreal.query(`CREATE person:dup SET name = "second"`).responses();
 
         const res = responses[0];
         expect(res.success).toBe(false);
@@ -207,9 +200,7 @@ describe.if(structured)("structured server errors", () => {
     test("multi-statement responses", async () => {
         const surreal = await createSurreal();
 
-        const responses = await surreal
-            .query(`RETURN 1; THROW "fail"; RETURN 3`)
-            .responses();
+        const responses = await surreal.query(`RETURN 1; THROW "fail"; RETURN 3`).responses();
 
         expect(responses).toHaveLength(3);
 
