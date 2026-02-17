@@ -458,6 +458,23 @@ describe("parseQueryError", () => {
         expect(err.message).toBe("There was a problem with the database: Table not found");
         expect(err.details).toBeUndefined();
     });
+
+    test("unwraps double-wrapped details from query result path", () => {
+        const err = parseQueryError({
+            status: "ERR",
+            time: "1ms",
+            result: "Record already exists",
+            kind: "AlreadyExists",
+            details: {
+                kind: "AlreadyExists",
+                details: { kind: "Record", details: { id: "person:dup" } },
+            },
+        });
+
+        expect(err).toBeInstanceOf(AlreadyExistsError);
+        expect(err.details).toEqual({ kind: "Record", details: { id: "person:dup" } });
+        expect((err as AlreadyExistsError).recordId).toBe("person:dup");
+    });
 });
 
 // =========================================================== //

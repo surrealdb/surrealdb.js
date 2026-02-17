@@ -119,10 +119,28 @@ export function parseRpcError(raw: RpcErrorObject): ServerError {
  * have no `code` field.
  */
 export function parseQueryError(raw: RpcQueryResultErrRaw): ServerError {
+    const kind = resolveKind(raw.kind, undefined);
+    let details = raw.details;
+
+    // Unwrap double-wrapped details: the server's query result path may
+    // serialize the full ErrorDetails object (including its own `kind`)
+    // into the `details` field, even though `kind` is already a separate
+    // top-level field. When `details.kind` matches the error kind, the
+    // actual inner detail is in `details.details`.
+    if (
+        details &&
+        typeof details === "object" &&
+        details.kind === kind &&
+        "details" in details &&
+        typeof details.details === "object"
+    ) {
+        details = details.details as Record<string, unknown>;
+    }
+
     return createServerError({
-        kind: resolveKind(raw.kind, undefined),
+        kind,
         code: 0,
         message: raw.result,
-        details: raw.details,
+        details,
     });
 }
