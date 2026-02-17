@@ -1,3 +1,4 @@
+import { ExpressionError } from "../errors";
 import type { Expr, Output } from "../types";
 import { Duration, RecordId } from "../value";
 
@@ -18,7 +19,7 @@ export const _output = (value: Output): Expr => ({
         const output = OUTPUTS.get(value);
 
         if (!output) {
-            throw new Error(`Invalid output value: ${value}`);
+            throw new ExpressionError(`Invalid output value: ${value}`);
         }
 
         return output;
@@ -28,7 +29,7 @@ export const _output = (value: Output): Expr => ({
 export const _timeout = (timeout: Duration): Expr => ({
     toSQL: () => {
         if (!(timeout instanceof Duration)) {
-            throw new Error(`Invalid timeout value: ${timeout}`);
+            throw new ExpressionError(`Invalid timeout value: ${timeout}`);
         }
 
         return `TIMEOUT ${timeout.toString()}`;

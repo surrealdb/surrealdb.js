@@ -2,6 +2,7 @@ import { ConnectionUnavailableError, UnexpectedServerResponseError } from "../er
 import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
+import { parseQueryError } from "../internal/parse-error";
 import type {
     AccessRecordAuth,
     AnyAuth,
@@ -280,10 +281,7 @@ export abstract class RpcEngine implements SurrealProtocol {
                     chunk.result = [response.result] as T[];
                 }
             } else {
-                chunk.error = {
-                    code: Number(response.result) || 0,
-                    message: String(response.result),
-                };
+                chunk.error = parseQueryError(response);
             }
 
             yield chunk;

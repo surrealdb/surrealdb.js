@@ -1,4 +1,4 @@
-import { InvalidDateError, SurrealError } from "../errors";
+import { InvalidDateError } from "../errors";
 import { Duration } from "./duration";
 import { Value } from "./value";
 
@@ -220,7 +220,7 @@ export class DateTime extends Value {
             return [seconds, nanoseconds];
         }
 
-        throw new SurrealError(`Invalid datetime format: ${input}`);
+        throw new InvalidDateError(`Invalid datetime format: ${input}`);
     }
 
     /**

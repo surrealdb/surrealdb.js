@@ -1,4 +1,4 @@
-import { SurrealError } from "../errors";
+import { InvalidTableError } from "../errors";
 import { escapeIdent } from "../utils";
 import { Value } from "./value";
 
@@ -10,7 +10,7 @@ export class Table<Tb extends string = string> extends Value {
 
     constructor(tb: Tb) {
         super();
-        if (typeof tb !== "string") throw new SurrealError("Table must be a string");
+        if (typeof tb !== "string") throw new InvalidTableError("Table must be a string");
         this.#name = tb;
     }
 

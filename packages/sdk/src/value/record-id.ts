@@ -1,4 +1,4 @@
-import { SurrealError } from "../errors";
+import { InvalidRecordIdError } from "../errors";
 import { isValidIdPart, isValidTable } from "../internal/validation";
 import type { WidenRecordIdValue } from "../types/internal";
 import { equals } from "../utils/equals";
@@ -21,8 +21,8 @@ class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdVa
     constructor(table: Tb | Table<Tb>, id: Id) {
         super();
 
-        if (!isValidTable(table)) throw new SurrealError("tb part is not valid");
-        if (!isValidIdPart(id)) throw new SurrealError("id part is not valid");
+        if (!isValidTable(table)) throw new InvalidRecordIdError("Table part is not valid");
+        if (!isValidIdPart(id)) throw new InvalidRecordIdError("ID part is not valid");
 
         this.#table = table instanceof Table ? table : new Table(table);
         this.#id = id;

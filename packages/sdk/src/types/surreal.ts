@@ -1,3 +1,4 @@
+import type { ServerError } from "../errors";
 import type { Feature } from "../internal/feature";
 import type { ReconnectContext } from "../internal/reconnect";
 import type { BoundQuery } from "../utils";
@@ -292,10 +293,7 @@ export interface QueryChunk<T> {
     stats?: QueryStats;
     result?: T[];
     type?: QueryType;
-    error?: {
-        code: number;
-        message: string;
-    };
+    error?: ServerError;
 }
 
 /**
@@ -314,10 +312,7 @@ export type QueryResponseSuccess<T = unknown> = {
 export type QueryResponseFailure = {
     success: false;
     stats?: QueryStats;
-    error: {
-        code: number;
-        message: string;
-    };
+    error: ServerError;
 };
 
 /**
