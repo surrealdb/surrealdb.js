@@ -93,6 +93,17 @@ export async function requestVersion(): Promise<string> {
     const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "version"]);
     const output = await Bun.readableStreamToText(proc.stdout);
     const match = output.match(VERSION_REGEX);
+
+    console.log(`
+
+requestVersion
+----
+${output}
+----
+${match}
+
+`)
+
     if (!match) {
         throw new Error(`Could not parse SurrealDB version from output: ${output}`);
     }
