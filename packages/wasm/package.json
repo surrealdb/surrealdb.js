@@ -1,7 +1,7 @@
 {
     "name": "@surrealdb/wasm",
-    "version": "2.6.1",
-    "surreal": "2.6.0",
+    "version": "3.0.0",
+    "surreal": "3.0.0",
     "type": "module",
     "license": "Apache-2.0",
     "description": "Emeddable WebAssembly browser engine for SurrealDB",

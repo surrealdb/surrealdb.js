@@ -8,7 +8,6 @@ const ITEXT_STYLE: &'static str = r#"
 	};
 
 	type ConnectionOptions = {
-		strict?: boolean;
 		query_timeout?: number;
 		transaction_timeout?: number;
 		capabilities?: boolean | {

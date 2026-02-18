@@ -1,24 +1,25 @@
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::RwLock as StdRwLock;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 mod options;
 mod types;
 
-use arc_swap::ArcSwap;
-use cbor::Cbor;
+use dashmap::DashMap;
 use futures::StreamExt;
 use options::Options;
 use serde_wasm_bindgen::from_value;
-use surrealdb::dbs::Notification;
-use surrealdb::dbs::Session;
-use surrealdb::kvs::export::Config;
-use surrealdb::kvs::Datastore;
-use surrealdb::rpc::format::cbor;
-use surrealdb::rpc::RpcProtocolV1;
-use surrealdb::rpc::RpcProtocolV2;
-use surrealdb::rpc::{Data, RpcContext};
-use surrealdb::sql::{Object, Value};
-use tokio::sync::Semaphore;
+use surrealdb_core::dbs::Session;
+use surrealdb_core::kvs::export::Config;
+use surrealdb_core::kvs::{Datastore, LockType, Transaction, TransactionType};
+use surrealdb_core::rpc::format::cbor;
+use surrealdb_core::rpc::{DbResult, Request, RpcProtocol};
+use surrealdb_types::Value;
+use surrealdb_types::{Array, HashMap, Notification};
+use tokio::sync::RwLock;
 use types::TsConnectionOptions;
 use uuid::Uuid;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -29,19 +30,38 @@ use web_sys::js_sys::Uint8Array;
 
 pub use crate::err::Error;
 
+/// WASM is single-threaded; the inner future is only ever polled on the main thread.
+/// Safety: This is safe because WASM has no parallelism—the future is never sent across threads.
+struct AssertSend<F>(F);
+impl<F: Future> Future for AssertSend<F> {
+	type Output = F::Output;
+	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+		unsafe { self.map_unchecked_mut(|s| &mut s.0).poll(cx) }
+	}
+}
+unsafe impl<F> Send for AssertSend<F> {}
+
 #[wasm_bindgen]
 pub struct SurrealWasmEngine(SurrealWasmConnection);
 
 #[wasm_bindgen]
 impl SurrealWasmEngine {
 	pub async fn execute(&mut self, data: Uint8Array) -> Result<Uint8Array, Error> {
-		let in_data = cbor::req(data.to_vec()).map_err(|e| e.to_string())?;
-		let res = RpcContext::execute(&self.0, in_data.version, in_data.method, in_data.params)
-			.await
-			.map_err(|e| e.to_string())?;
+		let data = data.to_vec();
+		let obj = cbor::decode(data.as_slice()).map_err(|e| e.to_string())?.into_object()?;
+		let req = Request::from_object(obj)?;
+		let res = RpcProtocol::execute(
+			&self.0,
+			req.txn.map(Into::into),
+			req.session_id.map(Into::into),
+			req.method,
+			req.params,
+		)
+		.await
+		.map_err(|e| e.to_string())?;
 
-		let value: Value = res.try_into()?;
-		let out = cbor::res(value).map_err(|e| e.to_string())?;
+		let value = Value::from_t(res);
+		let out = cbor::encode(value).map_err(|e| e.to_string())?;
 
 		Ok(out.as_slice().into())
 	}
@@ -50,21 +70,10 @@ impl SurrealWasmEngine {
 		let stream = self.0.kvs.notifications().ok_or("Notifications not enabled")?;
 
 		fn process_notification(notification: Notification) -> Result<JsValue, JsValue> {
-			// Construct live message
-			let mut message = Object::default();
-
-			message.insert("id".to_string(), notification.id.into());
-			message.insert("action".to_string(), notification.action.to_string().into());
-			message.insert("record".to_string(), notification.record.into());
-			message.insert("result".to_string(), notification.result);
-
 			// Into CBOR value
-			let cbor: Cbor = Value::Object(message)
-				.try_into()
-				.map_err(|_| JsValue::from_str("Failed to convert notification to CBOR"))?;
+			let value = Value::from_t(notification);
 
-			let mut res = Vec::new();
-			ciborium::into_writer(&cbor.0, &mut res).unwrap();
+			let res = cbor::encode(value).map_err(|e| e.to_string())?;
 			let out_arr: Uint8Array = res.as_slice().into();
 
 			Ok(out_arr.into())
@@ -94,33 +103,49 @@ impl SurrealWasmEngine {
 				.with_transaction_timeout(
 					opts.transaction_timeout.map(|qt| Duration::from_secs(qt as u64)),
 				)
-				.with_query_timeout(opts.query_timeout.map(|qt| Duration::from_secs(qt as u64)))
-				.with_strict_mode(opts.strict.map_or(Default::default(), |s| s)),
+				.with_query_timeout(opts.query_timeout.map(|qt| Duration::from_secs(qt as u64))),
 		};
-
-		let session = Session::default().with_rt(true);
 
 		let connection = SurrealWasmConnection {
 			kvs: Arc::new(kvs),
-			session: ArcSwap::new(Arc::new(session)),
-			lock: Arc::new(Semaphore::new(1)),
+			live_queries: Arc::new(StdRwLock::new(HashMap::new())),
+			transactions: Default::default(),
+			sessions: Default::default(),
 		};
+
+		// Store the default session
+		let session = Session::default().with_rt(true);
+		connection.set_session(None, Arc::new(RwLock::new(session)));
 
 		Ok(SurrealWasmEngine(connection))
 	}
 
-	pub async fn export(&self, config: Option<Uint8Array>) -> Result<String, Error> {
+	pub async fn export(
+		&self,
+		session_id: Option<Uint8Array>,
+		config: Option<Uint8Array>,
+	) -> Result<String, Error> {
 		let (tx, rx) = channel::unbounded();
+		let session_id = session_id
+			.map(|x| Uuid::from_slice(x.to_vec().as_slice()))
+			.transpose()
+			.map_err(|e| e.to_string())?;
+
+		let Some(session) = self.0.sessions.get(&session_id) else {
+			return Err(Error::from("session not found"));
+		};
+
+		let session = session.read().await;
 
 		match config {
 			Some(config) => {
-				let in_config = cbor::parse_value(config.to_vec()).map_err(|e| e.to_string())?;
-				let config = Config::try_from(&in_config).map_err(|e| e.to_string())?;
-
-				self.0.kvs.export_with_config(self.0.session().as_ref(), tx, config).await?.await?;
+				let config = config.to_vec();
+				let config = cbor::decode(config.as_slice())?;
+				let config = config.into_t::<Config>()?;
+				self.0.kvs.export_with_config(&session, tx, config).await?.await?;
 			}
 			None => {
-				self.0.kvs.export(self.0.session().as_ref(), tx).await?.await?;
+				self.0.kvs.export(&session, tx).await?.await?;
 			}
 		};
 
@@ -134,8 +159,19 @@ impl SurrealWasmEngine {
 		Ok(result)
 	}
 
-	pub async fn import(&self, input: String) -> Result<(), Error> {
-		self.0.kvs.import(&input, self.0.session().as_ref()).await?;
+	pub async fn import(&self, session_id: Option<Uint8Array>, input: String) -> Result<(), Error> {
+		let session_id = session_id
+			.map(|x| Uuid::from_slice(x.to_vec().as_slice()))
+			.transpose()
+			.map_err(|e| e.to_string())?;
+
+		let Some(session) = self.0.sessions.get(&session_id) else {
+			return Err(Error::from("session not found"));
+		};
+
+		let session = session.read().await;
+
+		self.0.kvs.import(&input, &session).await?;
 
 		Ok(())
 	}
@@ -147,41 +183,185 @@ impl SurrealWasmEngine {
 
 struct SurrealWasmConnection {
 	pub kvs: Arc<Datastore>,
-	pub lock: Arc<Semaphore>,
-	pub session: ArcSwap<Session>,
+	pub live_queries: Arc<StdRwLock<HashMap<Uuid, Option<Uuid>>>>,
+	pub transactions: DashMap<Uuid, Arc<Transaction>>,
+	pub sessions: HashMap<Option<Uuid>, Arc<RwLock<Session>>>,
 }
 
-impl RpcContext for SurrealWasmConnection {
+impl RpcProtocol for SurrealWasmConnection {
 	fn kvs(&self) -> &Datastore {
 		&self.kvs
 	}
 
-	fn lock(&self) -> Arc<Semaphore> {
-		self.lock.clone()
+	fn version_data(&self) -> DbResult {
+		DbResult::Other(Value::String(format!("surrealdb-{}", env!("SURREALDB_VERSION"))))
 	}
 
-	fn session(&self) -> Arc<Session> {
-		self.session.load_full()
-	}
-
-	fn set_session(&self, session: Arc<Session>) {
-		self.session.store(session);
-	}
-
-	fn version_data(&self) -> Data {
-		Value::Strand(format!("surrealdb-{}", env!("SURREALDB_VERSION")).into()).into()
+	/// A pointer to all active sessions
+	fn session_map(&self) -> &HashMap<Option<Uuid>, Arc<RwLock<Session>>> {
+		&self.sessions
 	}
 
 	const LQ_SUPPORT: bool = true;
 
-	fn handle_live(&self, _lqid: &Uuid) -> impl std::future::Future<Output = ()> + Send {
-		async { () }
+	/// Handles the cleanup of live queries
+	fn cleanup_lqs(&self, session_id: Option<&Uuid>) -> impl Future<Output = ()> + Send {
+		let kvs = Arc::clone(&self.kvs);
+		let live_queries = Arc::clone(&self.live_queries);
+		let session_id = session_id.copied();
+		AssertSend(async move {
+			let mut gc = Vec::new();
+			{
+				let guard = live_queries.write().unwrap();
+				guard.retain(|key, value| {
+					if value.as_ref() == session_id.as_ref() {
+						gc.push(*key);
+						return false;
+					}
+					true
+				});
+			}
+			let _ = kvs.delete_queries(gc).await;
+		})
 	}
 
-	fn handle_kill(&self, _lqid: &Uuid) -> impl std::future::Future<Output = ()> + Send {
-		async { () }
+	/// Handles the cleanup of live queries
+	fn cleanup_all_lqs(&self) -> impl Future<Output = ()> + Send {
+		let kvs = Arc::clone(&self.kvs);
+		let live_queries = Arc::clone(&self.live_queries);
+		AssertSend(async move {
+			let mut gc = Vec::new();
+			{
+				let guard = live_queries.write().unwrap();
+				guard.retain(|key, _| {
+					gc.push(*key);
+					false
+				});
+			}
+			let _ = kvs.delete_queries(gc).await;
+		})
+	}
+
+	fn handle_live(
+		&self,
+		lqid: &Uuid,
+		session_id: Option<Uuid>,
+	) -> impl Future<Output = ()> + Send {
+		let live_queries = Arc::clone(&self.live_queries);
+		let lqid = *lqid;
+		async move {
+			live_queries.write().unwrap().insert(lqid, session_id);
+		}
+	}
+
+	fn handle_kill(&self, lqid: &Uuid) -> impl Future<Output = ()> + Send {
+		let live_queries = Arc::clone(&self.live_queries);
+		let lqid = *lqid;
+		async move {
+			live_queries.write().unwrap().remove(&lqid);
+		}
+	}
+
+	// ------------------------------
+	// Transactions
+	// ------------------------------
+
+	/// Retrieves a transaction by ID
+	async fn get_tx(
+		&self,
+		id: Uuid,
+	) -> Result<Arc<surrealdb_core::kvs::Transaction>, surrealdb_types::Error> {
+		self.transactions
+			.get(&id)
+			.map(|tx| tx.clone())
+			.ok_or_else(|| surrealdb_core::rpc::invalid_params("Transaction not found"))
+	}
+
+	/// Stores a transaction
+	async fn set_tx(
+		&self,
+		id: Uuid,
+		tx: Arc<surrealdb_core::kvs::Transaction>,
+	) -> Result<(), surrealdb_types::Error> {
+		self.transactions.insert(id, tx);
+		Ok(())
+	}
+
+	// ------------------------------
+	// Methods for transactions
+	// ------------------------------
+
+	/// Begin a new transaction
+	async fn begin(
+		&self,
+		_txn: Option<Uuid>,
+		_session_id: Option<Uuid>,
+	) -> Result<DbResult, surrealdb_types::Error> {
+		// Create a new transaction
+		let tx = self
+			.kvs()
+			.transaction(TransactionType::Write, LockType::Optimistic)
+			.await
+			.map_err(surrealdb_core::rpc::types_error_from_anyhow)?;
+		// Generate a unique transaction ID
+		let id = Uuid::now_v7();
+		// Store the transaction in the map
+		self.transactions.insert(id, Arc::new(tx));
+		// Return the transaction ID to the client
+		Ok(DbResult::Other(Value::Uuid(surrealdb_types::Uuid::from(id))))
+	}
+
+	/// Commit a transaction
+	async fn commit(
+		&self,
+		_txn: Option<Uuid>,
+		_session_id: Option<Uuid>,
+		params: Array,
+	) -> Result<DbResult, surrealdb_types::Error> {
+		// Extract the transaction ID from params
+		let mut params_vec = params.into_vec();
+		let Some(Value::Uuid(txn_id)) = params_vec.pop() else {
+			return Err(surrealdb_core::rpc::invalid_params("Expected transaction UUID"));
+		};
+
+		let txn_id = txn_id.into_inner();
+
+		// Retrieve and remove the transaction from the map
+		let Some((_, tx)) = self.transactions.remove(&txn_id) else {
+			return Err(surrealdb_core::rpc::invalid_params("Transaction not found"));
+		};
+
+		// Commit the transaction
+		tx.commit().await.map_err(surrealdb_core::rpc::types_error_from_anyhow)?;
+
+		// Return success
+		Ok(DbResult::Other(Value::None))
+	}
+
+	/// Cancel a transaction
+	async fn cancel(
+		&self,
+		_txn: Option<Uuid>,
+		_session_id: Option<Uuid>,
+		params: Array,
+	) -> Result<DbResult, surrealdb_types::Error> {
+		// Extract the transaction ID from params
+		let mut params_vec = params.into_vec();
+		let Some(Value::Uuid(txn_id)) = params_vec.pop() else {
+			return Err(surrealdb_core::rpc::invalid_params("Expected transaction UUID"));
+		};
+
+		let txn_id = txn_id.into_inner();
+
+		// Retrieve and remove the transaction from the map
+		let Some((_, tx)) = self.transactions.remove(&txn_id) else {
+			return Err(surrealdb_core::rpc::invalid_params("Transaction not found"));
+		};
+
+		// Cancel the transaction
+		tx.cancel().await.map_err(surrealdb_core::rpc::types_error_from_anyhow)?;
+
+		// Return success
+		Ok(DbResult::Other(Value::None))
 	}
 }
-
-impl RpcProtocolV1 for SurrealWasmConnection {}
-impl RpcProtocolV2 for SurrealWasmConnection {}

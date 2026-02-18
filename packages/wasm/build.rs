@@ -9,7 +9,8 @@ fn main() {
 		.find(|p| {
 			let name = p.name.as_str();
 
-			name == "surrealdb" || name == "surrealdb-beta" || name == "surrealdb-alpha"
+			println!("name {name}");
+			name == "surrealdb-core"
 		})
 		.expect("Failed to find surrealdb in Cargo.lock");
 
