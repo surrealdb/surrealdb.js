@@ -120,18 +120,10 @@ impl SurrealWasmEngine {
 		Ok(SurrealWasmEngine(connection))
 	}
 
-	pub async fn export(
-		&self,
-		session_id: Option<Uint8Array>,
-		config: Option<Uint8Array>,
-	) -> Result<String, Error> {
+	pub async fn export(&self, config: Option<Uint8Array>) -> Result<String, Error> {
 		let (tx, rx) = channel::unbounded();
-		let session_id = session_id
-			.map(|x| Uuid::from_slice(x.to_vec().as_slice()))
-			.transpose()
-			.map_err(|e| e.to_string())?;
 
-		let Some(session) = self.0.sessions.get(&session_id) else {
+		let Some(session) = self.0.sessions.get(&None) else {
 			return Err(Error::from("session not found"));
 		};
 
@@ -159,13 +151,8 @@ impl SurrealWasmEngine {
 		Ok(result)
 	}
 
-	pub async fn import(&self, session_id: Option<Uint8Array>, input: String) -> Result<(), Error> {
-		let session_id = session_id
-			.map(|x| Uuid::from_slice(x.to_vec().as_slice()))
-			.transpose()
-			.map_err(|e| e.to_string())?;
-
-		let Some(session) = self.0.sessions.get(&session_id) else {
+	pub async fn import(&self, input: String) -> Result<(), Error> {
+		let Some(session) = self.0.sessions.get(&None) else {
 			return Err(Error::from("session not found"));
 		};
 
@@ -188,6 +175,26 @@ struct SurrealWasmConnection {
 	pub sessions: HashMap<Option<Uuid>, Arc<RwLock<Session>>>,
 }
 
+impl SurrealWasmConnection {
+	/// Runs a sync retain on live_queries, then deletes collected query ids on kvs.
+	/// Wrapped in AssertSend so the future satisfies the trait’s Send bound (WASM is single-threaded).
+	fn cleanup_live_queries_async<F>(&self, retain: F) -> AssertSend<impl Future<Output = ()>>
+	where
+		F: FnOnce(&mut HashMap<Uuid, Option<Uuid>>, &mut Vec<Uuid>) + Send,
+	{
+		let kvs = Arc::clone(&self.kvs);
+		let live_queries = Arc::clone(&self.live_queries);
+		AssertSend(async move {
+			let mut gc = Vec::new();
+			{
+				let mut guard = live_queries.write().unwrap();
+				retain(&mut guard, &mut gc);
+			}
+			let _ = kvs.delete_queries(gc).await;
+		})
+	}
+}
+
 impl RpcProtocol for SurrealWasmConnection {
 	fn kvs(&self) -> &Datastore {
 		&self.kvs
@@ -206,39 +213,26 @@ impl RpcProtocol for SurrealWasmConnection {
 
 	/// Handles the cleanup of live queries
 	fn cleanup_lqs(&self, session_id: Option<&Uuid>) -> impl Future<Output = ()> + Send {
-		let kvs = Arc::clone(&self.kvs);
-		let live_queries = Arc::clone(&self.live_queries);
 		let session_id = session_id.copied();
-		AssertSend(async move {
-			let mut gc = Vec::new();
-			{
-				let guard = live_queries.write().unwrap();
-				guard.retain(|key, value| {
-					if value.as_ref() == session_id.as_ref() {
-						gc.push(*key);
-						return false;
-					}
+		self.cleanup_live_queries_async(move |map, gc| {
+			map.retain(|key, value| {
+				if value.as_ref() == session_id.as_ref() {
+					gc.push(*key);
+					false
+				} else {
 					true
-				});
-			}
-			let _ = kvs.delete_queries(gc).await;
+				}
+			});
 		})
 	}
 
-	/// Handles the cleanup of live queries
+	/// Handles the cleanup of all live queries
 	fn cleanup_all_lqs(&self) -> impl Future<Output = ()> + Send {
-		let kvs = Arc::clone(&self.kvs);
-		let live_queries = Arc::clone(&self.live_queries);
-		AssertSend(async move {
-			let mut gc = Vec::new();
-			{
-				let guard = live_queries.write().unwrap();
-				guard.retain(|key, _| {
-					gc.push(*key);
-					false
-				});
-			}
-			let _ = kvs.delete_queries(gc).await;
+		self.cleanup_live_queries_async(|map, gc| {
+			map.retain(|key, _| {
+				gc.push(*key);
+				false
+			});
 		})
 	}
 

@@ -53,9 +53,17 @@ export function readNotifications(
     return cancel;
 }
 
-export async function initializeLibrary() {
-    const wasmUrl = new URL("../wasm/surrealdb_bg.wasm", import.meta.url);
-    const wasmCode = await (await fetch(wasmUrl)).arrayBuffer();
+let initPromise: ReturnType<typeof init> | undefined;
 
-    await init(wasmCode);
+/**
+ * Initialize the WebAssembly module. Safe to call multiple times; the module
+ * is only initialized once and subsequent calls return the same promise.
+ */
+export async function initializeLibrary(): Promise<void> {
+    if (initPromise === undefined) {
+        const wasmUrl = new URL("../wasm/surrealdb_bg.wasm", import.meta.url);
+        const wasmCode = await (await fetch(wasmUrl)).arrayBuffer();
+        initPromise = init(wasmCode);
+    }
+    await initPromise;
 }
