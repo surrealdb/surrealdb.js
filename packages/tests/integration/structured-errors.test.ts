@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { satisfies } from "compare-versions";
 import {
     AlreadyExistsError,
     type AnyAuth,
@@ -10,10 +9,9 @@ import {
 } from "surrealdb";
 import { createSurreal, requestVersion } from "./__helpers__";
 
-const version = await requestVersion();
-const structured = satisfies(version, ">=3.0.0");
+const { is3x } = await requestVersion();
 
-describe.if(structured)("structured server errors", () => {
+describe.if(is3x)("structured server errors", () => {
     // --------------------------------------------------------- //
     //  Invalid credentials -> NotAllowed + Auth details          //
     // --------------------------------------------------------- //

@@ -1,5 +1,6 @@
 import { rm } from "node:fs/promises";
 import { type Subprocess, sleep } from "bun";
+import { satisfies } from "semver";
 import {
     applyDiagnostics,
     type ConnectOptions,
@@ -89,25 +90,23 @@ export function createAuth(auth: PremadeAuth | SystemAuth): SystemAuth | undefin
  */
 const VERSION_REGEX = /(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)/;
 
-export async function requestVersion(): Promise<string> {
+export async function requestVersion(): Promise<{ version: string; is2x: boolean; is3x: boolean }> {
     const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "version"]);
     const output = await Bun.readableStreamToText(proc.stdout);
     const match = output.match(VERSION_REGEX);
-
-    console.log(`
-
-requestVersion
-----
-${output}
-----
-${match}
-
-`)
-
     if (!match) {
         throw new Error(`Could not parse SurrealDB version from output: ${output}`);
     }
-    return match[1];
+
+    const version = match[1];
+    const is2x = satisfies(version, ">=2.0.0-0 <3.0.0-0", { includePrerelease: true });
+    const is3x = satisfies(version, ">=3.0.0-0 <4.0.0-0", { includePrerelease: true });
+
+    return {
+        version,
+        is2x,
+        is3x,
+    };
 }
 
 /**

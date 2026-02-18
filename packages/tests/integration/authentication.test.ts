@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { satisfies } from "semver";
 import { type AnyAuth, DateTime, RecordId, ServerError, surql } from "surrealdb";
 import {
     createAuth,
@@ -9,10 +8,7 @@ import {
     respawnServer,
 } from "./__helpers__";
 
-const version = await requestVersion();
-const is3x = satisfies(version, ">=3.0.0-alpha.1");
-console.log(version);
-console.log(is3x);
+const { is3x } = await requestVersion();
 
 beforeEach(async () => {
     const surreal = await createSurreal();

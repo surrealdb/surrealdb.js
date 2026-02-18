@@ -1,10 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { satisfies } from "semver";
 import { Features } from "surrealdb";
 import { createSurreal, requestVersion, respawnServer, SURREAL_PROTOCOL } from "./__helpers__";
 
-const version = await requestVersion();
-const is3x = satisfies(version, ">=3.0.0-alpha.1");
+const { is3x } = await requestVersion();
 
 describe.if(is3x && SURREAL_PROTOCOL === "ws")("sessions", async () => {
     test("feature", async () => {

@@ -1,5 +1,4 @@
 import { describe, expect, mock, test } from "bun:test";
-import { satisfies } from "semver";
 import { Features, RecordId } from "surrealdb";
 import {
     createIdleSurreal,
@@ -11,8 +10,7 @@ import {
     VERSION_CHECK,
 } from "./__helpers__";
 
-const version = await requestVersion();
-const is3x = satisfies(version, ">=3.0.0-alpha.1");
+const { is3x } = await requestVersion();
 
 describe("connection", async () => {
     test.todoIf(!VERSION_CHECK)("check version", async () => {
