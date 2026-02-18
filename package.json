@@ -11,6 +11,8 @@
         "build:wasm": "turbo build --filter=@surrealdb/wasm",
         "build:node": "turbo build --filter=@surrealdb/node --",
         "test": "bun run build:sdk && cd packages/tests && bun test --preload ./global.ts",
+        "test:wasm": "bun run build:sdk && bun run build:wasm && cd packages/tests && SURREAL_BACKEND=wasm bun test --preload ./global.ts",
+        "test:node": "bun run build:sdk && bun run build:node && cd packages/tests && SURREAL_BACKEND=node bun test --preload ./global.ts",
         "sync": "turbo sync",
         "deploy:sdk": "turbo deploy --filter surrealdb --",
         "deploy:surreal": "turbo deploy --filter '@surrealdb/*' -- --channel alpha",

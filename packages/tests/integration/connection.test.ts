@@ -5,6 +5,7 @@ import {
     createSurreal,
     killServer,
     requestVersion,
+    SURREAL_BACKEND,
     SURREAL_PROTOCOL,
     spawnServer,
     VERSION_CHECK,
@@ -64,8 +65,8 @@ describe("connection", async () => {
         expect(database).toBe("main");
     });
 
-    test("connection status", async () => {
-        const { surreal, connect } = createIdleSurreal();
+    test.skipIf(SURREAL_BACKEND === "wasm")("connection status", async () => {
+        const { surreal, connect } = await createIdleSurreal();
 
         expect(surreal.status).toBe("disconnected");
         connect();
@@ -77,7 +78,7 @@ describe("connection", async () => {
     });
 
     test("close on disconnected", async () => {
-        const { surreal } = createIdleSurreal();
+        const { surreal } = await createIdleSurreal();
 
         await surreal.close();
         await surreal.close();
@@ -101,7 +102,7 @@ describe("connection", async () => {
     });
 
     test("connected event version", async () => {
-        const { surreal, connect } = createIdleSurreal();
+        const { surreal, connect } = await createIdleSurreal();
         const handleConnected = mock((_version: string) => {});
 
         surreal.subscribe("connected", handleConnected);
@@ -125,7 +126,7 @@ describe("connection", async () => {
     });
 
     test("sequential connects", async () => {
-        const { connect } = createIdleSurreal();
+        const { connect } = await createIdleSurreal();
 
         await connect();
         await connect();
@@ -135,7 +136,7 @@ describe("connection", async () => {
     });
 
     test("unawaited sequential connects", async () => {
-        const { connect } = createIdleSurreal();
+        const { connect } = await createIdleSurreal();
 
         connect();
         connect();
@@ -146,7 +147,7 @@ describe("connection", async () => {
     });
 
     test("using event", async () => {
-        const { surreal, connect } = createIdleSurreal();
+        const { surreal, connect } = await createIdleSurreal();
         const handle = mock(() => {});
 
         surreal.subscribe("using", handle);

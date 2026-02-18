@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach } from "bun:test";
 import { escapeIdent } from "surrealdb";
 import { resetIncrementalID } from "../sdk/src/internal/get-incremental-id";
-import { SURREAL_DB, SURREAL_NS } from "./integration/__helpers__/env";
+import { SURREAL_BACKEND, SURREAL_DB, SURREAL_NS } from "./integration/__helpers__/env";
 import {
     connections,
     createSurreal,
@@ -10,11 +10,15 @@ import {
 } from "./integration/__helpers__/surreal";
 
 beforeAll(async () => {
-    await spawnServer();
+    if (SURREAL_BACKEND === "remote") {
+        await spawnServer();
+    }
 });
 
 afterAll(async () => {
-    await killServer();
+    if (SURREAL_BACKEND === "remote") {
+        await killServer();
+    }
 });
 
 beforeEach(async () => {

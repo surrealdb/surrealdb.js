@@ -4,6 +4,10 @@ import type { Protocol } from "./surreal";
 const port = await getPort();
 if (typeof port !== "number") throw new Error("Could not claim port");
 
+/** "remote" = connect to spawned SurrealDB server; "wasm" | "node" = embedded in-process */
+export const SURREAL_BACKEND: "remote" | "wasm" | "node" =
+	(process.env.SURREAL_BACKEND as "remote" | "wasm" | "node") ?? "remote";
+
 export const SURREAL_EXECUTABLE_PATH: string =
     process.env.SURREAL_EXECUTABLE_PATH || Bun.which("surreal") || "/usr/local/bin/surreal";
 export const SURREAL_PROTOCOL: Protocol =

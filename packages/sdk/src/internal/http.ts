@@ -53,10 +53,13 @@ export async function fetchSurreal(
     throw new HttpConnectionError(dec.decode(buffer), raw.status, raw.statusText, buffer);
 }
 
-export function parseEndpoint(value: string | URL): URL {
-    const url = new URL(value);
+const REMOTE_PROTOCOLS = new Set(["http", "https", "ws", "wss"]);
 
-    if (!url.pathname.endsWith("/rpc")) {
+export function parseEndpoint(value: string | URL): URL {
+    const url = typeof value === "string" ? new URL(value) : new URL(value.href);
+    const protocol = url.protocol.slice(0, -1);
+
+    if (REMOTE_PROTOCOLS.has(protocol) && !url.pathname.endsWith("/rpc")) {
         if (!url.pathname.endsWith("/")) url.pathname += "/";
         url.pathname += "rpc";
     }

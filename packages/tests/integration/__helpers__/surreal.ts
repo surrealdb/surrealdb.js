@@ -7,11 +7,13 @@ import {
     createRemoteEngines,
     type Diagnostic,
     type DriverOptions,
+    type Engines,
     type ReconnectOptions,
     Surreal,
     type SystemAuth,
 } from "surrealdb";
 import {
+    SURREAL_BACKEND,
     SURREAL_BIND,
     SURREAL_DB,
     SURREAL_EXECUTABLE_PATH,
@@ -110,9 +112,10 @@ export async function requestVersion(): Promise<{ version: string; is2x: boolean
 }
 
 /**
- * Spawn a new SurrealDB server.
+ * Spawn a new SurrealDB server. No-op when SURREAL_BACKEND is "wasm" or "node".
  */
 export async function spawnServer(): Promise<void> {
+    if (SURREAL_BACKEND !== "remote") return;
     if (folder || server) {
         throw new Error("Server already running");
     }
@@ -150,9 +153,10 @@ export async function spawnServer(): Promise<void> {
 }
 
 /**
- * Kill an active SurrealDB server.
+ * Kill an active SurrealDB server. No-op when SURREAL_BACKEND is "wasm" or "node".
  */
 export async function killServer(): Promise<void> {
+    if (SURREAL_BACKEND !== "remote") return;
     if (!folder || !server) {
         throw new Error("Server not running");
     }
@@ -171,26 +175,49 @@ export async function killServer(): Promise<void> {
 }
 
 /**
- * Respawn an active SurrealDB server.
+ * Respawn an active SurrealDB server. No-op when SURREAL_BACKEND is "wasm" or "node".
  */
 export async function respawnServer(): Promise<void> {
+    if (SURREAL_BACKEND !== "remote") return;
     await killServer();
     await spawnServer();
+}
+
+let cachedEngines: Engines | null = null;
+
+async function getEngines(wrapDiagnostics?: (d: Diagnostic) => void): Promise<Engines> {
+    if (!cachedEngines) {
+        if (SURREAL_BACKEND === "wasm") {
+            const { createWasmEngines } = await import("@surrealdb/wasm");
+            cachedEngines = createWasmEngines();
+        } else if (SURREAL_BACKEND === "node") {
+            const { createNodeEngines } = await import("@surrealdb/node");
+            cachedEngines = createNodeEngines();
+        } else {
+            cachedEngines = createRemoteEngines();
+        }
+    }
+    return wrapDiagnostics ? applyDiagnostics(cachedEngines, wrapDiagnostics) : cachedEngines;
+}
+
+function getConnectUrl(): string {
+    if (SURREAL_BACKEND === "wasm" || SURREAL_BACKEND === "node") {
+        return "mem://";
+    }
+    return `${SURREAL_PROTOCOL}://127.0.0.1:${SURREAL_PORT}/rpc`;
 }
 
 /**
  * Create an idle SurrealDB connection.
  */
-export function createIdleSurreal({
+export async function createIdleSurreal({
     auth,
     unselected,
     reconnect,
     driverOptions,
     printDiagnostics,
 }: CreateSurrealOptions = {}) {
-    const engines = printDiagnostics
-        ? applyDiagnostics(createRemoteEngines(), printDiagnostic)
-        : createRemoteEngines();
+    const engines = await getEngines(printDiagnostics ? printDiagnostic : undefined);
 
     const surreal = new Surreal({
         ...driverOptions,
@@ -203,11 +230,13 @@ export function createIdleSurreal({
     connections.push(surreal);
 
     const connect = (custom?: ConnectOptions) => {
-        return surreal.connect(`${SURREAL_PROTOCOL}://127.0.0.1:${SURREAL_PORT}/rpc`, {
+        return surreal.connect(getConnectUrl(), {
             namespace: unselected ? undefined : SURREAL_NS,
             database: unselected ? undefined : SURREAL_DB,
             authentication: createAuth(auth ?? "root"),
             reconnect,
+            // Embedded (wasm/node) may report version in a different format; skip check to avoid connect failure
+            versionCheck: SURREAL_BACKEND === "remote",
             ...custom,
         });
     };
@@ -219,7 +248,7 @@ export function createIdleSurreal({
  * Create a new SurrealDB connection.
  */
 export async function createSurreal(opts: CreateSurrealOptions = {}) {
-    const { surreal, connect } = createIdleSurreal(opts);
+    const { surreal, connect } = await createIdleSurreal(opts);
     await connect();
     return surreal;
 }

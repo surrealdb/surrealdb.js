@@ -127,7 +127,7 @@ describe("record auth", async () => {
 
 describe("session renewal", async () => {
     test("basic", async () => {
-        const { connect } = createIdleSurreal({
+        const { connect } = await createIdleSurreal({
             auth: "none",
         });
 
@@ -148,7 +148,7 @@ describe("session renewal", async () => {
     });
 
     test("invalidateOnExpiry", async () => {
-        const { surreal, connect } = createIdleSurreal({
+        const { surreal, connect } = await createIdleSurreal({
             auth: "none",
         });
 
@@ -173,7 +173,7 @@ describe("session renewal", async () => {
     });
 
     test("reuse existing access", async () => {
-        const { surreal, connect } = createIdleSurreal({
+        const { surreal, connect } = await createIdleSurreal({
             auth: "none",
         });
 
@@ -196,7 +196,7 @@ describe("session renewal", async () => {
     });
 
     test("null result", async () => {
-        const { surreal, connect } = createIdleSurreal({
+        const { surreal, connect } = await createIdleSurreal({
             auth: "none",
         });
 
