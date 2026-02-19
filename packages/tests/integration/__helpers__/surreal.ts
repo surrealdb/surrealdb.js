@@ -24,7 +24,7 @@ import {
     SURREAL_USER,
 } from "./env.ts";
 
-export type Protocol = "http" | "ws";
+export type Protocol = "http" | "ws" | "mem";
 export type PremadeAuth = "root" | "invalid" | "none";
 export type IdleSurreal = {
     surreal: Surreal;
@@ -189,7 +189,7 @@ type GlobalThis = typeof globalThis & {
 
 let cachedEngines: Engines | null = null;
 
-async function getEngines(wrapDiagnostics?: (d: Diagnostic) => void): Promise<Engines> {
+export async function getEngines(wrapDiagnostics?: (d: Diagnostic) => void): Promise<Engines> {
     if (!cachedEngines) {
         const engines = (globalThis as GlobalThis).embeddedEngines;
         if (engines) {
@@ -203,7 +203,7 @@ async function getEngines(wrapDiagnostics?: (d: Diagnostic) => void): Promise<En
 }
 
 function getConnectUrl(): string {
-    if (SURREAL_BACKEND === "wasm" || SURREAL_BACKEND === "node") {
+    if (SURREAL_PROTOCOL === "mem") {
         return "mem://";
     }
     return `${SURREAL_PROTOCOL}://127.0.0.1:${SURREAL_PORT}/rpc`;

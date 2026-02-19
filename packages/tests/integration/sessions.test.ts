@@ -4,7 +4,7 @@ import { createSurreal, requestVersion, respawnServer, SURREAL_PROTOCOL } from "
 
 const { is3x } = await requestVersion();
 
-describe.if(is3x && SURREAL_PROTOCOL === "ws")("sessions", async () => {
+describe.if(is3x && (SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem"))("sessions", async () => {
     test("feature", async () => {
         const surreal = await createSurreal();
 

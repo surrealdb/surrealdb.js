@@ -44,22 +44,6 @@ exports[`diagnostics diagnostic events 1`] = `
   {
     "key": Uuid {},
     "phase": "before",
-    "type": "signin",
-  },
-  {
-    "duration": Duration {},
-    "key": Uuid {},
-    "phase": "after",
-    "result": {
-      "session": undefined,
-      "variant": "system_user",
-    },
-    "success": true,
-    "type": "signin",
-  },
-  {
-    "key": Uuid {},
-    "phase": "before",
     "type": "version",
   },
   {

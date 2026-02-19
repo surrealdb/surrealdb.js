@@ -7,6 +7,7 @@ import {
     Features,
     type LiveAction,
     type LiveMessage,
+    parseRpcError,
     Publisher,
     type RecordId,
     RpcEngine,
@@ -45,7 +46,12 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         this.#options = options;
     }
 
-    features = new Set([Features.LiveQueries]);
+    features = new Set([
+        Features.LiveQueries,
+        Features.Sessions,
+        Features.Transactions,
+        Features.Api,
+    ]);
 
     open(state: ConnectionState): void {
         this.#abort?.abort();
@@ -100,7 +106,13 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         const payload = this._context.codecs.cbor.encode({ id, ...request });
 
         const response = await this.#broker.execute(payload);
-        return this._context.codecs.cbor.decode<Result>(response);
+        const decoded = this._context.codecs.cbor.decode<Record<string, unknown>>(response);
+
+        if (decoded && typeof decoded === "object" && "error" in decoded) {
+            throw parseRpcError(decoded.error as { code: number; message: string; kind?: string; details?: Record<string, unknown> });
+        }
+
+        return decoded as Result;
     }
 
     override async importSql(data: string): Promise<void> {

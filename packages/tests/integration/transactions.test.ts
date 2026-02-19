@@ -9,7 +9,7 @@ interface Person {
     name: string;
 }
 
-describe.if(is3x && SURREAL_PROTOCOL === "ws")("transactions", async () => {
+describe.if(is3x && (SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem"))("transactions", async () => {
     test("feature", async () => {
         const surreal = await createSurreal();
 

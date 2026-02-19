@@ -12,12 +12,12 @@ import {
 } from "./worker-contract";
 
 let instance: SurrealWasmEngine | undefined;
-let cancelNotifications: (() => void) | undefined;
+let cancelNotifications: (() => Promise<void>) | undefined;
 let abortController: AbortController | undefined;
 
 async function handleConnect(request: ConnectRequest): Promise<void> {
-    cancelNotifications?.();
     abortController?.abort();
+    await cancelNotifications?.();
     instance?.free();
 
     await initializeLibrary();
@@ -61,10 +61,10 @@ async function handleExportSql(request: ExportSqlRequest): Promise<string> {
     return instance.export(request.options);
 }
 
-function handleClose(): void {
-    cancelNotifications?.();
-    cancelNotifications = undefined;
+async function handleClose(): Promise<void> {
     abortController?.abort();
+    await cancelNotifications?.();
+    cancelNotifications = undefined;
     abortController = undefined;
     instance?.free();
     instance = undefined;
@@ -99,7 +99,7 @@ self.addEventListener("message", async (event) => {
             }
 
             case RequestType.CLOSE: {
-                handleClose();
+                await handleClose();
                 result = undefined;
                 break;
             }

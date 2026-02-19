@@ -11,6 +11,7 @@ export const SURREAL_BACKEND: "remote" | "wasm" | "node" =
 export const SURREAL_EXECUTABLE_PATH: string =
     process.env.SURREAL_EXECUTABLE_PATH || Bun.which("surreal") || "/usr/local/bin/surreal";
 export const SURREAL_PROTOCOL: Protocol =
+SURREAL_BACKEND === "wasm" || SURREAL_BACKEND === "node" ? "mem" :
     import.meta.env.SURREAL_PROTOCOL === "http" ? "http" : "ws";
 export const SURREAL_PORT: string = port.toString();
 export const SURREAL_BIND: string = `0.0.0.0:${SURREAL_PORT}`;

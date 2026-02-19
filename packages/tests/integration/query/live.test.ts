@@ -7,10 +7,13 @@ import {
     personTable,
     proto,
     respawnServer,
+    SURREAL_BACKEND,
     SURREAL_PROTOCOL,
 } from "../__helpers__";
 
-describe.if(SURREAL_PROTOCOL === "ws")("live() / liveOf()", async () => {
+const isRemote = SURREAL_BACKEND === "remote";
+
+describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")("live() / liveOf()", async () => {
     test("subscription properties", async () => {
         const surreal = await createSurreal({
             reconnect: {
@@ -29,7 +32,7 @@ describe.if(SURREAL_PROTOCOL === "ws")("live() / liveOf()", async () => {
         expect(subscription.isAlive).toBeFalse();
     });
 
-    test.todo("create action", async () => {
+    test("create action", async () => {
         const surreal = await createSurreal({
             reconnect: {
                 enabled: true,
@@ -64,13 +67,17 @@ describe.if(SURREAL_PROTOCOL === "ws")("live() / liveOf()", async () => {
         await subscription.kill();
     });
 
-    test.todo("update action", async () => {
+    test("update action", async () => {
         const surreal = await createSurreal({
             reconnect: {
                 enabled: true,
             },
         });
         await insertMockRecords(surreal);
+        await surreal.create(new RecordId("person", 3)).content({
+            firstname: "John",
+            lastname: "Doe",
+        });
         const subscription = await surreal.live(personTable);
         const { promise, resolve } = Promise.withResolvers();
         const mockHandler = mock(() => resolve());
@@ -101,13 +108,18 @@ describe.if(SURREAL_PROTOCOL === "ws")("live() / liveOf()", async () => {
         await subscription.kill();
     });
 
-    test.todo("delete action", async () => {
+    test("delete action", async () => {
         const surreal = await createSurreal({
             reconnect: {
                 enabled: true,
             },
         });
         await insertMockRecords(surreal);
+        await surreal.create(new RecordId("person", 3)).content({
+            firstname: "John",
+            lastname: "Doe",
+            age: 20,
+        });
         const subscription = await surreal.live(personTable);
         const { promise, resolve } = Promise.withResolvers();
         const mockHandler = mock(() => resolve());
@@ -134,7 +146,7 @@ describe.if(SURREAL_PROTOCOL === "ws")("live() / liveOf()", async () => {
         await subscription.kill();
     });
 
-    test.todo("reconnect and resume", async () => {
+    test.skipIf(!isRemote)("reconnect and resume", async () => {
         const surreal = await createSurreal({
             reconnect: {
                 enabled: true,
@@ -180,7 +192,7 @@ describe.if(SURREAL_PROTOCOL === "ws")("live() / liveOf()", async () => {
         expect(subscription.isAlive).toBeFalse();
     });
 
-    test.todo("unmanaged subscription properties", async () => {
+    test("unmanaged subscription properties", async () => {
         const surreal = await createSurreal({
             reconnect: {
                 enabled: true,
@@ -199,7 +211,7 @@ describe.if(SURREAL_PROTOCOL === "ws")("live() / liveOf()", async () => {
         expect(subscription.isAlive).toBeFalse();
     });
 
-    test.todo("unmanaged create action", async () => {
+    test("unmanaged create action", async () => {
         const surreal = await createSurreal({
             reconnect: {
                 enabled: true,
@@ -235,7 +247,7 @@ describe.if(SURREAL_PROTOCOL === "ws")("live() / liveOf()", async () => {
         await subscription.kill();
     });
 
-    test.todo("iterable", async () => {
+    test("iterable", async () => {
         const surreal = await createSurreal({
             reconnect: {
                 enabled: true,
@@ -273,7 +285,7 @@ describe.if(SURREAL_PROTOCOL === "ws")("live() / liveOf()", async () => {
         expect(messages[2].action).toEqual("DELETE");
     });
 
-    test.todo("iterable survives reconnect", async () => {
+    test.skipIf(!isRemote)("iterable survives reconnect", async () => {
         const surreal = await createSurreal({
             reconnect: {
                 enabled: true,

@@ -15,6 +15,11 @@ opt-level = 'z'
 panic = 'abort'
 codegen-units = 1
 
+[profile.release-debug]
+inherits = "release"
+strip = false
+panic = 'unwind'
+
 [lib]
 path = "src-rust/lib.rs"
 name = "surrealdb"
@@ -23,24 +28,26 @@ crate-type = ["cdylib", "rlib"]
 [features]
 kv-indxdb = ["surrealdb-core/kv-indxdb"]
 kv-mem = ["surrealdb-core/kv-mem"]
+debug = ["dep:console_error_panic_hook"]
 
 [dependencies]
-surrealdb-core = { version = "3.0.0", default-features = false, features = [
+surrealdb-core = { path = "../../../surrealdb/surrealdb/core", default-features = false, features = [
     "http",
 ] }
-surrealdb-types = { version = "3.0.0", default-features = false }
+surrealdb-types = { path = "../../../surrealdb/surrealdb/types", default-features = false }
 futures = "0.3.30"
 serde = { version = "1.0.197", features = ["derive"] }
 serde-wasm-bindgen = "0.6.5"
 uuid = "1.8.0"
-wasm-bindgen = "0.2.105"
-wasm-bindgen-futures = "0.4.51"
+wasm-bindgen = "0.2.108"
+wasm-bindgen-futures = "0.4.58"
 wasm-streams = "0.5.0"
-web-sys = { version = "0.3.69", features = ["console"] }
+web-sys = { version = "0.3.85", features = ["console"] }
 channel = { version = "2.3.1", package = "async-channel" }
 tokio = "1.43.0"
 dashmap = "6.1.0"
 anyhow = "1.0.101"
+console_error_panic_hook = { version = "0.1", optional = true }
 
 [build-dependencies]
 cargo-lock = "10.0.1"

@@ -1,19 +1,8 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`relate() compile: query-ws 1`] = `"RELATE  ONLY $bind__4->$bind__5->$bind__6 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__7"`;
+exports[`relate() compile: query-mem 1`] = `"RELATE  ONLY $bind__3->$bind__4->$bind__5 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__6"`;
 
-exports[`relate() compile: bindings-ws 1`] = `
-{
-  "bind__4": RecordId {},
-  "bind__5": Table {},
-  "bind__6": RecordId {},
-  "bind__7": DateTime {},
-}
-`;
-
-exports[`relate() compile: query-http 1`] = `"RELATE  ONLY $bind__3->$bind__4->$bind__5 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__6"`;
-
-exports[`relate() compile: bindings-http 1`] = `
+exports[`relate() compile: bindings-mem 1`] = `
 {
   "bind__3": RecordId {},
   "bind__4": Table {},

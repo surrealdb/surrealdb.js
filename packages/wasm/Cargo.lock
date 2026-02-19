@@ -574,6 +574,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "console_error_panic_hook"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3276,7 +3286,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3381,7 +3391,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b55fb86dfd3a2f5f76ea78310a88f96c4ea21a3031f8d212443d56123fd0521"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3648,9 +3658,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "surrealdb-core"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "225816a998dff5f898b72925494487877dd42fdef9985799433801e5ea8113c8"
+version = "3.1.0-alpha"
 dependencies = [
  "addr",
  "affinitypool",
@@ -3728,7 +3736,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
- "trice",
  "ulid",
  "unicase",
  "url",
@@ -3736,6 +3743,7 @@ dependencies = [
  "vart",
  "wasm-bindgen-futures",
  "wasmtimer",
+ "web-time",
 ]
 
 [[package]]
@@ -3764,9 +3772,7 @@ dependencies = [
 
 [[package]]
 name = "surrealdb-types"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72231b6b94c1dbd6e2453c50266c679eb621701cd01cb8f8fc32923d3ce0a217"
+version = "3.1.0-alpha"
 dependencies = [
  "anyhow",
  "bytes",
@@ -3790,9 +3796,7 @@ dependencies = [
 
 [[package]]
 name = "surrealdb-types-derive"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef7818b988bb8a8d424751ba5c0fe6aabf3e41dc26fbc8a922803c1615ae641b"
+version = "3.1.0-alpha"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3806,6 +3810,7 @@ dependencies = [
  "anyhow",
  "async-channel",
  "cargo-lock",
+ "console_error_panic_hook",
  "dashmap",
  "futures",
  "serde",
@@ -3822,9 +3827,9 @@ dependencies = [
 
 [[package]]
 name = "surrealmx"
-version = "0.17.0"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "703077c9f8bdce4053dce39c5f5ef71b79b8fffe1e59dbd629b455340586814e"
+checksum = "6508449a7d1379a92a51ba49391b48ccab0b60dd11a4277c0dda965d8c99dbff"
 dependencies = [
  "arc-swap",
  "bincode",
@@ -3839,6 +3844,7 @@ dependencies = [
  "smallvec",
  "thiserror 2.0.18",
  "tracing",
+ "web-time",
 ]
 
 [[package]]
@@ -3913,7 +3919,7 @@ dependencies = [
  "getrandom 0.4.1",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

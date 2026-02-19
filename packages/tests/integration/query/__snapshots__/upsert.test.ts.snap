@@ -1,21 +1,8 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`upsert() compile: query-ws 1`] = `"UPSERT ONLY $bind__4 CONTENT $bind__5 WHERE age = $bind__6 RETURN DIFF TIMEOUT TIMEOUT 1s"`;
+exports[`upsert() compile: query-mem 1`] = `"UPSERT ONLY $bind__3 CONTENT $bind__4 WHERE age = $bind__5 RETURN DIFF TIMEOUT TIMEOUT 1s"`;
 
-exports[`upsert() compile: bindings-ws 1`] = `
-{
-  "bind__4": RecordId {},
-  "bind__5": {
-    "firstname": "John",
-    "lastname": "Doe",
-  },
-  "bind__6": 30,
-}
-`;
-
-exports[`upsert() compile: query-http 1`] = `"UPSERT ONLY $bind__3 CONTENT $bind__4 WHERE age = $bind__5 RETURN DIFF TIMEOUT TIMEOUT 1s"`;
-
-exports[`upsert() compile: bindings-http 1`] = `
+exports[`upsert() compile: bindings-mem 1`] = `
 {
   "bind__3": RecordId {},
   "bind__4": {

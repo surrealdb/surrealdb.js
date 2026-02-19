@@ -8,6 +8,39 @@ pub struct Options {
 	pub query_timeout: Option<u8>,
 	pub transaction_timeout: Option<u8>,
 	pub capabilities: Option<CapabilitiesConfig>,
+	pub defaults: Option<DefaultsConfig>,
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(untagged)]
+pub enum DefaultsConfig {
+	Bool(bool),
+	Config {
+		namespace: Option<String>,
+		database: Option<String>,
+	},
+}
+
+impl Default for DefaultsConfig {
+	fn default() -> Self {
+		DefaultsConfig::Bool(true)
+	}
+}
+
+impl DefaultsConfig {
+	pub fn get_defaults(self) -> Option<(String, String)> {
+		match self {
+			DefaultsConfig::Bool(false) => None,
+			DefaultsConfig::Bool(true) => Some(("main".to_string(), "main".to_string())),
+			DefaultsConfig::Config {
+				namespace,
+				database,
+			} => Some((
+				namespace.unwrap_or("main".to_string()),
+				database.unwrap_or("main".to_string()),
+			)),
+		}
+	}
 }
 
 #[derive(Deserialize)]

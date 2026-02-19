@@ -60,12 +60,13 @@ describe("connection", async () => {
         });
 
         const { namespace, database } = await surreal.use();
+        console.log(namespace, database);
 
         expect(namespace).toBe("main");
         expect(database).toBe("main");
     });
 
-    test.skipIf(SURREAL_BACKEND === "wasm")("connection status", async () => {
+    test("connection status", async () => {
         const { surreal, connect } = await createIdleSurreal();
 
         expect(surreal.status).toBe("disconnected");
@@ -115,7 +116,7 @@ describe("connection", async () => {
         expect(handleConnected).toHaveBeenCalledWith(version);
     });
 
-    test("access token", async () => {
+    test.skipIf(SURREAL_PROTOCOL === "mem")("access token", async () => {
         const surreal = await createSurreal({
             unselected: true,
         });

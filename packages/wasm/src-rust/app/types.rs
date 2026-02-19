@@ -18,6 +18,10 @@ const ITEXT_STYLE: &'static str = r#"
 			network_targets?: boolean | string[] | CapabilitiesAllowDenyList;
 			experimental?: boolean | string[] | CapabilitiesAllowDenyList;
 		}
+		defaults?: false | {
+			namespace?: string;
+			database?: string;
+		};
 	}
 "#;
 

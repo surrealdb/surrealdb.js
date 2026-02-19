@@ -1,14 +1,21 @@
 use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::RwLock as StdRwLock;
-use std::task::{Context, Poll};
 use std::time::Duration;
 
 mod options;
 mod types;
 
+macro_rules! wasm_trace {
+	($($arg:tt)*) => {
+		#[cfg(feature = "debug")]
+		web_sys::console::log_1(&format!($($arg)*).into());
+	};
+}
+
+pub use crate::err::Error;
 use dashmap::DashMap;
+use futures::channel::oneshot;
 use futures::StreamExt;
 use options::Options;
 use serde_wasm_bindgen::from_value;
@@ -20,33 +27,24 @@ use surrealdb_core::rpc::{DbResult, Request, RpcProtocol};
 use surrealdb_types::Value;
 use surrealdb_types::{Array, HashMap, Notification};
 use tokio::sync::RwLock;
-use types::TsConnectionOptions;
 use uuid::Uuid;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::JsValue;
+use wasm_bindgen_futures::spawn_local;
 use wasm_streams::readable::sys;
 use wasm_streams::ReadableStream;
 use web_sys::js_sys::Uint8Array;
-
-pub use crate::err::Error;
-
-/// WASM is single-threaded; the inner future is only ever polled on the main thread.
-/// Safety: This is safe because WASM has no parallelism—the future is never sent across threads.
-struct AssertSend<F>(F);
-impl<F: Future> Future for AssertSend<F> {
-	type Output = F::Output;
-	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-		unsafe { self.map_unchecked_mut(|s| &mut s.0).poll(cx) }
-	}
-}
-unsafe impl<F> Send for AssertSend<F> {}
 
 #[wasm_bindgen]
 pub struct SurrealWasmEngine(SurrealWasmConnection);
 
 #[wasm_bindgen]
 impl SurrealWasmEngine {
-	pub async fn execute(&mut self, data: Uint8Array) -> Result<Uint8Array, Error> {
+	/// Takes `&self` so the wasm_bindgen trampoline does not require exclusive access.
+	/// Using `&mut self` here causes "Unreachable code" panics when the engine is still
+	/// considered borrowed (e.g. by the notification stream or async completion), before
+	/// the function body runs.
+	pub async fn execute(&self, data: Uint8Array) -> Result<Uint8Array, Error> {
 		let data = data.to_vec();
 		let obj = cbor::decode(data.as_slice()).map_err(|e| e.to_string())?.into_object()?;
 		let req = Request::from_object(obj)?;
@@ -57,13 +55,21 @@ impl SurrealWasmEngine {
 			req.method,
 			req.params,
 		)
-		.await
-		.map_err(|e| e.to_string())?;
+		.await;
 
-		let value = Value::from_t(res);
-		let out = cbor::encode(value).map_err(|e| e.to_string())?;
-
-		Ok(out.as_slice().into())
+		match res {
+			Ok(result) => {
+				let value = Value::from_t(result);
+				let out = cbor::encode(value).map_err(|e| e.to_string())?;
+				Ok(out.as_slice().into())
+			}
+			Err(rpc_err) => {
+				let mut envelope = surrealdb_types::Object::default();
+				envelope.insert("error".to_string(), Value::from_t(rpc_err));
+				let out = cbor::encode(Value::Object(envelope)).map_err(|e| e.to_string())?;
+				Ok(out.as_slice().into())
+			}
+		}
 	}
 
 	pub fn notifications(&self) -> Result<sys::ReadableStream, Error> {
@@ -84,17 +90,27 @@ impl SurrealWasmEngine {
 		Ok(ReadableStream::from_stream(response).into_raw())
 	}
 
-	pub async fn connect(
-		endpoint: String,
-		opts: Option<TsConnectionOptions>,
-	) -> Result<SurrealWasmEngine, Error> {
+	pub async fn connect(endpoint: String, opts: JsValue) -> Result<SurrealWasmEngine, Error> {
 		let endpoint = match &endpoint {
 			s if s.starts_with("mem:") => "memory",
 			s => s,
 		};
 
-		let kvs = Datastore::new(endpoint).await?.with_notifications();
-		let kvs = match from_value::<Option<Options>>(JsValue::from(opts))? {
+		// Avoid from_value(undefined): that path can trigger a wasm_bindgen closure that panics
+		// (Unreachable) when used with panic=abort. Handle undefined/null explicitly.
+		let opts: Option<Options> = if opts.is_undefined() || opts.is_null() {
+			None
+		} else {
+			Some(from_value::<Options>(opts)?)
+		};
+		let defaults = opts.as_ref().and_then(|o| o.defaults.clone()).unwrap_or_default();
+
+		wasm_trace!("[wasm] creating datastore at {endpoint}");
+		let kvs = Datastore::new(endpoint).await?;
+		wasm_trace!("[wasm] enabling notifications");
+		let kvs = kvs.with_notifications();
+		wasm_trace!("[wasm] configuring datastore");
+		let kvs = match opts {
 			None => kvs,
 			Some(opts) => kvs
 				.with_capabilities(
@@ -106,6 +122,19 @@ impl SurrealWasmEngine {
 				.with_query_timeout(opts.query_timeout.map(|qt| Duration::from_secs(qt as u64))),
 		};
 
+		wasm_trace!("[wasm] checking version");
+		let (_, is_new) = kvs.check_version().await?;
+		wasm_trace!("[wasm] version checked, is_new={is_new}");
+
+		if is_new {
+			if let Some(defaults) = defaults.get_defaults() {
+				wasm_trace!("[wasm] initialising defaults");
+				kvs.initialise_defaults(&defaults.0, &defaults.1).await?;
+				wasm_trace!("[wasm] defaults initialised");
+			}
+		}
+
+		wasm_trace!("[wasm] creating connection");
 		let connection = SurrealWasmConnection {
 			kvs: Arc::new(kvs),
 			live_queries: Arc::new(StdRwLock::new(HashMap::new())),
@@ -178,20 +207,25 @@ struct SurrealWasmConnection {
 impl SurrealWasmConnection {
 	/// Runs a sync retain on live_queries, then deletes collected query ids on kvs.
 	/// Wrapped in AssertSend so the future satisfies the trait’s Send bound (WASM is single-threaded).
-	fn cleanup_live_queries_async<F>(&self, retain: F) -> AssertSend<impl Future<Output = ()>>
+	fn cleanup_live_queries_async<F>(&self, retain: F) -> impl Future<Output = ()> + Send
 	where
 		F: FnOnce(&mut HashMap<Uuid, Option<Uuid>>, &mut Vec<Uuid>) + Send,
 	{
 		let kvs = Arc::clone(&self.kvs);
 		let live_queries = Arc::clone(&self.live_queries);
-		AssertSend(async move {
-			let mut gc = Vec::new();
-			{
-				let mut guard = live_queries.write().unwrap();
-				retain(&mut guard, &mut gc);
-			}
+		let mut gc = Vec::new();
+		{
+			let mut guard = live_queries.write().unwrap();
+			retain(&mut guard, &mut gc);
+		}
+		let (tx, rx) = oneshot::channel();
+		spawn_local(async move {
 			let _ = kvs.delete_queries(gc).await;
-		})
+			let _ = tx.send(());
+		});
+		async move {
+			let _ = rx.await;
+		}
 	}
 }
 

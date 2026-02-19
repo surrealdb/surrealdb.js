@@ -22,15 +22,23 @@ export function readNotifications(
     engine: SurrealWasmEngine,
     handle: (data: Uint8Array) => void,
     signal?: AbortSignal,
-): () => void {
+): () => Promise<void> {
     let cancelled = false;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+    let resolveExited: (() => void) | undefined;
+    const exitedPromise = new Promise<void>((resolve) => {
+        resolveExited = resolve;
+    });
+
     const cancel = () => {
         cancelled = true;
+        reader?.cancel().catch(() => {});
+        return exitedPromise;
     };
 
     (async () => {
         try {
-            const reader = engine.notifications().getReader();
+            reader = engine.notifications().getReader();
 
             while (!cancelled && !signal?.aborted) {
                 const { done, value } = await reader.read();
@@ -47,6 +55,8 @@ export function readNotifications(
             }
         } catch {
             // There is no way to handle errors here, so we just ignore them
+        } finally {
+            resolveExited?.();
         }
     })();
 
