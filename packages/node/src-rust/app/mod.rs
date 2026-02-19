@@ -54,7 +54,10 @@ impl SurrealNodeEngine {
 	pub async fn execute(&self, data: Uint8Array) -> std::result::Result<Uint8Array, Error> {
 		let lock = self.0.read().await;
 		let engine = lock.as_ref().unwrap();
-		let obj = cbor::decode(data.to_vec().as_slice()).map_err(err_map)?.into_object().map_err(err_map)?;
+		let obj = cbor::decode(data.to_vec().as_slice())
+			.map_err(err_map)?
+			.into_object()
+			.map_err(err_map)?;
 		let req = Request::from_object(obj).map_err(err_map)?;
 		let res = RpcProtocol::execute(
 			engine,
@@ -308,10 +311,7 @@ impl RpcProtocol for SurrealNodeConnection {
 	// ------------------------------
 
 	/// Retrieves a transaction by ID
-	async fn get_tx(
-		&self,
-		id: Uuid,
-	) -> TxResult<Arc<surrealdb_core::kvs::Transaction>> {
+	async fn get_tx(&self, id: Uuid) -> TxResult<Arc<surrealdb_core::kvs::Transaction>> {
 		self.transactions
 			.get(&id)
 			.map(|tx| tx.clone())
@@ -319,11 +319,7 @@ impl RpcProtocol for SurrealNodeConnection {
 	}
 
 	/// Stores a transaction
-	async fn set_tx(
-		&self,
-		id: Uuid,
-		tx: Arc<surrealdb_core::kvs::Transaction>,
-	) -> TxResult<()> {
+	async fn set_tx(&self, id: Uuid, tx: Arc<surrealdb_core::kvs::Transaction>) -> TxResult<()> {
 		self.transactions.insert(id, tx);
 		Ok(())
 	}
@@ -333,11 +329,7 @@ impl RpcProtocol for SurrealNodeConnection {
 	// ------------------------------
 
 	/// Begin a new transaction
-	async fn begin(
-		&self,
-		_txn: Option<Uuid>,
-		_session_id: Option<Uuid>,
-	) -> TxResult<DbResult> {
+	async fn begin(&self, _txn: Option<Uuid>, _session_id: Option<Uuid>) -> TxResult<DbResult> {
 		// Create a new transaction
 		let tx = self
 			.kvs()
@@ -367,9 +359,7 @@ impl RpcProtocol for SurrealNodeConnection {
 		let Some((_, tx)) = self.transactions.remove(&txn_id) else {
 			return Err(surrealdb_core::rpc::invalid_params("Transaction not found"));
 		};
-		tx.commit()
-			.await
-			.map_err(surrealdb_core::rpc::types_error_from_anyhow)?;
+		tx.commit().await.map_err(surrealdb_core::rpc::types_error_from_anyhow)?;
 		Ok(DbResult::Other(Value::None))
 	}
 
@@ -388,9 +378,7 @@ impl RpcProtocol for SurrealNodeConnection {
 		let Some((_, tx)) = self.transactions.remove(&txn_id) else {
 			return Err(surrealdb_core::rpc::invalid_params("Transaction not found"));
 		};
-		tx.cancel()
-			.await
-			.map_err(surrealdb_core::rpc::types_error_from_anyhow)?;
+		tx.cancel().await.map_err(surrealdb_core::rpc::types_error_from_anyhow)?;
 
 		// Return success
 		Ok(DbResult::Other(Value::None))
