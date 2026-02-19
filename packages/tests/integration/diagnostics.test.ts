@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { applyDiagnostics, type Diagnostic, RecordId } from "surrealdb";
 import { resetIncrementalID } from "../../sdk/src/internal/get-incremental-id";
-import { createSurreal, getEngines, type Person } from "./__helpers__";
+import { createSurreal, getEngines, type Person, proto } from "./__helpers__";
 
 describe("diagnostics", async () => {
     test("diagnostic events", async () => {
@@ -30,7 +30,7 @@ describe("diagnostics", async () => {
             lastname: "Doe",
         });
 
-        expect(events).toMatchSnapshot();
+        expect(events).toMatchSnapshot(proto("events"));
     });
 
     test("extract query", async () => {
@@ -57,7 +57,7 @@ describe("diagnostics", async () => {
             lastname: "Doe",
         });
 
-        expect(query).toMatchSnapshot();
-        expect(params).toMatchSnapshot();
+        expect(query).toMatchSnapshot(proto("query"));
+        expect(params).toMatchSnapshot(proto("params"));
     });
 });

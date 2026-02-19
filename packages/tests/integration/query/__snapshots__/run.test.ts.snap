@@ -1,5 +1,29 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
+exports[`run() compile: query-ws 1`] = `"array::add($bind__4, $bind__5, )"`;
+
+exports[`run() compile: bindings-ws 1`] = `
+{
+  "bind__4": [
+    1,
+    2,
+  ],
+  "bind__5": 3,
+}
+`;
+
+exports[`run() compile: query-http 1`] = `"array::add($bind__3, $bind__4, )"`;
+
+exports[`run() compile: bindings-http 1`] = `
+{
+  "bind__3": [
+    1,
+    2,
+  ],
+  "bind__4": 3,
+}
+`;
+
 exports[`run() compile: query-mem 1`] = `"array::add($bind__3, $bind__4, )"`;
 
 exports[`run() compile: bindings-mem 1`] = `

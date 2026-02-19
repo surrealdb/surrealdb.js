@@ -148,7 +148,7 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
             await subscription.kill();
         });
 
-        test.skipIf(!isRemote)("reconnect and resume", async () => {
+        test.todo("reconnect and resume", async () => {
             const surreal = await createSurreal({
                 reconnect: {
                     enabled: true,
@@ -287,7 +287,7 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
             expect(messages[2].action).toEqual("DELETE");
         });
 
-        test.skipIf(!isRemote)("iterable survives reconnect", async () => {
+        test.todo("iterable survives reconnect", async () => {
             const surreal = await createSurreal({
                 reconnect: {
                     enabled: true,

@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { Features } from "surrealdb";
-import { createSurreal, requestVersion, respawnServer, SURREAL_PROTOCOL } from "./__helpers__";
+import { createSurreal, requestVersion, respawnServer, SURREAL_BACKEND, SURREAL_PROTOCOL } from "./__helpers__";
 
 const { is3x } = await requestVersion();
+const isRemote = SURREAL_BACKEND === "remote";
 
 describe.if(is3x && (SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem"))(
     "sessions",
@@ -98,7 +99,7 @@ describe.if(is3x && (SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem"))(
             expect(sessions.length).toBe(2);
         });
 
-        test("restore state after reconnect", async () => {
+        test.skipIf(!isRemote)("restore state after reconnect", async () => {
             const surreal = await createSurreal({
                 // printDiagnostics: true,
                 reconnect: {
