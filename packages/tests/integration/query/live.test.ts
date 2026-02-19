@@ -11,7 +11,7 @@ import {
     SURREAL_PROTOCOL,
 } from "../__helpers__";
 
-const isRemote = SURREAL_BACKEND === "remote";
+const _isRemote = SURREAL_BACKEND === "remote";
 
 describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
     "live() / liveOf()",
