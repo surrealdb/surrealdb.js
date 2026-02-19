@@ -7,8 +7,8 @@ import {
     Features,
     type LiveAction,
     type LiveMessage,
-    parseRpcError,
     Publisher,
+    parseRpcError,
     type RecordId,
     RpcEngine,
     type RpcRequest,
@@ -113,7 +113,14 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         const decoded = this._context.codecs.cbor.decode<Record<string, unknown>>(response);
 
         if (decoded && typeof decoded === "object" && "error" in decoded) {
-            throw parseRpcError(decoded.error as { code: number; message: string; kind?: string; details?: Record<string, unknown> });
+            throw parseRpcError(
+                decoded.error as {
+                    code: number;
+                    message: string;
+                    kind?: string;
+                    details?: Record<string, unknown>;
+                },
+            );
         }
 
         return decoded as Result;

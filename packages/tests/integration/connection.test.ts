@@ -5,7 +5,6 @@ import {
     createSurreal,
     killServer,
     requestVersion,
-    SURREAL_BACKEND,
     SURREAL_PROTOCOL,
     spawnServer,
     VERSION_CHECK,

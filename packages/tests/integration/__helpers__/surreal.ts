@@ -232,8 +232,7 @@ export async function createIdleSurreal({
     connections.push(surreal);
 
     const connect = (custom?: ConnectOptions) => {
-        const defaultAuth: PremadeAuth =
-            SURREAL_BACKEND === "remote" ? "root" : "none";
+        const defaultAuth: PremadeAuth = SURREAL_BACKEND === "remote" ? "root" : "none";
         return surreal.connect(getConnectUrl(), {
             namespace: unselected ? undefined : SURREAL_NS,
             database: unselected ? undefined : SURREAL_DB,
