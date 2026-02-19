@@ -183,16 +183,18 @@ export async function respawnServer(): Promise<void> {
     await spawnServer();
 }
 
+type GlobalThis = typeof globalThis & {
+    embeddedEngines?: Engines;
+};
+
 let cachedEngines: Engines | null = null;
 
 async function getEngines(wrapDiagnostics?: (d: Diagnostic) => void): Promise<Engines> {
     if (!cachedEngines) {
-        if (SURREAL_BACKEND === "wasm") {
-            const { createWasmEngines } = await import("@surrealdb/wasm");
-            cachedEngines = createWasmEngines();
-        } else if (SURREAL_BACKEND === "node") {
-            const { createNodeEngines } = await import("@surrealdb/node");
-            cachedEngines = createNodeEngines();
+        const engines = (globalThis as GlobalThis).embeddedEngines;
+        if (engines) {
+            console.log("Creating engines from globalThis");
+            cachedEngines = engines;
         } else {
             cachedEngines = createRemoteEngines();
         }
@@ -230,13 +232,13 @@ export async function createIdleSurreal({
     connections.push(surreal);
 
     const connect = (custom?: ConnectOptions) => {
+        const defaultAuth: PremadeAuth =
+            SURREAL_BACKEND === "remote" ? "root" : "none";
         return surreal.connect(getConnectUrl(), {
             namespace: unselected ? undefined : SURREAL_NS,
             database: unselected ? undefined : SURREAL_DB,
-            authentication: createAuth(auth ?? "root"),
+            authentication: createAuth(auth ?? defaultAuth),
             reconnect,
-            // Embedded (wasm/node) may report version in a different format; skip check to avoid connect failure
-            versionCheck: SURREAL_BACKEND === "remote",
             ...custom,
         });
     };

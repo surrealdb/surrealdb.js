@@ -7,7 +7,7 @@ import {
     ThrownError,
     ValidationError,
 } from "surrealdb";
-import { createSurreal, requestVersion } from "./__helpers__";
+import { createSurreal, requestVersion, SURREAL_BACKEND } from "./__helpers__";
 
 const { is3x } = await requestVersion();
 
@@ -16,7 +16,7 @@ describe.if(is3x)("structured server errors", () => {
     //  Invalid credentials -> NotAllowed + Auth details          //
     // --------------------------------------------------------- //
 
-    test("invalid credentials", async () => {
+    test.skipIf(SURREAL_BACKEND !== "remote")("invalid credentials", async () => {
         const surreal = await createSurreal();
 
         try {

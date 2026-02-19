@@ -6,11 +6,14 @@ import {
     createSurreal,
     requestVersion,
     respawnServer,
+    SURREAL_BACKEND,
 } from "./__helpers__";
 
 const { is3x } = await requestVersion();
+const isRemote = SURREAL_BACKEND === "remote";
 
 beforeEach(async () => {
+    if (!isRemote) return;
     const surreal = await createSurreal();
 
     if (is3x) {
@@ -46,7 +49,7 @@ beforeEach(async () => {
     await surreal.close();
 });
 
-describe("system auth", async () => {
+describe.skipIf(!isRemote)("system auth", async () => {
     test("root signin", async () => {
         const surreal = await createSurreal();
         const res = await surreal.signin(createAuth("root") as AnyAuth);
@@ -62,7 +65,7 @@ describe("system auth", async () => {
     });
 });
 
-describe("record auth", async () => {
+describe.skipIf(!isRemote)("record auth", async () => {
     test("record signup", async () => {
         const surreal = await createSurreal();
         const signup = await surreal.signup({
@@ -125,7 +128,7 @@ describe("record auth", async () => {
     });
 });
 
-describe("session renewal", async () => {
+describe.skipIf(!isRemote)("session renewal", async () => {
     test("basic", async () => {
         const { connect } = await createIdleSurreal({
             auth: "none",
@@ -212,7 +215,7 @@ describe("session renewal", async () => {
     });
 });
 
-describe.if(is3x)("bearer access", async () => {
+describe.skipIf(!isRemote).if(is3x)("bearer access", async () => {
     test("record signup with refresh", async () => {
         const surreal = await createSurreal();
 

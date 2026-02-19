@@ -63,7 +63,7 @@ export async function initializeLibrary(): Promise<void> {
     if (initPromise === undefined) {
         const wasmUrl = new URL("../wasm/surrealdb_bg.wasm", import.meta.url);
         const wasmCode = await (await fetch(wasmUrl)).arrayBuffer();
-        initPromise = init(wasmCode);
+        initPromise = init({ module_or_path: wasmCode });
     }
     await initPromise;
 }
