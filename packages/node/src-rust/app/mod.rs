@@ -63,13 +63,21 @@ impl SurrealNodeEngine {
 			req.method,
 			req.params,
 		)
-		.await
-		.map_err(err_map)?;
+		.await;
 
-		let value = Value::from_t(res);
-		let out = cbor::encode(value).map_err(err_map)?;
-
-		Ok(out.as_slice().into())
+		match res {
+			Ok(result) => {
+				let value = Value::from_t(result);
+				let out = cbor::encode(value).map_err(err_map)?;
+				Ok(out.as_slice().into())
+			}
+			Err(rpc_err) => {
+				let mut envelope = surrealdb_types::Object::default();
+				envelope.insert("error".to_string(), Value::from_t(rpc_err));
+				let out = cbor::encode(Value::Object(envelope)).map_err(err_map)?;
+				Ok(out.as_slice().into())
+			}
+		}
 	}
 
 	#[napi]
@@ -120,8 +128,11 @@ impl SurrealNodeEngine {
 			s => s,
 		};
 
+		let opts: Option<Options> = from_value::<Option<Options>>(JsValue::from(opts))?;
+		let defaults = opts.as_ref().and_then(|o| o.defaults.clone()).unwrap_or_default();
+
 		let kvs = Datastore::new(endpoint).await.map_err(err_map)?.with_notifications();
-		let kvs = match from_value::<Option<Options>>(JsValue::from(opts))? {
+		let kvs = match opts {
 			None => kvs,
 			Some(opts) => kvs
 				.with_capabilities(
@@ -132,6 +143,14 @@ impl SurrealNodeEngine {
 				)
 				.with_query_timeout(opts.query_timeout.map(|qt| Duration::from_secs(qt as u64))),
 		};
+
+		let (_, is_new) = kvs.check_version().await.map_err(err_map)?;
+
+		if is_new {
+			if let Some(defaults) = defaults.get_defaults() {
+				kvs.initialise_defaults(&defaults.0, &defaults.1).await.map_err(err_map)?;
+			}
+		}
 
 		let session = Session::default().with_rt(true);
 		#[allow(unused_mut)]

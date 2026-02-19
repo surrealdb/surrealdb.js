@@ -25,10 +25,10 @@ kv-surrealkv = ["surrealdb-core/kv-surrealkv"]
 kv-mem = ["surrealdb-core/kv-mem"]
 
 [dependencies]
-surrealdb-core = { version = "3.0.0", default-features = false, features = [
+surrealdb-core = { path = "../../../surrealdb/surrealdb/core", default-features = false, features = [
     "http",
 ] }
-surrealdb-types = { version = "3.0.0", default-features = false }
+surrealdb-types = { path = "../../../surrealdb/surrealdb/types", default-features = false }
 napi = { version = "3", features = ["async", "serde-json"] }
 napi-derive = "3"
 serde = "1.0.197"

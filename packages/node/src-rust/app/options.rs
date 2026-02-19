@@ -8,6 +8,39 @@ pub struct Options {
 	pub query_timeout: Option<u8>,
 	pub transaction_timeout: Option<u8>,
 	pub capabilities: Option<CapabilitiesConfig>,
+	pub defaults: Option<DefaultsConfig>,
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(untagged)]
+pub enum DefaultsConfig {
+	Bool(bool),
+	Config {
+		namespace: Option<String>,
+		database: Option<String>,
+	},
+}
+
+impl Default for DefaultsConfig {
+	fn default() -> Self {
+		DefaultsConfig::Bool(true)
+	}
+}
+
+impl DefaultsConfig {
+	pub fn get_defaults(self) -> Option<(String, String)> {
+		match self {
+			DefaultsConfig::Bool(false) => None,
+			DefaultsConfig::Bool(true) => Some(("main".to_string(), "main".to_string())),
+			DefaultsConfig::Config {
+				namespace,
+				database,
+			} => Some((
+				namespace.unwrap_or("main".to_string()),
+				database.unwrap_or("main".to_string()),
+			)),
+		}
+	}
 }
 
 #[derive(Deserialize)]
@@ -20,6 +53,7 @@ pub enum CapabilitiesConfig {
 		live_query_notifications: Option<bool>,
 		functions: Option<Targets>,
 		network_targets: Option<Targets>,
+		experimental: Option<Targets>,
 	},
 }
 
@@ -55,10 +89,10 @@ impl TryFrom<CapabilitiesConfig> for capabilities::Capabilities {
 	type Error = Error;
 
 	fn try_from(config: CapabilitiesConfig) -> Result<Self, Self::Error> {
-		match config {
-			CapabilitiesConfig::Bool(true) => Ok(Self::all()),
+		let caps = match config {
+			CapabilitiesConfig::Bool(true) => Self::all(),
 			CapabilitiesConfig::Bool(false) => {
-				Ok(Self::default().with_functions(capabilities::Targets::None))
+				Self::default().with_functions(capabilities::Targets::None)
 			}
 			CapabilitiesConfig::Capabilities {
 				scripting,
@@ -66,6 +100,7 @@ impl TryFrom<CapabilitiesConfig> for capabilities::Capabilities {
 				live_query_notifications,
 				functions,
 				network_targets,
+				experimental,
 			} => {
 				let mut capabilities = Self::default();
 
@@ -204,8 +239,72 @@ impl TryFrom<CapabilitiesConfig> for capabilities::Capabilities {
 					}
 				}
 
-				Ok(capabilities)
+				if let Some(experimental) = experimental {
+					match experimental {
+						Targets::Bool(experimental) => match experimental {
+							true => {
+								capabilities =
+									capabilities.with_experimental(capabilities::Targets::All);
+							}
+							false => {
+								capabilities =
+									capabilities.with_experimental(capabilities::Targets::None);
+							}
+						},
+						Targets::Array(set) => {
+							capabilities = capabilities.with_experimental(process_targets!(set));
+						}
+						Targets::Config {
+							allow,
+							deny,
+						} => {
+							if let Some(config) = allow {
+								match config {
+									TargetsConfig::Bool(experimental) => match experimental {
+										true => {
+											capabilities = capabilities
+												.with_experimental(capabilities::Targets::All);
+										}
+										false => {
+											capabilities = capabilities
+												.with_experimental(capabilities::Targets::None);
+										}
+									},
+									TargetsConfig::Array(set) => {
+										capabilities =
+											capabilities.with_experimental(process_targets!(set));
+									}
+								}
+							}
+
+							if let Some(config) = deny {
+								match config {
+									TargetsConfig::Bool(experimental) => match experimental {
+										true => {
+											capabilities = capabilities
+												.without_experimental(capabilities::Targets::All);
+										}
+										false => {
+											capabilities = capabilities
+												.without_experimental(capabilities::Targets::None);
+										}
+									},
+									TargetsConfig::Array(set) => {
+										capabilities = capabilities
+											.without_experimental(process_targets!(set));
+									}
+								}
+							}
+						}
+					}
+				}
+
+				capabilities
 			}
-		}
+		};
+
+		Ok(caps
+			.with_arbitrary_query(capabilities::Targets::All)
+			.without_arbitrary_query(capabilities::Targets::None))
 	}
 }
