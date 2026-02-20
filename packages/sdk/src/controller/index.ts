@@ -4,7 +4,8 @@ import {
     AuthenticationError,
     ConnectionUnavailableError,
     InvalidSessionError,
-    SurrealError,
+    MissingNamespaceDatabaseError,
+    ServerError,
     UnavailableFeatureError,
     UnsupportedEngineError,
     UnsupportedFeatureError,
@@ -214,6 +215,22 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.sessions();
     }
 
+    async attach(session: Uuid): Promise<void> {
+        if (!this.#engine) throw new ConnectionUnavailableError();
+
+        this.assertFeature(Features.Sessions);
+
+        await this.#engine.attach(session);
+    }
+
+    async detach(session: Uuid): Promise<void> {
+        if (!this.#engine) throw new ConnectionUnavailableError();
+
+        this.assertFeature(Features.Sessions);
+
+        return this.#engine.detach(session);
+    }
+
     async signup(auth: AccessRecordAuth, session: Session, skipOverride = false): Promise<Tokens> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
@@ -287,18 +304,19 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         await this.#engine.revoke(tokens, session);
     }
 
-    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void> {
+    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<NamespaceDatabase> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
 
         if (what.namespace === null && what.database !== null) {
-            throw new SurrealError("Cannot unset namespace without unsetting database");
+            throw new MissingNamespaceDatabaseError();
         }
 
-        await this.#engine.use(what, session);
+        const res = await this.#engine.use(what, session);
 
-        const { namespace, database } = what;
+        const namespace = res.namespace ?? what.namespace;
+        const database = res.database ?? what.database;
         const sessionState = this.getSession(session);
 
         if (namespace === null) sessionState.namespace = undefined;
@@ -312,6 +330,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         };
 
         this.#eventPublisher.publish("using", selected, session);
+        return selected;
     }
 
     async set(name: string, value: unknown, session: Session): Promise<void> {
@@ -426,8 +445,13 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
             // Restore all previous sessions
             for (const session of this.#allSessions()) {
+                // Ensure the session exists on the server
+                if (session.id) await this.attach(session.id);
                 await this.#restoreSession(session);
             }
+
+            // Signal engine that sessions are restored and pending calls can be sent
+            this.#engine?.ready();
 
             this.#status = "connected";
             this.#eventPublisher.publish("connected", version);
@@ -561,8 +585,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
                     try {
                         await this.authenticate(sessionState.accessToken, session, true);
                         return;
-                    } catch {
-                        // Access token was not valid
+                    } catch (err) {
+                        if (!(err instanceof ServerError)) throw err;
                     }
                 }
             }
@@ -576,8 +600,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
                 try {
                     await this.refresh(tokens, session, true);
                     return;
-                } catch {
-                    // Refresh token was not valid
+                } catch (err) {
+                    if (!(err instanceof ServerError)) throw err;
                 }
             }
         }
@@ -629,6 +653,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.assertFeature(Features.Sessions);
 
         const sessionId = Uuid.v4();
+        await this.attach(sessionId);
 
         if (clone === null) {
             this.#state.sessions.set(sessionId, this.#createSessionState(sessionId));
@@ -648,7 +673,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             throw new InvalidSessionError(session);
         }
 
-        await this.reset(session);
+        await this.detach(session);
 
         this.#state.sessions.delete(session);
     }
@@ -686,6 +711,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         };
     }
 
+    // Expects the session to already be attached on the server
     async #restoreSession(session: ConnectionSession): Promise<void> {
         // Apply selected namespace and database
         if (session.namespace || session.database) {

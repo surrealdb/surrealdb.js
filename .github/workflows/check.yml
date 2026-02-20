@@ -35,11 +35,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        surrealdb: ["v2.0.5", "v2.1.8", "v2.2.7", "v2.3.7", "v3.0.0-alpha.13"]
+        surrealdb: ["v2.0.5", "v2.1.8", "v2.2.7", "v2.3.7", "v3.0.0", "nightly"]
         engine: ["ws", "http"]
     steps:
       - name: Install SurrealDB ${{ matrix.surrealdb }} over ${{ matrix.engine }} engine
-        run: curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --version ${{ matrix.surrealdb }}
+        run: |
+          if [ "${{ matrix.surrealdb }}" = "nightly" ]; then
+            curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --nightly
+          else
+            curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --version ${{ matrix.surrealdb }}
+          fi
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2

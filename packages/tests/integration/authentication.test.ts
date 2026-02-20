@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { satisfies } from "semver";
-import { type AnyAuth, DateTime, RecordId, ResponseError, surql } from "surrealdb";
+import { type AnyAuth, DateTime, RecordId, ServerError, surql } from "surrealdb";
 import {
     createAuth,
     createIdleSurreal,
@@ -9,8 +8,7 @@ import {
     respawnServer,
 } from "./__helpers__";
 
-const version = await requestVersion();
-const is3x = satisfies(version, ">=3.0.0-alpha.1");
+const { is3x } = await requestVersion();
 
 beforeEach(async () => {
     const surreal = await createSurreal();
@@ -60,7 +58,7 @@ describe("system auth", async () => {
         const surreal = await createSurreal();
         const req = surreal.signin(createAuth("invalid") as AnyAuth);
 
-        expect(req.then()).rejects.toBeInstanceOf(ResponseError);
+        expect(req.then()).rejects.toBeInstanceOf(ServerError);
     });
 });
 

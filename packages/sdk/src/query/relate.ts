@@ -1,4 +1,5 @@
 import type { ConnectionController } from "../controller";
+import { SurrealError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
@@ -126,7 +127,7 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
         const isMultiple = Array.isArray(from) || Array.isArray(to);
 
         if (isMultiple && what instanceof RecordId) {
-            throw new Error("Edge must be a table when creating multiple edges");
+            throw new SurrealError("Edge must be a table when creating multiple edges");
         }
 
         const query = surql`RELATE `;

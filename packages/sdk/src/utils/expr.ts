@@ -214,7 +214,7 @@ export const knn = (
 ): Expr => ({
     toSQL: (ctx) => {
         if (!Number.isInteger(neighbors)) {
-            throw new Error("neighbors must be an integer");
+            throw new ExpressionError("neighbors must be an integer");
         }
 
         if (
@@ -222,7 +222,7 @@ export const knn = (
             !Number.isInteger(metricOrEf) &&
             !/\w+/.test(metricOrEf as string)
         ) {
-            throw new Error("metric is invalid");
+            throw new ExpressionError("metric is invalid");
         }
 
         return `${field} <|${neighbors}${metricOrEf ? `,${metricOrEf}` : ""}|> ${ctx.def(v)}`;

@@ -2,10 +2,10 @@ import {
     CallTerminatedError,
     ConnectionUnavailableError,
     ReconnectExhaustionError,
-    ResponseError,
     UnexpectedConnectionError,
     UnexpectedServerResponseError,
 } from "../errors";
+import { parseRpcError } from "../internal/parse-error";
 import type { LiveAction, LiveMessage, RpcRequest, RpcResponse } from "../types";
 import { LIVE_ACTIONS } from "../types/live";
 import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
@@ -50,6 +50,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         Features.RefreshTokens,
         Features.Sessions,
         Features.Transactions,
+        Features.Api,
     ]);
 
     subscribe<K extends keyof EngineEvents>(
@@ -71,10 +72,6 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 const error = await this.createSocket(() => {
                     this.#active = true;
                     reconnect.reset();
-
-                    for (const { request } of this.#calls.values()) {
-                        this.#socket?.send(this._context.codecs.cbor.encode(request));
-                    }
 
                     this.#publisher.publish("connected");
                 });
@@ -122,16 +119,23 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
     async close(): Promise<void> {
         if (this.#terminated) return;
+        const WebSocketImpl = this._context.options.websocketImpl ?? globalThis.WebSocket;
         const socketState = this.#socket?.readyState;
 
         this._state = undefined;
         this.#terminated = true;
         this.#socket?.close();
 
-        if (socketState === WebSocket.OPEN || socketState === WebSocket.CLOSING) {
+        if (socketState === WebSocketImpl.OPEN || socketState === WebSocketImpl.CLOSING) {
             await this.#publisher.subscribeFirst("disconnected");
         } else {
             this.#publisher.publish("disconnected");
+        }
+    }
+
+    ready(): void {
+        for (const { request } of this.#calls.values()) {
+            this.#socket?.send(this._context.codecs.cbor.encode(request));
         }
     }
 
@@ -269,7 +273,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 const { resolve, reject } = this.#calls.get(id) ?? {};
 
                 if (response.error) {
-                    reject?.(new ResponseError(response.error));
+                    reject?.(parseRpcError(response.error));
                 } else {
                     resolve?.(response.result);
                 }

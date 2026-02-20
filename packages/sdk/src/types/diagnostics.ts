@@ -40,6 +40,8 @@ type DiagnosticMap = {
     commit: TransactionInfo & SessionInfo;
     cancel: TransactionInfo & SessionInfo;
     sessions: Uuid[];
+    attach: undefined;
+    detach: undefined;
     importSql: undefined;
     exportSql: undefined;
     exportMlModel: undefined;

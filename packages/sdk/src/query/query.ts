@@ -1,8 +1,7 @@
 import type { ConnectionController } from "../controller";
-import { ResponseError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
-import type { Session } from "../types";
+import type { QueryResponse, Session } from "../types";
 import type { BoundQuery } from "../utils";
 import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../utils/frame";
 import type { Uuid } from "../value";
@@ -18,13 +17,17 @@ type Collect<T extends unknown[], J extends boolean> = T extends []
     ? unknown[]
     : { [K in keyof T]: MaybeJsonify<T[K], J> };
 
+type Responses<T extends unknown[], J extends boolean> = T extends []
+    ? QueryResponse[]
+    : { [K in keyof T]: QueryResponse<MaybeJsonify<T[K], J>> };
+
 /**
  * A configurable query sent to a SurrealDB instance.
  */
 export class Query<
     R extends unknown[] = unknown[],
     J extends boolean = false,
-> extends DispatchedPromise<void> {
+> extends DispatchedPromise<Collect<R, J>> {
     #connection: ConnectionController;
     #options: QueryOptions;
 
@@ -61,6 +64,8 @@ export class Query<
      *
      * You can optionally pass a list of query indexes to collect only the results of specific queries.
      *
+     * This is the same as awaiting the query directly, but allows specifying which queries to collect.
+     *
      * @example
      * ```ts
      * const [people] = await this.query("SELECT * FROM person").collect<[Person[]]>();
@@ -80,7 +85,7 @@ export class Query<
 
         for await (const chunk of chunks) {
             if (chunk.error) {
-                throw new ResponseError(chunk.error);
+                throw chunk.error;
             }
 
             if (queryIndexes?.has(chunk.query) === false) {
@@ -163,16 +168,88 @@ export class Query<
         }
     }
 
-    async dispatch(): Promise<void> {
+    /**
+     * Collect and return the responses of all queries at once. Failed queries will be returned
+     * with `success: false` and the associated error, while successful queries will have
+     * `success: true` and their result.
+     *
+     * You can optionally pass a list of query indexes to collect only the results of specific responses.
+     *
+     * @example
+     * ```ts
+     * const [people] = await this.query("SELECT * FROM person").responses<[Person[]]>();
+     *
+     * people.success; // true
+     * people.result; // Person[]
+     * ```
+     *
+     * @param queries The queries to collect. If no queries are provided, all queries will be collected.
+     * @returns A promise that resolves to the responses of all queries at once.
+     */
+    async responses<T extends unknown[] = R>(...queries: number[]): Promise<Responses<T, J>> {
         await this.#connection.ready();
 
-        const { query, transaction, session } = this.#options;
+        const { query, transaction, session, json } = this.#options;
         const chunks = this.#connection.query(query, session, transaction);
+        const collections: unknown[] = [];
+        const responses: QueryResponse[] = [];
+        const queryIndexes =
+            queries.length > 0 ? new Map(queries.map((idx, i) => [idx, i])) : undefined;
 
         for await (const chunk of chunks) {
+            if (queryIndexes?.has(chunk.query) === false) {
+                if (chunk.error) {
+                    throw chunk.error;
+                }
+
+                continue;
+            }
+
+            const index = queryIndexes?.get(chunk.query) ?? chunk.query;
+
             if (chunk.error) {
-                throw new ResponseError(chunk.error);
+                responses[index] = {
+                    success: false,
+                    error: chunk.error,
+                    stats: chunk.stats,
+                };
+                continue;
+            }
+
+            if (chunk.kind === "single") {
+                responses[index] = {
+                    success: true,
+                    result: maybeJsonify(chunk.result?.[0], json),
+                    stats: chunk.stats,
+                    type: chunk.type ?? "other",
+                };
+                continue;
+            }
+
+            const additions = maybeJsonify(chunk.result ?? [], json);
+            let records = collections[index] as unknown[];
+
+            if (!records) {
+                records = additions;
+                collections[index] = records;
+            } else {
+                records.push(...additions);
+            }
+
+            if (chunk.kind === "batched-final") {
+                responses[index] = {
+                    success: true,
+                    result: records,
+                    stats: chunk.stats,
+                    type: chunk.type ?? "other",
+                };
             }
         }
+
+        return responses as Responses<T, J>;
+    }
+
+    async dispatch(): Promise<Collect<R, J>> {
+        return this.collect();
     }
 }

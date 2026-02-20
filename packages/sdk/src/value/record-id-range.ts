@@ -1,4 +1,4 @@
-import { SurrealError } from "../errors";
+import { InvalidRecordIdError } from "../errors";
 import { getRangeJoin } from "../internal/range";
 import { isValidIdBound, isValidTable } from "../internal/validation";
 import type { WidenRecordIdValue } from "../types/internal";
@@ -25,9 +25,9 @@ class RecordIdRange<
     constructor(table: Tb | Table<Tb>, beg: Bound<Id>, end: Bound<Id>) {
         super();
 
-        if (!isValidTable(table)) throw new SurrealError("tb part is not valid");
-        if (!isValidIdBound(beg)) throw new SurrealError("Begin part is not valid");
-        if (!isValidIdBound(end)) throw new SurrealError("End part is not valid");
+        if (!isValidTable(table)) throw new InvalidRecordIdError("Table part is not valid");
+        if (!isValidIdBound(beg)) throw new InvalidRecordIdError("Begin bound is not valid");
+        if (!isValidIdBound(end)) throw new InvalidRecordIdError("End bound is not valid");
 
         this.#table = table instanceof Table ? table : new Table(table);
         this.#beg = beg;
@@ -88,13 +88,23 @@ interface RecordIdRangeConstructor {
         beg: Bound<I>,
         end: Bound<I>,
     ): RecordIdRange<T, WidenRecordIdValue<I>>;
+    new <R extends RecordIdRange<string, RecordIdValue>>(
+        table: R["table"]["name"],
+        beg: R["begin"],
+        end: R["end"],
+    ): RecordIdRange<
+        R["table"]["name"],
+        R["begin"] extends Bound<infer I> ? (I extends RecordIdValue ? I : never) : never
+    >;
 }
 
 /**
  * A SurrealQL record ID range value.
  */
-interface _RecordIdRange<Tb extends string = string, Id extends RecordIdValue = RecordIdValue>
-    extends RecordIdRange<Tb, Id> {}
+type _RecordIdRange<
+    Tb extends string = string,
+    Id extends RecordIdValue = RecordIdValue,
+> = RecordIdRange<Tb, Id>;
 const _RecordIdRange = RecordIdRange as RecordIdRangeConstructor;
 
 export { _RecordIdRange as RecordIdRange };

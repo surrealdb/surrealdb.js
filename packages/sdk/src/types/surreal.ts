@@ -1,3 +1,4 @@
+import type { ServerError } from "../errors";
 import type { Feature } from "../internal/feature";
 import type { ReconnectContext } from "../internal/reconnect";
 import type { BoundQuery } from "../utils";
@@ -29,9 +30,11 @@ export interface SurrealProtocol {
     health(): Promise<void>;
     version(): Promise<VersionInfo>;
     sessions(): Promise<Uuid[]>;
+    attach(session: Uuid): Promise<void>;
+    detach(session: Uuid): Promise<void>;
 
     // Session operations
-    use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void>;
+    use(what: Nullable<NamespaceDatabase>, session: Session): Promise<NamespaceDatabase>;
     signup(auth: AccessRecordAuth, session: Session): Promise<Tokens>;
     signin(auth: AnyAuth, session: Session): Promise<Tokens>;
     authenticate(token: Token, session: Session): Promise<void>;
@@ -64,6 +67,7 @@ export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEve
     features: Set<Feature>;
     open(state: ConnectionState): void;
     close(): Promise<void>;
+    ready(): void;
 }
 
 /**
@@ -257,6 +261,7 @@ export interface SqlExportOptions {
     versions: boolean;
     records: boolean;
     sequences: boolean;
+    v3: boolean;
 }
 
 /**
@@ -288,8 +293,29 @@ export interface QueryChunk<T> {
     stats?: QueryStats;
     result?: T[];
     type?: QueryType;
-    error?: {
-        code: number;
-        message: string;
-    };
+    error?: ServerError;
 }
+
+/**
+ * A single successful response from a query
+ */
+export type QueryResponseSuccess<T = unknown> = {
+    success: true;
+    stats?: QueryStats;
+    type: "live" | "kill" | "other";
+    result: T;
+};
+
+/**
+ * A single failure response from a query
+ */
+export type QueryResponseFailure = {
+    success: false;
+    stats?: QueryStats;
+    error: ServerError;
+};
+
+/**
+ * A single response from a query
+ */
+export type QueryResponse<T = unknown> = QueryResponseSuccess<T> | QueryResponseFailure;

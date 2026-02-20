@@ -1,10 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { satisfies } from "semver";
 import { Features } from "surrealdb";
 import { createSurreal, requestVersion, respawnServer, SURREAL_PROTOCOL } from "./__helpers__";
 
-const version = await requestVersion();
-const is3x = satisfies(version, ">=3.0.0-alpha.1");
+const { is3x } = await requestVersion();
 
 describe.if(is3x && SURREAL_PROTOCOL === "ws")("sessions", async () => {
     test("feature", async () => {
@@ -125,8 +123,13 @@ describe.if(is3x && SURREAL_PROTOCOL === "ws")("sessions", async () => {
     test("await using", async () => {
         const surreal = await createSurreal();
 
-        await using session = await surreal.forkSession();
-
-        expect(session.isValid).toBeTrue();
+        let session: Awaited<ReturnType<typeof surreal.forkSession>>;
+        {
+            await using s = await surreal.forkSession();
+            expect(s.isValid).toBeTrue();
+            session = s;
+        }
+        // Block exited — disposal has run; session was dropped
+        expect(session.isValid).toBeFalse();
     });
 });

@@ -1,4 +1,4 @@
-import { SurrealError } from "../errors";
+import { InvalidDurationError } from "../errors";
 import { escapeRegex } from "../internal/escape-regex";
 import { Value } from "./value";
 
@@ -13,6 +13,7 @@ const MINUTE = 60n * SECOND;
 const HOUR = 60n * MINUTE;
 const DAY = 24n * HOUR;
 const WEEK = 7n * DAY;
+const YEAR = 365n * DAY;
 
 // Unit string to nanosecond mapping
 const UNITS = new Map([
@@ -26,6 +27,7 @@ const UNITS = new Map([
     ["h", HOUR],
     ["d", DAY],
     ["w", WEEK],
+    ["y", YEAR],
 ]);
 
 // Reversed mapping of nanoseconds to unit string
@@ -164,7 +166,7 @@ export class Duration extends Value {
                 const amount = BigInt(match[1]);
                 const unit = match[2];
                 const factor = UNITS.get(unit);
-                if (!factor) throw new SurrealError(`Invalid duration unit: ${unit}`);
+                if (!factor) throw new InvalidDurationError(`Invalid duration unit: ${unit}`);
 
                 if (factor >= SECOND) {
                     // Accumulate seconds
@@ -177,7 +179,7 @@ export class Duration extends Value {
                 // Slice the processed segment off
                 left = left.slice(match[0].length);
             } else {
-                throw new SurrealError("Could not match a next duration part");
+                throw new InvalidDurationError("Could not match a next duration part");
             }
         }
 
@@ -244,11 +246,11 @@ export class Duration extends Value {
         if (typeof divisor === "object" && divisor instanceof Duration) {
             const a = this.#seconds * SECOND + this.#nanoseconds;
             const b = divisor.#seconds * SECOND + divisor.#nanoseconds;
-            if (b === 0n) throw new SurrealError("Division by zero duration");
+            if (b === 0n) throw new InvalidDurationError("Division by zero duration");
             return a / b;
         }
         const divisorBig = typeof divisor === "bigint" ? divisor : BigInt(Math.floor(divisor));
-        if (divisorBig === 0n) throw new SurrealError("Division by zero");
+        if (divisorBig === 0n) throw new InvalidDurationError("Division by zero");
         const totalNs = this.#seconds * SECOND + this.#nanoseconds;
         const resultNs = totalNs / divisorBig;
         return new Duration([resultNs / SECOND, resultNs % SECOND]);
@@ -263,7 +265,7 @@ export class Duration extends Value {
     mod(mod: Duration): Duration {
         const a = this.#seconds * SECOND + this.#nanoseconds;
         const b = mod.#seconds * SECOND + mod.#nanoseconds;
-        if (b === 0n) throw new SurrealError("Modulo by zero duration");
+        if (b === 0n) throw new InvalidDurationError("Modulo by zero duration");
         const resultNs = a % b;
         return new Duration([resultNs / SECOND, resultNs % SECOND]);
     }
@@ -322,6 +324,13 @@ export class Duration extends Value {
      */
     get weeks(): bigint {
         return this.#seconds / (WEEK / SECOND);
+    }
+
+    /**
+     * Total whole years in the duration
+     */
+    get years(): bigint {
+        return this.#seconds / (YEAR / SECOND);
     }
 
     /**
@@ -410,6 +419,17 @@ export class Duration extends Value {
     static weeks(w: number | bigint): Duration {
         const n = typeof w === "bigint" ? w : BigInt(Math.floor(w));
         return new Duration([n * (WEEK / SECOND), 0n]);
+    }
+
+    /**
+     * Creates a Duration from years
+     *
+     * @param y Years value
+     * @returns The resulting duration
+     */
+    static years(y: number | bigint): Duration {
+        const n = typeof y === "bigint" ? y : BigInt(Math.floor(y));
+        return new Duration([n * (YEAR / SECOND), 0n]);
     }
 
     /**

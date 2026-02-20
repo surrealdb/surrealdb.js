@@ -35,7 +35,7 @@ export type SurrealEvents = SessionEvents & {
  * making the actual request.
  *
  * By default the Surreal instance is scoped to a default session, however you
- * can create a new session by calling the `startSession` or `forkSession` methods.
+ * can create a new session by calling the `newSession` or `forkSession` methods.
  */
 export class Surreal extends SurrealSession implements EventPublisher<SurrealEvents> {
     readonly #publisher = new Publisher<SurrealEvents>();
@@ -137,7 +137,7 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
     /**
      * Connect to a local or remote SurrealDB instance using the provided URL.
      *
-     * Calling `connect()` will reset and dispose any existing sessions created with `startSession()`.
+     * Calling `connect()` will reset and dispose any existing sessions created with `newSession()`.
      *
      * @param url The endpoint to connect to
      * @param opts Options to configure the connection
@@ -215,9 +215,6 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
      * connection reconnects, the session will be automatically restored.
      *
      * You can invoke `reset()` on the created session to destroy it, after which it cannot be used again.
-     *
-     * If you pass `true` for the `clone` parameter, the new session will contain a copy of the global state of the current session,
-     * including the namespace, database, variables, and authentication state.
      *
      * @returns The new session
      */

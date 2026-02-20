@@ -1,10 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { satisfies } from "semver";
 import { RecordId } from "surrealdb";
 import { createSurreal, requestVersion } from "./__helpers__";
 
-const version = await requestVersion();
-const is3x = satisfies(version, ">=3.0.0-alpha.1");
+const { is3x } = await requestVersion();
 
 describe.if(is3x)("values", async () => {
     test("sets basics", async () => {

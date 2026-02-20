@@ -1,12 +1,12 @@
 import {
     ConnectionUnavailableError,
     MissingNamespaceDatabaseError,
-    ResponseError,
-    SurrealError,
     UnexpectedServerResponseError,
+    UnsupportedFeatureError,
 } from "../errors";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
+import { parseRpcError } from "../internal/parse-error";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
 import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
@@ -15,6 +15,7 @@ import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
 
 const ALWAYS_ALLOW = new Set([
+    "use",
     "signin",
     "signup",
     "authenticate",
@@ -30,7 +31,7 @@ const ALWAYS_ALLOW = new Set([
 export class HttpEngine extends RpcEngine implements SurrealEngine {
     #publisher = new Publisher<EngineEvents>();
 
-    features = new Set([Features.RefreshTokens]);
+    features = new Set([Features.RefreshTokens, Features.Api]);
 
     subscribe<K extends keyof EngineEvents>(
         event: K,
@@ -51,6 +52,10 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         this.#publisher.publish("disconnected");
     }
 
+    ready(): void {
+        // No-op for HTTP engine - no pending calls to resend
+    }
+
     override async send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,
     ): Promise<Result> {
@@ -65,6 +70,12 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             case "unset":
             case "reset":
             case "invalidate": {
+                // if this is an empty use call, then that means we are
+                // to try and retrieve a default namespace and database
+                if (request.method === "use" && isEmptyUseParams(request.params)) {
+                    break;
+                }
+
                 return undefined as unknown as Result;
             }
         }
@@ -107,13 +118,21 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         }
 
         if (response.error) {
-            throw new ResponseError(response.error);
+            throw parseRpcError(response.error);
         }
 
         return response.result;
     }
 
     override liveQuery(): AsyncIterable<LiveMessage> {
-        throw new SurrealError("Live queries are not available over HTTP");
+        throw new UnsupportedFeatureError(Features.LiveQueries);
     }
+}
+
+function isEmptyUseParams(params?: unknown[]): boolean {
+    return (
+        Array.isArray(params) &&
+        typeof params[0] === "undefined" &&
+        typeof params[1] === "undefined"
+    );
 }

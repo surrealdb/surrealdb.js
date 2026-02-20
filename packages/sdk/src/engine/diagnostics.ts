@@ -66,6 +66,10 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
+    ready(): void {
+        this.#delegate.ready();
+    }
+
     async health(): Promise<void> {
         return this.#diagnose(
             "health",
@@ -90,7 +94,23 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void> {
+    async attach(session: Uuid): Promise<void> {
+        this.#diagnose(
+            "attach",
+            () => this.#delegate.attach(session),
+            () => undefined,
+        );
+    }
+
+    async detach(session: Uuid): Promise<void> {
+        return this.#diagnose(
+            "detach",
+            () => this.#delegate.detach(session),
+            () => undefined,
+        );
+    }
+
+    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<NamespaceDatabase> {
         return this.#diagnose(
             "use",
             () => this.#delegate.use(what, session),

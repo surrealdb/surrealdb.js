@@ -1,3 +1,4 @@
+import { InvalidDecimalError } from "../errors";
 import { Value } from "./value";
 
 export type DecimalTuple = [bigint, bigint, number];
@@ -215,7 +216,7 @@ export class Decimal extends Value {
     div(other: Decimal): Decimal {
         const a = this.toBigIntWithScale();
         const b = other.toBigIntWithScale();
-        if (b.value === 0n) throw new Error("Division by zero");
+        if (b.value === 0n) throw new InvalidDecimalError("Division by zero");
         const targetScale = 38;
         const scaleDiff = BigInt(targetScale + b.scale - a.scale);
         const scaledA = a.value * 10n ** scaleDiff;
@@ -235,7 +236,7 @@ export class Decimal extends Value {
         const a = this.toBigIntWithScale();
         const b = other.toBigIntWithScale();
 
-        if (b.value === 0n) throw new Error("Modulo by zero");
+        if (b.value === 0n) throw new InvalidDecimalError("Modulo by zero");
 
         const scale = Math.max(a.scale, b.scale);
         const scaleDiffA = BigInt(scale - a.scale);
@@ -313,7 +314,7 @@ export class Decimal extends Value {
      * @returns The new decimal instance
      */
     round(precision: number): Decimal {
-        if (precision < 0) throw new Error("Precision must be >= 0");
+        if (precision < 0) throw new InvalidDecimalError("Precision must be >= 0");
 
         const full = this.toBigIntWithScale();
 
@@ -425,7 +426,7 @@ export class Decimal extends Value {
 
         // Cheap validation: basic format check without overlapping quantifiers
         if (!/^[+-]?\d+(\.\d+)?[eE][+-]?\d+$/.test(trimmed)) {
-            throw new Error(`Invalid scientific notation: ${input}`);
+            throw new InvalidDecimalError(`Invalid scientific notation: ${input}`);
         }
 
         // Safe and predictable manual split

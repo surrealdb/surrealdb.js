@@ -4,10 +4,13 @@ import {
     createIdleSurreal,
     createSurreal,
     killServer,
+    requestVersion,
     SURREAL_PROTOCOL,
     spawnServer,
     VERSION_CHECK,
 } from "./__helpers__";
+
+const { is3x } = await requestVersion();
 
 describe("connection", async () => {
     test.todoIf(!VERSION_CHECK)("check version", async () => {
@@ -48,6 +51,17 @@ describe("connection", async () => {
 
         expect(surreal.namespace).toBe("test-ns");
         expect(surreal.database).toBe("test-db");
+    });
+
+    test.if(is3x)("can select default namespace and database", async () => {
+        const surreal = await createSurreal({
+            unselected: true,
+        });
+
+        const { namespace, database } = await surreal.use();
+
+        expect(namespace).toBe("main");
+        expect(database).toBe("main");
     });
 
     test("connection status", async () => {
@@ -172,6 +186,7 @@ describe("connection", async () => {
         expect(surreal.namespace).toBe("foo");
         expect(surreal.database).toBe("bar");
 
+        await surreal.query(/* surql */ `DEFINE TABLE person SCHEMALESS`);
         await surreal.select(new RecordId("person", 1));
     });
 

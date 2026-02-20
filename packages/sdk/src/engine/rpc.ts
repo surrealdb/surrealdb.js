@@ -2,6 +2,7 @@ import { ConnectionUnavailableError, UnexpectedServerResponseError } from "../er
 import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
+import { parseQueryError } from "../internal/parse-error";
 import type {
     AccessRecordAuth,
     AnyAuth,
@@ -54,12 +55,29 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
-    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<void> {
+    async attach(session: Uuid): Promise<void> {
         await this.send({
+            method: "attach",
+            session,
+        });
+    }
+
+    async detach(session: Uuid): Promise<void> {
+        return await this.send({
+            method: "detach",
+            session,
+        });
+    }
+
+    async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<NamespaceDatabase> {
+        const res = await this.send({
             method: "use",
             params: [what.namespace, what.database],
             session,
         });
+
+        // 2.x will not return anything so lets fall back to an empty object
+        return res ?? {};
     }
 
     async signup(auth: AccessRecordAuth, session: Session): Promise<Tokens> {
@@ -263,10 +281,7 @@ export abstract class RpcEngine implements SurrealProtocol {
                     chunk.result = [response.result] as T[];
                 }
             } else {
-                chunk.error = {
-                    code: Number(response.result) || 0,
-                    message: String(response.result),
-                };
+                chunk.error = parseQueryError(response);
             }
 
             yield chunk;

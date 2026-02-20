@@ -1,4 +1,4 @@
-import { SurrealError } from "../errors";
+import { ExpressionError } from "../errors";
 import { surql } from "./tagged-template";
 
 /**
@@ -90,7 +90,7 @@ export class BoundQuery<R extends unknown[] = unknown[]> {
         if (_other.#bindings) {
             for (const key of Object.keys(_other.#bindings)) {
                 if (key in this.#bindings) {
-                    throw new Error(
+                    throw new ExpressionError(
                         `Parameter conflict: '${key}' already exists in this BoundQuery`,
                     );
                 }
@@ -120,6 +120,6 @@ export class BoundQuery<R extends unknown[] = unknown[]> {
             return surql(other, ...values);
         }
 
-        throw new SurrealError("Invalid query component");
+        throw new ExpressionError("Invalid query component");
     }
 }

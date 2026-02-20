@@ -1,4 +1,4 @@
-import { SurrealError } from "../errors";
+import { InvalidTableError } from "../errors";
 import { RecordId } from "./record-id";
 import { Value } from "./value";
 
@@ -20,7 +20,7 @@ export class StringRecordId extends Value {
         } else if (typeof rid === "string") {
             this.#rid = rid;
         } else {
-            throw new SurrealError("String Record ID must be a string");
+            throw new InvalidTableError("String Record ID must be a string");
         }
     }
 

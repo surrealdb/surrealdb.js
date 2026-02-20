@@ -1,3 +1,4 @@
+import { SurrealError } from "../errors";
 import type { CodecOptions, ValueCodec } from "../types";
 
 /**
@@ -12,10 +13,10 @@ export class FlatBufferCodec implements ValueCodec {
     }
 
     encode<T>(_data: T): Uint8Array {
-        throw new Error("FlatBuffer encoding is not supported in this version");
+        throw new SurrealError("FlatBuffer encoding is not supported in this version");
     }
 
     decode<T>(_data: Uint8Array): T {
-        throw new Error("FlatBuffer decoding is not supported in this version");
+        throw new SurrealError("FlatBuffer decoding is not supported in this version");
     }
 }

@@ -1,4 +1,5 @@
 import type { Feature } from "./internal/feature";
+import type { ApiResponse } from "./query/api";
 import type { Session } from "./types";
 
 export class SurrealError extends Error {}
@@ -8,7 +9,7 @@ export class SurrealError extends Error {}
  */
 export class CallTerminatedError extends SurrealError {
     override name = "CallTerminatedError";
-    override message = "The call has been termined because the connection was closed";
+    override message = "The call has been terminated because the connection was closed";
 }
 
 /**
@@ -101,19 +102,396 @@ export class HttpConnectionError extends SurrealError {
     }
 }
 
-/**
- * Thrown when a response from the server is not as expected
- */
-export class ResponseError extends SurrealError {
-    override name = "ResponseError";
+// =========================================================== //
+//                                                             //
+//                   Server Error Hierarchy                     //
+//                                                             //
+// =========================================================== //
 
+/**
+ * Known error kinds returned by the SurrealDB server.
+ * Use these constants for matching against `ServerError.kind`.
+ */
+export const ErrorKind = {
+    Validation: "Validation",
+    Configuration: "Configuration",
+    Thrown: "Thrown",
+    Query: "Query",
+    Serialization: "Serialization",
+    NotAllowed: "NotAllowed",
+    NotFound: "NotFound",
+    AlreadyExists: "AlreadyExists",
+    Connection: "Connection",
+    Internal: "Internal",
+} as const;
+
+/**
+ * Union type of all known error kinds. The `kind` property on `ServerError`
+ * is typed as `string` (not `ErrorKind`) to allow unknown kinds from newer
+ * servers to pass through without loss.
+ */
+export type ErrorKind = (typeof ErrorKind)[keyof typeof ErrorKind];
+
+export interface ServerErrorOptions {
+    kind: string;
+    code?: number;
+    message: string;
+    details?: Record<string, unknown> | null;
+}
+
+// =========================================================== //
+//  Typed error detail types (mirrors Rust `ErrorDetails` tree) //
+// =========================================================== //
+
+/**
+ * Base shape for error details on the wire. All detail objects
+ * follow the `{ kind, details? }` pattern.
+ */
+export interface ErrorDetail {
+    readonly kind: string;
+    readonly details?: Record<string, unknown>;
+}
+
+/** Auth failure details, nested inside `NotAllowedErrorDetail`. */
+export type AuthErrorDetail =
+    | { readonly kind: "TokenExpired" }
+    | { readonly kind: "SessionExpired" }
+    | { readonly kind: "InvalidAuth" }
+    | { readonly kind: "UnexpectedAuth" }
+    | { readonly kind: "MissingUserOrPass" }
+    | { readonly kind: "NoSigninTarget" }
+    | { readonly kind: "InvalidPass" }
+    | { readonly kind: "TokenMakingFailed" }
+    | { readonly kind: "InvalidSignup" }
+    | { readonly kind: "InvalidRole"; readonly details: { readonly name: string } }
+    | {
+          readonly kind: "NotAllowed";
+          readonly details: {
+              readonly actor: string;
+              readonly action: string;
+              readonly resource: string;
+          };
+      };
+
+/** Validation error details. */
+export type ValidationErrorDetail =
+    | { readonly kind: "Parse" }
+    | { readonly kind: "InvalidRequest" }
+    | { readonly kind: "InvalidParams" }
+    | { readonly kind: "NamespaceEmpty" }
+    | { readonly kind: "DatabaseEmpty" }
+    | { readonly kind: "InvalidParameter"; readonly details: { readonly name: string } }
+    | { readonly kind: "InvalidContent"; readonly details: { readonly value: string } }
+    | { readonly kind: "InvalidMerge"; readonly details: { readonly value: string } };
+
+/** Configuration error details. */
+export type ConfigurationErrorDetail =
+    | { readonly kind: "LiveQueryNotSupported" }
+    | { readonly kind: "BadLiveQueryConfig" }
+    | { readonly kind: "BadGraphqlConfig" };
+
+/** Query error details. */
+export type QueryErrorDetail =
+    | { readonly kind: "NotExecuted" }
+    | {
+          readonly kind: "TimedOut";
+          readonly details: {
+              readonly duration: { readonly secs: number; readonly nanos: number };
+          };
+      }
+    | { readonly kind: "Cancelled" };
+
+/** Serialization error details. */
+export type SerializationErrorDetail =
+    | { readonly kind: "Serialization" }
+    | { readonly kind: "Deserialization" };
+
+/** Not-allowed error details. */
+export type NotAllowedErrorDetail =
+    | { readonly kind: "Scripting" }
+    | { readonly kind: "Auth"; readonly details: AuthErrorDetail }
+    | { readonly kind: "Method"; readonly details: { readonly name: string } }
+    | { readonly kind: "Function"; readonly details: { readonly name: string } }
+    | { readonly kind: "Target"; readonly details: { readonly name: string } };
+
+/** Not-found error details. */
+export type NotFoundErrorDetail =
+    | { readonly kind: "Method"; readonly details: { readonly name: string } }
+    | { readonly kind: "Session"; readonly details: { readonly id: string | null } }
+    | { readonly kind: "Table"; readonly details: { readonly name: string } }
+    | { readonly kind: "Record"; readonly details: { readonly id: string } }
+    | { readonly kind: "Namespace"; readonly details: { readonly name: string } }
+    | { readonly kind: "Database"; readonly details: { readonly name: string } }
+    | { readonly kind: "Transaction" };
+
+/** Already-exists error details. */
+export type AlreadyExistsErrorDetail =
+    | { readonly kind: "Session"; readonly details: { readonly id: string } }
+    | { readonly kind: "Table"; readonly details: { readonly name: string } }
+    | { readonly kind: "Record"; readonly details: { readonly id: string } }
+    | { readonly kind: "Namespace"; readonly details: { readonly name: string } }
+    | { readonly kind: "Database"; readonly details: { readonly name: string } };
+
+/** Connection error details. */
+export type ConnectionErrorDetail =
+    | { readonly kind: "Uninitialised" }
+    | { readonly kind: "AlreadyConnected" };
+
+// =========================================================== //
+//  ServerError base class and subclasses                       //
+// =========================================================== //
+
+/**
+ * Base class for all errors originating from the SurrealDB server.
+ * Replaces the former `ResponseError` class.
+ *
+ * Server errors carry structured information:
+ * - `kind` — the error category (e.g. `"NotAllowed"`, `"NotFound"`)
+ * - `code` — legacy JSON-RPC numeric error code (0 when unavailable)
+ * - `details` — kind-specific structured details from the server (`{ kind, details? }` format)
+ *
+ * Use `instanceof` on subclasses (e.g. `NotFoundError`, `NotAllowedError`)
+ * for type-safe matching, or check the `kind` property directly.
+ */
+export class ServerError extends SurrealError {
+    override get name(): string {
+        return `ServerError [${this.kind}]`;
+    }
+
+    /** The structured error kind (e.g. "NotAllowed", "NotFound", "Internal") */
+    readonly kind: string;
+
+    /** Legacy JSON-RPC error code. 0 when not available (e.g. query result errors). */
     readonly code: number;
 
-    constructor(response: { code: number; message: string }) {
-        super(response.message);
-        this.code = response.code;
+    /**
+     * Kind-specific structured details using the `{ kind, details? }` wire format.
+     * `undefined` when not provided by the server. Subclasses narrow this type
+     * to their specific detail union (e.g. `NotAllowedErrorDetail`).
+     */
+    readonly details: ErrorDetail | undefined;
+
+    constructor(options: ServerErrorOptions) {
+        super(options.message);
+        this.kind = options.kind;
+        this.code = options.code ?? 0;
+        this.details = (options.details ?? undefined) as ErrorDetail | undefined;
     }
 }
+
+/**
+ * Server error: validation failure (parse error, invalid request/params, bad input).
+ */
+export class ValidationError extends ServerError {
+    override readonly kind = "Validation" as const;
+    declare readonly details: ValidationErrorDetail | undefined;
+    override get name() {
+        return "ValidationError";
+    }
+
+    /** True if this is a SurrealQL parse error. */
+    get isParseError(): boolean {
+        return this.details?.kind === "Parse";
+    }
+
+    /** The name of the invalid parameter, if applicable. */
+    get parameterName(): string | undefined {
+        if (this.details?.kind !== "InvalidParameter") return undefined;
+        return this.details.details?.name;
+    }
+}
+
+/**
+ * Server error: feature or configuration not supported (live queries, GraphQL).
+ */
+export class ConfigurationError extends ServerError {
+    override readonly kind = "Configuration" as const;
+    declare readonly details: ConfigurationErrorDetail | undefined;
+    override get name() {
+        return "ConfigurationError";
+    }
+
+    /** True if live queries are not supported by the server configuration. */
+    get isLiveQueryNotSupported(): boolean {
+        return this.details?.kind === "LiveQueryNotSupported";
+    }
+}
+
+/**
+ * Server error: user-thrown error via THROW in SurrealQL.
+ */
+export class ThrownError extends ServerError {
+    override readonly kind = "Thrown" as const;
+    override get name() {
+        return "ThrownError";
+    }
+}
+
+/**
+ * Server error: query execution failure (timeout, cancelled, not executed).
+ */
+export class QueryError extends ServerError {
+    override readonly kind = "Query" as const;
+    declare readonly details: QueryErrorDetail | undefined;
+    override get name() {
+        return "QueryError";
+    }
+
+    /** True if the query was not executed (e.g. due to a prior error in the batch). */
+    get isNotExecuted(): boolean {
+        return this.details?.kind === "NotExecuted";
+    }
+
+    /** True if the query timed out. */
+    get isTimedOut(): boolean {
+        return this.details?.kind === "TimedOut";
+    }
+
+    /** True if the query was cancelled. */
+    get isCancelled(): boolean {
+        return this.details?.kind === "Cancelled";
+    }
+
+    /** The timeout duration, if this is a timeout error. Returns `{ secs, nanos }` or undefined. */
+    get timeout(): { secs: number; nanos: number } | undefined {
+        if (this.details?.kind !== "TimedOut") return undefined;
+        return this.details.details?.duration;
+    }
+}
+
+/**
+ * Server error: serialization or deserialization failure.
+ */
+export class SerializationError extends ServerError {
+    override readonly kind = "Serialization" as const;
+    declare readonly details: SerializationErrorDetail | undefined;
+    override get name() {
+        return "SerializationError";
+    }
+
+    /** True if this is a deserialization error (as opposed to serialization). */
+    get isDeserialization(): boolean {
+        return this.details?.kind === "Deserialization";
+    }
+}
+
+/**
+ * Server error: permission denied, method not allowed, function/scripting blocked.
+ */
+export class NotAllowedError extends ServerError {
+    override readonly kind = "NotAllowed" as const;
+    declare readonly details: NotAllowedErrorDetail | undefined;
+    override get name() {
+        return "NotAllowedError";
+    }
+
+    /** True if the auth token has expired. */
+    get isTokenExpired(): boolean {
+        return this.details?.kind === "Auth" && this.details.details?.kind === "TokenExpired";
+    }
+
+    /** True if authentication credentials are invalid. */
+    get isInvalidAuth(): boolean {
+        return this.details?.kind === "Auth" && this.details.details?.kind === "InvalidAuth";
+    }
+
+    /** True if scripting is blocked. */
+    get isScriptingBlocked(): boolean {
+        return this.details?.kind === "Scripting";
+    }
+
+    /** The method name that is not allowed, if applicable. */
+    get methodName(): string | undefined {
+        if (this.details?.kind !== "Method") return undefined;
+        return this.details.details?.name;
+    }
+
+    /** The function name that is not allowed, if applicable. */
+    get functionName(): string | undefined {
+        if (this.details?.kind !== "Function") return undefined;
+        return this.details.details?.name;
+    }
+}
+
+/**
+ * Server error: resource not found (table, record, namespace, method, etc.).
+ */
+export class NotFoundError extends ServerError {
+    override readonly kind = "NotFound" as const;
+    declare readonly details: NotFoundErrorDetail | undefined;
+    override get name() {
+        return "NotFoundError";
+    }
+
+    /** The table name that was not found, if applicable. */
+    get tableName(): string | undefined {
+        if (this.details?.kind !== "Table") return undefined;
+        return this.details.details?.name;
+    }
+
+    /** The record ID that was not found, if applicable. */
+    get recordId(): string | undefined {
+        if (this.details?.kind !== "Record") return undefined;
+        return this.details.details?.id;
+    }
+
+    /** The RPC method name that was not found, if applicable. */
+    get methodName(): string | undefined {
+        if (this.details?.kind !== "Method") return undefined;
+        return this.details.details?.name;
+    }
+
+    /** The namespace name that was not found, if applicable. */
+    get namespaceName(): string | undefined {
+        if (this.details?.kind !== "Namespace") return undefined;
+        return this.details.details?.name;
+    }
+
+    /** The database name that was not found, if applicable. */
+    get databaseName(): string | undefined {
+        if (this.details?.kind !== "Database") return undefined;
+        return this.details.details?.name;
+    }
+}
+
+/**
+ * Server error: duplicate resource (record, table, namespace, etc.).
+ */
+export class AlreadyExistsError extends ServerError {
+    override readonly kind = "AlreadyExists" as const;
+    declare readonly details: AlreadyExistsErrorDetail | undefined;
+    override get name() {
+        return "AlreadyExistsError";
+    }
+
+    /** The record ID that already exists, if applicable. */
+    get recordId(): string | undefined {
+        if (this.details?.kind !== "Record") return undefined;
+        return this.details.details?.id;
+    }
+
+    /** The table name that already exists, if applicable. */
+    get tableName(): string | undefined {
+        if (this.details?.kind !== "Table") return undefined;
+        return this.details.details?.name;
+    }
+}
+
+/**
+ * Server error: unexpected or unknown internal error.
+ * Also used as the fallback for unrecognized `kind` strings from newer servers.
+ */
+export class InternalError extends ServerError {
+    override readonly kind = "Internal" as const;
+    override get name() {
+        return "InternalError";
+    }
+}
+
+/**
+ * @deprecated Use `ServerError` instead. This alias exists for backward compatibility.
+ */
+export const ResponseError = ServerError;
 
 /**
  * Thrown when authentication fails
@@ -133,11 +511,14 @@ export class AuthenticationError extends SurrealError {
  */
 export class LiveSubscriptionError extends SurrealError {
     override name = "LiveSubscriptionError";
-    override message = "Live subscription failed to listen";
 
-    constructor(cause: unknown) {
-        super();
-        this.cause = cause;
+    constructor(messageOrCause?: string | unknown) {
+        if (typeof messageOrCause === "string") {
+            super(messageOrCause);
+        } else {
+            super("Live subscription failed to listen");
+            this.cause = messageOrCause;
+        }
     }
 }
 
@@ -166,11 +547,14 @@ export class UnsupportedVersionError extends SurrealError {
  */
 export class ExpressionError extends SurrealError {
     override name = "ExpressionError";
-    override message = "Failed to parse invalid expression";
 
-    constructor(cause?: unknown) {
-        super();
-        this.cause = cause;
+    constructor(messageOrCause?: string | unknown) {
+        if (typeof messageOrCause === "string") {
+            super(messageOrCause);
+        } else {
+            super("Failed to parse invalid expression");
+            this.cause = messageOrCause;
+        }
     }
 }
 
@@ -205,14 +589,17 @@ export class PublishError extends SurrealError {
 }
 
 /**
- * Thrown when a parsed date is invalid
+ * Thrown when a parsed date or datetime is invalid
  */
 export class InvalidDateError extends SurrealError {
     override name = "InvalidDateError";
-    override message = "The provided date is invalid";
 
-    constructor(date: Date) {
-        super(`The provided date is invalid: ${date}`);
+    constructor(dateOrMessage: Date | string) {
+        if (typeof dateOrMessage === "string") {
+            super(dateOrMessage);
+        } else {
+            super(`The provided date is invalid: ${dateOrMessage}`);
+        }
     }
 }
 
@@ -261,4 +648,56 @@ export class InvalidSessionError extends SurrealError {
         super(`Invalid session: ${session}`);
         this.session = session;
     }
+}
+
+/**
+ * Thrown when an API request was unsuccessful
+ */
+export class UnsuccessfulApiError extends SurrealError {
+    override name = "UnsuccessfulApiError";
+
+    readonly path: string;
+    readonly method: string;
+    readonly response: ApiResponse<unknown>;
+
+    constructor(path: string, method: string, response: ApiResponse<unknown>) {
+        super(`The ${method.toUpperCase()} ${path} request failed with status ${response.status}`);
+        this.path = path;
+        this.method = method;
+        this.response = response;
+    }
+}
+
+// =========================================================== //
+//                                                             //
+//                   Value Validation Errors                    //
+//                                                             //
+// =========================================================== //
+
+/**
+ * Thrown when a RecordId or RecordIdRange is constructed with invalid parts
+ */
+export class InvalidRecordIdError extends SurrealError {
+    override name = "InvalidRecordIdError";
+}
+
+/**
+ * Thrown when a Duration string cannot be parsed or a duration operation is invalid
+ */
+export class InvalidDurationError extends SurrealError {
+    override name = "InvalidDurationError";
+}
+
+/**
+ * Thrown when a Decimal operation fails (division by zero, invalid input, etc.)
+ */
+export class InvalidDecimalError extends SurrealError {
+    override name = "InvalidDecimalError";
+}
+
+/**
+ * Thrown when a Table or StringRecordId is constructed with an invalid value
+ */
+export class InvalidTableError extends SurrealError {
+    override name = "InvalidTableError";
 }
