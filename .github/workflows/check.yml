@@ -94,7 +94,7 @@ jobs:
           restore-keys: cargo-${{ runner.os }}-
 
       - name: Install wasm-bindgen-cli
-        run: cargo install -f wasm-bindgen-cli --version 0.2.101
+        run: cargo install -f wasm-bindgen-cli --version 0.2.108
 
       - name: Install wasm-opt
         run: cargo install wasm-opt
@@ -227,7 +227,7 @@ jobs:
   test-wasm:
     name: Test WASM
     needs: build-wasm
-    runs-on: runner-amd64-2xlarge
+    runs-on: ubuntu-latest
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -258,7 +258,7 @@ jobs:
   test-node:
     name: Test Node
     needs: build-node
-    runs-on: runner-amd64-2xlarge
+    runs-on: ubuntu-latest
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
