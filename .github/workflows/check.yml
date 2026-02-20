@@ -54,18 +54,6 @@ jobs:
       - name: Code Checkout
         uses: actions/checkout@v4
 
-      # - name: Install Rust
-      #   uses: dtolnay/rust-toolchain@stable
-      #   with:
-      #     toolchain: stable
-      #     targets: wasm32-unknown-unknown
-
-      # - name: Install wasm-bindgen-cli
-      #   run: cargo install -f wasm-bindgen-cli --version 0.2.101
-
-      # - name: Install wasm-opt
-      #   run: cargo install wasm-opt
-
       - name: Install dependencies
         run: bun install
 
@@ -73,3 +61,56 @@ jobs:
         run: bun run test
         env:
           SURREAL_PROTOCOL: ${{ matrix.engine }}
+
+  test-wasm:
+    name: Test WASM
+    runs-on: runner-arm64-2xlarge
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-bindgen-cli
+        run: cargo install -f wasm-bindgen-cli --version 0.2.101
+
+      - name: Install wasm-opt
+        run: cargo install wasm-opt
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run WASM tests
+        run: bun run test:wasm
+
+  test-node:
+    name: Test Node
+    runs-on: runner-arm64-2xlarge
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run Node tests
+        run: bun run test:node
