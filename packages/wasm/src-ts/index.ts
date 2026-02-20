@@ -2,7 +2,7 @@ import type { DriverContext, Engines } from "surrealdb";
 import type { ConnectionOptions } from "../wasm/surrealdb";
 import { WebAssemblyEngine } from "./engine";
 import { LocalEngineBroker } from "./local/local-broker";
-import { WorkerEngineBroker } from "./worker/worker-broker";
+import { type WasmWorkerOptions, WorkerEngineBroker } from "./worker/worker-broker";
 
 /**
  * Configure the `mem` and `indxdb` WebAssembly engines for the JavaScript SDK.
@@ -48,7 +48,7 @@ export const createWasmEngines = (options?: ConnectionOptions): Engines => {
  * });
  * ```
  */
-export const createWasmWorkerEngines = (options?: ConnectionOptions): Engines => {
+export const createWasmWorkerEngines = (options?: WasmWorkerOptions): Engines => {
     const createEngine = (ctx: DriverContext) =>
         new WebAssemblyEngine(new WorkerEngineBroker(), ctx, options);
 
