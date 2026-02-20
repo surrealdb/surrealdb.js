@@ -44,7 +44,7 @@ jobs:
       - name: Cache turbo
         uses: actions/cache@v4
         with:
-          path: node_modules/.cache/turbo
+          path: .turbo/cache
           key: turbo-sdk-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/sdk/src/**') }}
           restore-keys: turbo-sdk-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
 
@@ -102,7 +102,7 @@ jobs:
       - name: Cache turbo
         uses: actions/cache@v4
         with:
-          path: node_modules/.cache/turbo
+          path: .turbo/cache
           key: turbo-wasm-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/wasm/src-rust/**', 'packages/wasm/src-ts/**', 'packages/wasm/Cargo.toml') }}
           restore-keys: turbo-wasm-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
 
@@ -161,7 +161,7 @@ jobs:
       - name: Cache turbo
         uses: actions/cache@v4
         with:
-          path: node_modules/.cache/turbo
+          path: .turbo/cache
           key: turbo-node-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/node/src-rust/**', 'packages/node/src-ts/**', 'packages/node/Cargo.toml') }}
           restore-keys: turbo-node-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
 
