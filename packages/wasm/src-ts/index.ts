@@ -21,7 +21,7 @@ import { type WasmWorkerOptions, WorkerEngineBroker } from "./worker/worker-brok
  * });
  * ```
  */
-export const createWasmEngines = (options?: WasmWorkerOptions): Engines => {
+export const createWasmEngines = (options?: ConnectionOptions): Engines => {
     const createEngine = (ctx: DriverContext) =>
         new WebAssemblyEngine(new LocalEngineBroker(), ctx, options);
 
@@ -48,7 +48,7 @@ export const createWasmEngines = (options?: WasmWorkerOptions): Engines => {
  * });
  * ```
  */
-export const createWasmWorkerEngines = (options?: ConnectionOptions): Engines => {
+export const createWasmWorkerEngines = (options?: WasmWorkerOptions): Engines => {
     const createEngine = (ctx: DriverContext) =>
         new WebAssemblyEngine(new WorkerEngineBroker(), ctx, options);
 
