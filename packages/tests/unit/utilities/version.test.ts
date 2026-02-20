@@ -10,8 +10,12 @@ describe("isVersionSupported()", () => {
         expect(isVersionSupported("1.5.6")).toBe(false);
     });
 
-    test("2.0.0 should be supported", () => {
-        expect(isVersionSupported("2.0.0")).toBe(true);
+    test("2.0.0 should be unsupported", () => {
+        expect(isVersionSupported("2.0.0")).toBe(false);
+    });
+
+    test("2.1.0 should be supported", () => {
+        expect(isVersionSupported("2.1.0")).toBe(true);
     });
 
     test("3.0.0 should be supported", () => {

@@ -1,4 +1,5 @@
 import { createWasmWorkerEngines } from "@surrealdb/wasm";
+import WorkerAgent from "@surrealdb/wasm/worker?worker";
 import * as surrealdb from "surrealdb";
 import { createRemoteEngines, Surreal } from "surrealdb";
 
@@ -17,7 +18,7 @@ if (typeof window !== "undefined") {
             useNativeDates: true,
         },
         engines: {
-            ...createWasmWorkerEngines(),
+            ...createWasmWorkerEngines({ createWorker: () => new WorkerAgent() }),
             ...createRemoteEngines(),
         },
     });

@@ -191,7 +191,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        surrealdb: ["v2.0.5", "v2.1.8", "v2.2.7", "v2.3.7", "v3.0.0", "nightly"]
+        surrealdb: ["v2.1.8", "v2.2.7", "v2.3.7", "v3.0.0", "nightly"]
         engine: ["ws", "http"]
     steps:
       - name: Install SurrealDB ${{ matrix.surrealdb }} over ${{ matrix.engine }} engine
