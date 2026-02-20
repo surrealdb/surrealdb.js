@@ -89,12 +89,22 @@ export function createAuth(auth: PremadeAuth | SystemAuth): SystemAuth | undefin
 
 /**
  * Request the version of the SurrealDB server.
+ * For embedded engines (wasm/node), reads the version set on globalThis by the preload script.
+ * For remote engines, spawns the surreal binary to check the version.
  */
 const VERSION_REGEX = /(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)/;
 
 export async function requestVersion(): Promise<{ version: string; is2x: boolean; is3x: boolean }> {
-    const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "version"]);
-    const output = await Bun.readableStreamToText(proc.stdout);
+    let output: string;
+
+    const cachedVersion = (globalThis as GlobalThis).surrealVersion;
+    if (cachedVersion) {
+        output = cachedVersion;
+    } else {
+        const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "version"]);
+        output = await Bun.readableStreamToText(proc.stdout);
+    }
+
     const match = output.match(VERSION_REGEX);
     if (!match) {
         throw new Error(`Could not parse SurrealDB version from output: ${output}`);
@@ -121,6 +131,10 @@ export async function spawnServer(): Promise<void> {
     }
 
     console.log("Spawning server...");
+
+    const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "version"]);
+    const versionOutput = await Bun.readableStreamToText(proc.stdout);
+    (globalThis as GlobalThis).surrealVersion = versionOutput;
 
     folder = `test.db/${Math.random().toString(36).substring(2, 7)}`;
     server = Bun.spawn([SURREAL_EXECUTABLE_PATH, "start", `rocksdb:${folder}`], {
@@ -185,6 +199,7 @@ export async function respawnServer(): Promise<void> {
 
 type GlobalThis = typeof globalThis & {
     embeddedEngines?: Engines;
+    surrealVersion?: string;
 };
 
 let cachedEngines: Engines | null = null;

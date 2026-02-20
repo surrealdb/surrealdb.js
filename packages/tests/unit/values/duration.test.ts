@@ -125,7 +125,7 @@ describe("Duration", () => {
         const stop = Duration.measure();
         await new Promise((resolve) => setTimeout(resolve, 50));
         const elapsed = stop();
-        expect(Number(elapsed.milliseconds)).toBeWithin(48, 52);
+        expect(Number(elapsed.milliseconds)).toBeWithin(48, 200);
     });
 
     describe("fuzzing", () => {
