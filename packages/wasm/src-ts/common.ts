@@ -22,15 +22,23 @@ export function readNotifications(
     engine: SurrealWasmEngine,
     handle: (data: Uint8Array) => void,
     signal?: AbortSignal,
-): () => void {
+): () => Promise<void> {
     let cancelled = false;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+    let resolveExited: (() => void) | undefined;
+    const exitedPromise = new Promise<void>((resolve) => {
+        resolveExited = resolve;
+    });
+
     const cancel = () => {
         cancelled = true;
+        reader?.cancel().catch(() => {});
+        return exitedPromise;
     };
 
     (async () => {
         try {
-            const reader = engine.notifications().getReader();
+            reader = engine.notifications().getReader();
 
             while (!cancelled && !signal?.aborted) {
                 const { done, value } = await reader.read();
@@ -47,15 +55,25 @@ export function readNotifications(
             }
         } catch {
             // There is no way to handle errors here, so we just ignore them
+        } finally {
+            resolveExited?.();
         }
     })();
 
     return cancel;
 }
 
-export async function initializeLibrary() {
-    const wasmUrl = new URL("../wasm/surrealdb_bg.wasm", import.meta.url);
-    const wasmCode = await (await fetch(wasmUrl)).arrayBuffer();
+let initPromise: ReturnType<typeof init> | undefined;
 
-    await init(wasmCode);
+/**
+ * Initialize the WebAssembly module. Safe to call multiple times; the module
+ * is only initialized once and subsequent calls return the same promise.
+ */
+export async function initializeLibrary(): Promise<void> {
+    if (initPromise === undefined) {
+        const wasmUrl = new URL("../wasm/surrealdb_bg.wasm", import.meta.url);
+        const wasmCode = await (await fetch(wasmUrl)).arrayBuffer();
+        initPromise = init({ module_or_path: wasmCode });
+    }
+    await initPromise;
 }

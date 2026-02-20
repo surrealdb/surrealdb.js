@@ -15,3 +15,11 @@ exports[`query() inner query: bindings-http 1`] = `
   "bind__3": RecordId {},
 }
 `;
+
+exports[`query() inner query: query-mem 1`] = `"RETURN $bind__3"`;
+
+exports[`query() inner query: bindings-mem 1`] = `
+{
+  "bind__3": RecordId {},
+}
+`;

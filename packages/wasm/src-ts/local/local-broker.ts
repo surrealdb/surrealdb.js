@@ -5,7 +5,7 @@ import { type EngineBroker, initializeLibrary, readNotifications } from "../comm
 export class LocalEngineBroker implements EngineBroker {
     #engine: SurrealWasmEngine | undefined;
     #active = false;
-    #cancelNotifications: (() => void) | undefined;
+    #cancelNotifications: (() => Promise<void>) | undefined;
     #abortController: AbortController | undefined;
 
     get isConnected() {
@@ -60,10 +60,10 @@ export class LocalEngineBroker implements EngineBroker {
 
     async close() {
         this.#active = false;
-        this.#cancelNotifications?.();
-        this.#cancelNotifications = undefined;
         this.#abortController?.abort();
         this.#abortController = undefined;
+        await this.#cancelNotifications?.();
+        this.#cancelNotifications = undefined;
         this.#engine?.free();
         this.#engine = undefined;
     }

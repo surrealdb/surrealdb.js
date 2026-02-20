@@ -29,13 +29,169 @@ jobs:
       - name: Checking Code Quality
         run: bun run qc
 
+  build-sdk:
+    name: Build SDK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-sdk-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/sdk/src/**') }}
+          restore-keys: turbo-sdk-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build SDK
+        run: bun run build:sdk
+
+      - name: Upload SDK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-build
+          retention-days: 1
+          path: packages/sdk/dist/
+
+  build-wasm:
+    name: Build WASM
+    needs: build-sdk
+    runs-on: runner-amd64-2xlarge
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+          key: cargo-wasm-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-wasm-${{ runner.os }}-
+
+      - name: Install wasm-bindgen-cli
+        run: command -v wasm-bindgen && wasm-bindgen --version | grep -q 0.2.108 || cargo install -f wasm-bindgen-cli --version 0.2.108
+
+      - name: Install wasm-opt
+        run: command -v wasm-opt || cargo install wasm-opt
+
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-wasm-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/wasm/src-rust/**', 'packages/wasm/src-ts/**', 'packages/wasm/Cargo.toml') }}
+          restore-keys: turbo-wasm-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Download SDK build
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-build
+          path: packages/sdk/dist/
+
+      - name: Build WASM
+        run: bun run build:wasm
+
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-build
+          retention-days: 30
+          path: |
+            packages/wasm/dist/
+            packages/wasm/wasm/
+
+  build-node:
+    name: Build Node
+    needs: build-sdk
+    runs-on: runner-amd64-2xlarge
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-node-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/node/src-rust/**', 'packages/node/src-ts/**', 'packages/node/Cargo.toml') }}
+          restore-keys: turbo-node-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Download SDK build
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-build
+          path: packages/sdk/dist/
+
+      - name: Build Node
+        run: bun run build:node
+
+      - name: Upload Node artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-build
+          retention-days: 30
+          path: packages/node/dist/
+
   test:
     name: Test
+    needs: build-sdk
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        surrealdb: ["v2.1.8", "v2.2.7", "v2.3.7", "v3.0.0", "nightly"]
+        surrealdb: ["v2.2.7", "v2.3.7", "v3.0.0", "nightly"]
         engine: ["ws", "http"]
     steps:
       - name: Install SurrealDB ${{ matrix.surrealdb }} over ${{ matrix.engine }} engine
@@ -54,22 +210,78 @@ jobs:
       - name: Code Checkout
         uses: actions/checkout@v4
 
-      # - name: Install Rust
-      #   uses: dtolnay/rust-toolchain@stable
-      #   with:
-      #     toolchain: stable
-      #     targets: wasm32-unknown-unknown
+      - name: Install dependencies
+        run: bun install
 
-      # - name: Install wasm-bindgen-cli
-      #   run: cargo install -f wasm-bindgen-cli --version 0.2.101
+      - name: Download SDK build
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-build
+          path: packages/sdk/dist/
 
-      # - name: Install wasm-opt
-      #   run: cargo install wasm-opt
+      - name: Run tests
+        run: cd packages/tests && bun test --preload ./global.ts
+        env:
+          SURREAL_PROTOCOL: ${{ matrix.engine }}
+
+  test-wasm:
+    name: Test WASM
+    needs: build-wasm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: bun install
 
-      - name: Run tests
-        run: bun run test
-        env:
-          SURREAL_PROTOCOL: ${{ matrix.engine }}
+      - name: Download SDK build
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-build
+          path: packages/sdk/dist/
+
+      - name: Download WASM build
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-build
+          path: packages/wasm/
+
+      - name: Run WASM tests
+        run: cd packages/tests && SURREAL_BACKEND=wasm bun test --preload ./global-wasm.ts
+
+  test-node:
+    name: Test Node
+    needs: build-node
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
+
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Download SDK build
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-build
+          path: packages/sdk/dist/
+
+      - name: Download Node build
+        uses: actions/download-artifact@v4
+        with:
+          name: node-build
+          path: packages/node/dist/
+
+      - name: Run Node tests
+        run: cd packages/tests && SURREAL_BACKEND=node bun test --preload ./global-node.ts

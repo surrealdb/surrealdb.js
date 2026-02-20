@@ -27,3 +27,17 @@ exports[`api compile: bindings-http 1`] = `
   },
 }
 `;
+
+exports[`api compile: query-mem 1`] = `"api::invoke($bind__3, $bind__4)"`;
+
+exports[`api compile: bindings-mem 1`] = `
+{
+  "bind__3": "/identity",
+  "bind__4": {
+    "body": undefined,
+    "headers": {},
+    "method": "get",
+    "query": {},
+  },
+}
+`;

@@ -8,7 +8,6 @@ const ITEXT_STYLE: &'static str = r#"
 	};
 
 	type ConnectionOptions = {
-		strict?: boolean;
 		query_timeout?: number;
 		transaction_timeout?: number;
 		capabilities?: boolean | {
@@ -18,7 +17,12 @@ const ITEXT_STYLE: &'static str = r#"
 			functions?: boolean | string[] | CapabilitiesAllowDenyList;
 			network_targets?: boolean | string[] | CapabilitiesAllowDenyList;
 			experimental?: boolean | string[] | CapabilitiesAllowDenyList;
+			planner_strategy?: "best-effort" | "compute-only" | "all-read-only";
 		}
+		defaults?: false | {
+			namespace?: string;
+			database?: string;
+		};
 	}
 "#;
 

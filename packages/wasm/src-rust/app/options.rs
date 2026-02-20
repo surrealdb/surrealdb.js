@@ -1,14 +1,46 @@
 use crate::err::Error;
 use serde::Deserialize;
 use std::collections::HashSet;
-use surrealdb::dbs::capabilities;
+use surrealdb_core::dbs::{capabilities, NewPlannerStrategy};
 
 #[derive(Deserialize)]
 pub struct Options {
-	pub strict: Option<bool>,
 	pub query_timeout: Option<u8>,
 	pub transaction_timeout: Option<u8>,
 	pub capabilities: Option<CapabilitiesConfig>,
+	pub defaults: Option<DefaultsConfig>,
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(untagged)]
+pub enum DefaultsConfig {
+	Bool(bool),
+	Config {
+		namespace: Option<String>,
+		database: Option<String>,
+	},
+}
+
+impl Default for DefaultsConfig {
+	fn default() -> Self {
+		DefaultsConfig::Bool(true)
+	}
+}
+
+impl DefaultsConfig {
+	pub fn get_defaults(self) -> Option<(String, String)> {
+		match self {
+			DefaultsConfig::Bool(false) => None,
+			DefaultsConfig::Bool(true) => Some(("main".to_string(), "main".to_string())),
+			DefaultsConfig::Config {
+				namespace,
+				database,
+			} => Some((
+				namespace.unwrap_or("main".to_string()),
+				database.unwrap_or("main".to_string()),
+			)),
+		}
+	}
 }
 
 #[derive(Deserialize)]
@@ -22,6 +54,7 @@ pub enum CapabilitiesConfig {
 		functions: Option<Targets>,
 		network_targets: Option<Targets>,
 		experimental: Option<Targets>,
+		planner_strategy: Option<PlannerStrategy>,
 	},
 }
 
@@ -53,6 +86,25 @@ macro_rules! process_targets {
 	}};
 }
 
+#[derive(Deserialize, Clone, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum PlannerStrategy {
+	#[default]
+	BestEffort,
+	ComputeOnly,
+	AllReadOnly,
+}
+
+impl From<PlannerStrategy> for NewPlannerStrategy {
+	fn from(strategy: PlannerStrategy) -> Self {
+		match strategy {
+			PlannerStrategy::BestEffort => NewPlannerStrategy::BestEffortReadOnlyStatements,
+			PlannerStrategy::ComputeOnly => NewPlannerStrategy::ComputeOnly,
+			PlannerStrategy::AllReadOnly => NewPlannerStrategy::AllReadOnlyStatements,
+		}
+	}
+}
+
 impl TryFrom<CapabilitiesConfig> for capabilities::Capabilities {
 	type Error = Error;
 
@@ -69,6 +121,7 @@ impl TryFrom<CapabilitiesConfig> for capabilities::Capabilities {
 				functions,
 				network_targets,
 				experimental,
+				planner_strategy,
 			} => {
 				let mut capabilities = Self::default();
 
@@ -239,8 +292,8 @@ impl TryFrom<CapabilitiesConfig> for capabilities::Capabilities {
 										}
 									},
 									TargetsConfig::Array(set) => {
-										capabilities = capabilities
-											.with_experimental(process_targets!(set));
+										capabilities =
+											capabilities.with_experimental(process_targets!(set));
 									}
 								}
 							}
@@ -249,14 +302,12 @@ impl TryFrom<CapabilitiesConfig> for capabilities::Capabilities {
 								match config {
 									TargetsConfig::Bool(experimental) => match experimental {
 										true => {
-											capabilities = capabilities.without_experimental(
-												capabilities::Targets::All,
-											);
+											capabilities = capabilities
+												.without_experimental(capabilities::Targets::All);
 										}
 										false => {
-											capabilities = capabilities.without_experimental(
-												capabilities::Targets::None,
-											);
+											capabilities = capabilities
+												.without_experimental(capabilities::Targets::None);
 										}
 									},
 									TargetsConfig::Array(set) => {
@@ -269,16 +320,18 @@ impl TryFrom<CapabilitiesConfig> for capabilities::Capabilities {
 					}
 				}
 
+				if let Some(planner_strategy) = planner_strategy {
+					capabilities = capabilities.with_planner_strategy(planner_strategy.into());
+				}
+
 				capabilities
 			}
 		};
 
-		Ok(
-			caps
-				// Always allow arbitrary quering in the WASM SDK,
-				// There is no use in configuring that here
-				.with_arbitrary_query(capabilities::Targets::All)
-				.without_arbitrary_query(capabilities::Targets::None)
-		)
+		Ok(caps
+			// Always allow arbitrary quering in the WASM SDK,
+			// There is no use in configuring that here
+			.with_arbitrary_query(capabilities::Targets::All)
+			.without_arbitrary_query(capabilities::Targets::None))
 	}
 }

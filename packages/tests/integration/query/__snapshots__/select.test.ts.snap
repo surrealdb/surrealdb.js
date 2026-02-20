@@ -39,3 +39,23 @@ exports[`select() compile: bindings-http 1`] = `
   "bind__9": DateTime {},
 }
 `;
+
+exports[`select() compile: query-mem 1`] = `"SELECT type::fields($bind__3) FROM ONLY $bind__4 WHERE age = $bind__5 START $bind__6 LIMIT $bind__7 FETCH type::fields($bind__8) TIMEOUT TIMEOUT 1s VERSION $bind__9"`;
+
+exports[`select() compile: bindings-mem 1`] = `
+{
+  "bind__3": [
+    "age",
+    "test",
+    "lastname",
+  ],
+  "bind__4": RecordId {},
+  "bind__5": 30,
+  "bind__6": 1,
+  "bind__7": 1,
+  "bind__8": [
+    "foo",
+  ],
+  "bind__9": DateTime {},
+}
+`;

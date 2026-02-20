@@ -25,3 +25,16 @@ exports[`upsert() compile: bindings-http 1`] = `
   "bind__5": 30,
 }
 `;
+
+exports[`upsert() compile: query-mem 1`] = `"UPSERT ONLY $bind__3 CONTENT $bind__4 WHERE age = $bind__5 RETURN DIFF TIMEOUT TIMEOUT 1s"`;
+
+exports[`upsert() compile: bindings-mem 1`] = `
+{
+  "bind__3": RecordId {},
+  "bind__4": {
+    "firstname": "John",
+    "lastname": "Doe",
+  },
+  "bind__5": 30,
+}
+`;

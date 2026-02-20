@@ -1,31 +1,36 @@
 mod options;
 
 use std::sync::Arc;
+use std::sync::RwLock;
 use std::time::Duration;
 
 use crate::err::err_map;
-use arc_swap::ArcSwap;
+use dashmap::DashMap;
 use napi::bindgen_prelude::*;
-use napi::tokio::sync::RwLock;
-use napi::tokio::sync::Semaphore;
+use napi::tokio::sync::RwLock as TokioRwLock;
 use napi_derive::napi;
 
 use options::Options;
 use serde_json::from_value;
 use serde_json::Value as JsValue;
-use surrealdb::dbs::Session;
-use surrealdb::kvs::export::Config;
-use surrealdb::kvs::Datastore;
-use surrealdb::rpc::format::cbor;
-use surrealdb::rpc::RpcProtocolV1;
-use surrealdb::rpc::RpcProtocolV2;
+use surrealdb_core::dbs::Session;
+use surrealdb_core::kvs::export::Config;
+use surrealdb_core::kvs::Datastore;
+use surrealdb_core::kvs::LockType;
+use surrealdb_core::kvs::Transaction;
+use surrealdb_core::kvs::TransactionType;
+use surrealdb_core::rpc::format::cbor;
+use surrealdb_core::rpc::DbResult;
+use surrealdb_core::rpc::Request;
 
-use surrealdb::rpc::{Data, RpcContext};
-use surrealdb::sql::Value;
+use surrealdb_core::rpc::RpcProtocol;
+use surrealdb_types::Array;
+use surrealdb_types::HashMap;
+use surrealdb_types::Value;
 use uuid::Uuid;
 
 #[napi]
-pub struct SurrealNodeEngine(RwLock<Option<SurrealNodeConnection>>);
+pub struct SurrealNodeEngine(TokioRwLock<Option<SurrealNodeConnection>>);
 
 #[napi]
 pub struct NotificationReceiver {
@@ -49,15 +54,33 @@ impl SurrealNodeEngine {
 	pub async fn execute(&self, data: Uint8Array) -> std::result::Result<Uint8Array, Error> {
 		let lock = self.0.read().await;
 		let engine = lock.as_ref().unwrap();
-		let in_data = cbor::req(data.to_vec()).map_err(err_map)?;
-		let res = RpcContext::execute(engine, in_data.version, in_data.method, in_data.params)
-			.await
+		let obj = cbor::decode(data.to_vec().as_slice())
+			.map_err(err_map)?
+			.into_object()
 			.map_err(err_map)?;
+		let req = Request::from_object(obj).map_err(err_map)?;
+		let res = RpcProtocol::execute(
+			engine,
+			req.txn.map(Into::into),
+			req.session_id.map(Into::into),
+			req.method,
+			req.params,
+		)
+		.await;
 
-		let value: Value = res.try_into().map_err(err_map)?;
-		let out = cbor::res(value).map_err(err_map)?;
-
-		Ok(out.as_slice().into())
+		match res {
+			Ok(result) => {
+				let value = Value::from_t(result);
+				let out = cbor::encode(value).map_err(err_map)?;
+				Ok(out.as_slice().into())
+			}
+			Err(rpc_err) => {
+				let mut envelope = surrealdb_types::Object::default();
+				envelope.insert("error".to_string(), Value::from_t(rpc_err));
+				let out = cbor::encode(Value::Object(envelope)).map_err(err_map)?;
+				Ok(out.as_slice().into())
+			}
+		}
 	}
 
 	#[napi]
@@ -82,15 +105,9 @@ impl SurrealNodeEngine {
 			let notification_stream = stream;
 
 			while let Ok(notification) = notification_stream.recv().await {
-				// Construct live message
-				let mut message = surrealdb::sql::Object::default();
+				let message = Value::from_t(notification);
 
-				message.insert("id".to_string(), notification.id.into());
-				message.insert("action".to_string(), notification.action.to_string().into());
-				message.insert("record".to_string(), notification.record.into());
-				message.insert("result".to_string(), notification.result);
-
-				if let Ok(out) = cbor::res(message) {
+				if let Ok(out) = cbor::encode(message) {
 					let data = out.as_slice().into();
 					if tx.send(data).await.is_err() {
 						break; // Receiver dropped
@@ -114,8 +131,11 @@ impl SurrealNodeEngine {
 			s => s,
 		};
 
+		let opts: Option<Options> = from_value::<Option<Options>>(JsValue::from(opts))?;
+		let defaults = opts.as_ref().and_then(|o| o.defaults.clone()).unwrap_or_default();
+
 		let kvs = Datastore::new(endpoint).await.map_err(err_map)?.with_notifications();
-		let kvs = match from_value::<Option<Options>>(JsValue::from(opts))? {
+		let kvs = match opts {
 			None => kvs,
 			Some(opts) => kvs
 				.with_capabilities(
@@ -124,19 +144,30 @@ impl SurrealNodeEngine {
 				.with_transaction_timeout(
 					opts.transaction_timeout.map(|qt| Duration::from_secs(qt as u64)),
 				)
-				.with_query_timeout(opts.query_timeout.map(|qt| Duration::from_secs(qt as u64)))
-				.with_strict_mode(opts.strict.map_or(Default::default(), |s| s)),
+				.with_query_timeout(opts.query_timeout.map(|qt| Duration::from_secs(qt as u64))),
 		};
 
+		let (_, is_new) = kvs.check_version().await.map_err(err_map)?;
+
+		if is_new {
+			if let Some(defaults) = defaults.get_defaults() {
+				kvs.initialise_defaults(&defaults.0, &defaults.1).await.map_err(err_map)?;
+			}
+		}
+
 		let session = Session::default().with_rt(true);
+		#[allow(unused_mut)]
+		let mut sessions = HashMap::new();
+		sessions.insert(None, Arc::new(TokioRwLock::new(session)));
 
 		let connection = SurrealNodeConnection {
 			kvs: Arc::new(kvs),
-			session: ArcSwap::new(Arc::new(session)),
-			lock: Arc::new(Semaphore::new(1)),
+			live_queries: Arc::new(RwLock::new(HashMap::new())),
+			transactions: DashMap::new(),
+			sessions,
 		};
 
-		Ok(SurrealNodeEngine(RwLock::new(Some(connection))))
+		Ok(SurrealNodeEngine(TokioRwLock::new(Some(connection))))
 	}
 
 	#[napi]
@@ -144,15 +175,16 @@ impl SurrealNodeEngine {
 		let lock = self.0.read().await;
 		let engine = lock.as_ref().unwrap();
 		let (tx, rx) = channel::unbounded();
+		let session_arc = engine.default_session();
+		let session_guard = session_arc.read().await;
 
 		match config {
 			Some(config) => {
-				let in_config = cbor::parse_value(config.to_vec()).map_err(err_map)?;
-				let config = Config::try_from(&in_config).map_err(err_map)?;
-
+				let in_config = cbor::decode(config.to_vec().as_slice()).map_err(err_map)?;
+				let config = in_config.into_t::<Config>().map_err(err_map)?;
 				engine
 					.kvs
-					.export_with_config(engine.session().as_ref(), tx, config)
+					.export_with_config(&*session_guard, tx, config)
 					.await
 					.map_err(err_map)?
 					.await
@@ -161,7 +193,7 @@ impl SurrealNodeEngine {
 			None => {
 				engine
 					.kvs
-					.export(engine.session().as_ref(), tx)
+					.export(&*session_guard, tx)
 					.await
 					.map_err(err_map)?
 					.await
@@ -183,8 +215,9 @@ impl SurrealNodeEngine {
 	pub async fn import(&self, input: String) -> std::result::Result<(), Error> {
 		let lock = self.0.read().await;
 		let engine = lock.as_ref().unwrap();
-
-		engine.kvs.import(&input, engine.session().as_ref()).await.map_err(err_map)?;
+		let session_arc = engine.default_session();
+		let session_guard = session_arc.read().await;
+		engine.kvs.import(&input, &*session_guard).await.map_err(err_map)?;
 
 		Ok(())
 	}
@@ -202,41 +235,152 @@ impl SurrealNodeEngine {
 
 struct SurrealNodeConnection {
 	pub kvs: Arc<Datastore>,
-	pub lock: Arc<Semaphore>,
-	pub session: ArcSwap<Session>,
+	pub live_queries: Arc<RwLock<HashMap<Uuid, Option<Uuid>>>>,
+	pub transactions: DashMap<Uuid, Arc<Transaction>>,
+	pub sessions: HashMap<Option<Uuid>, Arc<napi::tokio::sync::RwLock<Session>>>,
 }
 
-impl RpcContext for SurrealNodeConnection {
+impl SurrealNodeConnection {
+	fn default_session(&self) -> Arc<napi::tokio::sync::RwLock<Session>> {
+		self.sessions.get(&None).unwrap().clone()
+	}
+}
+
+type TxError = surrealdb_types::Error;
+type TxResult<T> = std::result::Result<T, TxError>;
+
+impl RpcProtocol for SurrealNodeConnection {
 	fn kvs(&self) -> &Datastore {
 		&self.kvs
 	}
 
-	fn lock(&self) -> Arc<Semaphore> {
-		self.lock.clone()
+	fn version_data(&self) -> DbResult {
+		DbResult::Other(Value::String(format!("surrealdb-{}", env!("SURREALDB_VERSION"))))
 	}
 
-	fn session(&self) -> Arc<Session> {
-		self.session.load_full()
-	}
-
-	fn set_session(&self, session: Arc<Session>) {
-		self.session.store(session);
-	}
-
-	fn version_data(&self) -> Data {
-		Value::Strand(format!("surrealdb-{}", env!("SURREALDB_VERSION")).into()).into()
+	/// A pointer to all active sessions
+	fn session_map(&self) -> &HashMap<Option<Uuid>, Arc<napi::tokio::sync::RwLock<Session>>> {
+		&self.sessions
 	}
 
 	const LQ_SUPPORT: bool = true;
 
-	fn handle_live(&self, _lqid: &Uuid) -> impl std::future::Future<Output = ()> + Send {
-		async { () }
+	/// Handles the cleanup of live queries
+	async fn cleanup_lqs(&self, session_id: Option<&Uuid>) {
+		let mut gc = Vec::new();
+		{
+			let guard = self.live_queries.write().unwrap();
+			guard.retain(|key, value| {
+				if value.as_ref() == session_id {
+					gc.push(*key);
+					return false;
+				}
+				true
+			});
+		}
+		let _ = self.kvs.delete_queries(gc).await;
 	}
 
-	fn handle_kill(&self, _lqid: &Uuid) -> impl std::future::Future<Output = ()> + Send {
-		async { () }
+	/// Handles the cleanup of live queries
+	async fn cleanup_all_lqs(&self) {
+		let mut gc = Vec::new();
+		{
+			let guard = self.live_queries.write().unwrap();
+			guard.retain(|key, _| {
+				gc.push(*key);
+				false
+			});
+		}
+		let _ = self.kvs.delete_queries(gc).await;
+	}
+
+	async fn handle_live(&self, lqid: &Uuid, session_id: Option<Uuid>) {
+		let live_queries = Arc::clone(&self.live_queries);
+		let lqid = *lqid;
+		live_queries.write().unwrap().insert(lqid, session_id);
+	}
+
+	async fn handle_kill(&self, lqid: &Uuid) {
+		let live_queries = Arc::clone(&self.live_queries);
+		let lqid = *lqid;
+		live_queries.write().unwrap().remove(&lqid);
+	}
+
+	// ------------------------------
+	// Transactions
+	// ------------------------------
+
+	/// Retrieves a transaction by ID
+	async fn get_tx(&self, id: Uuid) -> TxResult<Arc<surrealdb_core::kvs::Transaction>> {
+		self.transactions
+			.get(&id)
+			.map(|tx| tx.clone())
+			.ok_or_else(|| surrealdb_core::rpc::invalid_params("Transaction not found"))
+	}
+
+	/// Stores a transaction
+	async fn set_tx(&self, id: Uuid, tx: Arc<surrealdb_core::kvs::Transaction>) -> TxResult<()> {
+		self.transactions.insert(id, tx);
+		Ok(())
+	}
+
+	// ------------------------------
+	// Methods for transactions
+	// ------------------------------
+
+	/// Begin a new transaction
+	async fn begin(&self, _txn: Option<Uuid>, _session_id: Option<Uuid>) -> TxResult<DbResult> {
+		// Create a new transaction
+		let tx = self
+			.kvs()
+			.transaction(TransactionType::Write, LockType::Optimistic)
+			.await
+			.map_err(surrealdb_core::rpc::types_error_from_anyhow)?;
+		// Generate a unique transaction ID
+		let id = Uuid::now_v7();
+		// Store the transaction in the map
+		self.transactions.insert(id, Arc::new(tx));
+		// Return the transaction ID to the client
+		Ok(DbResult::Other(Value::Uuid(surrealdb_types::Uuid::from(id))))
+	}
+
+	/// Commit a transaction
+	async fn commit(
+		&self,
+		_txn: Option<Uuid>,
+		_session_id: Option<Uuid>,
+		params: Array,
+	) -> TxResult<DbResult> {
+		let mut params_vec = params.into_vec();
+		let Some(Value::Uuid(txn_id)) = params_vec.pop() else {
+			return Err(surrealdb_core::rpc::invalid_params("Expected transaction UUID"));
+		};
+		let txn_id = txn_id.into_inner();
+		let Some((_, tx)) = self.transactions.remove(&txn_id) else {
+			return Err(surrealdb_core::rpc::invalid_params("Transaction not found"));
+		};
+		tx.commit().await.map_err(surrealdb_core::rpc::types_error_from_anyhow)?;
+		Ok(DbResult::Other(Value::None))
+	}
+
+	/// Cancel a transaction
+	async fn cancel(
+		&self,
+		_txn: Option<Uuid>,
+		_session_id: Option<Uuid>,
+		params: Array,
+	) -> TxResult<DbResult> {
+		let mut params_vec = params.into_vec();
+		let Some(Value::Uuid(txn_id)) = params_vec.pop() else {
+			return Err(surrealdb_core::rpc::invalid_params("Expected transaction UUID"));
+		};
+		let txn_id = txn_id.into_inner();
+		let Some((_, tx)) = self.transactions.remove(&txn_id) else {
+			return Err(surrealdb_core::rpc::invalid_params("Transaction not found"));
+		};
+		tx.cancel().await.map_err(surrealdb_core::rpc::types_error_from_anyhow)?;
+
+		// Return success
+		Ok(DbResult::Other(Value::None))
 	}
 }
-
-impl RpcProtocolV1 for SurrealNodeConnection {}
-impl RpcProtocolV2 for SurrealNodeConnection {}

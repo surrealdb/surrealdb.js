@@ -16,3 +16,20 @@ exports[`live() / liveOf() compile: bindings-ws 1`] = `
   ],
 }
 `;
+
+exports[`live() / liveOf() compile: query-mem 1`] = `"LIVE SELECT type::fields($bind__3) FROM $bind__4 WHERE age = $bind__5 FETCH type::fields($bind__6)"`;
+
+exports[`live() / liveOf() compile: bindings-mem 1`] = `
+{
+  "bind__3": [
+    "age",
+    "test",
+    "lastname",
+  ],
+  "bind__4": Table {},
+  "bind__5": 30,
+  "bind__6": [
+    "foo",
+  ],
+}
+`;

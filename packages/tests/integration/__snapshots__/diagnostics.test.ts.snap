@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`diagnostics diagnostic events 1`] = `
+exports[`diagnostics diagnostic events: events-http 1`] = `
 [
   {
     "key": Uuid {},
@@ -126,9 +126,9 @@ exports[`diagnostics diagnostic events 1`] = `
 ]
 `;
 
-exports[`diagnostics extract query 1`] = `"CREATE ONLY $bind__1 CONTENT $bind__2"`;
+exports[`diagnostics extract query: query-http 1`] = `"CREATE ONLY $bind__1 CONTENT $bind__2"`;
 
-exports[`diagnostics extract query 2`] = `
+exports[`diagnostics extract query: params-http 1`] = `
 {
   "bind__1": RecordId {},
   "bind__2": {

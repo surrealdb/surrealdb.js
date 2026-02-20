@@ -7,11 +7,13 @@ import {
     createRemoteEngines,
     type Diagnostic,
     type DriverOptions,
+    type Engines,
     type ReconnectOptions,
     Surreal,
     type SystemAuth,
 } from "surrealdb";
 import {
+    SURREAL_BACKEND,
     SURREAL_BIND,
     SURREAL_DB,
     SURREAL_EXECUTABLE_PATH,
@@ -22,7 +24,7 @@ import {
     SURREAL_USER,
 } from "./env.ts";
 
-export type Protocol = "http" | "ws";
+export type Protocol = "http" | "ws" | "mem";
 export type PremadeAuth = "root" | "invalid" | "none";
 export type IdleSurreal = {
     surreal: Surreal;
@@ -87,12 +89,22 @@ export function createAuth(auth: PremadeAuth | SystemAuth): SystemAuth | undefin
 
 /**
  * Request the version of the SurrealDB server.
+ * For embedded engines (wasm/node), reads the version set on globalThis by the preload script.
+ * For remote engines, spawns the surreal binary to check the version.
  */
 const VERSION_REGEX = /(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)/;
 
 export async function requestVersion(): Promise<{ version: string; is2x: boolean; is3x: boolean }> {
-    const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "version"]);
-    const output = await Bun.readableStreamToText(proc.stdout);
+    let output: string;
+
+    const cachedVersion = (globalThis as GlobalThis).surrealVersion;
+    if (cachedVersion) {
+        output = cachedVersion;
+    } else {
+        const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "version"]);
+        output = await Bun.readableStreamToText(proc.stdout);
+    }
+
     const match = output.match(VERSION_REGEX);
     if (!match) {
         throw new Error(`Could not parse SurrealDB version from output: ${output}`);
@@ -110,14 +122,19 @@ export async function requestVersion(): Promise<{ version: string; is2x: boolean
 }
 
 /**
- * Spawn a new SurrealDB server.
+ * Spawn a new SurrealDB server. No-op when SURREAL_BACKEND is "wasm" or "node".
  */
 export async function spawnServer(): Promise<void> {
+    if (SURREAL_BACKEND !== "remote") return;
     if (folder || server) {
         throw new Error("Server already running");
     }
 
     console.log("Spawning server...");
+
+    const proc = Bun.spawn([SURREAL_EXECUTABLE_PATH, "version"]);
+    const versionOutput = await Bun.readableStreamToText(proc.stdout);
+    (globalThis as GlobalThis).surrealVersion = versionOutput;
 
     folder = `test.db/${Math.random().toString(36).substring(2, 7)}`;
     server = Bun.spawn([SURREAL_EXECUTABLE_PATH, "start", `rocksdb:${folder}`], {
@@ -150,9 +167,10 @@ export async function spawnServer(): Promise<void> {
 }
 
 /**
- * Kill an active SurrealDB server.
+ * Kill an active SurrealDB server. No-op when SURREAL_BACKEND is "wasm" or "node".
  */
 export async function killServer(): Promise<void> {
+    if (SURREAL_BACKEND !== "remote") return;
     if (!folder || !server) {
         throw new Error("Server not running");
     }
@@ -171,26 +189,52 @@ export async function killServer(): Promise<void> {
 }
 
 /**
- * Respawn an active SurrealDB server.
+ * Respawn an active SurrealDB server. No-op when SURREAL_BACKEND is "wasm" or "node".
  */
 export async function respawnServer(): Promise<void> {
+    if (SURREAL_BACKEND !== "remote") return;
     await killServer();
     await spawnServer();
+}
+
+type GlobalThis = typeof globalThis & {
+    embeddedEngines?: Engines;
+    surrealVersion?: string;
+};
+
+let cachedEngines: Engines | null = null;
+
+export async function getEngines(wrapDiagnostics?: (d: Diagnostic) => void): Promise<Engines> {
+    if (!cachedEngines) {
+        const engines = (globalThis as GlobalThis).embeddedEngines;
+        if (engines) {
+            console.log("Creating engines from globalThis");
+            cachedEngines = engines;
+        } else {
+            cachedEngines = createRemoteEngines();
+        }
+    }
+    return wrapDiagnostics ? applyDiagnostics(cachedEngines, wrapDiagnostics) : cachedEngines;
+}
+
+function getConnectUrl(): string {
+    if (SURREAL_PROTOCOL === "mem") {
+        return "mem://";
+    }
+    return `${SURREAL_PROTOCOL}://127.0.0.1:${SURREAL_PORT}/rpc`;
 }
 
 /**
  * Create an idle SurrealDB connection.
  */
-export function createIdleSurreal({
+export async function createIdleSurreal({
     auth,
     unselected,
     reconnect,
     driverOptions,
     printDiagnostics,
 }: CreateSurrealOptions = {}) {
-    const engines = printDiagnostics
-        ? applyDiagnostics(createRemoteEngines(), printDiagnostic)
-        : createRemoteEngines();
+    const engines = await getEngines(printDiagnostics ? printDiagnostic : undefined);
 
     const surreal = new Surreal({
         ...driverOptions,
@@ -203,10 +247,11 @@ export function createIdleSurreal({
     connections.push(surreal);
 
     const connect = (custom?: ConnectOptions) => {
-        return surreal.connect(`${SURREAL_PROTOCOL}://127.0.0.1:${SURREAL_PORT}/rpc`, {
+        const defaultAuth: PremadeAuth = SURREAL_BACKEND === "remote" ? "root" : "none";
+        return surreal.connect(getConnectUrl(), {
             namespace: unselected ? undefined : SURREAL_NS,
             database: unselected ? undefined : SURREAL_DB,
-            authentication: createAuth(auth ?? "root"),
+            authentication: createAuth(auth ?? defaultAuth),
             reconnect,
             ...custom,
         });
@@ -219,7 +264,7 @@ export function createIdleSurreal({
  * Create a new SurrealDB connection.
  */
 export async function createSurreal(opts: CreateSurrealOptions = {}) {
-    const { surreal, connect } = createIdleSurreal(opts);
+    const { surreal, connect } = await createIdleSurreal(opts);
     await connect();
     return surreal;
 }

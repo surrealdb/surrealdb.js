@@ -20,19 +20,23 @@ path = "src-rust/lib.rs"
 crate-type = ["cdylib"]
 
 [features]
-kv-rocksdb = ["surrealdb/kv-rocksdb"]
-kv-surrealkv = ["surrealdb/kv-surrealkv"]
-kv-mem = ["surrealdb/kv-mem"]
+kv-rocksdb = ["surrealdb-core/kv-rocksdb"]
+kv-surrealkv = ["surrealdb-core/kv-surrealkv"]
+kv-mem = ["surrealdb-core/kv-mem"]
 
 [dependencies]
-surrealdb = { version = "*", default-features = false, features = ["http"] }
+surrealdb-core = { git = "https://github.com/surrealdb/surrealdb", rev = "2e0a61f", package = "surrealdb-core", default-features = false, features = [
+    "http",
+] }
+surrealdb-types = { git = "https://github.com/surrealdb/surrealdb", rev = "2e0a61f", package = "surrealdb-types", default-features = false }
 napi = { version = "3", features = ["async", "serde-json"] }
 napi-derive = "3"
 serde = "1.0.197"
 serde_json = "1.0.115"
 channel = { version = "2.3.1", package = "async-channel" }
 uuid = "1.8.0"
-arc-swap = "1.7.1"
+dashmap = "6.1.0"
+anyhow = "1.0.101"
 
 [build-dependencies]
 napi-build = "2.2.3"

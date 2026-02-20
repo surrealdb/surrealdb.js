@@ -27,3 +27,17 @@ exports[`create() compile: bindings-http 1`] = `
   "bind__5": DateTime {},
 }
 `;
+
+exports[`create() compile: query-mem 1`] = `"CREATE $bind__3 CONTENT $bind__4 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__5"`;
+
+exports[`create() compile: bindings-mem 1`] = `
+{
+  "bind__3": Table {},
+  "bind__4": {
+    "firstname": "Mary",
+    "id": RecordId {},
+    "lastname": "Doe",
+  },
+  "bind__5": DateTime {},
+}
+`;

@@ -1,135 +1,145 @@
 import { describe, expect, test } from "bun:test";
 import { Features } from "surrealdb";
-import { createSurreal, requestVersion, respawnServer, SURREAL_PROTOCOL } from "./__helpers__";
+import {
+    createSurreal,
+    requestVersion,
+    respawnServer,
+    SURREAL_BACKEND,
+    SURREAL_PROTOCOL,
+} from "./__helpers__";
 
 const { is3x } = await requestVersion();
+const isRemote = SURREAL_BACKEND === "remote";
 
-describe.if(is3x && SURREAL_PROTOCOL === "ws")("sessions", async () => {
-    test("feature", async () => {
-        const surreal = await createSurreal();
+describe.if(is3x && (SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem"))(
+    "sessions",
+    async () => {
+        test("feature", async () => {
+            const surreal = await createSurreal();
 
-        expect(surreal.isFeatureSupported(Features.Sessions)).toBeTrue();
-    });
-
-    test("default session is undefined", async () => {
-        const surreal = await createSurreal();
-
-        expect(surreal.isValid).toBeTrue();
-        expect(surreal.session).toBeUndefined();
-    });
-
-    test("newSession()", async () => {
-        const surreal = await createSurreal();
-
-        await surreal.set("foo", "bar");
-
-        const session = await surreal.newSession();
-
-        expect(surreal.session).not.toEqual(session.session);
-        expect(surreal.parameters.foo).toEqual("bar");
-
-        expect(session.isValid).toBeTrue();
-        expect(session.session).toBeDefined();
-        expect(session.parameters.foo).toBeUndefined();
-        expect(session.namespace).toBeUndefined();
-        expect(session.database).toBeUndefined();
-    });
-
-    test("forkSession()", async () => {
-        const surreal = await createSurreal();
-
-        await surreal.set("foo", "bar");
-
-        const session = await surreal.forkSession();
-
-        expect(surreal.session).not.toEqual(session.session);
-        expect(surreal.parameters.foo).toEqual("bar");
-
-        expect(session.isValid).toBeTrue();
-        expect(session.session).toBeDefined();
-        expect(session.parameters.foo).toEqual("bar");
-    });
-
-    test("closeSession()", async () => {
-        const surreal = await createSurreal();
-        const session = await surreal.forkSession();
-
-        expect(session.isValid).toBeTrue();
-
-        await session.closeSession();
-
-        expect(session.isValid).toBeFalse();
-    });
-
-    test("request sessions list", async () => {
-        const surreal = await createSurreal();
-        const session = await surreal.forkSession();
-
-        expect(surreal.session).not.toEqual(session.session);
-
-        // guarantee session existence
-        await session.set("foo", "bar");
-
-        const sessions = await surreal.sessions();
-
-        expect(sessions.length).toBe(1);
-        expect(sessions[0].equals(session.session)).toBeTrue();
-    });
-
-    test("session isolation", async () => {
-        const surreal = await createSurreal();
-
-        const session1 = await surreal.forkSession();
-        const session2 = await surreal.forkSession();
-
-        await session1.set("foo", "hello");
-        await session2.set("foo", "world");
-
-        const [result1] = await session1.query("RETURN $foo").collect<[string]>();
-        const [result2] = await session2.query("RETURN $foo").collect<[string]>();
-
-        expect(result1).toBe("hello");
-        expect(result2).toBe("world");
-
-        const sessions = await surreal.sessions();
-
-        expect(sessions.length).toBe(2);
-    });
-
-    test("restore state after reconnect", async () => {
-        const surreal = await createSurreal({
-            // printDiagnostics: true,
-            reconnect: {
-                enabled: true,
-            },
+            expect(surreal.isFeatureSupported(Features.Sessions)).toBeTrue();
         });
 
-        await surreal.set("foo", "bar");
+        test("default session is undefined", async () => {
+            const surreal = await createSurreal();
 
-        const session = await surreal.forkSession();
+            expect(surreal.isValid).toBeTrue();
+            expect(surreal.session).toBeUndefined();
+        });
 
-        await session.set("hello", "world");
+        test("newSession()", async () => {
+            const surreal = await createSurreal();
 
-        await respawnServer();
+            await surreal.set("foo", "bar");
 
-        const [foo, hello] = await session
-            .query("RETURN $foo; RETURN $hello")
-            .collect<[string, string]>();
+            const session = await surreal.newSession();
 
-        expect(foo).toBe("bar");
-        expect(hello).toBe("world");
-    });
+            expect(surreal.session).not.toEqual(session.session);
+            expect(surreal.parameters.foo).toEqual("bar");
 
-    test("await using", async () => {
-        const surreal = await createSurreal();
+            expect(session.isValid).toBeTrue();
+            expect(session.session).toBeDefined();
+            expect(session.parameters.foo).toBeUndefined();
+            expect(session.namespace).toBeUndefined();
+            expect(session.database).toBeUndefined();
+        });
 
-        let session: Awaited<ReturnType<typeof surreal.forkSession>>;
-        {
-            await using s = await surreal.forkSession();
-            expect(s.isValid).toBeTrue();
-            session = s;
-        }
-        // Block exited — disposal has run; session was dropped
-        expect(session.isValid).toBeFalse();
-    });
-});
+        test("forkSession()", async () => {
+            const surreal = await createSurreal();
+
+            await surreal.set("foo", "bar");
+
+            const session = await surreal.forkSession();
+
+            expect(surreal.session).not.toEqual(session.session);
+            expect(surreal.parameters.foo).toEqual("bar");
+
+            expect(session.isValid).toBeTrue();
+            expect(session.session).toBeDefined();
+            expect(session.parameters.foo).toEqual("bar");
+        });
+
+        test("closeSession()", async () => {
+            const surreal = await createSurreal();
+            const session = await surreal.forkSession();
+
+            expect(session.isValid).toBeTrue();
+
+            await session.closeSession();
+
+            expect(session.isValid).toBeFalse();
+        });
+
+        test("request sessions list", async () => {
+            const surreal = await createSurreal();
+            const session = await surreal.forkSession();
+
+            expect(surreal.session).not.toEqual(session.session);
+
+            // guarantee session existence
+            await session.set("foo", "bar");
+
+            const sessions = await surreal.sessions();
+
+            expect(sessions.length).toBe(1);
+            expect(sessions[0].equals(session.session)).toBeTrue();
+        });
+
+        test("session isolation", async () => {
+            const surreal = await createSurreal();
+
+            const session1 = await surreal.forkSession();
+            const session2 = await surreal.forkSession();
+
+            await session1.set("foo", "hello");
+            await session2.set("foo", "world");
+
+            const [result1] = await session1.query("RETURN $foo").collect<[string]>();
+            const [result2] = await session2.query("RETURN $foo").collect<[string]>();
+
+            expect(result1).toBe("hello");
+            expect(result2).toBe("world");
+
+            const sessions = await surreal.sessions();
+
+            expect(sessions.length).toBe(2);
+        });
+
+        test.skipIf(!isRemote)("restore state after reconnect", async () => {
+            const surreal = await createSurreal({
+                // printDiagnostics: true,
+                reconnect: {
+                    enabled: true,
+                },
+            });
+
+            await surreal.set("foo", "bar");
+
+            const session = await surreal.forkSession();
+
+            await session.set("hello", "world");
+
+            await respawnServer();
+
+            const [foo, hello] = await session
+                .query("RETURN $foo; RETURN $hello")
+                .collect<[string, string]>();
+
+            expect(foo).toBe("bar");
+            expect(hello).toBe("world");
+        });
+
+        test("await using", async () => {
+            const surreal = await createSurreal();
+
+            let session: Awaited<ReturnType<typeof surreal.forkSession>>;
+            {
+                await using s = await surreal.forkSession();
+                expect(s.isValid).toBeTrue();
+                session = s;
+            }
+            // Block exited — disposal has run; session was dropped
+            expect(session.isValid).toBeFalse();
+        });
+    },
+);

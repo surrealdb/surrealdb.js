@@ -18,7 +18,7 @@ describe.if(SURREAL_PROTOCOL === "http")("HTTP protocol", () => {
     });
 
     test("status events", async () => {
-        const { surreal, connect } = createIdleSurreal();
+        const { surreal, connect } = await createIdleSurreal();
 
         let phase = 0;
 
@@ -48,7 +48,7 @@ describe.if(SURREAL_PROTOCOL === "http")("HTTP protocol", () => {
     });
 
     test("connection unavailable", async () => {
-        const { surreal } = createIdleSurreal();
+        const { surreal } = await createIdleSurreal();
 
         expect(async () => {
             await surreal.ready;

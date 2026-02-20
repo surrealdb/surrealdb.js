@@ -9,14 +9,14 @@ impl From<Error> for JsValue {
 	}
 }
 
-impl From<surrealdb::Error> for Error {
-	fn from(v: surrealdb::Error) -> Self {
+impl From<anyhow::Error> for Error {
+	fn from(v: anyhow::Error) -> Self {
 		Self(JsValue::from(v.to_string()))
 	}
 }
 
-impl From<surrealdb::err::Error> for Error {
-	fn from(v: surrealdb::err::Error) -> Self {
+impl From<surrealdb_types::Error> for Error {
+	fn from(v: surrealdb_types::Error) -> Self {
 		Self(JsValue::from(v.to_string()))
 	}
 }

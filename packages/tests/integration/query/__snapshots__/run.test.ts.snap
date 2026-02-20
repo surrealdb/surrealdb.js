@@ -23,3 +23,15 @@ exports[`run() compile: bindings-http 1`] = `
   "bind__4": 3,
 }
 `;
+
+exports[`run() compile: query-mem 1`] = `"array::add($bind__3, $bind__4, )"`;
+
+exports[`run() compile: bindings-mem 1`] = `
+{
+  "bind__3": [
+    1,
+    2,
+  ],
+  "bind__4": 3,
+}
+`;

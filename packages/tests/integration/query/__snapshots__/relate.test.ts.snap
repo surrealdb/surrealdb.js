@@ -21,3 +21,14 @@ exports[`relate() compile: bindings-http 1`] = `
   "bind__6": DateTime {},
 }
 `;
+
+exports[`relate() compile: query-mem 1`] = `"RELATE  ONLY $bind__3->$bind__4->$bind__5 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__6"`;
+
+exports[`relate() compile: bindings-mem 1`] = `
+{
+  "bind__3": RecordId {},
+  "bind__4": Table {},
+  "bind__5": RecordId {},
+  "bind__6": DateTime {},
+}
+`;

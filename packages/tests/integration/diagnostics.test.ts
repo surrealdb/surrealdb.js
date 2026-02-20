@@ -1,16 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { applyDiagnostics, createRemoteEngines, type Diagnostic, RecordId } from "surrealdb";
+import { applyDiagnostics, type Diagnostic, RecordId } from "surrealdb";
 import { resetIncrementalID } from "../../sdk/src/internal/get-incremental-id";
-import { createSurreal, type Person } from "./__helpers__";
+import { createSurreal, getEngines, type Person, proto } from "./__helpers__";
 
 describe("diagnostics", async () => {
     test("diagnostic events", async () => {
         const events: Diagnostic[] = [];
 
+        const engines = await getEngines();
+
         const surreal = await createSurreal({
             driverOptions: {
-                engines: applyDiagnostics(createRemoteEngines(), (event) => {
-                    // Skip the version event for test integrity
+                engines: applyDiagnostics(engines, (event) => {
                     if (event.type === "version" && event.phase === "after" && event.success) {
                         return;
                     }
@@ -29,16 +30,18 @@ describe("diagnostics", async () => {
             lastname: "Doe",
         });
 
-        expect(events).toMatchSnapshot();
+        expect(events).toMatchSnapshot(proto("events"));
     });
 
     test("extract query", async () => {
         let query = "";
         let params = {};
 
+        const engines = await getEngines();
+
         const surreal = await createSurreal({
             driverOptions: {
-                engines: applyDiagnostics(createRemoteEngines(), (event) => {
+                engines: applyDiagnostics(engines, (event) => {
                     if (event.type === "query" && event.phase === "after" && event.success) {
                         query = event.result.query;
                         params = event.result.params;
@@ -54,7 +57,7 @@ describe("diagnostics", async () => {
             lastname: "Doe",
         });
 
-        expect(query).toMatchSnapshot();
-        expect(params).toMatchSnapshot();
+        expect(query).toMatchSnapshot(proto("query"));
+        expect(params).toMatchSnapshot(proto("params"));
     });
 });
