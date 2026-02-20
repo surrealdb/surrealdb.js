@@ -1,7 +1,7 @@
 use crate::err::Error;
 use serde::Deserialize;
 use std::collections::HashSet;
-use surrealdb_core::dbs::capabilities;
+use surrealdb_core::dbs::{capabilities, NewPlannerStrategy};
 
 #[derive(Deserialize)]
 pub struct Options {
@@ -54,6 +54,7 @@ pub enum CapabilitiesConfig {
 		functions: Option<Targets>,
 		network_targets: Option<Targets>,
 		experimental: Option<Targets>,
+		planner_strategy: Option<PlannerStrategy>,
 	},
 }
 
@@ -85,6 +86,25 @@ macro_rules! process_targets {
 	}};
 }
 
+#[derive(Deserialize, Clone, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum PlannerStrategy {
+	#[default]
+	BestEffort,
+	ComputeOnly,
+	AllReadOnly,
+}
+
+impl From<PlannerStrategy> for NewPlannerStrategy {
+	fn from(strategy: PlannerStrategy) -> Self {
+		match strategy {
+			PlannerStrategy::BestEffort => NewPlannerStrategy::BestEffortReadOnlyStatements,
+			PlannerStrategy::ComputeOnly => NewPlannerStrategy::ComputeOnly,
+			PlannerStrategy::AllReadOnly => NewPlannerStrategy::AllReadOnlyStatements,
+		}
+	}
+}
+
 impl TryFrom<CapabilitiesConfig> for capabilities::Capabilities {
 	type Error = Error;
 
@@ -101,6 +121,7 @@ impl TryFrom<CapabilitiesConfig> for capabilities::Capabilities {
 				functions,
 				network_targets,
 				experimental,
+				planner_strategy,
 			} => {
 				let mut capabilities = Self::default();
 
@@ -297,6 +318,10 @@ impl TryFrom<CapabilitiesConfig> for capabilities::Capabilities {
 							}
 						}
 					}
+				}
+
+				if let Some(planner_strategy) = planner_strategy {
+					capabilities = capabilities.with_planner_strategy(planner_strategy.into());
 				}
 
 				capabilities
