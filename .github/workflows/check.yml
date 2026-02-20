@@ -94,10 +94,10 @@ jobs:
           restore-keys: cargo-${{ runner.os }}-
 
       - name: Install wasm-bindgen-cli
-        run: cargo install -f wasm-bindgen-cli --version 0.2.108
+        run: command -v wasm-bindgen && wasm-bindgen --version | grep -q 0.2.108 || cargo install -f wasm-bindgen-cli --version 0.2.108
 
       - name: Install wasm-opt
-        run: cargo install wasm-opt
+        run: command -v wasm-opt || cargo install wasm-opt
 
       - name: Cache turbo
         uses: actions/cache@v4
