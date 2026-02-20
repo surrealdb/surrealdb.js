@@ -64,7 +64,7 @@ jobs:
 
   test-wasm:
     name: Test WASM
-    runs-on: runner-arm64-2xlarge
+    runs-on: runner-amd64-2xlarge
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -94,7 +94,7 @@ jobs:
 
   test-node:
     name: Test Node
-    runs-on: runner-arm64-2xlarge
+    runs-on: runner-amd64-2xlarge
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
