@@ -215,7 +215,7 @@ describe.skipIf(!isRemote)("session renewal", async () => {
     });
 });
 
-describe.skipIf(!isRemote).if(is3x)("bearer access", async () => {
+describe.skipIf(!isRemote || !is3x)("bearer access", async () => {
     test("record signup with refresh", async () => {
         const surreal = await createSurreal();
 
