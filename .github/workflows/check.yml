@@ -90,8 +90,8 @@ jobs:
             ~/.cargo/git/db/
             ~/.cargo/.crates.toml
             ~/.cargo/.crates2.json
-          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: cargo-${{ runner.os }}-
+          key: cargo-wasm-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-wasm-${{ runner.os }}-
 
       - name: Install wasm-bindgen-cli
         run: command -v wasm-bindgen && wasm-bindgen --version | grep -q 0.2.108 || cargo install -f wasm-bindgen-cli --version 0.2.108
