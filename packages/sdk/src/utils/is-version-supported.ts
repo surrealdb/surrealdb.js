@@ -1,4 +1,4 @@
-export const MINIMUM_VERSION = "2.0.0";
+export const MINIMUM_VERSION = "2.1.0";
 export const MAXIMUM_VERSION = "4.0.0";
 
 /**
