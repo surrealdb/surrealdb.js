@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { and, between, eq, expr, inside, not, or, raw } from "surrealdb";
+import { and, between, eq, expr, inside, ne, not, or, raw } from "surrealdb";
 import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
 
 beforeEach(() => {
@@ -16,6 +16,13 @@ describe("expression", () => {
 
     test("equality", () => {
         const json = expr(eq("foo", "bar"));
+
+        expect(json.query).toMatchSnapshot();
+        expect(json.bindings).toMatchSnapshot();
+    });
+
+    test("not equality", () => {
+        const json = expr(ne("foo", "bar"));
 
         expect(json.query).toMatchSnapshot();
         expect(json.bindings).toMatchSnapshot();
