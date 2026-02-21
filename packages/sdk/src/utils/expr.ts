@@ -73,6 +73,16 @@ export const eeq = (field: string, v: unknown): Expr => ({
 });
 
 /**
+ * Represents a not equal comparison operation (!=)
+ *
+ * @param field The field name
+ * @param v The value to compare against
+ */
+export const ne = (field: string, v: unknown): Expr => ({
+    toSQL: (ctx) => `${field} != ${ctx.def(v)}`,
+});
+
+/**
  * Represents a greater than comparison operation (>)
  *
  * @param field The field name
