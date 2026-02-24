@@ -137,6 +137,7 @@ export interface ServerErrorOptions {
     code?: number;
     message: string;
     details?: Record<string, unknown> | null;
+    cause?: ServerError | null;
 }
 
 // =========================================================== //
@@ -249,6 +250,13 @@ export type ConnectionErrorDetail =
  * - `kind` — the error category (e.g. `"NotAllowed"`, `"NotFound"`)
  * - `code` — legacy JSON-RPC numeric error code (0 when unavailable)
  * - `details` — kind-specific structured details from the server (`{ kind, details? }` format)
+ * - `cause` — optional inner `ServerError` forming a recursive error chain
+ *
+ * The `cause` field mirrors Rust's `Option<Box<Error>>` — each error can
+ * optionally wrap an inner error, creating a stack of structured errors.
+ * It is set as the native `Error.cause` so that standard JS tooling
+ * (Node.js, Chrome DevTools, debuggers) displays the full chain
+ * automatically using the `[cause]:` format.
  *
  * Use `instanceof` on subclasses (e.g. `NotFoundError`, `NotAllowedError`)
  * for type-safe matching, or check the `kind` property directly.
@@ -271,8 +279,16 @@ export class ServerError extends SurrealError {
      */
     readonly details: ErrorDetail | undefined;
 
+    /**
+     * The inner server error that caused this one, if any.
+     * Forms a recursive chain matching Rust's `cause: Option<Box<Error>>`.
+     * Set as the native `Error.cause` for standard JS error chaining.
+     */
+    declare readonly cause: ServerError | undefined;
+
     constructor(options: ServerErrorOptions) {
-        super(options.message);
+        const innerCause = options.cause ?? undefined;
+        super(options.message, innerCause ? { cause: innerCause } : undefined);
         this.kind = options.kind;
         this.code = options.code ?? 0;
         this.details = (options.details ?? undefined) as ErrorDetail | undefined;
