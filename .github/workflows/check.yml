@@ -221,7 +221,7 @@ jobs:
           path: packages/sdk/dist/
 
       - name: Run tests
-        run: cd packages/tests && bun test --preload ./global.ts
+        run: cd packages/tests && bun test --preload ./global.ts --reporter=junit --reporter-outfile=junit.xml
         env:
           SURREAL_PROTOCOL: ${{ matrix.engine }}
 
@@ -261,7 +261,7 @@ jobs:
           path: packages/wasm/
 
       - name: Run WASM tests
-        run: cd packages/tests && SURREAL_BACKEND=wasm bun test --preload ./global-wasm.ts
+        run: cd packages/tests && SURREAL_BACKEND=wasm bun test --preload ./global-wasm.ts --reporter=junit --reporter-outfile=junit.xml
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v6
@@ -299,7 +299,7 @@ jobs:
           path: packages/node/dist/
 
       - name: Run Node tests
-        run: cd packages/tests && SURREAL_BACKEND=node bun test --preload ./global-node.ts
+        run: cd packages/tests && SURREAL_BACKEND=node bun test --preload ./global-node.ts --reporter=junit --reporter-outfile=junit.xml
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v6
