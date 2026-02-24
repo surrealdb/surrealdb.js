@@ -218,8 +218,10 @@ jobs:
           report_paths: packages/tests/junit.xml
           check_name: Test Report (${{ matrix.surrealdb }} / ${{ matrix.engine }})
           detailed_summary: true
-          include_passed: true
+          include_passed: false
+          include_skipped: false
           group_suite: true
+          skip_success_summary: true
 
   test-wasm:
     name: Test WASM
@@ -259,8 +261,10 @@ jobs:
           report_paths: packages/tests/junit.xml
           check_name: Test Report (WASM)
           detailed_summary: true
-          include_passed: true
+          include_passed: false
+          include_skipped: false
           group_suite: true
+          skip_success_summary: true
 
   test-node:
     name: Test Node
@@ -300,5 +304,7 @@ jobs:
           report_paths: packages/tests/junit.xml
           check_name: Test Report (Node)
           detailed_summary: true
-          include_passed: true
+          include_passed: false
+          include_skipped: false
           group_suite: true
+          skip_success_summary: true
