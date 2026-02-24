@@ -8,6 +8,14 @@ exports[`expression equality 2`] = `
 }
 `;
 
+exports[`expression not equality 1`] = `"foo != $bind__1"`;
+
+exports[`expression not equality 2`] = `
+{
+  "bind__1": "bar",
+}
+`;
+
 exports[`expression and 1`] = `"(foo = $bind__1 AND hello = $bind__2 AND alpha = $bind__3)"`;
 
 exports[`expression and 2`] = `
