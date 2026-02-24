@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  checks: write
 
 jobs:
   quality:
@@ -80,18 +81,11 @@ jobs:
           toolchain: stable
           targets: wasm32-unknown-unknown
 
-      - name: Cache cargo
-        uses: actions/cache@v4
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            ~/.cargo/.crates.toml
-            ~/.cargo/.crates2.json
-          key: cargo-wasm-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: cargo-wasm-${{ runner.os }}-
+          shared-key: wasm
+          workspaces: packages/wasm
 
       - name: Install wasm-bindgen-cli
         run: command -v wasm-bindgen && wasm-bindgen --version | grep -q 0.2.108 || cargo install -f wasm-bindgen-cli --version 0.2.108
@@ -145,18 +139,11 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Cache cargo
-        uses: actions/cache@v4
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            ~/.cargo/.crates.toml
-            ~/.cargo/.crates2.json
-          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: cargo-${{ runner.os }}-
+          shared-key: node
+          workspaces: packages/node
 
       - name: Cache turbo
         uses: actions/cache@v4
@@ -220,9 +207,21 @@ jobs:
           path: packages/sdk/dist/
 
       - name: Run tests
-        run: cd packages/tests && bun test --preload ./global.ts
+        run: cd packages/tests && bun test --preload ./global.ts --reporter=junit --reporter-outfile=junit.xml
         env:
           SURREAL_PROTOCOL: ${{ matrix.engine }}
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v6
+        if: success() || failure()
+        with:
+          report_paths: packages/tests/junit.xml
+          check_name: Test Report (${{ matrix.surrealdb }} / ${{ matrix.engine }})
+          detailed_summary: true
+          include_passed: false
+          include_skipped: false
+          group_suite: true
+          skip_success_summary: true
 
   test-wasm:
     name: Test WASM
@@ -253,7 +252,19 @@ jobs:
           path: packages/wasm/
 
       - name: Run WASM tests
-        run: cd packages/tests && SURREAL_BACKEND=wasm bun test --preload ./global-wasm.ts
+        run: cd packages/tests && SURREAL_BACKEND=wasm bun test --preload ./global-wasm.ts --reporter=junit --reporter-outfile=junit.xml
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v6
+        if: success() || failure()
+        with:
+          report_paths: packages/tests/junit.xml
+          check_name: Test Report (WASM)
+          detailed_summary: true
+          include_passed: false
+          include_skipped: false
+          group_suite: true
+          skip_success_summary: true
 
   test-node:
     name: Test Node
@@ -284,4 +295,16 @@ jobs:
           path: packages/node/dist/
 
       - name: Run Node tests
-        run: cd packages/tests && SURREAL_BACKEND=node bun test --preload ./global-node.ts
+        run: cd packages/tests && SURREAL_BACKEND=node bun test --preload ./global-node.ts --reporter=junit --reporter-outfile=junit.xml
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v6
+        if: success() || failure()
+        with:
+          report_paths: packages/tests/junit.xml
+          check_name: Test Report (Node)
+          detailed_summary: true
+          include_passed: false
+          include_skipped: false
+          group_suite: true
+          skip_success_summary: true

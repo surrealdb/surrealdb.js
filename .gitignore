@@ -41,5 +41,6 @@ packages/node/napi
 *.db
 test-db-*
 jsr.json
+junit.xml
 .env
 .turbo

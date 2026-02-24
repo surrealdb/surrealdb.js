@@ -126,9 +126,147 @@ exports[`diagnostics diagnostic events: events-http 1`] = `
 ]
 `;
 
+exports[`diagnostics diagnostic events: events-ws 1`] = `
+[
+  {
+    "key": Uuid {},
+    "phase": "before",
+    "type": "open",
+  },
+  {
+    "duration": Duration {},
+    "key": Uuid {},
+    "phase": "after",
+    "result": {
+      "url": URL {},
+    },
+    "success": true,
+    "type": "open",
+  },
+  {
+    "key": Uuid {},
+    "phase": "before",
+    "type": "version",
+  },
+  {
+    "key": Uuid {},
+    "phase": "before",
+    "type": "use",
+  },
+  {
+    "duration": Duration {},
+    "key": Uuid {},
+    "phase": "after",
+    "result": {
+      "requested": {
+        "database": "test",
+        "namespace": "test",
+      },
+      "session": undefined,
+    },
+    "success": true,
+    "type": "use",
+  },
+  {
+    "key": Uuid {},
+    "phase": "before",
+    "type": "signin",
+  },
+  {
+    "duration": Duration {},
+    "key": Uuid {},
+    "phase": "after",
+    "result": {
+      "session": undefined,
+      "variant": "system_user",
+    },
+    "success": true,
+    "type": "signin",
+  },
+  {
+    "key": Uuid {},
+    "phase": "before",
+    "type": "version",
+  },
+  {
+    "key": Uuid {},
+    "phase": "before",
+    "type": "query",
+  },
+  {
+    "key": Uuid {},
+    "phase": "progress",
+    "result": {
+      "chunk": {
+        "batch": 0,
+        "kind": "single",
+        "query": 0,
+        "result": [
+          {
+            "firstname": "John",
+            "id": RecordId {},
+            "lastname": "Doe",
+          },
+        ],
+        "stats": {
+          "bytesReceived": -1,
+          "bytesScanned": -1,
+          "duration": Duration {},
+          "recordsReceived": -1,
+          "recordsScanned": -1,
+        },
+        "type": undefined,
+      },
+      "params": {
+        "bind__1": RecordId {},
+        "bind__2": {
+          "firstname": "John",
+          "lastname": "Doe",
+        },
+      },
+      "query": "CREATE ONLY $bind__1 CONTENT $bind__2",
+      "session": undefined,
+      "transaction": undefined,
+    },
+    "type": "query",
+  },
+  {
+    "duration": Duration {},
+    "key": Uuid {},
+    "phase": "after",
+    "result": {
+      "params": {
+        "bind__1": RecordId {},
+        "bind__2": {
+          "firstname": "John",
+          "lastname": "Doe",
+        },
+      },
+      "query": "CREATE ONLY $bind__1 CONTENT $bind__2",
+      "session": undefined,
+      "transaction": undefined,
+    },
+    "success": true,
+    "type": "query",
+  },
+]
+`;
+
 exports[`diagnostics extract query: query-http 1`] = `"CREATE ONLY $bind__1 CONTENT $bind__2"`;
 
 exports[`diagnostics extract query: params-http 1`] = `
+{
+  "bind__1": RecordId {},
+  "bind__2": {
+    "firstname": "John",
+    "lastname": "Doe",
+  },
+}
+`;
+
+exports[`diagnostics extract query: query-ws 1`] = `"CREATE ONLY $bind__1 CONTENT $bind__2"`;
+
+exports[`diagnostics extract query: params-ws 1`] = `
 {
   "bind__1": RecordId {},
   "bind__2": {
