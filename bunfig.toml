@@ -1,2 +1,5 @@
 [test]
 preload = ["./packages/tests/global.ts"]
+
+[test.reporter]
+junit = "junit.xml"

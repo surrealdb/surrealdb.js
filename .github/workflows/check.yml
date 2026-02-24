@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  checks: write
 
 jobs:
   quality:
@@ -224,6 +225,13 @@ jobs:
         env:
           SURREAL_PROTOCOL: ${{ matrix.engine }}
 
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v6
+        if: success() || failure()
+        with:
+          report_paths: packages/tests/junit.xml
+          check_name: Test Report (${{ matrix.surrealdb }} / ${{ matrix.engine }})
+
   test-wasm:
     name: Test WASM
     needs: build-wasm
@@ -255,6 +263,13 @@ jobs:
       - name: Run WASM tests
         run: cd packages/tests && SURREAL_BACKEND=wasm bun test --preload ./global-wasm.ts
 
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v6
+        if: success() || failure()
+        with:
+          report_paths: packages/tests/junit.xml
+          check_name: Test Report (WASM)
+
   test-node:
     name: Test Node
     needs: build-node
@@ -285,3 +300,10 @@ jobs:
 
       - name: Run Node tests
         run: cd packages/tests && SURREAL_BACKEND=node bun test --preload ./global-node.ts
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v6
+        if: success() || failure()
+        with:
+          report_paths: packages/tests/junit.xml
+          check_name: Test Report (Node)
