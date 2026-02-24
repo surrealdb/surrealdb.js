@@ -600,6 +600,241 @@ describe("ServerError", () => {
 });
 
 // =========================================================== //
+//  Recursive cause chain                                       //
+// =========================================================== //
+
+describe("cause chain", () => {
+    test("RPC error with single cause", () => {
+        const err = parseRpcError({
+            code: -32000,
+            kind: "Internal",
+            message: "Outer error",
+            cause: {
+                kind: "NotFound",
+                message: "Inner: table missing",
+                details: { kind: "Table", details: { name: "users" } },
+            },
+        });
+
+        expect(err).toBeInstanceOf(InternalError);
+        expect(err.message).toBe("Outer error");
+
+        expect(err.cause).toBeDefined();
+        const inner = err.cause as ServerError;
+        expect(inner).toBeInstanceOf(NotFoundError);
+        expect(inner).toBeInstanceOf(ServerError);
+        expect(inner.kind).toBe("NotFound");
+        expect(inner.message).toBe("Inner: table missing");
+        expect((inner as NotFoundError).tableName).toBe("users");
+        expect(inner.cause).toBeUndefined();
+    });
+
+    test("RPC error with deeply nested cause chain", () => {
+        const err = parseRpcError({
+            code: -32002,
+            kind: "NotAllowed",
+            message: "Permission denied",
+            cause: {
+                kind: "Validation",
+                message: "Bad input",
+                cause: {
+                    kind: "Internal",
+                    message: "Root cause",
+                },
+            },
+        });
+
+        expect(err).toBeInstanceOf(NotAllowedError);
+        expect(err.message).toBe("Permission denied");
+
+        expect(err.cause).toBeDefined();
+        const mid = err.cause as ServerError;
+        expect(mid).toBeInstanceOf(ValidationError);
+        expect(mid.message).toBe("Bad input");
+
+        expect(mid.cause).toBeDefined();
+        const root = mid.cause as ServerError;
+        expect(root).toBeInstanceOf(InternalError);
+        expect(root.message).toBe("Root cause");
+        expect(root.cause).toBeUndefined();
+    });
+
+    test("query error with cause", () => {
+        const err = parseQueryError({
+            status: "ERR",
+            time: "1ms",
+            result: "Query failed",
+            kind: "Query",
+            details: { kind: "Cancelled" },
+            cause: {
+                kind: "Internal",
+                message: "Backend unavailable",
+            },
+        });
+
+        expect(err).toBeInstanceOf(QueryError);
+        expect((err as QueryError).isCancelled).toBe(true);
+
+        expect(err.cause).toBeDefined();
+        const inner = err.cause as ServerError;
+        expect(inner).toBeInstanceOf(InternalError);
+        expect(inner.message).toBe("Backend unavailable");
+    });
+
+    test("cause with null or missing cause terminates chain", () => {
+        const err = parseRpcError({
+            code: -32000,
+            kind: "Internal",
+            message: "Outer",
+            cause: {
+                kind: "Internal",
+                message: "Inner",
+                cause: null,
+            },
+        });
+
+        expect(err.cause).toBeDefined();
+        expect((err.cause as ServerError).cause).toBeUndefined();
+    });
+
+    test("null cause on top-level produces no cause", () => {
+        const err = parseRpcError({
+            code: -32000,
+            kind: "Internal",
+            message: "No cause",
+            cause: null,
+        });
+
+        expect(err.cause).toBeUndefined();
+    });
+
+    test("missing cause field produces no cause", () => {
+        const err = parseRpcError({
+            code: -32000,
+            kind: "Internal",
+            message: "No cause",
+        });
+
+        expect(err.cause).toBeUndefined();
+    });
+
+    test("cause inherits correct subclass based on kind", () => {
+        const err = parseRpcError({
+            code: -32000,
+            kind: "Internal",
+            message: "Wrapper",
+            cause: {
+                kind: "AlreadyExists",
+                message: "Duplicate record",
+                details: { kind: "Record", details: { id: "person:1" } },
+            },
+        });
+
+        expect(err.cause).toBeDefined();
+        const inner = err.cause as AlreadyExistsError;
+        expect(inner).toBeInstanceOf(AlreadyExistsError);
+        expect(inner.recordId).toBe("person:1");
+    });
+
+    test("cause with unknown kind creates base ServerError", () => {
+        const err = parseRpcError({
+            code: -32000,
+            kind: "Internal",
+            message: "Wrapper",
+            cause: {
+                kind: "FutureKind",
+                message: "From a newer server",
+                details: { kind: "NewDetail" },
+            },
+        });
+
+        expect(err.cause).toBeDefined();
+        const inner = err.cause as ServerError;
+        expect(inner).toBeInstanceOf(ServerError);
+        expect(inner).not.toBeInstanceOf(InternalError);
+        expect(inner.kind).toBe("FutureKind");
+        expect(inner.details).toEqual({ kind: "NewDetail" });
+    });
+
+    test("cause is the native Error.cause (JS error chaining)", () => {
+        const err = parseRpcError({
+            code: -32000,
+            kind: "Internal",
+            message: "Outer",
+            cause: {
+                kind: "NotFound",
+                message: "Inner",
+            },
+        });
+
+        const nativeCause = (err as Error).cause;
+        expect(nativeCause).toBe(err.cause);
+        expect(nativeCause).toBeInstanceOf(NotFoundError);
+    });
+
+    test("ServerError constructed directly with cause", () => {
+        const inner = new NotFoundError({
+            kind: "NotFound",
+            message: "table missing",
+        });
+
+        const outer = new ServerError({
+            kind: "Internal",
+            message: "wrapped",
+            cause: inner,
+        });
+
+        expect(outer.cause).toBe(inner);
+        expect((outer as Error).cause).toBe(inner);
+        expect(outer.cause).toBeInstanceOf(NotFoundError);
+    });
+
+    test("ServerError constructed without cause has undefined cause", () => {
+        const err = new ServerError({
+            kind: "Internal",
+            message: "no cause",
+        });
+
+        expect(err.cause).toBeUndefined();
+    });
+
+    test("thrown error preserves cause chain when caught", () => {
+        const err = parseRpcError({
+            code: -32002,
+            kind: "NotAllowed",
+            message: "Permission denied",
+            cause: {
+                kind: "Validation",
+                message: "Invalid token format",
+                cause: {
+                    kind: "Internal",
+                    message: "Root cause: decode failed",
+                },
+            },
+        });
+
+        try {
+            throw err;
+        } catch (caught) {
+            expect(caught).toBeInstanceOf(NotAllowedError);
+            const e = caught as ServerError;
+            expect(e.message).toBe("Permission denied");
+
+            expect(e.cause).toBeDefined();
+            const mid = e.cause as ServerError;
+            expect(mid).toBeInstanceOf(ValidationError);
+            expect(mid.message).toBe("Invalid token format");
+
+            expect(mid.cause).toBeDefined();
+            const root = mid.cause as ServerError;
+            expect(root).toBeInstanceOf(InternalError);
+            expect(root.message).toBe("Root cause: decode failed");
+            expect(root.cause).toBeUndefined();
+        }
+    });
+});
+
+// =========================================================== //
 //  ResponseError backward compat alias                         //
 // =========================================================== //
 

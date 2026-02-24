@@ -13,6 +13,16 @@ import {
 } from "../errors";
 
 /**
+ * Recursive cause shape on the wire. Mirrors Rust's `cause: Option<Box<Error>>`.
+ */
+export interface RpcErrorCause {
+    kind?: string;
+    message: string;
+    details?: Record<string, unknown> | null;
+    cause?: RpcErrorCause | null;
+}
+
+/**
  * Raw error object shape from the server (RPC-level errors).
  */
 export interface RpcErrorObject {
@@ -20,6 +30,7 @@ export interface RpcErrorObject {
     message: string;
     kind?: string;
     details?: Record<string, unknown> | null;
+    cause?: RpcErrorCause | null;
 }
 
 /**
@@ -32,6 +43,7 @@ export interface RpcQueryResultErrRaw {
     result: string;
     kind?: string;
     details?: Record<string, unknown> | null;
+    cause?: RpcErrorCause | null;
 }
 
 /**
@@ -68,6 +80,23 @@ function resolveKind(kind: string | undefined, code: number | undefined): string
     if (kind) return kind;
     if (code !== undefined) return CODE_TO_KIND[code] ?? "Internal";
     return "Internal";
+}
+
+/**
+ * Recursively parse a cause chain from the wire format into a `ServerError` chain.
+ * Each cause becomes a fully typed `ServerError` (or subclass) with its own
+ * `cause` set as the native `Error.cause`, so the entire chain is visible
+ * in standard JS tooling.
+ */
+function parseCause(raw: RpcErrorCause | null | undefined): ServerError | undefined {
+    if (!raw) return undefined;
+    const kind = resolveKind(raw.kind, undefined);
+    return createServerError({
+        kind,
+        message: raw.message,
+        details: raw.details,
+        cause: parseCause(raw.cause) ?? null,
+    });
 }
 
 /**
@@ -110,6 +139,7 @@ export function parseRpcError(raw: RpcErrorObject): ServerError {
         code: raw.code,
         message: raw.message,
         details: raw.details,
+        cause: parseCause(raw.cause) ?? null,
     });
 }
 
@@ -142,5 +172,6 @@ export function parseQueryError(raw: RpcQueryResultErrRaw): ServerError {
         code: 0,
         message: raw.result,
         details,
+        cause: parseCause(raw.cause) ?? null,
     });
 }
