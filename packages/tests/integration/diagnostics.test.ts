@@ -60,8 +60,4 @@ describe("diagnostics", async () => {
         expect(query).toMatchSnapshot(proto("query"));
         expect(params).toMatchSnapshot(proto("params"));
     });
-
-    test("deliberately failing test", () => {
-        expect(1 + 1).toBe(3);
-    });
 });
