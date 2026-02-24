@@ -15,7 +15,7 @@
         "test:node": "bun run build:sdk && bun run build:node && cd packages/tests && SURREAL_BACKEND=node bun test --preload ./global-node.ts",
         "sync": "turbo sync",
         "deploy:sdk": "turbo deploy --filter surrealdb --",
-        "deploy:surreal": "turbo deploy --filter '@surrealdb/*' -- --channel alpha",
+        "deploy:surreal": "turbo deploy --filter '@surrealdb/*' --",
         "validate:versions": "bun run scripts/validate-versions.ts",
         "qc": "biome check .",
         "qa": "biome check . --write",
