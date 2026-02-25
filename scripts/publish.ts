@@ -29,7 +29,7 @@ if (!packageExists) {
 const { name, version } = await packageFile.json();
 
 // Compute channel
-let channel = "stable";
+let channel = "latest";
 
 if (version.includes("-alpha")) {
     channel = "alpha";
