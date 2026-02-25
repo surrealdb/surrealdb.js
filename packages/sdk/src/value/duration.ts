@@ -41,6 +41,11 @@ const DURATION_PART_REGEX = new RegExp(
     `^(\\d+)\\.?\\d*(${Array.from(UNITS.keys()).map(escapeRegex).join("|")})`,
 );
 
+// Regex for parsing a single float duration like "1.5s" or "500.0ms"
+const FLOAT_DURATION_REGEX = new RegExp(
+    `^(\\d+(?:\\.\\d+)?)(${Array.from(UNITS.keys()).map(escapeRegex).join("|")})$`,
+);
+
 /**
  * A SurrealQL duration value with support for parsing, formatting, arithmetic, and nanosecond precision.
  */
@@ -430,6 +435,33 @@ export class Duration extends Value {
     static years(y: number | bigint): Duration {
         const n = typeof y === "bigint" ? y : BigInt(Math.floor(y));
         return new Duration([n * (YEAR / SECOND), 0n]);
+    }
+
+    /**
+     * Parses a duration from a float string with a single time unit, e.g. "1.998487792s", "1.5m", "500.0ms"
+     *
+     * @param input Float duration string
+     * @returns The resulting duration
+     */
+    static parseFloat(input: string): Duration {
+        const match = input.match(FLOAT_DURATION_REGEX);
+
+        if (!match) {
+            throw new InvalidDurationError(`Invalid float duration string: ${input}`);
+        }
+
+        const numStr = match[1];
+        const unit = match[2];
+        const factor = UNITS.get(unit);
+
+        if (!factor) throw new InvalidDurationError(`Invalid duration unit: ${unit}`);
+
+        const [intPart, fracPart = ""] = numStr.split(".");
+        const scale = 10n ** BigInt(fracPart.length);
+        const scaledValue = BigInt(intPart) * scale + BigInt(fracPart || "0");
+        const totalNs = (scaledValue * factor) / scale;
+
+        return new Duration([totalNs / SECOND, totalNs % SECOND]);
     }
 
     /**

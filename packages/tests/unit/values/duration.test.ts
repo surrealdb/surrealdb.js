@@ -115,6 +115,16 @@ describe("Duration", () => {
         expect(c.mod(d)).toMatchObject(new Duration("1s500ms"));
     });
 
+    test("fromFloat", () => {
+        const a = Duration.parseFloat("1.998487792s");
+        const b = Duration.parseFloat("1.5m");
+        const c = Duration.parseFloat("500.0ms");
+
+        expect(a.toString()).toBe("1s998ms487us792ns");
+        expect(b.toString()).toBe("1m30s");
+        expect(c.toString()).toBe("500ms");
+    });
+
     test("normalization", () => {
         // 1 second + 1.5s = 2s + 500_000_000ns after normalization
         const dur = new Duration([1n, 1_500_000_000n]);
