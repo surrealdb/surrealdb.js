@@ -25,10 +25,10 @@ kv-surrealkv = ["surrealdb-core/kv-surrealkv"]
 kv-mem = ["surrealdb-core/kv-mem"]
 
 [dependencies]
-surrealdb-core = { git = "https://github.com/surrealdb/surrealdb", rev = "2e0a61f", package = "surrealdb-core", default-features = false, features = [
+surrealdb-core = { version = "3.0.1", package = "surrealdb-core", default-features = false, features = [
     "http",
 ] }
-surrealdb-types = { git = "https://github.com/surrealdb/surrealdb", rev = "2e0a61f", package = "surrealdb-types", default-features = false }
+surrealdb-types = { version = "3.0.1", package = "surrealdb-types", default-features = false }
 napi = { version = "3", features = ["async", "serde-json"] }
 napi-derive = "3"
 serde = "1.0.197"

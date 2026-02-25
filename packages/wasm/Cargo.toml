@@ -31,10 +31,10 @@ kv-mem = ["surrealdb-core/kv-mem"]
 debug = ["dep:console_error_panic_hook"]
 
 [dependencies]
-surrealdb-core = { git = "https://github.com/surrealdb/surrealdb", rev = "2e0a61f", package = "surrealdb-core", default-features = false, features = [
+surrealdb-core = { version = "3.0.1", package = "surrealdb-core", default-features = false, features = [
     "http",
 ] }
-surrealdb-types = { git = "https://github.com/surrealdb/surrealdb", rev = "2e0a61f", package = "surrealdb-types", default-features = false }
+surrealdb-types = { version = "3.0.1", package = "surrealdb-types", default-features = false }
 futures = "0.3.30"
 serde = { version = "1.0.197", features = ["derive"] }
 serde-wasm-bindgen = "0.6.5"

@@ -3,12 +3,13 @@ import { major, minor, patch, SemVer } from "semver";
 // Update the SurrealDB dependency in the Cargo.toml file
 console.log("✨ Updating SurrealDB dependency");
 
-await Bun.spawn(["cargo", "update", "-p", "surrealdb", "-q"]).exited;
+await Bun.spawn(["cargo", "update", "-p", "surrealdb-core", "-q"]).exited;
+await Bun.spawn(["cargo", "update", "-p", "surrealdb-types", "-q"]).exited;
 
 // Extract the version from the Cargo.toml file
 console.log("🌐 Synchronizing SurrealDB version");
 
-const pkgidTask = Bun.spawn(["cargo", "pkgid", "-p", "surrealdb"]);
+const pkgidTask = Bun.spawn(["cargo", "pkgid", "-p", "surrealdb-core"]);
 const pkgid = await Bun.readableStreamToText(pkgidTask.stdout);
 const crateVersion = pkgid.split("@")[1]?.trim() ?? "";
 
