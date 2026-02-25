@@ -24,10 +24,10 @@
         "deploy": "bun run ../../scripts/publish.ts"
     },
     "peerDependencies": {
-        "surrealdb": "^2.0.0-0"
+        "surrealdb": "^2.0.0"
     },
     "devDependencies": {
-        "surrealdb": "^2.0.0-0",
+        "surrealdb": "^2.0.0",
         "@napi-rs/cli": "^3.1.5",
         "dedent": "^1.7.0"
     },

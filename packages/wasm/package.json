@@ -23,10 +23,10 @@
         "deploy": "bun run ../../scripts/publish.ts"
     },
     "peerDependencies": {
-        "surrealdb": "^2.0.0-0"
+        "surrealdb": "^2.0.0"
     },
     "devDependencies": {
-        "surrealdb": "^2.0.0-0"
+        "surrealdb": "^2.0.0"
     },
     "exports": {
         ".": {
