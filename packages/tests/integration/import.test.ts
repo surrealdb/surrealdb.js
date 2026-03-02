@@ -26,10 +26,11 @@ describe("import", async () => {
             return;
         }
 
+        const encoder = new TextEncoder();
         const stream = new ReadableStream({
             start(controller) {
-                controller.enqueue("CREATE trip:1 CONTENT { msg: 'hello' };");
-                controller.enqueue("CREATE trip:2 CONTENT { msg: 'world' };");
+                controller.enqueue(encoder.encode("CREATE trip:1 CONTENT { msg: 'hello' };"));
+                controller.enqueue(encoder.encode("CREATE trip:2 CONTENT { msg: 'world' };"));
                 controller.close();
             },
         });
