@@ -267,7 +267,7 @@ export abstract class RpcEngine implements SurrealProtocol {
                     bytesScanned: -1,
                     recordsReceived: -1,
                     recordsScanned: -1,
-                    duration: new Duration(response.time),
+                    duration: Duration.parseFloat(response.time),
                 },
             };
 
