@@ -51,7 +51,7 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         Features.Sessions,
         Features.Transactions,
         Features.Api,
-        Features.ExportImportStreams,
+        Features.ExportImportRaw,
     ]);
 
     open(state: ConnectionState): void {
