@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { Features } from "surrealdb";
 import { createSurreal } from "./__helpers__";
 
 describe("import", async () => {
@@ -20,6 +21,10 @@ describe("import", async () => {
 
     test("streamed import", async () => {
         const surreal = await createSurreal();
+
+        if (!surreal.isFeatureSupported(Features.ExportImportRaw)) {
+            return;
+        }
 
         const stream = new ReadableStream({
             start(controller) {
