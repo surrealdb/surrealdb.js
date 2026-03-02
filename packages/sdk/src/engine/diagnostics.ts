@@ -223,7 +223,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async importSql(data: string): Promise<void> {
+    async importSql(data: string | ReadableStream): Promise<void> {
         return this.#diagnose(
             "importSql",
             () => this.#delegate.importSql(data),
@@ -231,7 +231,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async exportSql(options: Partial<SqlExportOptions>): Promise<string> {
+    async exportSql(options: Partial<SqlExportOptions>): Promise<Response | string> {
         return this.#diagnose(
             "exportSql",
             () => this.#delegate.exportSql(options),
@@ -239,7 +239,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async exportMlModel(options: MlExportOptions): Promise<Uint8Array> {
+    async exportMlModel(options: MlExportOptions): Promise<Response | Uint8Array> {
         return this.#diagnose(
             "exportMlModel",
             () => this.#delegate.exportMlModel(options),

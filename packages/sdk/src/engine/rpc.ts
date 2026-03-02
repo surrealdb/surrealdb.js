@@ -191,7 +191,7 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
-    async importSql(data: string): Promise<void> {
+    async importSql(data: string | ReadableStream): Promise<void> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
@@ -210,7 +210,7 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
-    async exportSql(options: Partial<SqlExportOptions>): Promise<string> {
+    async exportSql(options: Partial<SqlExportOptions>): Promise<Response> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
@@ -220,18 +220,16 @@ export abstract class RpcEngine implements SurrealProtocol {
 
         endpoint.pathname = `${basepath}/export`;
 
-        const buffer = await fetchSurreal(this._context, this._state, this._state.rootSession, {
+        return fetchSurreal(this._context, this._state, this._state.rootSession, {
             body: options ?? {},
             url: endpoint,
             headers: {
                 Accept: "plain/text",
             },
         });
-
-        return new TextDecoder("utf-8").decode(buffer);
     }
 
-    async exportMlModel(options: MlExportOptions): Promise<Uint8Array> {
+    async exportMlModel(options: MlExportOptions): Promise<Response> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
@@ -241,7 +239,7 @@ export abstract class RpcEngine implements SurrealProtocol {
 
         endpoint.pathname = `${basepath}/ml/export/${options.name}/${options.version}`;
 
-        return await fetchSurreal(this._context, this._state, this._state.rootSession, {
+        return fetchSurreal(this._context, this._state, this._state.rootSession, {
             url: endpoint,
             method: "GET",
         });

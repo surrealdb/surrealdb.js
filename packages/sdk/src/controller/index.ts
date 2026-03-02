@@ -400,17 +400,20 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.cancel(txn, session);
     }
 
-    importSql(data: string): Promise<void> {
+    importSql(data: string | ReadableStream): Promise<void> {
         if (!this.#engine) throw new ConnectionUnavailableError();
+        if (data instanceof ReadableStream) {
+            this.assertFeature(Features.ExportImportStreams);
+        }
         return this.#engine.importSql(data);
     }
 
-    exportSql(options: Partial<SqlExportOptions>): Promise<string> {
+    exportSql(options: Partial<SqlExportOptions>): Promise<Response | string> {
         if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine.exportSql(options);
     }
 
-    exportMlModel(options: MlExportOptions): Promise<Uint8Array> {
+    exportMlModel(options: MlExportOptions): Promise<Response | Uint8Array> {
         if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine.exportMlModel(options);
     }

@@ -31,7 +31,12 @@ const ALWAYS_ALLOW = new Set([
 export class HttpEngine extends RpcEngine implements SurrealEngine {
     #publisher = new Publisher<EngineEvents>();
 
-    features = new Set([Features.RefreshTokens, Features.Api]);
+    features = new Set([
+        Features.RefreshTokens,
+        Features.Api,
+        Features.ExportImportStreams,
+        Features.SurrealML,
+    ]);
 
     subscribe<K extends keyof EngineEvents>(
         event: K,
@@ -100,12 +105,14 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         }
 
         const id = this._context.uniqueId();
-        const buffer = await fetchSurreal(this._context, this._state, session, {
+        const res = await fetchSurreal(this._context, this._state, session, {
             body: {
                 id,
                 ...request,
             },
         });
+
+        const buffer = await res.arrayBuffer();
 
         let response: RpcResponse<Result>;
 

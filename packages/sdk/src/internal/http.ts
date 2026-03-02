@@ -13,7 +13,7 @@ export async function fetchSurreal(
     state: ConnectionState,
     session: ConnectionSession,
     options: FetchSurrealOptions,
-): Promise<Uint8Array> {
+): Promise<Response> {
     const endpoint = new URL(options.url ?? state.url);
     const fetchImpl = context.options.fetchImpl ?? globalThis.fetch;
     const headerMap: Record<string, string> = {
@@ -36,21 +36,24 @@ export async function fetchSurreal(
 
     endpoint.protocol = endpoint.protocol.replace("ws", "http");
 
-    const raw = await fetchImpl(endpoint, {
+    const response = await fetchImpl(endpoint, {
         method: options.method ?? "POST",
         headers: headerMap,
         body: options.body ? context.codecs.cbor.encode(options.body) : undefined,
     });
 
-    const buffer = await raw.arrayBuffer();
-
-    if (raw.status === 200) {
-        return new Uint8Array(buffer);
+    if (response.status === 200) {
+        return response;
     }
 
-    const dec = new TextDecoder("utf-8");
+    const buffer = await response.arrayBuffer();
 
-    throw new HttpConnectionError(dec.decode(buffer), raw.status, raw.statusText, buffer);
+    throw new HttpConnectionError(
+        new TextDecoder("utf-8").decode(buffer),
+        response.status,
+        response.statusText,
+        buffer,
+    );
 }
 
 const REMOTE_PROTOCOLS = new Set(["http", "https", "ws", "wss"]);

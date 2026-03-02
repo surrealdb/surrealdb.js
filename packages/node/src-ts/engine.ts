@@ -51,6 +51,7 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         Features.Sessions,
         Features.Transactions,
         Features.Api,
+        Features.ExportImportStreams,
     ]);
 
     open(state: ConnectionState): void {
@@ -126,22 +127,40 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         return decoded as Result;
     }
 
-    override async importSql(data: string): Promise<void> {
+    override async importSql(data: string | ReadableStream): Promise<void> {
         if (!this.#active || !this.#engine) {
             throw new ConnectionUnavailableError();
+        }
+
+        // NOTE We currently convert streams into strings as the
+        // engine does not support streams yet.
+        if (data instanceof ReadableStream) {
+            const reader = data.getReader();
+            const decoder = new TextDecoder();
+
+            let sql = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                sql += decoder.decode(value, { stream: true });
+            }
+
+            return this.#engine.import(sql + decoder.decode());
         }
 
         return this.#engine.import(data);
     }
 
-    override async exportSql(options: Partial<SqlExportOptions>): Promise<string> {
+    override async exportSql(options: Partial<SqlExportOptions>): Promise<Response> {
         if (!this.#active || !this.#engine) {
             throw new ConnectionUnavailableError();
         }
 
-        const payload = new Uint8Array(this._context.codecs.cbor.encode(options));
+        const payload = this._context.codecs.cbor.encode(options);
+        const sql = await this.#engine.export(payload);
 
-        return this.#engine.export(payload);
+        return new Response(sql);
     }
 
     async #initialize(state: ConnectionState, signal: AbortSignal) {
