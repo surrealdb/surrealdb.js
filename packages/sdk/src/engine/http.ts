@@ -34,7 +34,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
     features = new Set([
         Features.RefreshTokens,
         Features.Api,
-        Features.ExportImportStreams,
+        Features.ExportImportRaw,
         Features.SurrealML,
     ]);
 

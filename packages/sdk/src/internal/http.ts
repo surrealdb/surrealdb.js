@@ -39,7 +39,7 @@ export async function fetchSurreal(
     const response = await fetchImpl(endpoint, {
         method: options.method ?? "POST",
         headers: headerMap,
-        body: options.body ? context.codecs.cbor.encode(options.body) : undefined,
+        body: encodeBody(context, options.body),
     });
 
     if (response.status === 200) {
@@ -68,4 +68,12 @@ export function parseEndpoint(value: string | URL): URL {
     }
 
     return url;
+}
+
+function encodeBody(context: DriverContext, body?: unknown): BodyInit | undefined {
+    if (body instanceof ReadableStream) {
+        return body;
+    }
+
+    return body ? context.codecs.cbor.encode(body) : undefined;
 }

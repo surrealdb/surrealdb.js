@@ -3,111 +3,100 @@ import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MlExportOptions, SqlExportOptions } from "../types";
 import { Features } from "../utils";
 
-type ExportResult<T, S extends boolean> = S extends true ? ReadableStream<Uint8Array> : T;
+type ExportResult<T, R extends boolean> = R extends true ? Response : T;
 
 /**
  * A configurable `Promise` for export operations.
  */
-export class ExportPromise<S extends boolean = false> extends DispatchedPromise<
-    ExportResult<string, S>
+export class ExportPromise<R extends boolean = false> extends DispatchedPromise<
+    ExportResult<string, R>
 > {
     #connection: ConnectionController;
     #options: Partial<SqlExportOptions>;
-    #stream: boolean;
+    #raw: boolean;
 
     constructor(
         connection: ConnectionController,
         options: Partial<SqlExportOptions>,
-        stream: boolean,
+        raw: boolean,
     ) {
         super();
         this.#connection = connection;
         this.#options = options;
-        this.#stream = stream;
+        this.#raw = raw;
     }
 
     /**
-     * Configure the export to return the result as a `ReadableStream`.
+     * Configure the export to return the raw `Response`.
      */
-    stream(): ExportPromise<true> {
+    response(): ExportPromise<true> {
         return new ExportPromise<true>(this.#connection, this.#options, true);
     }
 
-    protected async dispatch(): Promise<ExportResult<string, S>> {
+    protected async dispatch(): Promise<ExportResult<string, R>> {
         await this.#connection.ready();
 
-        // Require stream feature
-        if (this.#stream) {
-            this.#connection.assertFeature(Features.ExportImportStreams);
+        if (this.#raw) {
+            this.#connection.assertFeature(Features.ExportImportRaw);
         }
 
-        const stream = await this.#connection.exportSql(this.#options);
+        const result = await this.#connection.exportSql(this.#options);
 
-        // Stream was requested, return the stream directly. The feature
-        // assertion above ensures that a stream is returned.
-        if (this.#stream) {
-            return stream as ExportResult<string, S>;
+        if (this.#raw) {
+            return result as ExportResult<string, R>;
         }
 
-        // Legacy string was returned, return it directly.
-        if (typeof stream === "string") {
-            return stream as ExportResult<string, S>;
+        if (typeof result === "string") {
+            return result as ExportResult<string, R>;
         }
 
-        // Convert stream into string
-        return (await stream.text()) as ExportResult<string, S>;
+        return (await result.text()) as ExportResult<string, R>;
     }
 }
 
 /**
  * A configurable `Promise` for model export operations.
  */
-export class ExportModelPromise<S extends boolean = false> extends DispatchedPromise<
-    ExportResult<Uint8Array, S>
+export class ExportModelPromise<R extends boolean = false> extends DispatchedPromise<
+    ExportResult<Uint8Array, R>
 > {
     #connection: ConnectionController;
     #options: MlExportOptions;
-    #stream: boolean;
+    #raw: boolean;
 
-    constructor(connection: ConnectionController, options: MlExportOptions, stream: boolean) {
+    constructor(connection: ConnectionController, options: MlExportOptions, raw: boolean) {
         super();
         this.#connection = connection;
         this.#options = options;
-        this.#stream = stream;
+        this.#raw = raw;
     }
 
     /**
-     * Configure the export to return the result as a `ReadableStream`.
+     * Configure the export to return the raw `Response`.
      */
-    stream(): ExportModelPromise<true> {
+    response(): ExportModelPromise<true> {
         return new ExportModelPromise<true>(this.#connection, this.#options, true);
     }
 
-    protected async dispatch(): Promise<ExportResult<Uint8Array, S>> {
+    protected async dispatch(): Promise<ExportResult<Uint8Array, R>> {
         await this.#connection.ready();
 
-        // Require SurrealML and stream features
         this.#connection.assertFeature(Features.SurrealML);
 
-        if (this.#stream) {
-            this.#connection.assertFeature(Features.ExportImportStreams);
+        if (this.#raw) {
+            this.#connection.assertFeature(Features.ExportImportRaw);
         }
 
-        const stream = await this.#connection.exportMlModel(this.#options);
+        const result = await this.#connection.exportMlModel(this.#options);
 
-        // Stream was requested, return the stream directly. The feature
-        // assertion above ensures that a stream is returned.
-        if (this.#stream) {
-            return stream as ExportResult<Uint8Array, S>;
+        if (this.#raw) {
+            return result as ExportResult<Uint8Array, R>;
         }
 
-        // Legacy Uint8Array was returned, return it directly.
-        if (stream instanceof Uint8Array) {
-            return stream as ExportResult<Uint8Array, S>;
+        if (result instanceof Uint8Array) {
+            return result as ExportResult<Uint8Array, R>;
         }
 
-        // Convert stream into Uint8Array
-        // NOTE - can be replaced by .bytes() once support is widespread
-        return new Uint8Array(await stream.arrayBuffer()) as ExportResult<Uint8Array, S>;
+        return new Uint8Array(await result.arrayBuffer()) as ExportResult<Uint8Array, R>;
     }
 }

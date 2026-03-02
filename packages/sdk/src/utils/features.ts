@@ -10,6 +10,6 @@ export const Features = Object.freeze({
     Api: new Feature("api", "3.0.0"),
     RefreshTokens: new Feature("refresh-tokens", "3.0.0"),
     Transactions: new Feature("transactions", "3.0.0"),
-    ExportImportStreams: new Feature("export-import-streams"),
+    ExportImportRaw: new Feature("export-import-raw"),
     SurrealML: new Feature("surreal-ml"),
 });

@@ -8,3 +8,12 @@ exports[`import basic 1`] = `
   },
 ]
 `;
+
+exports[`import basic string 1`] = `
+[
+  {
+    "hello": "world",
+    "id": RecordId {},
+  },
+]
+`;

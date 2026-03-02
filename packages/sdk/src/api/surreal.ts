@@ -251,8 +251,8 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
     /**
      * Export the database as SurrealQL.
      *
-     * By default, the result is returned as a string. Chain `.stream()`
-     * to receive a `ReadableStream<Uint8Array>` instead.
+     * By default, the result is returned as a string. Chain `.response()`
+     * to receive the raw `Response` instead.
      *
      * @param options Optional export options
      */
@@ -263,8 +263,8 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
     /**
      * Export a SurrealML model.
      *
-     * By default, the result is returned as a `Uint8Array`. Chain `.stream()`
-     * to receive a `ReadableStream<Uint8Array>` instead.
+     * By default, the result is returned as a `Uint8Array`. Chain `.response()`
+     * to receive the raw `Response` instead.
      *
      * @param name The name of the ML model to export
      * @param version The version of the ML model to export

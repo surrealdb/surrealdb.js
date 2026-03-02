@@ -403,7 +403,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     importSql(data: string | ReadableStream): Promise<void> {
         if (!this.#engine) throw new ConnectionUnavailableError();
         if (data instanceof ReadableStream) {
-            this.assertFeature(Features.ExportImportStreams);
+            this.assertFeature(Features.ExportImportRaw);
         }
         return this.#engine.importSql(data);
     }
