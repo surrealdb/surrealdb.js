@@ -16,6 +16,7 @@ import type {
 } from "../types";
 import { Publisher } from "../utils/publisher";
 import type { Uuid } from "../value";
+import { ExportModelPromise, ExportPromise } from "./export";
 import { type SessionEvents, SurrealSession } from "./session";
 
 export type SurrealEvents = SessionEvents & {
@@ -238,22 +239,37 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
     // =========================================================== //
 
     /**
-     * Export the database and return the result as a string
-     *
-     * @param options Optional export options
-     */
-    public async export(options?: Partial<SqlExportOptions>): Promise<string> {
-        await this.ready;
-        return this.#connection.exportSql(options ?? {});
-    }
-
-    /**
      * Import an existing export into the database
      *
      * @param input The data to import
      */
-    public async import(input: string): Promise<void> {
+    public async import(input: string | ReadableStream): Promise<void> {
         await this.ready;
         return this.#connection.importSql(input);
+    }
+
+    /**
+     * Export the database as SurrealQL.
+     *
+     * By default, the result is returned as a string. Chain `.response()`
+     * to receive the raw `Response` instead.
+     *
+     * @param options Optional export options
+     */
+    public export(options?: Partial<SqlExportOptions>): ExportPromise {
+        return new ExportPromise(this.#connection, options ?? {}, false);
+    }
+
+    /**
+     * Export a SurrealML model.
+     *
+     * By default, the result is returned as a `Uint8Array`. Chain `.response()`
+     * to receive the raw `Response` instead.
+     *
+     * @param name The name of the ML model to export
+     * @param version The version of the ML model to export
+     */
+    public exportModel(name: string, version: string): ExportModelPromise {
+        return new ExportModelPromise(this.#connection, { name, version }, false);
     }
 }

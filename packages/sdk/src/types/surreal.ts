@@ -18,6 +18,7 @@ export type Engines = Record<string, EngineFactory>;
 export type CodecFactory = (options: CodecOptions) => ValueCodec;
 export type Codecs = Partial<Record<CodecType, CodecFactory>>;
 export type CodecRegistry = Record<CodecType, ValueCodec>;
+export type DataStream = string | ReadableStream;
 export type QueryType = "live" | "kill" | "other";
 
 /**
@@ -51,9 +52,9 @@ export interface SurrealProtocol {
     cancel(txn: Uuid, session: Session): Promise<void>;
 
     // Data management operations
-    importSql(data: string): Promise<void>;
-    exportSql(options: Partial<SqlExportOptions>): Promise<string>;
-    exportMlModel(options: MlExportOptions): Promise<Uint8Array>;
+    importSql(data: string | ReadableStream): Promise<void>;
+    exportSql(options: Partial<SqlExportOptions>): Promise<Response | string>;
+    exportMlModel(options: MlExportOptions): Promise<Response | Uint8Array>;
 
     // Query operations
     query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>>;

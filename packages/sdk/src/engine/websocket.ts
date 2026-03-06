@@ -51,6 +51,8 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         Features.Sessions,
         Features.Transactions,
         Features.Api,
+        Features.ExportImportRaw,
+        Features.SurrealML,
     ]);
 
     subscribe<K extends keyof EngineEvents>(

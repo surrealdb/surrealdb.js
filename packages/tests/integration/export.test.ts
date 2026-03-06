@@ -70,4 +70,18 @@ describe("export", async () => {
 
         expect(res).toMatchSnapshot();
     });
+
+    test("response export", async () => {
+        const surreal = await createSurreal();
+        await setupExportData(surreal);
+
+        const result = await surreal.export().raw();
+
+        expect(result).toBeInstanceOf(Response);
+
+        const text = await result.text();
+        const expected = await surreal.export();
+
+        expect(text).toBe(expected);
+    });
 });
