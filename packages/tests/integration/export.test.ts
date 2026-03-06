@@ -75,7 +75,7 @@ describe("export", async () => {
         const surreal = await createSurreal();
         await setupExportData(surreal);
 
-        const result = await surreal.export().response();
+        const result = await surreal.export().raw();
 
         expect(result).toBeInstanceOf(Response);
 

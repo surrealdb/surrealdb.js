@@ -27,9 +27,12 @@ export class ExportPromise<R extends boolean = false> extends DispatchedPromise<
     }
 
     /**
-     * Configure the export to return the raw `Response`.
+     * Configure the export to return the raw `Response` instead of
+     * a SurrealQL string. This is useful when you may receive a
+     * large amount of data and need to handle the response stream
+     * directly.
      */
-    response(): ExportPromise<true> {
+    raw(): ExportPromise<true> {
         return new ExportPromise<true>(this.#connection, this.#options, true);
     }
 
@@ -72,9 +75,11 @@ export class ExportModelPromise<R extends boolean = false> extends DispatchedPro
     }
 
     /**
-     * Configure the export to return the raw `Response`.
+     * Configure the export to return the raw `Response` instead of
+     * a `Uint8Array`. This is useful when you may receive a large
+     * amount of data and need to handle the response stream directly.
      */
-    response(): ExportModelPromise<true> {
+    raw(): ExportModelPromise<true> {
         return new ExportModelPromise<true>(this.#connection, this.#options, true);
     }
 
