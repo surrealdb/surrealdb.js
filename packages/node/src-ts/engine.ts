@@ -127,7 +127,7 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         return decoded as Result;
     }
 
-    override async importSql(data: string | ReadableStream): Promise<void> {
+    override async importSql(data: string | Blob | ReadableStream): Promise<void> {
         if (!this.#active || !this.#engine) {
             throw new ConnectionUnavailableError();
         }
@@ -147,6 +147,12 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
             }
 
             return this.#engine.import(sql + decoder.decode());
+        }
+
+        // NOTE We currently convert blobs into strings as the
+        // engine does not support blobs yet.
+        if (data instanceof Blob) {
+            return this.#engine.import(await data.text());
         }
 
         return this.#engine.import(data);
