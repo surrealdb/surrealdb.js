@@ -41,4 +41,19 @@ describe("import", async () => {
 
         expect(records).toHaveLength(2);
     });
+
+    test("blob import", async () => {
+        const surreal = await createSurreal();
+
+        if (!surreal.isFeatureSupported(Features.ExportImportRaw)) {
+            return;
+        }
+
+        const blob = new Blob(["CREATE trip:1 CONTENT { msg: 'hello' };"]);
+        await surreal.import(blob);
+
+        const [records] = await surreal.query(/* surql */ `SELECT * FROM trip`);
+
+        expect(records).toHaveLength(1);
+    });
 });

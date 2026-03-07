@@ -243,7 +243,7 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
      *
      * @param input The data to import
      */
-    public async import(input: string | ReadableStream): Promise<void> {
+    public async import(input: string | Blob | ReadableStream): Promise<void> {
         await this.ready;
         return this.#connection.importSql(input);
     }

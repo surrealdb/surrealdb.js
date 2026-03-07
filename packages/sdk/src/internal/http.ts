@@ -41,8 +41,9 @@ export async function fetchSurreal(
         method: options.method ?? "POST",
         headers: headerMap,
         body: encodedBody,
-        duplex: encodedBody instanceof ReadableStream ? "half" : undefined,
-    } as RequestInit);
+        // @ts-expect-error TS is dumb
+        duplex: "half",
+    });
 
     if (response.status === 200) {
         return response;
@@ -73,7 +74,7 @@ export function parseEndpoint(value: string | URL): URL {
 }
 
 function encodeBody(context: DriverContext, body?: unknown): BodyInit | undefined {
-    if (body instanceof ReadableStream) {
+    if (body instanceof ReadableStream || body instanceof Blob) {
         return body;
     }
 

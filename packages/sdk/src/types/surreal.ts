@@ -52,7 +52,7 @@ export interface SurrealProtocol {
     cancel(txn: Uuid, session: Session): Promise<void>;
 
     // Data management operations
-    importSql(data: string | ReadableStream): Promise<void>;
+    importSql(data: string | Blob | ReadableStream): Promise<void>;
     exportSql(options: Partial<SqlExportOptions>): Promise<Response | string>;
     exportMlModel(options: MlExportOptions): Promise<Response | Uint8Array>;
 
