@@ -36,11 +36,13 @@ export async function fetchSurreal(
 
     endpoint.protocol = endpoint.protocol.replace("ws", "http");
 
+    const encodedBody = encodeBody(context, options.body);
     const response = await fetchImpl(endpoint, {
         method: options.method ?? "POST",
         headers: headerMap,
-        body: encodeBody(context, options.body),
-    });
+        body: encodedBody,
+        duplex: encodedBody instanceof ReadableStream ? "half" : undefined,
+    } as RequestInit);
 
     if (response.status === 200) {
         return response;
