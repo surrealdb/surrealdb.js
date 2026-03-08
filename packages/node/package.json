@@ -1,6 +1,6 @@
 {
     "name": "@surrealdb/node",
-    "version": "3.0.2",
+    "version": "3.0.3",
     "surreal": "3.0.2",
     "type": "module",
     "license": "Apache-2.0",

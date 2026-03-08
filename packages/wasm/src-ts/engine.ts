@@ -123,7 +123,7 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         return decoded as Result;
     }
 
-    override async importSql(data: string | ReadableStream): Promise<void> {
+    override async importSql(data: string | Blob | ReadableStream): Promise<void> {
         // NOTE We currently convert streams into strings as the
         // engine does not support streams yet.
         if (data instanceof ReadableStream) {
@@ -139,6 +139,12 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
             }
 
             return this.#broker.importSql(sql + decoder.decode());
+        }
+
+        // NOTE We currently convert blobs into strings as the
+        // engine does not support blobs yet.
+        if (data instanceof Blob) {
+            return this.#broker.importSql(await data.text());
         }
 
         return this.#broker.importSql(data);

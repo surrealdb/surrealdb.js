@@ -191,7 +191,7 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
-    async importSql(data: string | ReadableStream): Promise<void> {
+    async importSql(data: string | Blob | ReadableStream): Promise<void> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
