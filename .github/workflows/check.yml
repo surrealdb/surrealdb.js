@@ -138,7 +138,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          targets: x86_64-unknown-linux-musl
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
@@ -153,18 +152,6 @@ jobs:
           key: turbo-node-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/node/src-rust/**', 'packages/node/src-ts/**', 'packages/node/Cargo.toml') }}
           restore-keys: turbo-node-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
 
-      - name: Install ziglang
-        uses: mlugg/setup-zig@v2
-        with:
-          version: 0.14.1
-
-      - name: Install cargo toolchains
-        uses: taiki-e/install-action@v2
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          tool: cargo-zigbuild
-
       - name: Install dependencies
         run: bun install
 
@@ -175,7 +162,7 @@ jobs:
           path: packages/sdk/dist/
 
       - name: Build Node
-        run: bun run build:node --target x86_64-unknown-linux-musl -x
+        run: bun run build:node
 
       - name: Upload Node artifacts
         uses: actions/upload-artifact@v4
