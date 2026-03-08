@@ -1,11 +1,11 @@
-import { RecordId, type Surreal, surql, Table } from "surrealdb";
+import { RecordId, type StringRecordId, type Surreal, surql, Table } from "surrealdb";
 
 export const testTable: Table<"test"> = new Table("test");
 export const personTable: Table<"person"> = new Table("person");
 export const graphTable: Table<"graph"> = new Table("graph");
 
 export interface Person {
-    id: RecordId<"person">;
+    id: RecordId<"person"> | StringRecordId;
     firstname: string;
     lastname: string;
     age?: number;
