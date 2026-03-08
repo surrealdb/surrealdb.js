@@ -101,12 +101,12 @@ jobs:
             target: x86_64-pc-windows-msvc
 
           - name: Linux x86_64 (gnu)
-            host: ubuntu-latest
+            host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             build: bun run build:node --target x86_64-unknown-linux-gnu --use-napi-cross
 
           - name: Linux x86_64 (musl)
-            host: ubuntu-latest
+            host: ubuntu-22.04
             target: x86_64-unknown-linux-musl
             build: bun run build:node --target x86_64-unknown-linux-musl -x
 
@@ -116,12 +116,12 @@ jobs:
             build: bun run build:node --target aarch64-apple-darwin
 
           - name: Linux aarch64 (gnu)
-            host: ubuntu-latest
+            host: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             build: bun run build:node --target aarch64-unknown-linux-gnu --use-napi-cross
 
           - name: Linux aarch64 (musl)
-            host: ubuntu-latest
+            host: ubuntu-22.04
             target: aarch64-unknown-linux-musl
             build: bun run build:node --target aarch64-unknown-linux-musl -x
 
