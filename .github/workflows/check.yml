@@ -124,7 +124,7 @@ jobs:
   build-node:
     name: Build Node
     needs: build-sdk
-    runs-on: runner-amd64-2xlarge
+    runs-on: ubuntu-22.04
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -138,6 +138,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+          targets: x86_64-unknown-linux-musl
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
@@ -162,7 +163,7 @@ jobs:
           path: packages/sdk/dist/
 
       - name: Build Node
-        run: bun run build:node
+        run: bun run build:node --target x86_64-unknown-linux-musl -x
 
       - name: Upload Node artifacts
         uses: actions/upload-artifact@v4
