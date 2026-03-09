@@ -1,6 +1,6 @@
 import { ExpressionError } from "../errors";
 import type { Expr, Output } from "../types";
-import { Duration, RecordId } from "../value";
+import { Duration, RecordId, StringRecordId } from "../value";
 
 const OUTPUTS: Map<Output, string> = new Map([
     ["null", "null"],
@@ -11,7 +11,10 @@ const OUTPUTS: Map<Output, string> = new Map([
 ]);
 
 export const _only = (value: unknown): Expr => ({
-    toSQL: (ctx) => (value instanceof RecordId ? `ONLY ${ctx.def(value)}` : ctx.def(value)),
+    toSQL: (ctx) =>
+        value instanceof RecordId || value instanceof StringRecordId
+            ? `ONLY ${ctx.def(value)}`
+            : ctx.def(value),
 });
 
 export const _output = (value: Output): Expr => ({

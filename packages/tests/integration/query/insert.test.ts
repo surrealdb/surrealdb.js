@@ -1,12 +1,27 @@
 import { describe, expect, test } from "bun:test";
-import { DateTime, Duration, RecordId } from "surrealdb";
+import { DateTime, Duration, RecordId, StringRecordId } from "surrealdb";
 import { createSurreal, type Person, proto } from "../__helpers__";
 
 describe("insert()", async () => {
-    test("single", async () => {
+    test("single (record id)", async () => {
         const surreal = await createSurreal();
         const [single] = await surreal.insert<Person>({
             id: new RecordId("person", 1),
+            firstname: "John",
+            lastname: "Doe",
+        });
+
+        expect(single).toStrictEqual({
+            id: new RecordId("person", 1),
+            firstname: "John",
+            lastname: "Doe",
+        });
+    });
+
+    test("single (string record id)", async () => {
+        const surreal = await createSurreal();
+        const [single] = await surreal.insert<Person>({
+            id: new StringRecordId("person:1"),
             firstname: "John",
             lastname: "Doe",
         });

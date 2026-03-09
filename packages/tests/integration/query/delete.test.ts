@@ -1,12 +1,24 @@
 import { describe, expect, test } from "bun:test";
-import { DateTime, Duration, RecordId } from "surrealdb";
+import { DateTime, Duration, RecordId, StringRecordId } from "surrealdb";
 import { createSurreal, insertMockRecords, type Person, personTable, proto } from "../__helpers__";
 
 describe("delete()", async () => {
-    test("single", async () => {
+    test("single (record id)", async () => {
         const surreal = await createSurreal();
         await insertMockRecords(surreal);
         const single = await surreal.delete<Person>(new RecordId("person", 1));
+
+        expect(single).toStrictEqual({
+            id: new RecordId("person", 1),
+            firstname: "John",
+            lastname: "Doe",
+        });
+    });
+
+    test("single (string record id)", async () => {
+        const surreal = await createSurreal();
+        await insertMockRecords(surreal);
+        const single = await surreal.delete<Person>(new StringRecordId("person:1"));
 
         expect(single).toStrictEqual({
             id: new RecordId("person", 1),
