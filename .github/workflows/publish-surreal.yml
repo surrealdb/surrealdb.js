@@ -103,7 +103,7 @@ jobs:
           - name: Linux x86_64 (gnu)
             host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            build: bun run build:node --target x86_64-unknown-linux-gnu --use-napi-cross
+            build: bun run build:node --target x86_64-unknown-linux-gnu -x
 
           - name: Linux x86_64 (musl)
             host: ubuntu-22.04
@@ -118,7 +118,7 @@ jobs:
           - name: Linux aarch64 (gnu)
             host: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
-            build: bun run build:node --target aarch64-unknown-linux-gnu --use-napi-cross
+            build: bun run build:node --target aarch64-unknown-linux-gnu -x
 
           - name: Linux aarch64 (musl)
             host: ubuntu-22.04
@@ -164,23 +164,18 @@ jobs:
           bun-version: 1.2.21
 
       - name: Install cross-compilation toolchain
-        if: ${{ contains(matrix.settings.target, 'aarch64-unknown-linux-gnu') }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          # Verify the compiler supports C++17
-          aarch64-linux-gnu-g++ --version
-          aarch64-linux-gnu-g++ -std=c++17 -E -x c++ - < /dev/null
+        if: ${{ matrix.settings.target == 'aarch64-unknown-linux-gnu' }}
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
       - name: Install ziglang
         uses: mlugg/setup-zig@v2
-        if: ${{ contains(matrix.settings.target, 'musl') }}
+        if: ${{ contains(matrix.settings.target, 'linux') }}
         with:
           version: 0.14.1
 
       - name: Install cargo toolchains
         uses: taiki-e/install-action@v2
-        if: ${{ contains(matrix.settings.target, 'musl') }}
+        if: ${{ contains(matrix.settings.target, 'linux') }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
