@@ -201,6 +201,31 @@ export abstract class RpcEngine implements SurrealProtocol {
 
         endpoint.pathname = `${basepath}/import`;
 
+        const prefix = "OPTION IMPORT;\n";
+
+        if (typeof data === "string") {
+            data = new Blob([prefix, data]);
+        } else if (data instanceof Blob) {
+            data = new Blob([prefix, data]);
+        } else {
+            const encoder = new TextEncoder();
+            const prefixBytes = encoder.encode(prefix);
+            const reader = data.getReader();
+            data = new ReadableStream({
+                async start(controller) {
+                    controller.enqueue(prefixBytes);
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) {
+                            controller.close();
+                            break;
+                        }
+                        controller.enqueue(value);
+                    }
+                },
+            });
+        }
+
         await fetchSurreal(this._context, this._state, this._state.rootSession, {
             body: data,
             url: endpoint,
