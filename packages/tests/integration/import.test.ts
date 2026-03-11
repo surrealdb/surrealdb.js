@@ -11,10 +11,12 @@ describe("import", async () => {
         }
 
         await surreal.import(
-            /* surql */ `
+            new Blob([
+                /* surql */ `
 			OPTION IMPORT;
 			CREATE foo:1 CONTENT { hello: "world" };
 		`,
+            ]),
         );
 
         const [records] = await surreal
