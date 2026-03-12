@@ -258,6 +258,10 @@ export interface SqlExportOptions {
     params: boolean;
     functions: boolean;
     analyzers: boolean;
+    apis: boolean;
+    buckets: boolean;
+    modules: boolean;
+    configs: boolean;
     tables: boolean | string[];
     versions: boolean;
     records: boolean;
