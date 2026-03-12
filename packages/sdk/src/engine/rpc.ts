@@ -202,7 +202,7 @@ export abstract class RpcEngine implements SurrealProtocol {
         endpoint.pathname = `${basepath}/import`;
 
         await fetchSurreal(this._context, this._state, this._state.rootSession, {
-            body: data,
+            body: typeof data === "string" ? new Blob([data]) : data,
             url: endpoint,
             headers: {
                 Accept: "application/json",
