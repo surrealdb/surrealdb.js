@@ -21,7 +21,10 @@ export function surql(strings: TemplateStringsArray, ...values: unknown[]): Boun
         if (i < values.length) {
             const value = values[i];
 
-            if (isExpression(value)) {
+            if (value instanceof BoundQuery) {
+                result += value.query;
+                Object.assign(bindings, value.bindings);
+            } else if (isExpression(value)) {
                 const built = expr(value);
                 result += built.query;
                 Object.assign(bindings, built.bindings);

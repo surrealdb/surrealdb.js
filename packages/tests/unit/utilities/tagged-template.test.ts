@@ -38,4 +38,38 @@ describe("Tagged template", () => {
         expect(query.query).toMatchSnapshot();
         expect(Object.keys(query.bindings)).toHaveLength(1);
     });
+
+    test("query with embedded BoundQuery", () => {
+        const username = "john";
+        const byUserName = surql`username = ${username}`;
+        const query = surql`SELECT * FROM user WHERE ${byUserName}`;
+
+        expect(query.query).toMatchSnapshot();
+        expect(Object.keys(query.bindings)).toHaveLength(1);
+        expect(Object.values(query.bindings)).toContain("john");
+    });
+
+    test("query with multiple embedded BoundQueries", () => {
+        const fields = surql`id, username, email`;
+        const username = "john";
+        const byUserName = surql`username = ${username}`;
+        const query = surql`SELECT ${fields} FROM user WHERE ${byUserName}`;
+
+        expect(query.query).toMatchSnapshot();
+        expect(Object.keys(query.bindings)).toHaveLength(1);
+        expect(Object.values(query.bindings)).toContain("john");
+    });
+
+    test("query with mixed BoundQuery and regular values", () => {
+        const table = new Table("user");
+        const limit = 10;
+        const byUserName = surql`username = ${"john"}`;
+        const query = surql`SELECT * FROM ${table} WHERE ${byUserName} LIMIT ${limit}`;
+
+        expect(query.query).toMatchSnapshot();
+        expect(Object.keys(query.bindings)).toHaveLength(3);
+        expect(Object.values(query.bindings)).toContainEqual(new Table("user"));
+        expect(Object.values(query.bindings)).toContain("john");
+        expect(Object.values(query.bindings)).toContain(10);
+    });
 });
