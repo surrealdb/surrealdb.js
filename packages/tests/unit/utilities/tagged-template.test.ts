@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { eq, raw, surql, Table } from "surrealdb";
+import { BoundQuery } from "../../../sdk/src/utils/bound-query";
 import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
 
 beforeEach(() => {
@@ -71,5 +72,14 @@ describe("Tagged template", () => {
         expect(Object.values(query.bindings)).toContainEqual(new Table("user"));
         expect(Object.values(query.bindings)).toContain("john");
         expect(Object.values(query.bindings)).toContain(10);
+    });
+
+    test("query with binding conflict throws", () => {
+        const a = new BoundQuery("a = $x", { x: 1 });
+        const b = new BoundQuery("b = $x", { x: 2 });
+
+        expect(() => surql`${a} AND ${b}`).toThrow(
+            "Parameter conflict: 'x' already exists in this BoundQuery",
+        );
     });
 });

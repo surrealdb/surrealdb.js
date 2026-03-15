@@ -2,6 +2,27 @@ import { ExpressionError } from "../errors";
 import { surql } from "./tagged-template";
 
 /**
+ * Merge source bindings into target, throwing on duplicate keys.
+ *
+ * @param target The target bindings object to merge into
+ * @param source The source bindings object to merge from
+ */
+export function mergeBindings(
+    target: Record<string, unknown>,
+    source: Record<string, unknown>,
+): void {
+    for (const key of Object.keys(source)) {
+        if (key in target) {
+            throw new ExpressionError(
+                `Parameter conflict: '${key}' already exists in this BoundQuery`,
+            );
+        }
+    }
+
+    Object.assign(target, source);
+}
+
+/**
  * A bound query represents a query string combined with bindings.
  */
 export class BoundQuery<R extends unknown[] = unknown[]> {
@@ -88,15 +109,7 @@ export class BoundQuery<R extends unknown[] = unknown[]> {
         const _other = this.#extractQuery(other, values);
 
         if (_other.#bindings) {
-            for (const key of Object.keys(_other.#bindings)) {
-                if (key in this.#bindings) {
-                    throw new ExpressionError(
-                        `Parameter conflict: '${key}' already exists in this BoundQuery`,
-                    );
-                }
-            }
-
-            Object.assign(this.#bindings, _other.#bindings);
+            mergeBindings(this.#bindings, _other.#bindings);
         }
 
         this.#query += _other.query;
