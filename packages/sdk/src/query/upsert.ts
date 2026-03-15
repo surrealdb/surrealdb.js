@@ -2,7 +2,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { AnyRecordId, Expr, ExprLike, Mutation, Output, Session, Values } from "../types";
+import type { AnyRecordId, Expr, ExprLike, Mutation, Output, Patch, Session, Values } from "../types";
 import { type BoundQuery, raw, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { Duration, RecordIdRange, Table, Uuid } from "../value";
@@ -85,7 +85,7 @@ export class UpsertPromise<T, I, J extends boolean = false> extends DispatchedPr
     /**
      * Configure the query to patch the record data
      */
-    patch(data: Values<I>): UpsertPromise<T, I, J> {
+    patch(data: Patch[]): UpsertPromise<T, I, J> {
         return new UpsertPromise<T, I, J>(this.#connection, {
             ...this.#options,
             mutation: "patch",
