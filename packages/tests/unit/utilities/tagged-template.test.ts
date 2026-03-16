@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { eq, raw, surql, Table } from "surrealdb";
-import { BoundQuery } from "../../../sdk/src/utils/bound-query";
 import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
+import { BoundQuery } from "../../../sdk/src/utils/bound-query";
 
 beforeEach(() => {
     resetIncrementalID();
