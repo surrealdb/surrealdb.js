@@ -63,9 +63,7 @@ export class CreatePromise<T, I, J extends boolean = false> extends DispatchedPr
     /**
      * Configure the query to patch the record data
      */
-    patch(data: Values<I>): CreatePromise<T, I, J>;
-    patch(data: Patch[]): CreatePromise<T, I, J>;
-    patch(data: Values<I> | Patch[]): CreatePromise<T, I, J> {
+    patch(data: Patch[]): CreatePromise<T, I, J> {
         return new CreatePromise<T, I, J>(this.#connection, {
             ...this.#options,
             mutation: "patch",
