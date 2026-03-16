@@ -1,6 +1,6 @@
 import { getIncrementalID } from "../internal/get-incremental-id";
 import { isExpression } from "../internal/validation";
-import { BoundQuery } from "./bound-query";
+import { BoundQuery, mergeBindings } from "./bound-query";
 import { expr } from "./expr";
 
 /**
@@ -21,10 +21,13 @@ export function surql(strings: TemplateStringsArray, ...values: unknown[]): Boun
         if (i < values.length) {
             const value = values[i];
 
-            if (isExpression(value)) {
+            if (value instanceof BoundQuery) {
+                result += value.query;
+                mergeBindings(bindings, value.bindings);
+            } else if (isExpression(value)) {
                 const built = expr(value);
                 result += built.query;
-                Object.assign(bindings, built.bindings);
+                mergeBindings(bindings, built.bindings);
             } else {
                 const bindingName = `bind__${getIncrementalID()}`;
                 result += `$${bindingName}`;
