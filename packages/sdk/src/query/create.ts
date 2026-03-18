@@ -2,7 +2,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { AnyRecordId, Mutation, Output, Session, Values } from "../types";
+import type { AnyRecordId, Mutation, Output, Patch, Session, Values } from "../types";
 import { type BoundQuery, raw, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import type { DateTime, Duration, Table, Uuid } from "../value";
@@ -63,7 +63,7 @@ export class CreatePromise<T, I, J extends boolean = false> extends DispatchedPr
     /**
      * Configure the query to patch the record data
      */
-    patch(data: Values<I>): CreatePromise<T, I, J> {
+    patch(data: Patch[]): CreatePromise<T, I, J> {
         return new CreatePromise<T, I, J>(this.#connection, {
             ...this.#options,
             mutation: "patch",
