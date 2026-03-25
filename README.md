@@ -47,9 +47,6 @@
     <a href="https://www.youtube.com/@SurrealDB"><img src="https://img.shields.io/badge/youtube-subscribe-fc1c1c.svg?style=flat-square"></a>
 </p>
 
-> [!WARNING]
-> This readme describes the v2 SDK which is currently not stable and subject to change. For the stable v1 SDK, see [here](https://github.com/surrealdb/surrealdb.js/blob/main/README_V1.md).
-
 ## Documentation
 
 View the SDK documentation [here](https://surrealdb.com/docs/sdk/javascript).
