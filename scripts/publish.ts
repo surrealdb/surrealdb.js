@@ -43,6 +43,20 @@ if (values.channel) {
     channel = values.channel;
 }
 
+// Copy root files into the package directory before packing
+const rootFiles = ["README.md", "LICENCE", "SECURITY.md"];
+
+console.log("📄 Copying root files...");
+
+for (const file of rootFiles) {
+    const src = Bun.file(`../../${file}`);
+    if (await src.exists()) {
+        await Bun.write(file, src);
+    } else {
+        console.warn(`⚠️ Root file not found, skipping: ${file}`);
+    }
+}
+
 // Packing
 const safeName = name.replaceAll("@", "-");
 const packCmd = ["bun", "pm", "pack"];
