@@ -59,7 +59,7 @@ if (values.continue && packCode !== 0) {
     process.exit(0);
 }
 
-// Publishing
+// Publishing to NPM
 const publishCmd = [
     "npm",
     "publish",
@@ -86,8 +86,35 @@ const publishCode = await Bun.spawn(publishCmd, {
 }).exited;
 
 if (values.continue && publishCode !== 0) {
-    console.log("❌ Publish failed, but continuing...");
-    process.exit(0);
+    console.log("❌ NPM publish failed, but continuing...");
+} else if (publishCode !== 0) {
+    process.exit(publishCode);
 }
 
-process.exit(publishCode);
+// Publishing to JSR (only if jsr.json exists)
+const jsrFile = Bun.file("jsr.json");
+const jsrExists = await jsrFile.exists();
+
+if (jsrExists) {
+    const jsrPublishCmd = ["npx", "jsr", "publish", "--allow-slow-types"];
+
+    if (values["dry-run"]) {
+        jsrPublishCmd.push("--dry-run");
+    }
+
+    console.log(`🚀 Publishing ${name}@${version} to JSR...`);
+
+    const jsrPublishCode = await Bun.spawn(jsrPublishCmd, {
+        stdout: "inherit",
+        stderr: "inherit",
+    }).exited;
+
+    if (values.continue && jsrPublishCode !== 0) {
+        console.log("❌ JSR publish failed, but continuing...");
+        process.exit(0);
+    }
+
+    process.exit(jsrPublishCode);
+} else {
+    process.exit(publishCode);
+}
