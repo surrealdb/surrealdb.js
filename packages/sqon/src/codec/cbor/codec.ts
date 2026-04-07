@@ -82,10 +82,13 @@ const TAG_GEOMETRY_MULTIPOLYGON = 93;
 const TAG_GEOMETRY_COLLECTION = 94;
 
 /**
- * A class used to encode and decode SurrealQL values using CBOR
+ * A codec for encoding and decoding SurrealQL values using the SQON Binary (cbor) format.
  */
 export class CborCodec implements ValueCodec<Uint8Array> {
-    static default = new CborCodec({});
+    /**
+     * The default CborCodec instance.
+     */
+    static readonly DEFAULT: CborCodec = new CborCodec({});
 
     #options: CodecOptions;
 

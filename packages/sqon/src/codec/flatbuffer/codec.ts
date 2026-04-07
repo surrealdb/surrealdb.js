@@ -2,10 +2,15 @@ import { SqonError } from "../../errors.ts";
 import type { CodecOptions, ValueCodec } from "../../types/codec.ts";
 
 /**
- * A class used to encode and decode SurrealQL values using FlatBuffers
+ * A codec for encoding and decoding SurrealQL values using the SQON Binary (flatbuffer) format.
+ *
+ * *Note*: This codec is not implemented in this version.
  */
 export class FlatBufferCodec implements ValueCodec<Uint8Array> {
-    static default = new FlatBufferCodec({});
+    /**
+     * The default FlatBufferCodec instance.
+     */
+    static readonly DEFAULT: FlatBufferCodec = new FlatBufferCodec({});
 
     // biome-ignore lint/correctness/noUnusedPrivateClassMembers: Todo
     #options: CodecOptions;

@@ -32,13 +32,13 @@ export class Uuid extends Value {
      *
      * @param uuid ArrayBuffer or Uint8Array input
      */
-    constructor(uuid: ArrayBuffer | Uint8Array);
+    constructor(uuid: ArrayBufferLike | Uint8Array);
 
     // Shadow implementation
-    constructor(uuid: Uuid | UUID | string | ArrayBuffer | Uint8Array) {
+    constructor(uuid: Uuid | UUID | string | ArrayBufferLike | Uint8Array) {
         super();
 
-        if (uuid instanceof ArrayBuffer) {
+        if (uuid instanceof ArrayBuffer || uuid instanceof SharedArrayBuffer) {
             this.#inner = UUID.ofInner(new Uint8Array(uuid));
         } else if (uuid instanceof Uint8Array) {
             this.#inner = UUID.ofInner(uuid);
@@ -58,8 +58,8 @@ export class Uuid extends Value {
     }
 
     toJSON(): unknown {
-        if (Value.useExperimentalToJson) {
-            return JsonCodec.default.encode(this);
+        if (Value._useExperimentalToJson) {
+            return JsonCodec.DEFAULT.encode(this);
         }
         return this.#inner.toString();
     }

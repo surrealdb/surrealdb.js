@@ -1,34 +1,40 @@
+# SQON - SurrealQL Object Notation
+
+Internal lead: Julian Mills
+Last edited time: April 7, 2026 8:48 PM
+Status: Draft
+
 # SurrealQL Object Notation Specification
 
 SQON (SurrealQL Object Notation) is the family of data representation formats used by SurrealDB to encode its rich data value system. Three representations exist, each optimised for a different environment:
 
-| Format | Name | Encoding | Use case |
-| --- | --- | --- | --- |
-| **SQON** | SurrealQL Object Notation | SurrealQL (text) | Direct database interaction, queries, SurrealQL expressions |
-| **SQON-B** | SQON Binary | CBOR (binary) | Efficient wire transport, compact storage, binary-safe environments |
-| **SQON-J** | SQON JSON | JSON (text) | HTTP APIs, browser environments, human-readable interchange |
+| Name | Encoding | Use case |
+| --- | --- | --- |
+| SQON | SurrealQL (text) | Direct database interaction, queries, SurrealQL expressions |
+| SQON Binary | CBOR (binary) | Efficient wire transport, compact storage, binary-safe environments |
+| SQON JSON | JSON (text) | HTTP APIs, browser environments, human-readable interchange |
 
 All three representations are semantically equivalent. Any value expressible in one format can be round-tripped through any other without loss of type information.
 
 ## 1. Value types
 
-SQON represents the full SurrealQL value system. Every value in SurrealDB belongs to exactly one of the types listed below. This section provides a comprehensive reference; the format-specific sections that follow describe how each type is encoded in SQON, SQON-B, and SQON-J.
+SQON represents the full SurrealQL value system. Every value in SurrealDB belongs to exactly one of the types listed below. This section provides a comprehensive reference; the format-specific sections that follow describe how each type is encoded in SQON, SQON Binary, and SQON JSON.
 
 ### 1.1 Type descriptions
 
-#### None
+### None
 
 `none` represents the explicit absence of a value. It is distinct from `null` and is used to indicate that a field has no value at all. Responses typically omit `none`-valued fields entirely rather than including them.
 
-#### Null
+### Null
 
 `null` represents an unknown or undefined value. While semantically similar to `none`, `null` conveys "value is unknown" rather than "value is absent".
 
-#### Bool
+### Bool
 
 A boolean value: `true` or `false`.
 
-#### Number
+### Number
 
 SurrealDB supports three numeric subtypes, all of which fall under the umbrella `number` type:
 
@@ -42,11 +48,11 @@ A numeric literal without a decimal point and within the `int` range is stored a
 
 Underscores in numeric literals are ignored and can be used for readability (e.g. `1_000_000`).
 
-#### String
+### String
 
 A UTF-8 encoded text value of arbitrary length. Strings can contain Unicode characters, emojis, tabs, and line breaks.
 
-#### Duration
+### Duration
 
 A non-negative time span with nanosecond precision. Durations are composed of one or more unit segments:
 
@@ -64,27 +70,27 @@ A non-negative time span with nanosecond precision. Durations are composed of on
 
 Units can be combined in a single literal: `1y2w3d4h5m6s7ms8us9ns`. A duration can be zero (`0ns`) but cannot be negative.
 
-#### Datetime
+### Datetime
 
 An RFC 3339 / ISO 8601 timestamp with nanosecond precision. Datetimes are stored internally as UTC; a timezone offset in the input is converted to UTC on storage.
 
-#### UUID
+### UUID
 
 A universally unique identifier conforming to RFC 4122. SurrealDB supports UUID v4 (random) and v7 (time-ordered).
 
-#### Array
+### Array
 
 An ordered, indexed collection of values. Arrays may contain values of any type, including nested arrays and objects. Individual elements are accessed by zero-based index. An optional element type and length constraint can be specified in schema definitions (e.g. `array<string, 5>`).
 
-#### Set
+### Set
 
 An ordered, automatically deduplicated collection of values. Sets differ from arrays in two ways: duplicate values are removed, and values are sorted. Sets support the same element type and length constraints as arrays in schema definitions.
 
-#### Object
+### Object
 
 An unordered key-value map with string keys and values of any type. Objects may be nested and can contain any other value type.
 
-#### Geometry
+### Geometry
 
 A geospatial value conforming to RFC 7946 (GeoJSON). SurrealDB supports the following geometry subtypes:
 
@@ -98,15 +104,15 @@ A geospatial value conforming to RFC 7946 (GeoJSON). SurrealDB supports the foll
 | `MultiPolygon` | A collection of polygons |
 | `GeometryCollection` | A heterogeneous collection of geometry objects |
 
-#### Bytes
+### Bytes
 
 Raw binary data. Bytes are typically displayed in hexadecimal encoding.
 
-#### Table
+### Table
 
 A bare reference to a table name (opposed to a specific record). Table values are often used to distinguish between a table name and a record ID in contexts where both are possible.
 
-#### Record ID
+### Record ID
 
 A record ID uniquely identifies a single record within a table. It is composed of two parts: a **table name** and an **identifier**.
 
@@ -123,15 +129,11 @@ The identifier can take several forms:
 
 Record IDs are immutable and double as record links — holding a record ID is sufficient to traverse to another record's data.
 
-#### File
+### File
 
 A reference to a file in a storage bucket.
 
-#### Regex
-
-A regular expression used for pattern matching.
-
-#### Range
+### Range
 
 A bounded or unbounded range of values. Ranges are composed of the `..` operator with optional lower and upper bounds:
 
@@ -149,6 +151,8 @@ Ranges can be constructed from any value type supporting comparison.
 
 ## 2. SQON
 
+**MIME:** `application/vnd.surrealdb.sqon`
+
 SQON is the native textual syntax of SurrealDB. While inspired by JSON, it more closely resembles ECMAScript objects, including the ability for object keys to omit quotes, and the ability to use both single and double quotes for strings. It is optimised for direct use within the database — in queries, schema definitions, and results returned over the SurrealDB binary protocol.
 
 Since SQON is a subset of SurrealQL, it is not designed for portability across application boundaries. Parsing SQON requires a custom parser implementation, making it unsuitable for use in general-purpose HTTP environments or third-party clients that do not embed the SurrealDB parser.
@@ -163,7 +167,7 @@ Since SQON is a subset of SurrealQL, it is not designed for portability across a
 
 The following table summarises SQON syntax for all value types. Primitive JSON-compatible types use familiar syntax; SurrealDB-specific types use bespoke syntax.
 
-#### Primitive types (JSON-compatible)
+### Primitive types (JSON-compatible)
 
 | Type | SQON example |
 | --- | --- |
@@ -176,7 +180,7 @@ The following table summarises SQON syntax for all value types. Primitive JSON-c
 | Array | `[1, 2, 3]` |
 | Object | `{ name: 'Jane', age: 30 }` |
 
-#### SurrealDB-specific types
+### SurrealDB-specific types
 
 | Type | SQON example |
 | --- | --- |
@@ -193,13 +197,14 @@ The following table summarises SQON syntax for all value types. Primitive JSON-c
 | Record ID (object) | `user:{ name: 'john', age: 30 }` |
 | Record ID (array) | `temperature:['London', d'2025-02-13']` |
 | File | `f"bucket:/path/to/file.txt"` |
-| Regex | `<regex>"col(o\|ou)r"` |
 | Range | `0..10` / `0..=10` / `0>..10` |
 | Geometry (point) | `(-122.4194, 37.7749)` |
 
-## 3. SQON-B
+## 3. SQON Binary
 
-SQON-B is the binary serialisation format for SQON values. The current version is based on **CBOR** (Concise Binary Object Representation, RFC 8949) with the addition of custom tags to represent SurrealDB-specific types. It is the current wire format used by the SurrealDB WebSocket and HTTP binary endpoints.
+**MIME:** `application/vnd.surrealdb.sqon+cbor`
+
+SQON Binary is the binary serialisation format for SQON values. The current implementation is based on **CBOR** (Concise Binary Object Representation, RFC 8949) with the addition of custom tags to represent SurrealDB-specific types. It is the current wire format used by the SurrealDB WebSocket and HTTP binary endpoints. Note that in the future we intend on replacing CBOR communication with flat buffers.
 
 Each SurrealDB-specific type is assigned a custom CBOR tag that unambiguously identifies its type and governs how its payload is decoded.
 
@@ -249,11 +254,13 @@ The following types map directly to native CBOR major types and require no custo
 | `Geometry (MultiPolygon)` | 93 | Array of polygons |
 | `Geometry (Collection)` | 94 | Array of geometry objects |
 
-## 4. SQON-J
+## 4. SQON JSON
 
-SQON-J is the JSON-compatible serialisation format for SQON values. It enables full type fidelity in environments where only JSON is available — HTTP APIs, browser clients, logging infrastructure, debugging tools, and any context where binary encoding is impractical. While SQON-J is the least compact representation of SurrealDB types, it is the most portable and widely accepted format. 
+**MIME:** `application/vnd.surrealdb.sqon+json`
 
-The SQON-J format builds on top of JSON, with the addition of `$` prefixed notations describing custom SurrealDB types. This mirrors the EJSON specification from MongoDB.
+SQON JSON is the JSON-compatible serialisation format for SQON values. It enables full type fidelity in environments where only JSON is available — HTTP APIs, browser clients, logging infrastructure, debugging tools, and any context where binary encoding is impractical. While SQON JSON is the least compact representation of SurrealDB types, it is the most portable and widely accepted format.
+
+The SQON JSON format builds on top of JSON, with the addition of `$` prefixed notations describing custom SurrealDB types. This mirrors the EJSON specification from MongoDB.
 
 ### 4.1 Characteristics
 
@@ -267,7 +274,7 @@ The SQON-J format builds on top of JSON, with the addition of `$` prefixed notat
 
 JSON-native types are passed through without wrapping.
 
-| SQON type | SQON-J encoding |
+| SQON type | SQON JSON encoding |
 | --- | --- |
 | `null` | `null` |
 | `bool` | `true` / `false` |
@@ -417,14 +424,6 @@ A `$range` key with an object containing a `begin` property with a value of a bo
 
 ```json
 { "$range": { "begin": { "$boundIncluded": 0 }, "end": null } }
-```
-
-### 4.2.14 Regex
-
-A `$regex` key with a value of a regular expression string is used to represent a `regex` value.
-
-```json
-{ "$regex": "col(o|ou)r" }
 ```
 
 ### 4.3 Full document example

@@ -35,8 +35,8 @@ export class StringRecordId extends Value {
     }
 
     toJSON(): unknown {
-        if (Value.useExperimentalToJson) {
-            return JsonCodec.default.encode(this);
+        if (Value._useExperimentalToJson) {
+            return JsonCodec.DEFAULT.encode(this);
         }
         return this.#rid;
     }

@@ -4,7 +4,7 @@ import { hasSymbol, markSymbol, VALUE_SYMBOL } from "../utils/symbols.ts";
  * A complex SurrealQL value type
  */
 export abstract class Value {
-    static useExperimentalToJson = false;
+    protected static _useExperimentalToJson = false;
 
     static [Symbol.hasInstance](instance: unknown): boolean {
         return hasSymbol(instance, VALUE_SYMBOL);
@@ -28,4 +28,13 @@ export abstract class Value {
      * Convert this value to a string representation
      */
     abstract toString(): string;
+
+    /**
+     * Enable the new experimental toJSON implementation.
+     *
+     * When enabled, the `toJSON` method will return values encoded by the `JsonCodec` resulting in a type-safe JSON representation.
+     */
+    static useExperimentalToJson(enabled?: boolean) {
+        Value._useExperimentalToJson = enabled ?? true;
+    }
 }

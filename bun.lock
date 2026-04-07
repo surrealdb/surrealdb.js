@@ -85,6 +85,7 @@
       "dependencies": {
         "@surrealdb/cbor": "2.0.0-alpha.4",
         "@surrealdb/node": "workspace:*",
+        "@surrealdb/sqon": "workspace:*",
         "@surrealdb/wasm": "workspace:*",
         "get-port": "^7.1.0",
         "surrealdb": "workspace:*",

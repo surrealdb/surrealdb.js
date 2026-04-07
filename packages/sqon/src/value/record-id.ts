@@ -41,8 +41,8 @@ class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdVa
     }
 
     toJSON(): unknown {
-        if (Value.useExperimentalToJson) {
-            return JsonCodec.default.encode(this);
+        if (Value._useExperimentalToJson) {
+            return JsonCodec.DEFAULT.encode(this);
         }
         return this.toString();
     }

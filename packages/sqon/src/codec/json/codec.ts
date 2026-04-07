@@ -51,12 +51,13 @@ import {
 } from "./values.ts";
 
 /**
- * A codec for encoding and decoding SurrealQL values using SQON-J (JSON representation).
- *
- * The output is a plain JSON-compatible object tree, not a serialised string.
+ * A codec for encoding and decoding SurrealQL values using the SQON Json format.
  */
 export class JsonCodec implements ValueCodec<unknown> {
-    static default = new JsonCodec({});
+    /**
+     * The default JsonCodec instance.
+     */
+    static readonly DEFAULT: JsonCodec = new JsonCodec({});
 
     #options: CodecOptions;
 
