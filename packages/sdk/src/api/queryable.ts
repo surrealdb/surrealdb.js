@@ -1,3 +1,4 @@
+import { type RecordId, type RecordIdRange, Table, type Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import {
     AuthPromise,
@@ -15,7 +16,6 @@ import {
 } from "../query";
 import type { AnyRecordId, LiveResource, RecordResult, Session, Values } from "../types";
 import { BoundQuery } from "../utils";
-import { type RecordId, type RecordIdRange, Table, type Uuid } from "../value";
 import { type DefaultPaths, SurrealApi } from "./api";
 
 /**

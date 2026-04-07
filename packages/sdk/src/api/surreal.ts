@@ -1,7 +1,6 @@
-import { CborCodec } from "../cbor";
+import { CborCodec, FlatBufferCodec, type Uuid } from "@surrealdb/sqon";
 import { ConnectionController } from "../controller";
 import { UnavailableFeatureError, UnsupportedFeatureError } from "../errors";
-import { FlatBufferCodec } from "../flatbuffer/codec";
 import type { Feature } from "../internal/feature";
 import { getIncrementalID } from "../internal/get-incremental-id";
 import { parseEndpoint } from "../internal/http";
@@ -15,7 +14,6 @@ import type {
     VersionInfo,
 } from "../types";
 import { Publisher } from "../utils/publisher";
-import type { Uuid } from "../value";
 import { ExportModelPromise, ExportPromise } from "./export";
 import { type SessionEvents, SurrealSession } from "./session";
 

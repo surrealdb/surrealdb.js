@@ -1,8 +1,8 @@
+import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { ConnectionUnavailableError, LiveSubscriptionError } from "../errors";
 import { Query } from "../query";
 import type { LiveMessage, LiveResource, Session } from "../types";
-import type { Uuid } from "../value";
 import { BoundQuery } from "./bound-query";
 import { ChannelIterator } from "./channel-iterator";
 

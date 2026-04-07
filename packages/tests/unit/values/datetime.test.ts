@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { DateTime } from "../../../sdk/src/value/datetime";
-import { Duration } from "../../../sdk/src/value/duration";
+import { DateTime, Duration } from "surrealdb";
 
 describe("DateTime", () => {
     test("constructor with Date object", () => {

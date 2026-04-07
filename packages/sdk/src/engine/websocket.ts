@@ -1,3 +1,4 @@
+import { RecordId, Uuid } from "@surrealdb/sqon";
 import {
     CallTerminatedError,
     ConnectionUnavailableError,
@@ -12,7 +13,6 @@ import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surr
 import { Features } from "../utils";
 import { ChannelIterator } from "../utils/channel-iterator";
 import { Publisher } from "../utils/publisher";
-import { RecordId, Uuid } from "../value";
 import { RpcEngine } from "./rpc";
 
 type Interval = Parameters<typeof clearInterval>[0];

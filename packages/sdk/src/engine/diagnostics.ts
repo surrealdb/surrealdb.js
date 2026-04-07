@@ -1,3 +1,4 @@
+import { Duration, Uuid } from "@surrealdb/sqon";
 import type { Feature } from "../internal/feature";
 import type {
     AccessRecordAuth,
@@ -20,7 +21,6 @@ import type {
     VersionInfo,
 } from "../types";
 import type { BoundQuery } from "../utils";
-import { Duration, Uuid } from "../value";
 
 export type DiagnosticsCallback = (event: Diagnostic) => void;
 

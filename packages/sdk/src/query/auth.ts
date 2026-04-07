@@ -1,10 +1,10 @@
+import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { Session } from "../types";
 import { BoundQuery } from "../utils";
 import type { Frame } from "../utils/frame";
-import type { Uuid } from "../value";
 import { Query } from "./query";
 
 interface AuthOptions {
