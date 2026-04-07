@@ -60,7 +60,11 @@ describe("GeometryLine", () => {
     test("construct from GeoJSON", () => {
         const line = new GeometryLine({
             type: "LineString" as const,
-            coordinates: [[0, 0], [1, 1], [2, 0]] as [[number, number], [number, number], ...[number, number][]],
+            coordinates: [
+                [0, 0],
+                [1, 1],
+                [2, 0],
+            ] as [[number, number], [number, number], ...[number, number][]],
         });
         expect(line.line).toHaveLength(3);
         expect(line.line[0].point).toEqual([0, 0]);
@@ -106,7 +110,12 @@ describe("GeometryPolygon", () => {
         const poly = new GeometryPolygon({
             type: "Polygon" as const,
             coordinates: [
-                [[0, 0], [1, 0], [1, 1], [0, 0]] as [[number, number], [number, number], ...[number, number][]],
+                [
+                    [0, 0],
+                    [1, 0],
+                    [1, 1],
+                    [0, 0],
+                ] as [[number, number], [number, number], ...[number, number][]],
             ] as [[[number, number], [number, number], ...[number, number][]]],
         });
         expect(poly.polygon).toHaveLength(1);
@@ -144,7 +153,10 @@ describe("GeometryMultiPoint", () => {
     test("construct from GeoJSON", () => {
         const mp = new GeometryMultiPoint({
             type: "MultiPoint" as const,
-            coordinates: [[0, 0], [1, 1]] as [[number, number], ...[number, number][]],
+            coordinates: [
+                [0, 0],
+                [1, 1],
+            ] as [[number, number], ...[number, number][]],
         });
         expect(mp.points).toHaveLength(2);
         expect(mp.points[0].point).toEqual([0, 0]);
@@ -159,19 +171,13 @@ describe("GeometryMultiPoint", () => {
 
     test("equals", () => {
         const a = new GeometryMultiPoint([p1, p2]);
-        const b = new GeometryMultiPoint([
-            new GeometryPoint([0, 0]),
-            new GeometryPoint([1, 1]),
-        ]);
+        const b = new GeometryMultiPoint([new GeometryPoint([0, 0]), new GeometryPoint([1, 1])]);
         expect(a.equals(b)).toBe(true);
     });
 });
 
 describe("GeometryMultiLine", () => {
-    const line = new GeometryLine([
-        new GeometryPoint([0, 0]),
-        new GeometryPoint([1, 1]),
-    ]);
+    const line = new GeometryLine([new GeometryPoint([0, 0]), new GeometryPoint([1, 1])]);
 
     test("construct from lines", () => {
         const ml = new GeometryMultiLine([line]);
@@ -182,7 +188,10 @@ describe("GeometryMultiLine", () => {
         const ml = new GeometryMultiLine({
             type: "MultiLineString" as const,
             coordinates: [
-                [[0, 0], [1, 1]] as [[number, number], [number, number], ...[number, number][]],
+                [
+                    [0, 0],
+                    [1, 1],
+                ] as [[number, number], [number, number], ...[number, number][]],
             ] as [[[number, number], [number, number], ...[number, number][]]],
         });
         expect(ml.lines).toHaveLength(1);
@@ -218,10 +227,7 @@ describe("GeometryMultiPolygon", () => {
 
 describe("GeometryCollection", () => {
     const point = new GeometryPoint([1, 2]);
-    const line = new GeometryLine([
-        new GeometryPoint([0, 0]),
-        new GeometryPoint([3, 3]),
-    ]);
+    const line = new GeometryLine([new GeometryPoint([0, 0]), new GeometryPoint([3, 3])]);
 
     test("construct from geometries", () => {
         const coll = new GeometryCollection([point, line]);
@@ -231,9 +237,7 @@ describe("GeometryCollection", () => {
     test("construct from GeoJSON", () => {
         const coll = new GeometryCollection({
             type: "GeometryCollection" as const,
-            geometries: [
-                { type: "Point" as const, coordinates: [1, 2] as [number, number] },
-            ],
+            geometries: [{ type: "Point" as const, coordinates: [1, 2] as [number, number] }],
         });
         expect(coll.collection).toHaveLength(1);
         expect(coll.collection[0]).toBeInstanceOf(GeometryPoint);
@@ -262,7 +266,10 @@ describe("Geometry.fromJSON", () => {
     test("dispatches LineString", () => {
         const result = Geometry.fromJSON({
             type: "LineString",
-            coordinates: [[0, 0], [1, 1]],
+            coordinates: [
+                [0, 0],
+                [1, 1],
+            ],
         } as { type: "LineString"; coordinates: [[number, number], [number, number]] });
         expect(result).toBeInstanceOf(GeometryLine);
     });
@@ -270,15 +277,28 @@ describe("Geometry.fromJSON", () => {
     test("dispatches Polygon", () => {
         const result = Geometry.fromJSON({
             type: "Polygon",
-            coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]],
-        } as { type: "Polygon"; coordinates: [[[number, number], [number, number], ...[number, number][]]] });
+            coordinates: [
+                [
+                    [0, 0],
+                    [1, 0],
+                    [1, 1],
+                    [0, 0],
+                ],
+            ],
+        } as {
+            type: "Polygon";
+            coordinates: [[[number, number], [number, number], ...[number, number][]]];
+        });
         expect(result).toBeInstanceOf(GeometryPolygon);
     });
 
     test("dispatches MultiPoint", () => {
         const result = Geometry.fromJSON({
             type: "MultiPoint",
-            coordinates: [[0, 0], [1, 1]],
+            coordinates: [
+                [0, 0],
+                [1, 1],
+            ],
         } as { type: "MultiPoint"; coordinates: [[number, number], ...[number, number][]] });
         expect(result).toBeInstanceOf(GeometryMultiPoint);
     });

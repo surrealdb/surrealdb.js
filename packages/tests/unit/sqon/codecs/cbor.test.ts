@@ -138,11 +138,7 @@ describe("CborCodec", () => {
 
     describe("RecordIdRange", () => {
         test("round-trip", () => {
-            const range = new RecordIdRange(
-                "users",
-                new BoundIncluded(1),
-                new BoundExcluded(100),
-            );
+            const range = new RecordIdRange("users", new BoundIncluded(1), new BoundExcluded(100));
             const result = roundTrip(range);
             expect(result).toBeInstanceOf(RecordIdRange);
             const decoded = result as RecordIdRange;
@@ -241,10 +237,7 @@ describe("CborCodec", () => {
         });
 
         test("round-trip LineString", () => {
-            const line = new GeometryLine([
-                new GeometryPoint([0, 0]),
-                new GeometryPoint([1, 1]),
-            ]);
+            const line = new GeometryLine([new GeometryPoint([0, 0]), new GeometryPoint([1, 1])]);
             const result = roundTrip(line);
             expect(result).toBeInstanceOf(GeometryLine);
             const decoded = result as GeometryLine;
@@ -276,10 +269,7 @@ describe("CborCodec", () => {
 
         test("round-trip MultiLineString", () => {
             const ml = new GeometryMultiLine([
-                new GeometryLine([
-                    new GeometryPoint([0, 0]),
-                    new GeometryPoint([1, 1]),
-                ]),
+                new GeometryLine([new GeometryPoint([0, 0]), new GeometryPoint([1, 1])]),
             ]);
             const result = roundTrip(ml);
             expect(result).toBeInstanceOf(GeometryMultiLine);
@@ -303,10 +293,7 @@ describe("CborCodec", () => {
         test("round-trip GeometryCollection", () => {
             const coll = new GeometryCollection([
                 new GeometryPoint([1, 2]),
-                new GeometryLine([
-                    new GeometryPoint([0, 0]),
-                    new GeometryPoint([3, 3]),
-                ]),
+                new GeometryLine([new GeometryPoint([0, 0]), new GeometryPoint([3, 3])]),
             ]);
             const result = roundTrip(coll);
             expect(result).toBeInstanceOf(GeometryCollection);
