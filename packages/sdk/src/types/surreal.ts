@@ -17,16 +17,22 @@ import type { LiveMessage } from "./live";
 import type { EventPublisher } from "./publisher";
 
 export type Session = Uuid | undefined;
-export type CodecType = "cbor" | "flatbuffer" | (string & {});
 export type QueryResponseKind = "single" | "batched" | "batched-final";
 export type ConnectionStatus = "disconnected" | "connecting" | "reconnecting" | "connected";
 export type EngineFactory = (context: DriverContext) => SurrealEngine;
+export type Codecs = { [K in keyof CodecRegistry]?: (options: CodecOptions) => CodecRegistry[K] };
 export type Engines = Record<string, EngineFactory>;
-export type CodecFactory = (options: CodecOptions) => ValueCodec;
-export type Codecs = Partial<Record<CodecType, CodecFactory>>;
-export type CodecRegistry = Record<CodecType, ValueCodec>;
 export type DataStream = string | ReadableStream;
 export type QueryType = "live" | "kill" | "other";
+
+/**
+ * The registry of codecs supported by the SDK.
+ */
+export interface CodecRegistry {
+    cbor: ValueCodec<Uint8Array>;
+    flatbuffer: ValueCodec<Uint8Array>;
+    json: ValueCodec<unknown>;
+}
 
 /**
  * The communication contract between the SDK and a SurrealDB datastore.

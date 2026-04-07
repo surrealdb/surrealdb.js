@@ -1,4 +1,4 @@
-import { CborCodec, FlatBufferCodec, type Uuid } from "@surrealdb/sqon";
+import { CborCodec, FlatBufferCodec, JsonCodec, type Uuid } from "@surrealdb/sqon";
 import { ConnectionController } from "../controller";
 import { UnavailableFeatureError, UnsupportedFeatureError } from "../errors";
 import type { Feature } from "../internal/feature";
@@ -100,6 +100,7 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
         return {
             cbor: userCodecs.cbor?.(codecOptions) ?? new CborCodec(codecOptions),
             flatbuffer: userCodecs.flatbuffer?.(codecOptions) ?? new FlatBufferCodec(codecOptions),
+            json: userCodecs.json?.(codecOptions) ?? new JsonCodec(codecOptions),
         };
     }
 
