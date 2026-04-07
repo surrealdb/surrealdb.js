@@ -1,6 +1,6 @@
+import { JsonCodec } from "../codec/json/codec.ts";
 import { InvalidDurationError } from "../errors.ts";
 import { escapeRegex } from "../internal/escape-regex.ts";
-import { JsonCodec } from "../json/codec.ts";
 import { DURATION_SYMBOL, hasSymbol, markSymbol } from "../utils/symbols.ts";
 import { Value } from "./value.ts";
 

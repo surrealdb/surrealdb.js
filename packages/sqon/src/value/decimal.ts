@@ -1,5 +1,5 @@
+import { JsonCodec } from "../codec/json/codec.ts";
 import { InvalidDecimalError } from "../errors.ts";
-import { JsonCodec } from "../json/codec.ts";
 import { DECIMAL_SYMBOL, hasSymbol, markSymbol } from "../utils/symbols.ts";
 import { Value } from "./value.ts";
 

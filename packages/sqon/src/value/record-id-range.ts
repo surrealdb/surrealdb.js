@@ -1,7 +1,7 @@
+import { JsonCodec } from "../codec/json/codec.ts";
 import { InvalidRecordIdError } from "../errors.ts";
 import { getRangeJoin } from "../internal/range.ts";
 import { isValidIdBound, isValidTable } from "../internal/validation.ts";
-import { JsonCodec } from "../json/codec.ts";
 import type { WidenRecordIdValue } from "../types/internal.ts";
 import { equals } from "../utils/equals.ts";
 import { escapeIdent, escapeRangeBound } from "../utils/escape.ts";

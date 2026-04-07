@@ -1,5 +1,5 @@
+import { JsonCodec } from "../codec/json/codec.ts";
 import { InvalidTableError } from "../errors.ts";
-import { JsonCodec } from "../json/codec.ts";
 import { hasSymbol, markSymbol, STRING_RECORD_ID_SYMBOL } from "../utils/symbols.ts";
 import { RecordId } from "./record-id.ts";
 import { Value } from "./value.ts";

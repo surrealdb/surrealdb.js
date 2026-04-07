@@ -1,13 +1,6 @@
 import { RecordId, StringRecordId } from "@surrealdb/sqon";
 import type { AnyRecordId, Expr } from "../types";
 
-export {
-    isPlainObject,
-    isValidIdBound,
-    isValidIdPart,
-    isValidTable,
-} from "@surrealdb/sqon";
-
 export function isAnyRecordId(value: unknown): value is AnyRecordId {
     return value instanceof RecordId || value instanceof StringRecordId;
 }

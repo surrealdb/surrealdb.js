@@ -1,6 +1,6 @@
-import { fromBase64Url, toBase64Url } from "../internal/base64.ts";
-import type { CodecOptions, ValueCodec } from "../types/codec.ts";
-import { BoundExcluded, BoundIncluded } from "../utils/range.ts";
+import { fromBase64Url, toBase64Url } from "../../internal/base64.ts";
+import type { CodecOptions, ValueCodec } from "../../types/codec.ts";
+import { BoundExcluded, BoundIncluded } from "../../utils/range.ts";
 import {
     DateTime,
     Decimal,
@@ -15,7 +15,7 @@ import {
     StringRecordId,
     Table,
     Uuid,
-} from "../value/index.ts";
+} from "../../value/index.ts";
 import {
     createBoundExcluded,
     createBoundIncluded,

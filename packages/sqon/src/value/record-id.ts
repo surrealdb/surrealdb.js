@@ -1,6 +1,6 @@
+import { JsonCodec } from "../codec/json/codec.ts";
 import { InvalidRecordIdError } from "../errors.ts";
 import { isValidIdPart, isValidTable } from "../internal/validation.ts";
-import { JsonCodec } from "../json/codec.ts";
 import type { WidenRecordIdValue } from "../types/internal.ts";
 import { equals } from "../utils/equals.ts";
 import { escapeIdent, escapeIdPart } from "../utils/escape.ts";

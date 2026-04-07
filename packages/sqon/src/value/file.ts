@@ -1,4 +1,4 @@
-import { JsonCodec } from "../json/codec.ts";
+import { JsonCodec } from "../codec/json/codec.ts";
 import { FILE_REF_SYMBOL, hasSymbol, markSymbol } from "../utils/symbols.ts";
 import { Value } from "./value.ts";
 

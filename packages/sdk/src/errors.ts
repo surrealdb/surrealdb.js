@@ -1,24 +1,17 @@
-import {
-    InvalidDateError,
-    InvalidDecimalError,
-    InvalidDurationError,
-    InvalidRecordIdError,
-    InvalidTableError,
-    SurrealError,
-} from "@surrealdb/sqon";
 import type { Feature } from "./internal/feature";
 import type { ApiResponse } from "./query/api";
 import type { Session } from "./types";
-import { markSymbol, SERVER_ERROR_SYMBOL } from "./utils/symbols";
+import { markSymbol, SERVER_ERROR_SYMBOL, SURREAL_ERROR_SYMBOL } from "./utils/symbols";
 
-export {
-    InvalidDateError,
-    InvalidDecimalError,
-    InvalidDurationError,
-    InvalidRecordIdError,
-    InvalidTableError,
-    SurrealError,
-};
+/**
+ * The base error class for all SurrealDB SDK errors.
+ */
+export class SurrealError extends Error {
+    constructor(message?: string, options?: ErrorOptions) {
+        super(message, options);
+        markSymbol(this, SURREAL_ERROR_SYMBOL);
+    }
+}
 
 /**
  * Thrown when a call has been terminated because the connection was closed

@@ -1,7 +1,7 @@
 import { Tagged } from "@surrealdb/cbor";
-import { SurrealError } from "../errors.ts";
-import type { Bound, BoundExcluded, BoundIncluded } from "../utils/range.ts";
-import { BOUND_EXCLUDED_SYMBOL, BOUND_INCLUDED_SYMBOL, hasSymbol } from "../utils/symbols.ts";
+import { SqonError } from "../../errors.ts";
+import { type Bound, BoundExcluded, BoundIncluded } from "../../utils/range.ts";
+import { BOUND_EXCLUDED_SYMBOL, BOUND_INCLUDED_SYMBOL, hasSymbol } from "../../utils/symbols.ts";
 import { TAG_BOUND_EXCLUDED, TAG_BOUND_INCLUDED } from "./codec.ts";
 
 type DecodedBound = BoundIncluded<unknown> | BoundExcluded<unknown> | null;
@@ -29,7 +29,7 @@ export function cborToRange(
         if (bound === null) return undefined;
         if (hasSymbol(bound, BOUND_INCLUDED_SYMBOL)) return bound;
         if (hasSymbol(bound, BOUND_EXCLUDED_SYMBOL)) return bound;
-        throw new SurrealError("Expected the bounds to be decoded already");
+        throw new SqonError("Expected the bounds to be decoded already");
     }
 
     return [decodeBound(range[0]), decodeBound(range[1])];

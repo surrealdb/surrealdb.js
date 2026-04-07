@@ -1,5 +1,5 @@
 import { UUID, uuidv4obj, uuidv7obj } from "uuidv7";
-import { JsonCodec } from "../json/codec.ts";
+import { JsonCodec } from "../codec/json/codec.ts";
 import { hasSymbol, markSymbol, UUID_SYMBOL } from "../utils/symbols.ts";
 import { Value } from "./value.ts";
 

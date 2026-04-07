@@ -1,5 +1,5 @@
+import { JsonCodec } from "../codec/json/codec.ts";
 import { getRangeJoin } from "../internal/range.ts";
-import { JsonCodec } from "../json/codec.ts";
 import { equals } from "../utils/equals.ts";
 import { escapeRangeBound } from "../utils/escape.ts";
 import type { Bound } from "../utils/range.ts";

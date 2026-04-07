@@ -1,4 +1,4 @@
-import type { GeoJson } from "../value/geometry";
+import type { GeoJson } from "../../value/geometry";
 
 export const createNone = () => ({ $none: true });
 export const createDatetime = (value: string) => ({ $datetime: value });

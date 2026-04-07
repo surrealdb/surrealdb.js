@@ -1,16 +1,12 @@
-import { markSymbol, SURREAL_ERROR_SYMBOL } from "./utils/symbols.ts";
-
-export class SurrealError extends Error {
-    constructor(message?: string, options?: ErrorOptions) {
-        super(message, options);
-        markSymbol(this, SURREAL_ERROR_SYMBOL);
-    }
-}
+/**
+ * The base error class for all SQON errors.
+ */
+export class SqonError extends Error {}
 
 /**
  * Thrown when a parsed date or datetime is invalid
  */
-export class InvalidDateError extends SurrealError {
+export class InvalidDateError extends SqonError {
     override name = "InvalidDateError";
 
     constructor(dateOrMessage: Date | string) {
@@ -25,27 +21,27 @@ export class InvalidDateError extends SurrealError {
 /**
  * Thrown when a RecordId or RecordIdRange is constructed with invalid parts
  */
-export class InvalidRecordIdError extends SurrealError {
+export class InvalidRecordIdError extends SqonError {
     override name = "InvalidRecordIdError";
 }
 
 /**
  * Thrown when a Duration string cannot be parsed or a duration operation is invalid
  */
-export class InvalidDurationError extends SurrealError {
+export class InvalidDurationError extends SqonError {
     override name = "InvalidDurationError";
 }
 
 /**
  * Thrown when a Decimal operation fails (division by zero, invalid input, etc.)
  */
-export class InvalidDecimalError extends SurrealError {
+export class InvalidDecimalError extends SqonError {
     override name = "InvalidDecimalError";
 }
 
 /**
  * Thrown when a Table or StringRecordId is constructed with an invalid value
  */
-export class InvalidTableError extends SurrealError {
+export class InvalidTableError extends SqonError {
     override name = "InvalidTableError";
 }

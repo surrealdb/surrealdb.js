@@ -1,6 +1,6 @@
 import { decode, encode, type Replacer, Tagged } from "@surrealdb/cbor";
-import type { CodecOptions, ValueCodec } from "../types/codec.ts";
-import { BoundExcluded, BoundIncluded } from "../utils/range.ts";
+import type { CodecOptions, ValueCodec } from "../../types/codec.ts";
+import { BoundExcluded, BoundIncluded } from "../../utils/range.ts";
 import {
     DATETIME_SYMBOL,
     DECIMAL_SYMBOL,
@@ -21,9 +21,9 @@ import {
     STRING_RECORD_ID_SYMBOL,
     TABLE_SYMBOL,
     UUID_SYMBOL,
-} from "../utils/symbols.ts";
-import type { DateTimeTuple } from "../value/datetime.ts";
-import { FileRef } from "../value/file.ts";
+} from "../../utils/symbols.ts";
+import type { DateTimeTuple } from "../../value/datetime.ts";
+import { FileRef } from "../../value/file.ts";
 import {
     DateTime,
     Decimal,
@@ -42,7 +42,7 @@ import {
     type StringRecordId,
     Table,
     Uuid,
-} from "../value/index.ts";
+} from "../../value/index.ts";
 import { cborToRange, rangeToCbor } from "./utils.ts";
 
 // Tags from the spec - https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml

@@ -1,5 +1,5 @@
+import { JsonCodec } from "../codec/json/codec.ts";
 import { InvalidDateError } from "../errors.ts";
-import { JsonCodec } from "../json/codec.ts";
 import { DATETIME_SYMBOL, hasSymbol, markSymbol } from "../utils/symbols.ts";
 import { Duration } from "./duration.ts";
 import { Value } from "./value.ts";
