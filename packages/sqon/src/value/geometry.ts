@@ -1,4 +1,3 @@
-import { JsonCodec } from "../json/codec.ts";
 import {
     GEOMETRY_COLLECTION_SYMBOL,
     GEOMETRY_LINE_SYMBOL,
@@ -39,11 +38,28 @@ export abstract class Geometry extends Value {
     toString(): string {
         return JSON.stringify(this.toJSON());
     }
-}
 
-function f(num: number | Decimal) {
-    if (num instanceof Decimal) return num.toFloat();
-    return num;
+    /**
+     * Create a Geometry instance from a GeoJSON object.
+     */
+    static fromJSON(json: GeoJson): Geometry {
+        switch (json.type) {
+            case "Point":
+                return new GeometryPoint(json);
+            case "LineString":
+                return new GeometryLine(json);
+            case "Polygon":
+                return new GeometryPolygon(json);
+            case "MultiPoint":
+                return new GeometryMultiPoint(json);
+            case "MultiLineString":
+                return new GeometryMultiLine(json);
+            case "MultiPolygon":
+                return new GeometryMultiPolygon(json);
+            case "GeometryCollection":
+                return new GeometryCollection(json);
+        }
+    }
 }
 
 export class GeometryPoint extends Geometry {
@@ -53,20 +69,25 @@ export class GeometryPoint extends Geometry {
 
     readonly point: [number, number];
 
-    constructor(point: [number | Decimal, number | Decimal] | GeometryPoint) {
+    /** Construct from a coordinate pair. */
+    constructor(point: [number | Decimal, number | Decimal]);
+    /** Construct from a GeoJSON Point object. */
+    constructor(json: GeoJsonPoint);
+    /** Clone an existing GeometryPoint. */
+    constructor(source: GeometryPoint);
+    constructor(input: [number | Decimal, number | Decimal] | GeoJsonPoint | GeometryPoint) {
         super();
-        if (point instanceof GeometryPoint) {
-            this.point = (point as unknown as GeometryPoint).clone().point;
+        if (input instanceof GeometryPoint) {
+            this.point = (input as unknown as GeometryPoint).clone().point;
+        } else if (Array.isArray(input)) {
+            this.point = [f(input[0]), f(input[1])];
         } else {
-            this.point = [f(point[0]), f(point[1])];
+            this.point = [...input.coordinates];
         }
         markSymbol(this, GEOMETRY_POINT_SYMBOL);
     }
 
     toJSON(): GeoJsonPoint {
-        if (Value.useExperimentalToJson) {
-            return JsonCodec.default.encode(this) as GeoJsonPoint;
-        }
         return {
             type: "Point" as const,
             coordinates: this.coordinates,
@@ -94,17 +115,34 @@ export class GeometryLine extends Geometry {
 
     readonly line: [GeometryPoint, GeometryPoint, ...GeometryPoint[]];
 
-    constructor(line: [GeometryPoint, GeometryPoint, ...GeometryPoint[]] | GeometryLine) {
+    /** Construct from an array of points. */
+    constructor(line: [GeometryPoint, GeometryPoint, ...GeometryPoint[]]);
+    /** Construct from a GeoJSON LineString object. */
+    constructor(json: GeoJsonLineString);
+    /** Clone an existing GeometryLine. */
+    constructor(source: GeometryLine);
+    constructor(
+        input:
+            | [GeometryPoint, GeometryPoint, ...GeometryPoint[]]
+            | GeoJsonLineString
+            | GeometryLine,
+    ) {
         super();
-        this.line =
-            line instanceof GeometryLine ? (line as unknown as GeometryLine).clone().line : line;
+        if (input instanceof GeometryLine) {
+            this.line = (input as unknown as GeometryLine).clone().line;
+        } else if (Array.isArray(input)) {
+            this.line = input;
+        } else {
+            this.line = input.coordinates.map((c) => new GeometryPoint(c)) as [
+                GeometryPoint,
+                GeometryPoint,
+                ...GeometryPoint[],
+            ];
+        }
         markSymbol(this, GEOMETRY_LINE_SYMBOL);
     }
 
     toJSON(): GeoJsonLineString {
-        if (Value.useExperimentalToJson) {
-            return JsonCodec.default.encode(this) as GeoJsonLineString;
-        }
         return {
             type: "LineString" as const,
             coordinates: this.coordinates,
@@ -145,23 +183,39 @@ export class GeometryPolygon extends Geometry {
 
     readonly polygon: [GeometryLine, ...GeometryLine[]];
 
-    constructor(polygon: [GeometryLine, ...GeometryLine[]] | GeometryPolygon) {
+    /** Construct from an array of line rings. */
+    constructor(polygon: [GeometryLine, ...GeometryLine[]]);
+    /** Construct from a GeoJSON Polygon object. */
+    constructor(json: GeoJsonPolygon);
+    /** Clone an existing GeometryPolygon. */
+    constructor(source: GeometryPolygon);
+    constructor(input: [GeometryLine, ...GeometryLine[]] | GeoJsonPolygon | GeometryPolygon) {
         super();
-        this.polygon =
-            polygon instanceof GeometryPolygon
-                ? (polygon as unknown as GeometryPolygon).clone().polygon
-                : (polygon.map((l) => {
-                      const line = l.clone();
-                      line.close();
-                      return line;
-                  }) as [GeometryLine, ...GeometryLine[]]);
+        if (input instanceof GeometryPolygon) {
+            this.polygon = (input as unknown as GeometryPolygon).clone().polygon;
+        } else if (Array.isArray(input)) {
+            this.polygon = input.map((l) => {
+                const line = l.clone();
+                line.close();
+                return line;
+            }) as [GeometryLine, ...GeometryLine[]];
+        } else {
+            this.polygon = input.coordinates.map((ring) => {
+                const line = new GeometryLine(
+                    ring.map((c) => new GeometryPoint(c)) as [
+                        GeometryPoint,
+                        GeometryPoint,
+                        ...GeometryPoint[],
+                    ],
+                );
+                line.close();
+                return line;
+            }) as [GeometryLine, ...GeometryLine[]];
+        }
         markSymbol(this, GEOMETRY_POLYGON_SYMBOL);
     }
 
     toJSON(): GeoJsonPolygon {
-        if (Value.useExperimentalToJson) {
-            return JsonCodec.default.encode(this) as GeoJsonPolygon;
-        }
         return {
             type: "Polygon" as const,
             coordinates: this.coordinates,
@@ -196,19 +250,30 @@ export class GeometryMultiPoint extends Geometry {
 
     readonly points: [GeometryPoint, ...GeometryPoint[]];
 
-    constructor(points: [GeometryPoint, ...GeometryPoint[]] | GeometryMultiPoint) {
+    /** Construct from an array of points. */
+    constructor(points: [GeometryPoint, ...GeometryPoint[]]);
+    /** Construct from a GeoJSON MultiPoint object. */
+    constructor(json: GeoJsonMultiPoint);
+    /** Clone an existing GeometryMultiPoint. */
+    constructor(source: GeometryMultiPoint);
+    constructor(
+        input: [GeometryPoint, ...GeometryPoint[]] | GeoJsonMultiPoint | GeometryMultiPoint,
+    ) {
         super();
-        this.points =
-            points instanceof GeometryMultiPoint
-                ? (points as unknown as GeometryMultiPoint).points
-                : points;
+        if (input instanceof GeometryMultiPoint) {
+            this.points = (input as unknown as GeometryMultiPoint).points;
+        } else if (Array.isArray(input)) {
+            this.points = input;
+        } else {
+            this.points = input.coordinates.map((c) => new GeometryPoint(c)) as [
+                GeometryPoint,
+                ...GeometryPoint[],
+            ];
+        }
         markSymbol(this, GEOMETRY_MULTI_POINT_SYMBOL);
     }
 
     toJSON(): GeoJsonMultiPoint {
-        if (Value.useExperimentalToJson) {
-            return JsonCodec.default.encode(this) as GeoJsonMultiPoint;
-        }
         return {
             type: "MultiPoint" as const,
             coordinates: this.coordinates,
@@ -243,19 +308,36 @@ export class GeometryMultiLine extends Geometry {
 
     readonly lines: [GeometryLine, ...GeometryLine[]];
 
-    constructor(lines: [GeometryLine, ...GeometryLine[]] | GeometryMultiLine) {
+    /** Construct from an array of lines. */
+    constructor(lines: [GeometryLine, ...GeometryLine[]]);
+    /** Construct from a GeoJSON MultiLineString object. */
+    constructor(json: GeoJsonMultiLineString);
+    /** Clone an existing GeometryMultiLine. */
+    constructor(source: GeometryMultiLine);
+    constructor(
+        input: [GeometryLine, ...GeometryLine[]] | GeoJsonMultiLineString | GeometryMultiLine,
+    ) {
         super();
-        this.lines =
-            lines instanceof GeometryMultiLine
-                ? (lines as unknown as GeometryMultiLine).lines
-                : lines;
+        if (input instanceof GeometryMultiLine) {
+            this.lines = (input as unknown as GeometryMultiLine).lines;
+        } else if (Array.isArray(input)) {
+            this.lines = input;
+        } else {
+            this.lines = input.coordinates.map(
+                (coords) =>
+                    new GeometryLine(
+                        coords.map((c) => new GeometryPoint(c)) as [
+                            GeometryPoint,
+                            GeometryPoint,
+                            ...GeometryPoint[],
+                        ],
+                    ),
+            ) as [GeometryLine, ...GeometryLine[]];
+        }
         markSymbol(this, GEOMETRY_MULTI_LINE_SYMBOL);
     }
 
     toJSON(): GeoJsonMultiLineString {
-        if (Value.useExperimentalToJson) {
-            return JsonCodec.default.encode(this) as GeoJsonMultiLineString;
-        }
         return {
             type: "MultiLineString" as const,
             coordinates: this.coordinates,
@@ -290,19 +372,41 @@ export class GeometryMultiPolygon extends Geometry {
 
     readonly polygons: [GeometryPolygon, ...GeometryPolygon[]];
 
-    constructor(polygons: [GeometryPolygon, ...GeometryPolygon[]] | GeometryMultiPolygon) {
+    /** Construct from an array of polygons. */
+    constructor(polygons: [GeometryPolygon, ...GeometryPolygon[]]);
+    /** Construct from a GeoJSON MultiPolygon object. */
+    constructor(json: GeoJsonMultiPolygon);
+    /** Clone an existing GeometryMultiPolygon. */
+    constructor(source: GeometryMultiPolygon);
+    constructor(
+        input: [GeometryPolygon, ...GeometryPolygon[]] | GeoJsonMultiPolygon | GeometryMultiPolygon,
+    ) {
         super();
-        this.polygons =
-            polygons instanceof GeometryMultiPolygon
-                ? (polygons as unknown as GeometryMultiPolygon).polygons
-                : polygons;
+        if (input instanceof GeometryMultiPolygon) {
+            this.polygons = (input as unknown as GeometryMultiPolygon).polygons;
+        } else if (Array.isArray(input)) {
+            this.polygons = input;
+        } else {
+            this.polygons = input.coordinates.map(
+                (rings) =>
+                    new GeometryPolygon(
+                        rings.map(
+                            (ring) =>
+                                new GeometryLine(
+                                    ring.map((c) => new GeometryPoint(c)) as [
+                                        GeometryPoint,
+                                        GeometryPoint,
+                                        ...GeometryPoint[],
+                                    ],
+                                ),
+                        ) as [GeometryLine, ...GeometryLine[]],
+                    ),
+            ) as [GeometryPolygon, ...GeometryPolygon[]];
+        }
         markSymbol(this, GEOMETRY_MULTI_POLYGON_SYMBOL);
     }
 
     toJSON(): GeoJsonMultiPolygon {
-        if (Value.useExperimentalToJson) {
-            return JsonCodec.default.encode(this) as GeoJsonMultiPolygon;
-        }
         return {
             type: "MultiPolygon" as const,
             coordinates: this.coordinates,
@@ -337,19 +441,28 @@ export class GeometryCollection extends Geometry {
 
     readonly collection: [Geometry, ...Geometry[]];
 
-    constructor(collection: [Geometry, ...Geometry[]] | GeometryCollection) {
+    /** Construct from an array of geometries. */
+    constructor(collection: [Geometry, ...Geometry[]]);
+    /** Construct from a GeoJSON GeometryCollection object. */
+    constructor(json: GeoJsonCollection);
+    /** Clone an existing GeometryCollection. */
+    constructor(source: GeometryCollection);
+    constructor(input: [Geometry, ...Geometry[]] | GeoJsonCollection | GeometryCollection) {
         super();
-        this.collection =
-            collection instanceof GeometryCollection
-                ? (collection as unknown as GeometryCollection).collection
-                : collection;
+        if (input instanceof GeometryCollection) {
+            this.collection = (input as unknown as GeometryCollection).collection;
+        } else if (Array.isArray(input)) {
+            this.collection = input;
+        } else {
+            this.collection = input.geometries.map((g) => Geometry.fromJSON(g)) as [
+                Geometry,
+                ...Geometry[],
+            ];
+        }
         markSymbol(this, GEOMETRY_COLLECTION_SYMBOL);
     }
 
     toJSON(): GeoJsonCollection {
-        if (Value.useExperimentalToJson) {
-            return JsonCodec.default.encode(this) as GeoJsonCollection;
-        }
         return {
             type: "GeometryCollection" as const,
             geometries: this.geometries,
@@ -377,9 +490,16 @@ export class GeometryCollection extends Geometry {
     }
 }
 
+// Utility functions
+
+function f(num: number | Decimal) {
+    if (num instanceof Decimal) return num.toFloat();
+    return num;
+}
+
 // Geo Json Types
 
-type GeoJson =
+export type GeoJson =
     | GeoJsonPoint
     | GeoJsonLineString
     | GeoJsonPolygon
