@@ -16,6 +16,7 @@ export const createFuture = (body: string) => ({ $future: body });
 export const createBytes = (value: string) => ({ $bytes: value });
 export const createGeometry = (value: unknown) => ({ $geometry: value });
 export const createSet = (items: unknown[]) => ({ $set: items });
+export const createObject = (value: Record<string, unknown>) => ({ $object: value });
 
 export const isNone = (value: object): value is { $none: true } => {
     return "$none" in value && value.$none === true;
@@ -82,4 +83,10 @@ export const isBoundIncluded = (value: object): value is { $boundIncluded: unkno
 
 export const isBoundExcluded = (value: object): value is { $boundExcluded: unknown } => {
     return "$boundExcluded" in value;
+};
+
+export const isObject = (
+    value: object,
+): value is { $object: Record<string, unknown> } => {
+    return "$object" in value && typeof value.$object === "object" && value.$object !== null;
 };

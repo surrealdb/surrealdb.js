@@ -456,6 +456,56 @@ describe("JsonCodec", () => {
         });
     });
 
+    describe("explicit objects", () => {
+        test("encode wraps objects with $-prefixed keys", () => {
+            const obj = { $foo: "bar", $baz: 42 };
+            expect(codec.encode(obj)).toEqual({
+                $object: { $foo: "bar", $baz: 42 },
+            });
+        });
+
+        test("encode does not wrap objects without $-prefixed keys", () => {
+            const obj = { name: "Alice", age: 30 };
+            expect(codec.encode(obj)).toEqual({ name: "Alice", age: 30 });
+        });
+
+        test("decode unwraps $object to plain object", () => {
+            const input = { $object: { $foo: "bar" } };
+            expect(codec.decode<{ $foo: string }>(input)).toEqual({ $foo: "bar" });
+        });
+
+        test("round-trip preserves $-prefixed keys", () => {
+            const obj = { $foo: "bar", regular: "value" };
+            const result = roundTrip(obj);
+            expect(result).toEqual({ $foo: "bar", regular: "value" });
+        });
+
+        test("nested SQON values inside $object are still deserialized", () => {
+            const input = {
+                $object: {
+                    $custom: { $datetime: "2024-01-15T10:30:00.000Z" },
+                },
+            };
+            const result = codec.decode(input) as Record<string, unknown>;
+            expect(result.$custom).toBeInstanceOf(DateTime);
+        });
+
+        test("encode wraps when only some keys are $-prefixed", () => {
+            const obj = { $meta: true, name: "test" };
+            expect(codec.encode(obj)).toEqual({
+                $object: { $meta: true, name: "test" },
+            });
+        });
+
+        test("round-trip with nested objects containing $-prefixed keys", () => {
+            const obj = {
+                outer: { $inner: "value" },
+            };
+            const result = roundTrip(obj) as Record<string, unknown>;
+            expect(result.outer).toEqual({ $inner: "value" });
+        });
+    });
+
     describe("visitors", () => {
         test("valueEncodeVisitor", () => {
             const visitor = new JsonCodec({

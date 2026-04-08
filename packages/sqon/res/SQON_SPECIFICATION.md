@@ -426,6 +426,14 @@ A `$range` key with an object containing a `begin` property with a value of a bo
 { "$range": { "begin": { "$boundIncluded": 0 }, "end": null } }
 ```
 
+### 4.2.14 Explicit objects
+
+An `$object` key containing an object which is explicitly escaped from having its keys parsed. Used whenever an input object contains `$`-prefixed keys.
+
+```json
+{ "$object": { "$foo": "bar" } } 
+```
+
 ### 4.3 Full document example
 
 A SurrealDB record serialised as SQON-J:

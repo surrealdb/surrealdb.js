@@ -27,6 +27,7 @@ import {
     createFuture,
     createGeometry,
     createNone,
+    createObject,
     createRange,
     createRecordId,
     createSet,
@@ -43,6 +44,7 @@ import {
     isFuture,
     isGeometry,
     isNone,
+    isObject,
     isRange,
     isRecordId,
     isSet,
@@ -151,11 +153,20 @@ export class JsonCodec implements ValueCodec<unknown> {
                 );
             }
             case Object.prototype: {
-                return Object.fromEntries(
-                    Object.entries(value as object)
-                        .map(([k, v]) => [k, this.#serialize(v)])
-                        .filter(([, encoded]) => encoded !== undefined),
-                );
+                const obj = value as Record<string, unknown>;
+                const result: Record<string, unknown> = {};
+                let escaped = false;
+
+                for (const key in obj) {
+                    const encoded = this.#serialize(obj[key]);
+
+                    if (encoded !== undefined) {
+                        result[key] = encoded;
+                        if (key[0] === "$") escaped = true;
+                    }
+                }
+
+                return escaped ? createObject(result) : result;
             }
         }
 
@@ -194,6 +205,13 @@ export class JsonCodec implements ValueCodec<unknown> {
 
         const obj = input as Record<string, unknown>;
 
+        if (isObject(obj)) {
+            return Object.fromEntries(
+                Object.entries(obj.$object)
+                    .map(([k, v]) => [k, this.#deserialize(v)])
+                    .filter(([, decoded]) => decoded !== undefined),
+            );
+        }
         if (isNone(obj)) {
             return this.#decodeValue(undefined);
         }
