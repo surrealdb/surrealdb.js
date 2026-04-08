@@ -51,10 +51,16 @@ export class Range<Beg, End> extends Value {
         return `${beg}${getRangeJoin(this.#beg, this.#end)}${end}`;
     }
 
+    /**
+     * The range bound beginning
+     */
     get begin(): Bound<Beg> {
         return this.#beg;
     }
 
+    /**
+     * The range bound ending
+     */
     get end(): Bound<End> {
         return this.#end;
     }

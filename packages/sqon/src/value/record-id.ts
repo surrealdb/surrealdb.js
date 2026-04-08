@@ -56,10 +56,16 @@ class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdVa
         return `${tb}:${id}`;
     }
 
+    /**
+     * The table part value
+     */
     get table(): Table<Tb> {
         return this.#table;
     }
 
+    /**
+     * The ID part value
+     */
     get id(): Id {
         return this.#id;
     }
@@ -76,6 +82,9 @@ interface RecordIdConstructor {
     ): RecordId<R["table"]["name"], R["id"]>;
 }
 
+/**
+ * A SurrealQL record ID value.
+ */
 type _RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdValue> = RecordId<
     Tb,
     Id

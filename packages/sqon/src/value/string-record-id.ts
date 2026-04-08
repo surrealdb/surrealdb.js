@@ -41,6 +41,9 @@ export class StringRecordId extends Value {
         return this.#rid;
     }
 
+    /**
+     * @returns The string representation of the record ID
+     */
     toString(): string {
         return this.#rid;
     }

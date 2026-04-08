@@ -300,26 +300,49 @@ export class DateTime extends Value {
         return Number(this.#seconds);
     }
 
+    /**
+     * Creates a DateTime from nanoseconds since Unix epoch
+     *
+     * @param ns Nanoseconds value
+     */
     static fromEpochNanoseconds(ns: number | bigint): DateTime {
         const n = typeof ns === "bigint" ? ns : BigInt(Math.floor(ns));
         return new DateTime([n / SECOND, n % SECOND]);
     }
 
+    /**
+     * Creates a DateTime from microseconds since Unix epoch
+     *
+     * @param µs Microseconds value
+     */
     static fromEpochMicroseconds(µs: number | bigint): DateTime {
         const n = typeof µs === "bigint" ? µs : BigInt(Math.floor(µs));
         return DateTime.fromEpochNanoseconds(n * MICROSECOND);
     }
 
+    /**
+     * Creates a DateTime from milliseconds since Unix epoch
+     *
+     * @param ms Milliseconds value
+     */
     static fromEpochMilliseconds(ms: number | bigint): DateTime {
         const n = typeof ms === "bigint" ? ms : BigInt(Math.floor(ms));
         return DateTime.fromEpochNanoseconds(n * MILLISECOND);
     }
 
+    /**
+     * Creates a DateTime from seconds since Unix epoch
+     *
+     * @param s Seconds value
+     */
     static fromEpochSeconds(s: number | bigint): DateTime {
         const n = typeof s === "bigint" ? s : BigInt(Math.floor(s));
         return new DateTime([n, 0n]);
     }
 
+    /**
+     * Returns a new DateTime representing the current time
+     */
     static now(): DateTime {
         if (DateTime.loadHr) {
             const diffNs = process.hrtime.bigint() - DateTime.loadHr.ns;
@@ -343,6 +366,9 @@ export class DateTime extends Value {
         return new DateTime([seconds, nanoseconds]);
     }
 
+    /**
+     * Returns a new DateTime representing the Unix epoch (1970-01-01T00:00:00Z)
+     */
     static epoch(): DateTime {
         return new DateTime([0n, 0n]);
     }

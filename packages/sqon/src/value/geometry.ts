@@ -62,6 +62,9 @@ export abstract class Geometry extends Value {
     }
 }
 
+/**
+ * A SurrealQL point geometry value.
+ */
 export class GeometryPoint extends Geometry {
     static override [Symbol.hasInstance](instance: unknown): boolean {
         return hasSymbol(instance, GEOMETRY_POINT_SYMBOL);
@@ -108,6 +111,9 @@ export class GeometryPoint extends Geometry {
     }
 }
 
+/**
+ * A SurrealQL line geometry value.
+ */
 export class GeometryLine extends Geometry {
     static override [Symbol.hasInstance](instance: unknown): boolean {
         return hasSymbol(instance, GEOMETRY_LINE_SYMBOL);
@@ -176,6 +182,9 @@ export class GeometryLine extends Geometry {
     }
 }
 
+/**
+ * A SurrealQL polygon geometry value.
+ */
 export class GeometryPolygon extends Geometry {
     static override [Symbol.hasInstance](instance: unknown): boolean {
         return hasSymbol(instance, GEOMETRY_POLYGON_SYMBOL);
@@ -243,6 +252,9 @@ export class GeometryPolygon extends Geometry {
     }
 }
 
+/**
+ * A SurrealQL multi-point geometry value.
+ */
 export class GeometryMultiPoint extends Geometry {
     static override [Symbol.hasInstance](instance: unknown): boolean {
         return hasSymbol(instance, GEOMETRY_MULTI_POINT_SYMBOL);
@@ -301,6 +313,9 @@ export class GeometryMultiPoint extends Geometry {
     }
 }
 
+/**
+ * A SurrealQL multi-line geometry value.
+ */
 export class GeometryMultiLine extends Geometry {
     static override [Symbol.hasInstance](instance: unknown): boolean {
         return hasSymbol(instance, GEOMETRY_MULTI_LINE_SYMBOL);
@@ -365,6 +380,9 @@ export class GeometryMultiLine extends Geometry {
     }
 }
 
+/**
+ * A SurrealQL multi-polygon geometry value.
+ */
 export class GeometryMultiPolygon extends Geometry {
     static override [Symbol.hasInstance](instance: unknown): boolean {
         return hasSymbol(instance, GEOMETRY_MULTI_POLYGON_SYMBOL);
@@ -434,6 +452,9 @@ export class GeometryMultiPolygon extends Geometry {
     }
 }
 
+/**
+ * A SurrealQL geometry collection value.
+ */
 export class GeometryCollection extends Geometry {
     static override [Symbol.hasInstance](instance: unknown): boolean {
         return hasSymbol(instance, GEOMETRY_COLLECTION_SYMBOL);

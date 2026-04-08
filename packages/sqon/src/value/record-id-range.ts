@@ -60,6 +60,9 @@ class RecordIdRange<
         return this.toString();
     }
 
+    /**
+     * @returns The escaped record ID range string
+     */
     toString(): string {
         const tb = escapeIdent(this.#table.name);
         const beg = escapeRangeBound(this.#beg);
@@ -67,14 +70,23 @@ class RecordIdRange<
         return `${tb}:${beg}${getRangeJoin(this.#beg, this.#end)}${end}`;
     }
 
+    /**
+     * The table part value
+     */
     get table(): Table<Tb> {
         return this.#table;
     }
 
+    /**
+     * The range bound beginning
+     */
     get begin(): Bound<Id> {
         return this.#beg;
     }
 
+    /**
+     * The range bound ending
+     */
     get end(): Bound<Id> {
         return this.#end;
     }
@@ -96,6 +108,9 @@ interface RecordIdRangeConstructor {
     >;
 }
 
+/**
+ * A SurrealQL record ID range value.
+ */
 type _RecordIdRange<
     Tb extends string = string,
     Id extends RecordIdValue = RecordIdValue,
