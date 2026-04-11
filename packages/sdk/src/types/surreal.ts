@@ -206,7 +206,7 @@ export interface CodecOptions {
  * A codec for encoding and decoding SurrealQL values
  */
 export interface ValueCodec {
-    encode: <T>(data: T) => Uint8Array;
+    encode: <T>(data: T) => Uint8Array<ArrayBuffer>;
     decode: <T>(data: Uint8Array) => T;
 }
 
