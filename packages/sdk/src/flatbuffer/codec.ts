@@ -12,7 +12,7 @@ export class FlatBufferCodec implements ValueCodec {
         this.#options = options;
     }
 
-    encode<T>(_data: T): Uint8Array<ArrayBuffer> {
+    encode<T>(_data: T): Uint8Array {
         throw new SurrealError("FlatBuffer encoding is not supported in this version");
     }
 

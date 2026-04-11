@@ -6,7 +6,7 @@ import { SurrealError } from "../errors";
  * @param data - The input value
  * @returns FlatBuffer binary representation
  */
-export function encodeFlatBuffer<T>(_data: T): Uint8Array<ArrayBuffer> {
+export function encodeFlatBuffer<T>(_data: T): Uint8Array {
     throw new SurrealError("Flat buffer encoding is not supported in this version");
 }
 
