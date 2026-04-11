@@ -32,6 +32,7 @@ jobs:
 
   typecheck:
     name: Typecheck
+    needs: build-sdk
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -48,11 +49,17 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Download SDK build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: sdk-build
+          path: packages/sdk/dist/
+
       - name: Install TypeScript ${{ matrix.typescript }}
         run: bun add --dev typescript@${{ matrix.typescript }}
 
-      - name: Typecheck
-        run: bun run qts
+      - name: Typecheck SDK types
+        run: bunx tsc --noEmit --project packages/tests/typecheck/tsconfig.json
 
   build-sdk:
     name: Build SDK
