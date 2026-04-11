@@ -1,68 +1,75 @@
 import {
-    Surreal,
-    RecordId,
-    Table,
-    StringRecordId,
-    RecordIdRange,
-    BoundIncluded,
-    BoundExcluded,
-    Uuid,
-    DateTime,
-    Decimal,
-    Duration,
-    HttpEngine,
-    WebSocketEngine,
+	BoundExcluded,
+	BoundIncluded,
+	DateTime,
+	Decimal,
+	Duration,
+	RecordId,
+	RecordIdRange,
+	StringRecordId,
+	Surreal,
+	Table,
+	Uuid,
 } from "surrealdb";
 
-// Instantiation
-const db = new Surreal();
+interface Person {
+	name: string;
+	age: number;
+}
 
-// Connection
-async function main() {
-    await db.connect("ws://localhost:8000");
-    await db.use({ namespace: "test", database: "test" });
-    await db.signin({ username: "root", password: "root" });
+async function _main() {
+	// Instantiation
+	const db = new Surreal();
 
-    // Record IDs
-    const stringId = new RecordId("person", "tobie");
-    const numberId = new RecordId("person", 123);
-    const uuidId = new RecordId("person", new Uuid("d2f72714-a387-487a-8eae-451330796ff4"));
+	// Connection
+	await db.connect("ws://localhost:8000");
+	await db.use({ namespace: "test", database: "test" });
+	await db.signin({ username: "root", password: "root" });
 
-    // Tables
-    const table = new Table("person");
+	// Record IDs
+	const _stringId = new RecordId("person", "tobie");
+	const _numberId = new RecordId("person", 123);
+	const _uuidId = new RecordId(
+		"person",
+		new Uuid("d2f72714-a387-487a-8eae-451330796ff4"),
+	);
 
-    // String record IDs
-    const strId = new StringRecordId("person:tobie");
+	// Tables
+	const table = new Table("person");
 
-    // Record ID ranges
-    const range = new RecordIdRange("person", new BoundIncluded("a"), new BoundExcluded("z"));
+	// String record IDs
+	const _strId = new StringRecordId("person:tobie");
 
-    // Values
-    const dt = new DateTime(new Date());
-    const dec = new Decimal("3.14");
-    const dur = new Duration("1h30m");
+	// Record ID ranges
+	const _range = new RecordIdRange(
+		"person",
+		new BoundIncluded("a"),
+		new BoundExcluded("z"),
+	);
 
-    // CRUD
-    interface Person {
-        name: string;
-        age: number;
-    }
+	// Values
+	const _dt = new DateTime(new Date());
+	const _dec = new Decimal("3.14");
+	const _dur = new Duration("1h30m");
 
-    const created = await db.create<Person>(table, { name: "Tobie", age: 30 });
-    const selected = await db.select<Person>(table);
-    const updated = await db.update<Person>(stringId).merge({ age: 31 });
-    const deleted = await db.delete(stringId);
+	// CRUD
+	const _created = await db
+		.create<Person>(table)
+		.content({ name: "Tobie", age: 30 });
+	const _selected = await db.select<Person>(table);
+	const _updated = await db.update<Person>(_stringId).merge({ age: 31 });
+	const _deleted = await db.delete(_stringId);
 
-    // Queries
-    const [result] = await db
-        .query("SELECT * FROM $table WHERE age > $age", { table, age: 25 })
-        .collect<[Person[]]>();
+	// Queries
+	const [_result] = await db
+		.query("SELECT * FROM $table WHERE age > $age", { table, age: 25 })
+		.collect<[Person[]]>();
 
-    // Live queries
-    const stream = await db.live(table);
-    for await (const { action, value } of stream) {
-        if (action === "CREATE") {
-            console.log(value);
-        }
-    }
+	// Live queries
+	const stream = await db.live(table);
+	for await (const { action, value } of stream) {
+		if (action === "CREATE") {
+			console.log(value);
+		}
+	}
 }
