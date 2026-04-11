@@ -71,12 +71,10 @@ export class CborCodec implements ValueCodec {
     }
 
     encode<T>(data: T): Uint8Array<ArrayBuffer> {
-        return new Uint8Array(
-            encode(data, {
-                replacer: this.replacer,
-                partial: false,
-            }),
-        );
+        return encode(data, {
+            replacer: this.replacer,
+            partial: false,
+        }) as Uint8Array<ArrayBuffer>;
     }
 
     decode<T>(data: Uint8Array): T {
