@@ -325,6 +325,18 @@ This is a [Bun](https://bun.sh) project, not Node.js. It works across all major 
 - Bun
 - SurrealDB (for testing)
 
+### TypeScript
+
+This SDK supports both TypeScript 5 and TypeScript 6. If you are using TypeScript 6, note that the default value for the `types` compiler option changed from auto-discovering all `@types/*` packages to `[]`. You may need to explicitly add the types you depend on in your `tsconfig.json`:
+
+```json
+{
+    "compilerOptions": {
+        "types": ["node"]
+    }
+}
+```
+
 ### Build for all supported environments
 
 For Deno, no build is needed. For all other environments run
