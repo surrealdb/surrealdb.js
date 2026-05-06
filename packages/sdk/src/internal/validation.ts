@@ -1,9 +1,10 @@
 import type { AnyRecordId, Expr } from "../types";
 import { type Bound, BoundExcluded, BoundIncluded } from "../utils/range";
+import { isBoundExcluded, isBoundIncluded, isRecordId, isStringRecordId, isTable, isUuid } from "../utils/symbols";
 import { RecordId, type RecordIdValue, StringRecordId, Table, Uuid } from "../value";
 
 export function isValidIdPart(v: unknown): v is RecordIdValue {
-    if (v instanceof Uuid) return true;
+    if (isUuid(v)) return true;
 
     switch (typeof v) {
         case "string":
@@ -26,17 +27,17 @@ export function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 export function isValidIdBound(bound: unknown): bound is Bound<RecordIdValue> {
-    return bound instanceof BoundIncluded || bound instanceof BoundExcluded
-        ? isValidIdPart(bound.value)
+    return isBoundIncluded(bound) || isBoundExcluded(bound)
+        ? isValidIdPart((bound as unknown as BoundIncluded<RecordIdValue> | BoundExcluded<RecordIdValue>).value)
         : true;
 }
 
 export function isValidTable(tb: unknown): tb is string | Table {
-    return tb instanceof Table || typeof tb === "string";
+    return isTable(tb) || typeof tb === "string";
 }
 
 export function isAnyRecordId(value: unknown): value is AnyRecordId {
-    return value instanceof RecordId || value instanceof StringRecordId;
+    return isRecordId(value) || isStringRecordId(value);
 }
 
 export function isExpression(value: unknown): value is Expr {

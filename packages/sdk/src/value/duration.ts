@@ -51,8 +51,8 @@ const FLOAT_DURATION_REGEX = new RegExp(
  * A SurrealQL duration value with support for parsing, formatting, arithmetic, and nanosecond precision.
  */
 export class Duration extends Value {
-    readonly #seconds: bigint;
-    readonly #nanoseconds: bigint;
+    readonly _seconds: bigint;
+    readonly _ns: bigint;
 
     /**
      * Constructs a new Duration by cloning an existing duration
@@ -80,22 +80,22 @@ export class Duration extends Value {
         super();
 
         if (input === undefined) {
-            this.#seconds = 0n;
-            this.#nanoseconds = 0n;
+            this._seconds = 0n;
+            this._ns = 0n;
         } else if (isDuration(input)) {
             // Clone from existing duration (uses public getter for cross-version compatibility)
             const totalNs = (input as unknown as Duration).nanoseconds;
-            this.#seconds = totalNs / SECOND;
-            this.#nanoseconds = totalNs % SECOND;
+            this._seconds = totalNs / SECOND;
+            this._ns = totalNs % SECOND;
         } else if (typeof input === "string") {
             // Parse from a human-readable string like "1h30m"
             const [s, ns] = Duration.parseString(input);
-            this.#seconds = s;
-            this.#nanoseconds = ns;
+            this._seconds = s;
+            this._ns = ns;
         } else if (typeof input === "number" || typeof input === "bigint") {
             const total = BigInt(input);
-            this.#seconds = total / SECOND;
-            this.#nanoseconds = total % SECOND;
+            this._seconds = total / SECOND;
+            this._ns = total % SECOND;
         } else if (Array.isArray(input)) {
             const [seconds, nanoseconds] = input;
             const s = typeof seconds === "bigint" ? seconds : BigInt(Math.floor(seconds ?? 0));
@@ -105,11 +105,11 @@ export class Duration extends Value {
                     : BigInt(Math.floor(nanoseconds ?? 0));
             const total = s * SECOND + ns;
             // Normalize total into separate seconds and nanoseconds fields
-            this.#seconds = total / SECOND;
-            this.#nanoseconds = total % SECOND;
+            this._seconds = total / SECOND;
+            this._ns = total % SECOND;
         } else {
-            this.#seconds = 0n;
-            this.#nanoseconds = 0n;
+            this._seconds = 0n;
+            this._ns = 0n;
         }
         markSymbol(this, DURATION_SYMBOL);
     }
@@ -127,7 +127,7 @@ export class Duration extends Value {
      * @returns Human readable duration string
      */
     toString(): string {
-        let remainingSeconds = this.#seconds;
+        let remainingSeconds = this._seconds;
         let result = "";
 
         // Convert seconds into largest possible whole units (≥ 1s)
@@ -142,7 +142,7 @@ export class Duration extends Value {
         }
 
         // Convert remaining seconds to nanoseconds
-        let remainingNanoseconds = remainingSeconds * SECOND + this.#nanoseconds;
+        let remainingNanoseconds = remainingSeconds * SECOND + this._ns;
 
         // Convert sub-second nanoseconds to units < 1s
         for (const [size, unit] of Array.from(UNITS_REVERSED).reverse()) {
@@ -162,10 +162,10 @@ export class Duration extends Value {
      * Converts the duration to a tuple
      */
     toCompact(): [bigint, bigint] | [bigint] | [] {
-        return this.#nanoseconds > 0n
-            ? [this.#seconds, this.#nanoseconds]
-            : this.#seconds > 0n
-                ? [this.#seconds]
+        return this._ns > 0n
+            ? [this._seconds, this._ns]
+            : this._seconds > 0n
+                ? [this._seconds]
                 : [];
     }
 
@@ -240,7 +240,7 @@ export class Duration extends Value {
      */
     mul(factor: number | bigint): Duration {
         const factorBig = typeof factor === "bigint" ? factor : BigInt(Math.floor(factor));
-        const totalNs = this.#seconds * SECOND + this.#nanoseconds;
+        const totalNs = this._seconds * SECOND + this._ns;
         const resultNs = totalNs * factorBig;
         return new Duration([resultNs / SECOND, resultNs % SECOND]);
     }
@@ -263,7 +263,7 @@ export class Duration extends Value {
         const divisorBig =
             typeof divisor === "bigint" ? divisor : BigInt(Math.floor(divisor as number));
         if (divisorBig === 0n) throw new InvalidDurationError("Division by zero");
-        const totalNs = this.#seconds * SECOND + this.#nanoseconds;
+        const totalNs = this._seconds * SECOND + this._ns;
         const resultNs = totalNs / divisorBig;
         return new Duration([resultNs / SECOND, resultNs % SECOND]);
     }
@@ -286,7 +286,7 @@ export class Duration extends Value {
      * Total nanoseconds in this duration
      */
     get nanoseconds(): bigint {
-        return this.#seconds * SECOND + this.#nanoseconds;
+        return this._seconds * SECOND + this._ns;
     }
 
     /**
@@ -307,42 +307,42 @@ export class Duration extends Value {
      * Whole seconds in the duration
      */
     get seconds(): bigint {
-        return this.#seconds;
+        return this._seconds;
     }
 
     /**
      * Total whole minutes in the duration
      */
     get minutes(): bigint {
-        return this.#seconds / (MINUTE / SECOND);
+        return this._seconds / (MINUTE / SECOND);
     }
 
     /**
      * Total whole hours in the duration
      */
     get hours(): bigint {
-        return this.#seconds / (HOUR / SECOND);
+        return this._seconds / (HOUR / SECOND);
     }
 
     /**
      * Total whole days in the duration
      */
     get days(): bigint {
-        return this.#seconds / (DAY / SECOND);
+        return this._seconds / (DAY / SECOND);
     }
 
     /**
      * Total whole weeks in the duration
      */
     get weeks(): bigint {
-        return this.#seconds / (WEEK / SECOND);
+        return this._seconds / (WEEK / SECOND);
     }
 
     /**
      * Total whole years in the duration
      */
     get years(): bigint {
-        return this.#seconds / (YEAR / SECOND);
+        return this._seconds / (YEAR / SECOND);
     }
 
     /**

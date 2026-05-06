@@ -1,31 +1,24 @@
-import { FILE_REF_SYMBOL, markSymbol } from "../utils/symbols";
+import { FILE_REF_SYMBOL, isFileRef, markSymbol } from "../utils/symbols";
 import { Value } from "./value";
 
 /**
  * A SurrealQL file reference value.
  */
 export class FileRef extends Value {
-    readonly #bucket: string;
-    readonly #key: string;
+    readonly bucket: string;
+    readonly key: string;
 
     constructor(bucket: string, key: string) {
         super();
-        this.#bucket = bucket;
-        this.#key = key.startsWith("/") ? key : `/${key}`;
+        this.bucket = bucket;
+        this.key = key.startsWith("/") ? key : `/${key}`;
         markSymbol(this, FILE_REF_SYMBOL);
     }
 
-    get bucket(): string {
-        return this.#bucket;
-    }
-
-    get key(): string {
-        return this.#key;
-    }
-
     equals(other: unknown): boolean {
-        if (!(other instanceof FileRef)) return false;
-        return this.#bucket === other.#bucket && this.#key === other.#key;
+        if (!isFileRef(other)) return false;
+        const o = other as unknown as FileRef;
+        return this.bucket === o.bucket && this.key === o.key;
     }
 
     toJSON(): string {
@@ -33,7 +26,7 @@ export class FileRef extends Value {
     }
 
     toString(): string {
-        return `${fmtInner(this.#bucket, true)}:${fmtInner(this.#key, false)}`;
+        return `${fmtInner(this.bucket, true)}:${fmtInner(this.key, false)}`;
     }
 }
 

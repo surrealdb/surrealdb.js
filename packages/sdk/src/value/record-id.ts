@@ -3,7 +3,7 @@ import { isValidIdPart, isValidTable } from "../internal/validation";
 import type { WidenRecordIdValue } from "../types/internal";
 import { equals } from "../utils/equals";
 import { escapeIdent, escapeIdPart } from "../utils/escape";
-import { markSymbol, RECORD_ID_SYMBOL } from "../utils/symbols";
+import { isRecordId, isTable, markSymbol, RECORD_ID_SYMBOL } from "../utils/symbols";
 import { Table } from "./table";
 import type { Uuid } from "./uuid";
 import { Value } from "./value";
@@ -16,8 +16,8 @@ export type RecordIdValue = string | number | Uuid | bigint | unknown[] | Record
  * @internal
  */
 class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdValue> extends Value {
-    readonly #table: Table<Tb>;
-    readonly #id: Id;
+    readonly table: Table<Tb>;
+    readonly id: Id;
 
     constructor(table: Tb | Table<Tb>, id: Id) {
         super();
@@ -25,14 +25,15 @@ class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdVa
         if (!isValidTable(table)) throw new InvalidRecordIdError("Table part is not valid");
         if (!isValidIdPart(id)) throw new InvalidRecordIdError("ID part is not valid");
 
-        this.#table = table instanceof Table ? table : new Table(table);
-        this.#id = id;
+        this.table = isTable(table) ? table as unknown as Table<Tb> : new Table(table as Tb);
+        this.id = id;
         markSymbol(this, RECORD_ID_SYMBOL);
     }
 
     equals(other: unknown): boolean {
-        if (!(other instanceof RecordId)) return false;
-        return this.#table.equals(other.#table) && equals(this.#id, other.#id);
+        if (!isRecordId(other)) return false;
+        const o = other as unknown as RecordId;
+        return this.table.equals(o.table) && equals(this.id, o.id);
     }
 
     toJSON(): string {
@@ -43,23 +44,9 @@ class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdVa
      * @returns The escaped record ID string including the table name
      */
     toString(): string {
-        const tb = escapeIdent(this.#table.name);
-        const id = escapeIdPart(this.#id);
+        const tb = escapeIdent(this.table.name);
+        const id = escapeIdPart(this.id);
         return `${tb}:${id}`;
-    }
-
-    /**
-     * The table part value
-     */
-    get table(): Table<Tb> {
-        return this.#table;
-    }
-
-    /**
-     * The ID part value
-     */
-    get id(): Id {
-        return this.#id;
     }
 }
 

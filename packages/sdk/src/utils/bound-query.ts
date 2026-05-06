@@ -1,5 +1,5 @@
 import { ExpressionError } from "../errors";
-import { BOUND_QUERY_SYMBOL, markSymbol } from "../utils/symbols";
+import { BOUND_QUERY_SYMBOL, isBoundQuery, markSymbol } from "../utils/symbols";
 import { surql } from "./tagged-template";
 
 /**
@@ -52,11 +52,12 @@ export class BoundQuery<R extends unknown[] = unknown[]> {
 
     // Shadow implementation
     constructor(query?: string | BoundQuery<R>, bindings?: Record<string, unknown>) {
-        if (query instanceof BoundQuery) {
-            this.#query = query.query;
-            this.#bindings = { ...query.bindings };
+        if (isBoundQuery(query)) {
+            const bq = query as unknown as BoundQuery;
+            this.#query = bq.query;
+            this.#bindings = { ...bq.bindings };
         } else if (query) {
-            this.#query = query;
+            this.#query = query as string;
             this.#bindings = { ...bindings };
         } else {
             this.#query = "";
@@ -123,8 +124,8 @@ export class BoundQuery<R extends unknown[] = unknown[]> {
         other: BoundQuery<R> | string | TemplateStringsArray,
         values: unknown[],
     ): BoundQuery<R> {
-        if (other instanceof BoundQuery) {
-            return other;
+        if (isBoundQuery(other)) {
+            return other as unknown as BoundQuery;
         }
 
         if (typeof other === "string") {
@@ -132,7 +133,7 @@ export class BoundQuery<R extends unknown[] = unknown[]> {
         }
 
         if (Array.isArray(other)) {
-            return surql(other, ...values);
+            return surql(other as TemplateStringsArray, ...values);
         }
 
         throw new ExpressionError("Invalid query component");

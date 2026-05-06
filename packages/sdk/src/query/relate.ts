@@ -5,6 +5,7 @@ import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { AnyRecordId, Output, Session } from "../types";
 import { type BoundQuery, surql } from "../utils";
+import { isRecordId } from "../utils/symbols";
 import type { Frame } from "../utils/frame";
 import { type DateTime, type Duration, RecordId, type Table, type Uuid } from "../value";
 import { Query } from "./query";
@@ -126,7 +127,7 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
 
         const isMultiple = Array.isArray(from) || Array.isArray(to);
 
-        if (isMultiple && what instanceof RecordId) {
+        if (isMultiple && isRecordId(what)) {
             throw new SurrealError("Edge must be a table when creating multiple edges");
         }
 

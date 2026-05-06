@@ -134,6 +134,14 @@ export function isGeometryCollection(obj: unknown): obj is { [GEOMETRY_COLLECTIO
     return hasSymbol(obj, GEOMETRY_COLLECTION_SYMBOL);
 }
 
+export function isBoundIncluded(obj: unknown): obj is { [BOUND_INCLUDED_SYMBOL]: true } {
+    return hasSymbol(obj, BOUND_INCLUDED_SYMBOL);
+}
+
+export function isBoundExcluded(obj: unknown): obj is { [BOUND_EXCLUDED_SYMBOL]: true } {
+    return hasSymbol(obj, BOUND_EXCLUDED_SYMBOL);
+}
+
 export function isBoundQuery(obj: unknown): obj is { [BOUND_QUERY_SYMBOL]: true } {
     return hasSymbol(obj, BOUND_QUERY_SYMBOL);
 }

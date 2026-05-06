@@ -1,9 +1,10 @@
 import { type Bound, BoundExcluded, BoundIncluded } from "../utils/range";
+import { isBoundExcluded, isBoundIncluded } from "../utils/symbols";
 
 export function getRangeJoin(beg: Bound<unknown>, end: Bound<unknown>): string {
     let output = "";
-    if (beg instanceof BoundExcluded) output += ">";
+    if (isBoundExcluded(beg)) output += ">";
     output += "..";
-    if (end instanceof BoundIncluded) output += "=";
+    if (isBoundIncluded(end)) output += "=";
     return output;
 }
