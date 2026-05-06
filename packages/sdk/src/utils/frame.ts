@@ -1,6 +1,14 @@
 import type { ServerError } from "../errors";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { QueryStats, QueryType } from "../types";
+import {
+    DONE_FRAME_SYMBOL,
+    ERROR_FRAME_SYMBOL,
+    FRAME_SYMBOL,
+    hasSymbol,
+    markSymbol,
+    VALUE_FRAME_SYMBOL,
+} from "../utils/symbols";
 
 /**
  * Represents a single query result frame frame
@@ -10,6 +18,7 @@ export class Frame<T, J extends boolean> {
 
     constructor(query: number) {
         this.query = query;
+        markSymbol(this, FRAME_SYMBOL);
     }
 
     /**
@@ -22,22 +31,22 @@ export class Frame<T, J extends boolean> {
     /**
      * Returns true if the frame is a value frame
      */
-    isValue<V = T>(): this is ValueFrame<V, J> {
-        return this instanceof ValueFrame;
+    isValue(): this is ValueFrame<T, J> {
+        return hasSymbol(this, VALUE_FRAME_SYMBOL);
     }
 
     /**
      * Returns true if the frame is an error frame
      */
-    isError<V = T>(): this is ErrorFrame<V, J> {
-        return this instanceof ErrorFrame;
+    isError(): this is ErrorFrame<T, J> {
+        return hasSymbol(this, ERROR_FRAME_SYMBOL);
     }
 
     /**
      * Returns true if the frame is a done frame
      */
-    isDone<V = T>(): this is DoneFrame<V, J> {
-        return this instanceof DoneFrame;
+    isDone(): this is DoneFrame<T, J> {
+        return hasSymbol(this, DONE_FRAME_SYMBOL);
     }
 
     /**
@@ -74,6 +83,7 @@ export class ValueFrame<T, J extends boolean> extends Frame<T, J> {
         super(query);
         this.value = value;
         this.isSingle = isSingle;
+        markSymbol(this, VALUE_FRAME_SYMBOL);
     }
 
     override isOf<V = T>(query: number): this is ValueFrame<V, J> {
@@ -92,6 +102,7 @@ export class ErrorFrame<T, J extends boolean> extends Frame<T, J> {
         super(query);
         this.stats = stats;
         this.error = error;
+        markSymbol(this, ERROR_FRAME_SYMBOL);
     }
 
     override isOf<V = T>(query: number): this is ErrorFrame<V, J> {
@@ -117,6 +128,7 @@ export class DoneFrame<T, J extends boolean> extends Frame<T, J> {
         super(query);
         this.stats = stats;
         this.type = type;
+        markSymbol(this, DONE_FRAME_SYMBOL);
     }
 
     override isOf<V = T>(query: number): this is DoneFrame<V, J> {

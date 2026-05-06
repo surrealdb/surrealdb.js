@@ -1,3 +1,4 @@
+import { FILE_REF_SYMBOL, markSymbol } from "../utils/symbols";
 import { Value } from "./value";
 
 /**
@@ -11,6 +12,7 @@ export class FileRef extends Value {
         super();
         this.#bucket = bucket;
         this.#key = key.startsWith("/") ? key : `/${key}`;
+        markSymbol(this, FILE_REF_SYMBOL);
     }
 
     get bucket(): string {

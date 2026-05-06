@@ -1,3 +1,4 @@
+import { FUTURE_SYMBOL, markSymbol } from "../utils/symbols";
 import { Value } from "./value";
 
 /**
@@ -11,6 +12,7 @@ export class Future extends Value {
     constructor(body: string) {
         super();
         this.#body = body;
+        markSymbol(this, FUTURE_SYMBOL);
     }
 
     equals(other: unknown): boolean {

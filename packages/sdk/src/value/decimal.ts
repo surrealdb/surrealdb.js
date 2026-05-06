@@ -1,4 +1,5 @@
 import { InvalidDecimalError } from "../errors";
+import { DECIMAL_SYMBOL, isDecimal, markSymbol } from "../utils/symbols";
 import { Value } from "./value";
 
 export type DecimalTuple = [bigint, bigint, number];
@@ -43,19 +44,62 @@ export class Decimal extends Value {
     constructor(input: Decimal | string | number | bigint | DecimalTuple) {
         super();
 
-        if (input instanceof Decimal) {
-            // Clone from another Decimal
-            this.#int = input.#int;
-            this.#frac = input.#frac;
-            this.#scale = input.#scale;
+        if (isDecimal(input)) {
+            // Clone from another Decimal (uses public getters for cross-version compatibility)
+            const dec = input as unknown as Decimal;
+            this.#int = dec.int;
+            this.#frac = dec.frac;
+            this.#scale = dec.scale;
+        } else if (typeof input === "string") {
+            // Handle scientific notation before plain string parsing
+            if (/e/i.test(input)) {
+                const dec = Decimal.fromScientificNotation(input);
+                this.#int = dec.#int;
+                this.#frac = dec.#frac;
+                this.#scale = dec.#scale;
+            } else {
+                // Convert string/number to string and trim whitespace
+                const str = input.toString().trim();
+                const isNegative = str.startsWith("-");
+                const clean = isNegative ? str.slice(1) : str;
+                const [intStrRaw, fracStrRaw = ""] = clean.split(".");
+
+                // Sanitize int/frac parts
+                const safeInt = /^\d+$/.test(intStrRaw) ? intStrRaw : "0";
+                const safeFrac = /^\d+$/.test(fracStrRaw) ? fracStrRaw : "0";
+
+                // Calculate scale from fractional part length
+                const scale = safeFrac.length;
+                this.#int = isNegative ? -BigInt(safeInt) : BigInt(safeInt);
+                this.#frac = isNegative
+                    ? -BigInt(safeFrac.padEnd(scale, "0"))
+                    : BigInt(safeFrac.padEnd(scale, "0"));
+                this.#scale = scale;
+            }
+        } else if (typeof input === "number") {
+            // Convert number to string and parse
+            const str = input.toString();
+            const isNegative = str.startsWith("-");
+            const clean = isNegative ? str.slice(1) : str;
+            const [intStrRaw, fracStrRaw = ""] = clean.split(".");
+
+            const safeInt = /^\d+$/.test(intStrRaw) ? intStrRaw : "0";
+            const safeFrac = /^\d+$/.test(fracStrRaw) ? fracStrRaw : "0";
+
+            const scale = safeFrac.length;
+            this.#int = isNegative ? -BigInt(safeInt) : BigInt(safeInt);
+            this.#frac = isNegative
+                ? -BigInt(safeFrac.padEnd(scale, "0"))
+                : BigInt(safeFrac.padEnd(scale, "0"));
+            this.#scale = scale;
         } else if (typeof input === "bigint") {
-            // Treat bigint as integer with no fractional part
             this.#int = input;
             this.#frac = 0n;
             this.#scale = 0;
         } else if (Array.isArray(input)) {
-            // Unpack int, frac, and scale and normalize overflow in fractional part
-            let [int, frac, scale] = input;
+            let int = BigInt(input[0]);
+            let frac = BigInt(input[1]);
+            const scale = input[2];
             const maxFrac = 10n ** BigInt(scale);
             if (frac >= maxFrac) {
                 int += frac / maxFrac;
@@ -64,45 +108,22 @@ export class Decimal extends Value {
             this.#int = int;
             this.#frac = frac;
             this.#scale = scale;
-        } else if (typeof input === "string" && /e/i.test(input)) {
-            // Parse scientific notation like "1.23e4"
-            const dec = Decimal.fromScientificNotation(input);
-            this.#int = dec.#int;
-            this.#frac = dec.#frac;
-            this.#scale = dec.#scale;
         } else {
-            // Convert string/number to string and trim whitespace
-            const str = input.toString().trim();
-            const isNegative = str.startsWith("-");
-            const clean = isNegative ? str.slice(1) : str;
-            const [intStrRaw, fracStrRaw = ""] = clean.split(".");
-
-            // Sanitize int/frac parts
-            const safeInt = /^\d+$/.test(intStrRaw) ? intStrRaw : "0";
-            const safeFrac = /^\d+$/.test(fracStrRaw) ? fracStrRaw : "0";
-
-            const intStr = safeInt || "0";
-            const fracStr = safeFrac.padEnd(safeFrac.length || 1, "0");
-
-            // Parse parts to bigint
-            const absInt = BigInt(intStr);
-            const absFrac = BigInt(fracStr);
-
-            // Apply sign
-            this.#int = isNegative ? -absInt : absInt;
-            this.#frac = isNegative ? -absFrac : absFrac;
-            this.#scale = safeFrac.length;
+            throw new InvalidDecimalError(String(input));
         }
+        markSymbol(this, DECIMAL_SYMBOL);
     }
 
     equals(other: unknown): boolean {
-        if (!(other instanceof Decimal)) return false;
+        if (!isDecimal(other)) return false;
+        const dec = other as unknown as Decimal;
         const a = this.toBigIntWithScale();
-        const b = other.toBigIntWithScale();
-        const scale = Math.max(a.scale, b.scale);
+        const bScale = dec.scale;
+        const bVal = dec.int * 10n ** BigInt(bScale) + dec.frac;
+        const scale = Math.max(a.scale, bScale);
         const aVal = a.value * 10n ** BigInt(scale - a.scale);
-        const bVal = b.value * 10n ** BigInt(scale - b.scale);
-        return aVal === bVal;
+        const bValScaled = bVal * 10n ** BigInt(scale - bScale);
+        return aVal === bValScaled;
     }
 
     toJSON(): string {
@@ -259,10 +280,10 @@ export class Decimal extends Value {
     abs(): Decimal {
         return this.#int < 0n || this.#frac < 0n
             ? new Decimal([
-                  this.#int < 0n ? -this.#int : this.#int,
-                  this.#frac < 0n ? -this.#frac : this.#frac,
-                  this.#scale,
-              ])
+                this.#int < 0n ? -this.#int : this.#int,
+                this.#frac < 0n ? -this.#frac : this.#frac,
+                this.#scale,
+            ])
             : this;
     }
 

@@ -1,5 +1,6 @@
 import { InvalidTableError } from "../errors";
 import { escapeIdent } from "../utils";
+import { markSymbol, TABLE_SYMBOL } from "../utils/symbols";
 import { Value } from "./value";
 
 /**
@@ -12,6 +13,7 @@ export class Table<Tb extends string = string> extends Value {
         super();
         if (typeof tb !== "string") throw new InvalidTableError("Table must be a string");
         this.#name = tb;
+        markSymbol(this, TABLE_SYMBOL);
     }
 
     equals(other: unknown): boolean {

@@ -5,6 +5,7 @@ import type { WidenRecordIdValue } from "../types/internal";
 import { equals } from "../utils/equals";
 import { escapeIdent, escapeRangeBound } from "../utils/escape";
 import type { Bound } from "../utils/range";
+import { markSymbol, RECORD_ID_RANGE_SYMBOL } from "../utils/symbols";
 import type { RecordIdValue } from "./record-id";
 import { Table } from "./table";
 import { Value } from "./value";
@@ -32,6 +33,7 @@ class RecordIdRange<
         this.#table = table instanceof Table ? table : new Table(table);
         this.#beg = beg;
         this.#end = end;
+        markSymbol(this, RECORD_ID_RANGE_SYMBOL);
     }
 
     equals(other: unknown): boolean {

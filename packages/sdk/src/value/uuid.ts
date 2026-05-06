@@ -1,4 +1,5 @@
 import { UUID, uuidv4obj, uuidv7obj } from "uuidv7";
+import { markSymbol, UUID_SYMBOL } from "../utils/symbols";
 import { Value } from "./value";
 
 /**
@@ -43,6 +44,7 @@ export class Uuid extends Value {
         } else {
             this.#inner = UUID.parse(uuid);
         }
+        markSymbol(this, UUID_SYMBOL);
     }
 
     equals(other: unknown): boolean {

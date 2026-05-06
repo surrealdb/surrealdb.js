@@ -1,7 +1,13 @@
+import { markSymbol, VALUE_SYMBOL } from "../utils/symbols";
+
 /**
  * A complex SurrealQL value type
  */
 export abstract class Value {
+    constructor() {
+        markSymbol(this, VALUE_SYMBOL);
+    }
+
     /**
      * Compare equality with another value.
      */

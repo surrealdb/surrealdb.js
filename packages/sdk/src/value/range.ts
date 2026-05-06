@@ -2,6 +2,7 @@ import { getRangeJoin } from "../internal/range";
 import { equals } from "../utils/equals";
 import { escapeRangeBound } from "../utils/escape";
 import type { Bound } from "../utils/range";
+import { markSymbol, RANGE_SYMBOL } from "../utils/symbols";
 import { Value } from "./value";
 
 /**
@@ -15,6 +16,7 @@ export class Range<Beg, End> extends Value {
         super();
         this.#beg = beg;
         this.#end = end;
+        markSymbol(this, RANGE_SYMBOL);
     }
 
     equals(other: unknown): boolean {

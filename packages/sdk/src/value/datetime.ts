@@ -1,4 +1,5 @@
 import { InvalidDateError } from "../errors";
+import { DATETIME_SYMBOL, markSymbol } from "../utils/symbols";
 import { Duration } from "./duration";
 import { Value } from "./value";
 
@@ -110,6 +111,7 @@ export class DateTime extends Value {
             this.#seconds = totalSeconds;
             this.#nanoseconds = ns % SECOND;
         }
+        markSymbol(this, DATETIME_SYMBOL);
     }
 
     equals(other: unknown): boolean {

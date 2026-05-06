@@ -3,6 +3,7 @@ import { isValidIdPart, isValidTable } from "../internal/validation";
 import type { WidenRecordIdValue } from "../types/internal";
 import { equals } from "../utils/equals";
 import { escapeIdent, escapeIdPart } from "../utils/escape";
+import { markSymbol, RECORD_ID_SYMBOL } from "../utils/symbols";
 import { Table } from "./table";
 import type { Uuid } from "./uuid";
 import { Value } from "./value";
@@ -26,6 +27,7 @@ class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdVa
 
         this.#table = table instanceof Table ? table : new Table(table);
         this.#id = id;
+        markSymbol(this, RECORD_ID_SYMBOL);
     }
 
     equals(other: unknown): boolean {

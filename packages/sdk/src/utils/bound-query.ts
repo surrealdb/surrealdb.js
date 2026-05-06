@@ -1,4 +1,5 @@
 import { ExpressionError } from "../errors";
+import { BOUND_QUERY_SYMBOL, markSymbol } from "../utils/symbols";
 import { surql } from "./tagged-template";
 
 /**
@@ -61,6 +62,7 @@ export class BoundQuery<R extends unknown[] = unknown[]> {
             this.#query = "";
             this.#bindings = {};
         }
+        markSymbol(this, BOUND_QUERY_SYMBOL);
     }
 
     /**

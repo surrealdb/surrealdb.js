@@ -1,6 +1,7 @@
 import { isValidIdPart } from "../internal/validation";
 import { Range, type RecordIdValue, Uuid } from "../value";
 import type { Bound } from "./range";
+import { isRange, isUuid } from "./symbols";
 import { toSurrealqlString } from "./to-surql-string";
 
 const MAX_i64 = 9223372036854775807n;
@@ -62,13 +63,13 @@ export function escapeNumber(num: number | bigint): string {
  * @returns The escaped record id value part
  */
 export function escapeIdPart(id: RecordIdValue): string {
-    return id instanceof Uuid
-        ? `u"${id}"`
+    return isUuid(id)
+        ? `u"${(id as unknown as Uuid).toString()}"`
         : typeof id === "string"
-          ? escapeIdent(id)
-          : typeof id === "bigint" || typeof id === "number"
-            ? escapeNumber(id)
-            : toSurrealqlString(id);
+            ? escapeIdent(id)
+            : typeof id === "bigint" || typeof id === "number"
+                ? escapeNumber(id)
+                : toSurrealqlString(id);
 }
 
 /**
@@ -82,6 +83,6 @@ export function escapeRangeBound<T>(bound: Bound<T>): string {
     const value = bound.value;
 
     if (isValidIdPart(value)) return escapeIdPart(value);
-    if (value instanceof Range) return `(${toSurrealqlString(value)})`;
+    if (isRange(value)) return `(${toSurrealqlString(value as unknown as Range<unknown, unknown>)})`;
     return toSurrealqlString(value);
 }

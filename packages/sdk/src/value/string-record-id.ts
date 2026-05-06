@@ -1,4 +1,5 @@
 import { InvalidTableError } from "../errors";
+import { markSymbol, STRING_RECORD_ID_SYMBOL } from "../utils/symbols";
 import { RecordId } from "./record-id";
 import { Value } from "./value";
 
@@ -22,6 +23,7 @@ export class StringRecordId extends Value {
         } else {
             throw new InvalidTableError("String Record ID must be a string");
         }
+        markSymbol(this, STRING_RECORD_ID_SYMBOL);
     }
 
     equals(other: unknown): boolean {

@@ -1,5 +1,6 @@
 import { InvalidDurationError } from "../errors";
 import { escapeRegex } from "../internal/escape-regex";
+import { DURATION_SYMBOL, isDuration, markSymbol } from "../utils/symbols";
 import { Value } from "./value";
 
 export type DurationTuple = [number | bigint, number | bigint] | [number | bigint] | [];
@@ -75,32 +76,47 @@ export class Duration extends Value {
     constructor(input: string);
 
     // Shadow implementation
-    constructor(input: Duration | DurationTuple | string) {
+    constructor(input?: Duration | DurationTuple | string | number | bigint) {
         super();
 
-        if (input instanceof Duration) {
-            // Clone from existing duration
-            this.#seconds = input.#seconds;
-            this.#nanoseconds = input.#nanoseconds;
+        if (input === undefined) {
+            this.#seconds = 0n;
+            this.#nanoseconds = 0n;
+        } else if (isDuration(input)) {
+            // Clone from existing duration (uses public getter for cross-version compatibility)
+            const totalNs = (input as unknown as Duration).nanoseconds;
+            this.#seconds = totalNs / SECOND;
+            this.#nanoseconds = totalNs % SECOND;
         } else if (typeof input === "string") {
             // Parse from a human-readable string like "1h30m"
             const [s, ns] = Duration.parseString(input);
             this.#seconds = s;
             this.#nanoseconds = ns;
-        } else {
-            // Construct from tuple [seconds, nanoseconds]
-            const s = typeof input[0] === "bigint" ? input[0] : BigInt(Math.floor(input[0] ?? 0));
-            const ns = typeof input[1] === "bigint" ? input[1] : BigInt(Math.floor(input[1] ?? 0));
+        } else if (typeof input === "number" || typeof input === "bigint") {
+            const total = BigInt(input);
+            this.#seconds = total / SECOND;
+            this.#nanoseconds = total % SECOND;
+        } else if (Array.isArray(input)) {
+            const [seconds, nanoseconds] = input;
+            const s = typeof seconds === "bigint" ? seconds : BigInt(Math.floor(seconds ?? 0));
+            const ns =
+                typeof nanoseconds === "bigint"
+                    ? nanoseconds
+                    : BigInt(Math.floor(nanoseconds ?? 0));
             const total = s * SECOND + ns;
             // Normalize total into separate seconds and nanoseconds fields
             this.#seconds = total / SECOND;
             this.#nanoseconds = total % SECOND;
+        } else {
+            this.#seconds = 0n;
+            this.#nanoseconds = 0n;
         }
+        markSymbol(this, DURATION_SYMBOL);
     }
 
     equals(other: unknown): boolean {
-        if (!(other instanceof Duration)) return false;
-        return this.#seconds === other.#seconds && this.#nanoseconds === other.#nanoseconds;
+        if (!isDuration(other)) return false;
+        return this.nanoseconds === (other as unknown as Duration).nanoseconds;
     }
 
     toJSON(): string {
@@ -149,8 +165,8 @@ export class Duration extends Value {
         return this.#nanoseconds > 0n
             ? [this.#seconds, this.#nanoseconds]
             : this.#seconds > 0n
-              ? [this.#seconds]
-              : [];
+                ? [this.#seconds]
+                : [];
     }
 
     /**
@@ -201,13 +217,8 @@ export class Duration extends Value {
      * @returns The resulting duration
      */
     add(other: Duration): Duration {
-        let sec = this.#seconds + other.#seconds;
-        let ns = this.#nanoseconds + other.#nanoseconds;
-        if (ns >= SECOND) {
-            sec += 1n;
-            ns -= SECOND;
-        }
-        return new Duration([sec, ns]);
+        const totalNs = this.nanoseconds + (other as unknown as Duration).nanoseconds;
+        return new Duration([totalNs / SECOND, totalNs % SECOND]);
     }
 
     /**
@@ -217,13 +228,8 @@ export class Duration extends Value {
      * @returns The resulting duration
      */
     sub(other: Duration): Duration {
-        let sec = this.#seconds - other.#seconds;
-        let ns = this.#nanoseconds - other.#nanoseconds;
-        if (ns < 0n) {
-            sec -= 1n;
-            ns += SECOND;
-        }
-        return new Duration([sec, ns]);
+        const totalNs = this.nanoseconds - (other as unknown as Duration).nanoseconds;
+        return new Duration([totalNs / SECOND, totalNs % SECOND]);
     }
 
     /**
@@ -248,13 +254,14 @@ export class Duration extends Value {
     div(divisor: Duration): bigint;
     div(divisor: number | bigint): Duration;
     div(divisor: number | bigint | Duration): bigint | Duration {
-        if (typeof divisor === "object" && divisor instanceof Duration) {
-            const a = this.#seconds * SECOND + this.#nanoseconds;
-            const b = divisor.#seconds * SECOND + divisor.#nanoseconds;
+        if (typeof divisor === "object" && isDuration(divisor)) {
+            const a = this.nanoseconds;
+            const b = (divisor as unknown as Duration).nanoseconds;
             if (b === 0n) throw new InvalidDurationError("Division by zero duration");
             return a / b;
         }
-        const divisorBig = typeof divisor === "bigint" ? divisor : BigInt(Math.floor(divisor));
+        const divisorBig =
+            typeof divisor === "bigint" ? divisor : BigInt(Math.floor(divisor as number));
         if (divisorBig === 0n) throw new InvalidDurationError("Division by zero");
         const totalNs = this.#seconds * SECOND + this.#nanoseconds;
         const resultNs = totalNs / divisorBig;
@@ -268,8 +275,8 @@ export class Duration extends Value {
      * @returns The remainder duration
      */
     mod(mod: Duration): Duration {
-        const a = this.#seconds * SECOND + this.#nanoseconds;
-        const b = mod.#seconds * SECOND + mod.#nanoseconds;
+        const a = this.nanoseconds;
+        const b = (mod as unknown as Duration).nanoseconds;
         if (b === 0n) throw new InvalidDurationError("Modulo by zero duration");
         const resultNs = a % b;
         return new Duration([resultNs / SECOND, resultNs % SECOND]);

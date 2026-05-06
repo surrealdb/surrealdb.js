@@ -2,6 +2,27 @@ import { decode, encode, type Replacer, Tagged } from "@surrealdb/cbor";
 import type { CodecOptions, ValueCodec } from "../types";
 import { BoundExcluded, BoundIncluded } from "../utils/range";
 import {
+    DATETIME_SYMBOL,
+    DECIMAL_SYMBOL,
+    DURATION_SYMBOL,
+    FILE_REF_SYMBOL,
+    FUTURE_SYMBOL,
+    GEOMETRY_COLLECTION_SYMBOL,
+    GEOMETRY_LINE_SYMBOL,
+    GEOMETRY_MULTI_LINE_SYMBOL,
+    GEOMETRY_MULTI_POINT_SYMBOL,
+    GEOMETRY_MULTI_POLYGON_SYMBOL,
+    GEOMETRY_POINT_SYMBOL,
+    GEOMETRY_POLYGON_SYMBOL,
+    hasSymbol,
+    RANGE_SYMBOL,
+    RECORD_ID_RANGE_SYMBOL,
+    RECORD_ID_SYMBOL,
+    STRING_RECORD_ID_SYMBOL,
+    TABLE_SYMBOL,
+    UUID_SYMBOL,
+} from "../utils/symbols";
+import {
     DateTime,
     Decimal,
     Duration,
@@ -16,7 +37,7 @@ import {
     Range,
     RecordId,
     RecordIdRange,
-    StringRecordId,
+    type StringRecordId,
     Table,
     Uuid,
 } from "../value";
@@ -89,61 +110,75 @@ export class CborCodec implements ValueCodec {
         if (value instanceof Date) {
             return new Tagged(TAG_CUSTOM_DATETIME, new DateTime(value).toCompact());
         }
-        if (value instanceof DateTime) {
-            return new Tagged(TAG_CUSTOM_DATETIME, value.toCompact());
+        if (value && hasSymbol(value, DATETIME_SYMBOL)) {
+            return new Tagged(TAG_CUSTOM_DATETIME, (value as DateTime).toCompact());
         }
         if (value === undefined) return new Tagged(TAG_NONE, null);
-        if (value instanceof Uuid) {
-            return new Tagged(TAG_SPEC_UUID, value.toBuffer());
+        if (value && hasSymbol(value, UUID_SYMBOL)) {
+            return new Tagged(TAG_SPEC_UUID, (value as Uuid).toBuffer());
         }
-        if (value instanceof Decimal) {
-            return new Tagged(TAG_STRING_DECIMAL, value.toString());
+        if (value && hasSymbol(value, DECIMAL_SYMBOL)) {
+            return new Tagged(TAG_STRING_DECIMAL, (value as Decimal).toString());
         }
-        if (value instanceof Duration) {
-            return new Tagged(TAG_CUSTOM_DURATION, value.toCompact());
+        if (value && hasSymbol(value, DURATION_SYMBOL)) {
+            return new Tagged(TAG_CUSTOM_DURATION, (value as Duration).toCompact());
         }
-        if (value instanceof RecordId) {
-            return new Tagged(TAG_RECORDID, [value.table.name, value.id]);
-        }
-        if (value instanceof StringRecordId) {
-            return new Tagged(TAG_RECORDID, value.toString());
-        }
-        if (value instanceof RecordIdRange) {
+        if (value && hasSymbol(value, RECORD_ID_SYMBOL)) {
             return new Tagged(TAG_RECORDID, [
-                value.table.name,
-                new Tagged(TAG_RANGE, rangeToCbor([value.begin, value.end])),
+                (value as RecordId).table.name,
+                (value as RecordId).id,
             ]);
         }
-        if (value instanceof Table) return new Tagged(TAG_TABLE, value.name);
-        if (value instanceof Future) return new Tagged(TAG_FUTURE, value.body);
-        if (value instanceof Range)
-            return new Tagged(TAG_RANGE, rangeToCbor([value.begin, value.end]));
-        if (value instanceof FileRef) {
-            return new Tagged(TAG_FILE_POINTER, [value.bucket, value.key]);
+        if (value && hasSymbol(value, STRING_RECORD_ID_SYMBOL)) {
+            return new Tagged(TAG_RECORDID, (value as StringRecordId).toString());
+        }
+        if (value && hasSymbol(value, RECORD_ID_RANGE_SYMBOL)) {
+            return new Tagged(TAG_RECORDID, [
+                (value as RecordIdRange).table.name,
+                new Tagged(
+                    TAG_RANGE,
+                    rangeToCbor([(value as RecordIdRange).begin, (value as RecordIdRange).end]),
+                ),
+            ]);
+        }
+        if (value && hasSymbol(value, TABLE_SYMBOL))
+            return new Tagged(TAG_TABLE, (value as Table).name);
+        if (value && hasSymbol(value, FUTURE_SYMBOL))
+            return new Tagged(TAG_FUTURE, (value as Future).body);
+        if (value && hasSymbol(value, RANGE_SYMBOL))
+            return new Tagged(
+                TAG_RANGE,
+                rangeToCbor([(value as Range<unknown, unknown>).begin, (value as Range<unknown, unknown>).end]),
+            );
+        if (value && hasSymbol(value, FILE_REF_SYMBOL)) {
+            return new Tagged(TAG_FILE_POINTER, [
+                (value as FileRef).bucket,
+                (value as FileRef).key,
+            ]);
         }
         if (value instanceof Set) {
             return new Tagged(TAG_SET, [...value]);
         }
-        if (value instanceof GeometryPoint) {
-            return new Tagged(TAG_GEOMETRY_POINT, value.point);
+        if (value && hasSymbol(value, GEOMETRY_POINT_SYMBOL)) {
+            return new Tagged(TAG_GEOMETRY_POINT, (value as GeometryPoint).point);
         }
-        if (value instanceof GeometryLine) {
-            return new Tagged(TAG_GEOMETRY_LINE, value.line);
+        if (value && hasSymbol(value, GEOMETRY_LINE_SYMBOL)) {
+            return new Tagged(TAG_GEOMETRY_LINE, (value as GeometryLine).line);
         }
-        if (value instanceof GeometryPolygon) {
-            return new Tagged(TAG_GEOMETRY_POLYGON, value.polygon);
+        if (value && hasSymbol(value, GEOMETRY_POLYGON_SYMBOL)) {
+            return new Tagged(TAG_GEOMETRY_POLYGON, (value as GeometryPolygon).polygon);
         }
-        if (value instanceof GeometryMultiPoint) {
-            return new Tagged(TAG_GEOMETRY_MULTIPOINT, value.points);
+        if (value && hasSymbol(value, GEOMETRY_MULTI_POINT_SYMBOL)) {
+            return new Tagged(TAG_GEOMETRY_MULTIPOINT, (value as GeometryMultiPoint).points);
         }
-        if (value instanceof GeometryMultiLine) {
-            return new Tagged(TAG_GEOMETRY_MULTILINE, value.lines);
+        if (value && hasSymbol(value, GEOMETRY_MULTI_LINE_SYMBOL)) {
+            return new Tagged(TAG_GEOMETRY_MULTILINE, (value as GeometryMultiLine).lines);
         }
-        if (value instanceof GeometryMultiPolygon) {
-            return new Tagged(TAG_GEOMETRY_MULTIPOLYGON, value.polygons);
+        if (value && hasSymbol(value, GEOMETRY_MULTI_POLYGON_SYMBOL)) {
+            return new Tagged(TAG_GEOMETRY_MULTIPOLYGON, (value as GeometryMultiPolygon).polygons);
         }
-        if (value instanceof GeometryCollection) {
-            return new Tagged(TAG_GEOMETRY_COLLECTION, value.collection);
+        if (value && hasSymbol(value, GEOMETRY_COLLECTION_SYMBOL)) {
+            return new Tagged(TAG_GEOMETRY_COLLECTION, (value as GeometryCollection).collection);
         }
         return value;
     };
@@ -163,7 +198,7 @@ export class CborCodec implements ValueCodec {
         [TAG_BOUND_INCLUDED]: (v) => this.#decodeValue(new BoundIncluded(v)),
         [TAG_BOUND_EXCLUDED]: (v) => this.#decodeValue(new BoundExcluded(v)),
         [TAG_RECORDID]: (v) => {
-            if (v[1] instanceof Range) {
+            if (hasSymbol(v[1], RANGE_SYMBOL)) {
                 return this.#decodeValue(new RecordIdRange(v[0], v[1].begin, v[1].end));
             }
             return this.#decodeValue(new RecordId(v[0], v[1]));

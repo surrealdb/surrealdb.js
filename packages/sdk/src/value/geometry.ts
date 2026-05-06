@@ -1,3 +1,14 @@
+import {
+    GEOMETRY_COLLECTION_SYMBOL,
+    GEOMETRY_LINE_SYMBOL,
+    GEOMETRY_MULTI_LINE_SYMBOL,
+    GEOMETRY_MULTI_POINT_SYMBOL,
+    GEOMETRY_MULTI_POLYGON_SYMBOL,
+    GEOMETRY_POINT_SYMBOL,
+    GEOMETRY_POLYGON_SYMBOL,
+    GEOMETRY_SYMBOL,
+    markSymbol,
+} from "../utils/symbols";
 import { Decimal } from "./decimal.ts";
 import { Value } from "./value.ts";
 
@@ -5,6 +16,10 @@ import { Value } from "./value.ts";
  * A SurrealQL geometry value.
  */
 export abstract class Geometry extends Value {
+    constructor() {
+        super();
+        markSymbol(this, GEOMETRY_SYMBOL);
+    }
     abstract override toJSON(): GeoJson;
     abstract is(geometry: Geometry): boolean;
     abstract clone(): Geometry;
@@ -37,6 +52,7 @@ export class GeometryPoint extends Geometry {
         } else {
             this.point = [f(point[0]), f(point[1])];
         }
+        markSymbol(this, GEOMETRY_POINT_SYMBOL);
     }
 
     toJSON(): GeoJsonPoint {
@@ -71,6 +87,7 @@ export class GeometryLine extends Geometry {
     constructor(line: [GeometryPoint, GeometryPoint, ...GeometryPoint[]] | GeometryLine) {
         super();
         this.line = line instanceof GeometryLine ? line.clone().line : line;
+        markSymbol(this, GEOMETRY_LINE_SYMBOL);
     }
 
     toJSON(): GeoJsonLineString {
@@ -123,6 +140,7 @@ export class GeometryPolygon extends Geometry {
                       line.close();
                       return line;
                   }) as [GeometryLine, ...GeometryLine[]]);
+        markSymbol(this, GEOMETRY_POLYGON_SYMBOL);
     }
 
     toJSON(): GeoJsonPolygon {
@@ -162,6 +180,7 @@ export class GeometryMultiPoint extends Geometry {
     constructor(points: [GeometryPoint, ...GeometryPoint[]] | GeometryMultiPoint) {
         super();
         this.points = points instanceof GeometryMultiPoint ? points.points : points;
+        markSymbol(this, GEOMETRY_MULTI_POINT_SYMBOL);
     }
 
     toJSON(): GeoJsonMultiPoint {
@@ -201,6 +220,7 @@ export class GeometryMultiLine extends Geometry {
     constructor(lines: [GeometryLine, ...GeometryLine[]] | GeometryMultiLine) {
         super();
         this.lines = lines instanceof GeometryMultiLine ? lines.lines : lines;
+        markSymbol(this, GEOMETRY_MULTI_LINE_SYMBOL);
     }
 
     toJSON(): GeoJsonMultiLineString {
@@ -240,6 +260,7 @@ export class GeometryMultiPolygon extends Geometry {
     constructor(polygons: [GeometryPolygon, ...GeometryPolygon[]] | GeometryMultiPolygon) {
         super();
         this.polygons = polygons instanceof GeometryMultiPolygon ? polygons.polygons : polygons;
+        markSymbol(this, GEOMETRY_MULTI_POLYGON_SYMBOL);
     }
 
     toJSON(): GeoJsonMultiPolygon {
@@ -280,6 +301,7 @@ export class GeometryCollection extends Geometry {
         super();
         this.collection =
             collection instanceof GeometryCollection ? collection.collection : collection;
+        markSymbol(this, GEOMETRY_COLLECTION_SYMBOL);
     }
 
     toJSON(): GeoJsonCollection {

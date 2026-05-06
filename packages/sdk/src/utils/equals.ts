@@ -1,4 +1,4 @@
-import { Value } from "../value/value";
+import { isValue } from "../utils/symbols";
 
 /**
  * Recursively compare supported SurrealQL values for equality.
@@ -21,8 +21,8 @@ export function equals(x: unknown, y: unknown): boolean {
     if (x instanceof RegExp && y instanceof RegExp) {
         return x.toString() === y.toString();
     }
-    if (x instanceof Value && y instanceof Value) {
-        return x.equals(y);
+    if (isValue(x) && isValue(y)) {
+        return (x as unknown as { equals: (other: unknown) => boolean }).equals(y);
     }
     if (typeof x !== "object" || x === null || typeof y !== "object" || y === null) {
         return false;

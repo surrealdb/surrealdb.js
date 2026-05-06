@@ -13,7 +13,7 @@ import type {
     Uuid,
 } from "../value";
 
-import { Value } from "../value/value";
+import { isValue } from "../utils/symbols";
 
 export type Jsonify<T> = T extends
     | Date
@@ -27,22 +27,22 @@ export type Jsonify<T> = T extends
     | StringRecordId
     ? string
     : T extends undefined
-      ? undefined
-      : T extends Record<string | number | symbol, unknown> | Array<unknown>
-        ? { [K in keyof T]: Jsonify<T[K]> }
-        : T extends Map<infer K, infer V>
-          ? Map<K, Jsonify<V>>
-          : T extends Set<infer V>
-            ? Set<Jsonify<V>>
-            : T extends Geometry
-              ? ReturnType<T["toJSON"]>
-              : T extends RecordId<infer Tb>
-                ? `${Tb}:${string}`
-                : T extends RecordIdRange<infer Tb>
-                  ? `${Tb}:${string}..${string}`
-                  : T extends Table<infer Tb>
-                    ? `${Tb}`
-                    : T;
+    ? undefined
+    : T extends Record<string | number | symbol, unknown> | Array<unknown>
+    ? { [K in keyof T]: Jsonify<T[K]> }
+    : T extends Map<infer K, infer V>
+    ? Map<K, Jsonify<V>>
+    : T extends Set<infer V>
+    ? Set<Jsonify<V>>
+    : T extends Geometry
+    ? ReturnType<T["toJSON"]>
+    : T extends RecordId<infer Tb>
+    ? `${Tb}:${string}`
+    : T extends RecordIdRange<infer Tb>
+    ? `${Tb}:${string}..${string}`
+    : T extends Table<infer Tb>
+    ? `${Tb}`
+    : T;
 
 /**
  * Recursively convert any supported SurrealQL value into a serializable JSON representation.
@@ -55,8 +55,8 @@ export function jsonify<T>(input: T): Jsonify<T> {
         if (input === null) return null as Jsonify<T>;
 
         // We only want to process "SurrealQL values"
-        if (input instanceof Date || input instanceof Value) {
-            return input.toJSON() as Jsonify<T>;
+        if (input instanceof Date || isValue(input)) {
+            return (input as unknown as { toJSON: () => unknown }).toJSON() as Jsonify<T>;
         }
 
         // We check by prototype, because we do not want to process derivatives of objects and arrays
