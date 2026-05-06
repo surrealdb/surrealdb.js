@@ -78,5 +78,5 @@ function encodeBody(context: DriverContext, body?: unknown): BodyInit | undefine
         return body;
     }
 
-    return body ? context.codecs.cbor.encode(body) : undefined;
+    return body ? new Uint8Array(context.codecs.cbor.encode(body)) : undefined;
 }
