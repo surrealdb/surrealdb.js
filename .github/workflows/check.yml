@@ -91,7 +91,7 @@ jobs:
         run: command -v wasm-bindgen && wasm-bindgen --version | grep -q 0.2.108 || cargo install -f wasm-bindgen-cli --version 0.2.108
 
       - name: Install wasm-opt
-        run: command -v wasm-opt || cargo install wasm-opt
+        run: command -v wasm-opt && wasm-opt --version | grep -q 0.116.1 || cargo install wasm-opt --version 0.116.1
 
       - name: Cache turbo
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
