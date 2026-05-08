@@ -3,6 +3,28 @@ import { applyDiagnostics, type Diagnostic, RecordId } from "surrealdb";
 import { resetIncrementalID } from "../../sdk/src/internal/get-incremental-id";
 import { createSurreal, getEngines, type Person, proto } from "./__helpers__";
 
+function sanitizeEvents(events: Diagnostic[]) {
+    return events.map((event) => {
+        const { key: _key, ...rest } = event as Record<string, unknown>;
+        const withoutDuration = "duration" in rest
+            ? (({ duration: _d, ...r }) => r)(rest as Record<string, unknown>)
+            : rest;
+        const result = withoutDuration.result as Record<string, unknown> | undefined;
+        if (result?.chunk) {
+            const chunk = result.chunk as Record<string, unknown>;
+            const stats = chunk.stats as Record<string, unknown> | undefined;
+            if (stats?.duration !== undefined) {
+                const { duration: _sd, ...statsRest } = stats;
+                return {
+                    ...withoutDuration,
+                    result: { ...result, chunk: { ...chunk, stats: statsRest } },
+                };
+            }
+        }
+        return withoutDuration;
+    });
+}
+
 describe("diagnostics", async () => {
     test("diagnostic events", async () => {
         const events: Diagnostic[] = [];
@@ -30,7 +52,7 @@ describe("diagnostics", async () => {
             lastname: "Doe",
         });
 
-        expect(events).toMatchSnapshot(proto("events"));
+        expect(sanitizeEvents(events)).toMatchSnapshot(proto("events"));
     });
 
     test("extract query", async () => {
