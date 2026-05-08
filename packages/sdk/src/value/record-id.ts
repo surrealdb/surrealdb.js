@@ -3,7 +3,7 @@ import { isValidIdPart, isValidTable } from "../internal/validation";
 import type { WidenRecordIdValue } from "../types/internal";
 import { equals } from "../utils/equals";
 import { escapeIdent, escapeIdPart } from "../utils/escape";
-import { isRecordId, isTable, markSymbol, RECORD_ID_SYMBOL } from "../utils/symbols";
+import { hasSymbol, markSymbol, RECORD_ID_SYMBOL } from "../utils/symbols";
 import { Table } from "./table";
 import type { Uuid } from "./uuid";
 import { Value } from "./value";
@@ -16,6 +16,10 @@ export type RecordIdValue = string | number | Uuid | bigint | unknown[] | Record
  * @internal
  */
 class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdValue> extends Value {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, RECORD_ID_SYMBOL);
+    }
+
     readonly table: Table<Tb>;
     readonly id: Id;
 
@@ -25,13 +29,14 @@ class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdVa
         if (!isValidTable(table)) throw new InvalidRecordIdError("Table part is not valid");
         if (!isValidIdPart(id)) throw new InvalidRecordIdError("ID part is not valid");
 
-        this.table = isTable(table) ? table as unknown as Table<Tb> : new Table(table as Tb);
+        this.table =
+            table instanceof Table ? (table as unknown as Table<Tb>) : new Table(table as Tb);
         this.id = id;
         markSymbol(this, RECORD_ID_SYMBOL);
     }
 
     equals(other: unknown): boolean {
-        if (!isRecordId(other)) return false;
+        if (!(other instanceof RecordId)) return false;
         const o = other as unknown as RecordId;
         return this.table.equals(o.table) && equals(this.id, o.id);
     }

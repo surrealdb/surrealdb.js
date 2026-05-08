@@ -7,15 +7,7 @@ import {
     GEOMETRY_POINT_SYMBOL,
     GEOMETRY_POLYGON_SYMBOL,
     GEOMETRY_SYMBOL,
-    isDecimal,
-    isGeometry,
-    isGeometryCollection,
-    isGeometryLine,
-    isGeometryMultiLine,
-    isGeometryMultiPoint,
-    isGeometryMultiPolygon,
-    isGeometryPoint,
-    isGeometryPolygon,
+    hasSymbol,
     markSymbol,
 } from "../utils/symbols";
 import { Decimal } from "./decimal.ts";
@@ -25,6 +17,10 @@ import { Value } from "./value.ts";
  * A SurrealQL geometry value.
  */
 export abstract class Geometry extends Value {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, GEOMETRY_SYMBOL);
+    }
+
     constructor() {
         super();
         markSymbol(this, GEOMETRY_SYMBOL);
@@ -34,7 +30,7 @@ export abstract class Geometry extends Value {
     abstract clone(): Geometry;
 
     equals(other: unknown): boolean {
-        if (!isGeometry(other)) return false;
+        if (!(other instanceof Geometry)) return false;
         return this.is(other as unknown as Geometry);
     }
 
@@ -44,7 +40,7 @@ export abstract class Geometry extends Value {
 }
 
 function f(num: number | Decimal): number {
-    if (isDecimal(num)) return (num as unknown as Decimal).toFloat();
+    if (num instanceof Decimal) return (num as unknown as Decimal).toFloat();
     return num as number;
 }
 
@@ -52,11 +48,15 @@ function f(num: number | Decimal): number {
  * A SurrealQL point geometry value.
  */
 export class GeometryPoint extends Geometry {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, GEOMETRY_POINT_SYMBOL);
+    }
+
     readonly point: [number, number];
 
     constructor(point: [number | Decimal, number | Decimal] | GeometryPoint) {
         super();
-        if (isGeometryPoint(point)) {
+        if (point instanceof GeometryPoint) {
             this.point = (point as unknown as GeometryPoint).clone().point;
         } else {
             const arr = point as [number | Decimal, number | Decimal];
@@ -77,7 +77,7 @@ export class GeometryPoint extends Geometry {
     }
 
     is(geometry: Geometry): geometry is GeometryPoint {
-        if (!isGeometryPoint(geometry)) return false;
+        if (!(geometry instanceof GeometryPoint)) return false;
         const gp = geometry as unknown as GeometryPoint;
         return this.point[0] === gp.point[0] && this.point[1] === gp.point[1];
     }
@@ -91,13 +91,20 @@ export class GeometryPoint extends Geometry {
  * A SurrealQL line geometry value.
  */
 export class GeometryLine extends Geometry {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, GEOMETRY_LINE_SYMBOL);
+    }
+
     readonly line: [GeometryPoint, GeometryPoint, ...GeometryPoint[]];
 
     // SurrealDB only has the concept of a "Line", which by spec is two points.
     // SurrealDB's "Line" however, is actually a "LineString" under the hood, which accepts two or more points
     constructor(line: [GeometryPoint, GeometryPoint, ...GeometryPoint[]] | GeometryLine) {
         super();
-        this.line = isGeometryLine(line) ? (line as unknown as GeometryLine).clone().line : line as [GeometryPoint, GeometryPoint, ...GeometryPoint[]];
+        this.line =
+            line instanceof GeometryLine
+                ? (line as unknown as GeometryLine).clone().line
+                : (line as [GeometryPoint, GeometryPoint, ...GeometryPoint[]]);
         markSymbol(this, GEOMETRY_LINE_SYMBOL);
     }
 
@@ -119,7 +126,7 @@ export class GeometryLine extends Geometry {
     }
 
     is(geometry: Geometry): geometry is GeometryLine {
-        if (!isGeometryLine(geometry)) return false;
+        if (!(geometry instanceof GeometryLine)) return false;
         const gl = geometry as unknown as GeometryLine;
         if (this.line.length !== gl.line.length) return false;
         for (let i = 0; i < this.line.length; i++) {
@@ -140,18 +147,22 @@ export class GeometryLine extends Geometry {
  * A SurrealQL polygon geometry value.
  */
 export class GeometryPolygon extends Geometry {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, GEOMETRY_POLYGON_SYMBOL);
+    }
+
     readonly polygon: [GeometryLine, ...GeometryLine[]];
 
     constructor(polygon: [GeometryLine, ...GeometryLine[]] | GeometryPolygon) {
         super();
         this.polygon =
-            isGeometryPolygon(polygon)
+            polygon instanceof GeometryPolygon
                 ? (polygon as unknown as GeometryPolygon).clone().polygon
                 : ((polygon as [GeometryLine, ...GeometryLine[]]).map((l) => {
-                    const line = l.clone();
-                    line.close();
-                    return line;
-                }) as [GeometryLine, ...GeometryLine[]]);
+                      const line = l.clone();
+                      line.close();
+                      return line;
+                  }) as [GeometryLine, ...GeometryLine[]]);
         markSymbol(this, GEOMETRY_POLYGON_SYMBOL);
     }
 
@@ -167,7 +178,7 @@ export class GeometryPolygon extends Geometry {
     }
 
     is(geometry: Geometry): geometry is GeometryPolygon {
-        if (!isGeometryPolygon(geometry)) return false;
+        if (!(geometry instanceof GeometryPolygon)) return false;
         const gp = geometry as unknown as GeometryPolygon;
         if (this.polygon.length !== gp.polygon.length) return false;
         for (let i = 0; i < this.polygon.length; i++) {
@@ -188,11 +199,18 @@ export class GeometryPolygon extends Geometry {
  * A SurrealQL multi-point geometry value.
  */
 export class GeometryMultiPoint extends Geometry {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, GEOMETRY_MULTI_POINT_SYMBOL);
+    }
+
     readonly points: [GeometryPoint, ...GeometryPoint[]];
 
     constructor(points: [GeometryPoint, ...GeometryPoint[]] | GeometryMultiPoint) {
         super();
-        this.points = isGeometryMultiPoint(points) ? (points as unknown as GeometryMultiPoint).points : points as [GeometryPoint, ...GeometryPoint[]];
+        this.points =
+            points instanceof GeometryMultiPoint
+                ? (points as unknown as GeometryMultiPoint).points
+                : (points as [GeometryPoint, ...GeometryPoint[]]);
         markSymbol(this, GEOMETRY_MULTI_POINT_SYMBOL);
     }
 
@@ -208,7 +226,7 @@ export class GeometryMultiPoint extends Geometry {
     }
 
     is(geometry: Geometry): geometry is GeometryMultiPoint {
-        if (!isGeometryMultiPoint(geometry)) return false;
+        if (!(geometry instanceof GeometryMultiPoint)) return false;
         const gmp = geometry as unknown as GeometryMultiPoint;
         if (this.points.length !== gmp.points.length) return false;
         for (let i = 0; i < this.points.length; i++) {
@@ -229,11 +247,18 @@ export class GeometryMultiPoint extends Geometry {
  * A SurrealQL multi-line geometry value.
  */
 export class GeometryMultiLine extends Geometry {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, GEOMETRY_MULTI_LINE_SYMBOL);
+    }
+
     readonly lines: [GeometryLine, ...GeometryLine[]];
 
     constructor(lines: [GeometryLine, ...GeometryLine[]] | GeometryMultiLine) {
         super();
-        this.lines = isGeometryMultiLine(lines) ? (lines as unknown as GeometryMultiLine).lines : lines as [GeometryLine, ...GeometryLine[]];
+        this.lines =
+            lines instanceof GeometryMultiLine
+                ? (lines as unknown as GeometryMultiLine).lines
+                : (lines as [GeometryLine, ...GeometryLine[]]);
         markSymbol(this, GEOMETRY_MULTI_LINE_SYMBOL);
     }
 
@@ -249,7 +274,7 @@ export class GeometryMultiLine extends Geometry {
     }
 
     is(geometry: Geometry): geometry is GeometryMultiLine {
-        if (!isGeometryMultiLine(geometry)) return false;
+        if (!(geometry instanceof GeometryMultiLine)) return false;
         const gml = geometry as unknown as GeometryMultiLine;
         if (this.lines.length !== gml.lines.length) return false;
         for (let i = 0; i < this.lines.length; i++) {
@@ -270,11 +295,18 @@ export class GeometryMultiLine extends Geometry {
  * A SurrealQL multi-polygon geometry value.
  */
 export class GeometryMultiPolygon extends Geometry {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, GEOMETRY_MULTI_POLYGON_SYMBOL);
+    }
+
     readonly polygons: [GeometryPolygon, ...GeometryPolygon[]];
 
     constructor(polygons: [GeometryPolygon, ...GeometryPolygon[]] | GeometryMultiPolygon) {
         super();
-        this.polygons = isGeometryMultiPolygon(polygons) ? (polygons as unknown as GeometryMultiPolygon).polygons : polygons as [GeometryPolygon, ...GeometryPolygon[]];
+        this.polygons =
+            polygons instanceof GeometryMultiPolygon
+                ? (polygons as unknown as GeometryMultiPolygon).polygons
+                : (polygons as [GeometryPolygon, ...GeometryPolygon[]]);
         markSymbol(this, GEOMETRY_MULTI_POLYGON_SYMBOL);
     }
 
@@ -290,7 +322,7 @@ export class GeometryMultiPolygon extends Geometry {
     }
 
     is(geometry: Geometry): geometry is GeometryMultiPolygon {
-        if (!isGeometryMultiPolygon(geometry)) return false;
+        if (!(geometry instanceof GeometryMultiPolygon)) return false;
         const gmp = geometry as unknown as GeometryMultiPolygon;
         if (this.polygons.length !== gmp.polygons.length) return false;
         for (let i = 0; i < this.polygons.length; i++) {
@@ -311,12 +343,18 @@ export class GeometryMultiPolygon extends Geometry {
  * A SurrealQL geometry collection value.
  */
 export class GeometryCollection extends Geometry {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, GEOMETRY_COLLECTION_SYMBOL);
+    }
+
     readonly collection: [Geometry, ...Geometry[]];
 
     constructor(collection: [Geometry, ...Geometry[]] | GeometryCollection) {
         super();
         this.collection =
-            isGeometryCollection(collection) ? (collection as unknown as GeometryCollection).collection : collection as [Geometry, ...Geometry[]];
+            collection instanceof GeometryCollection
+                ? (collection as unknown as GeometryCollection).collection
+                : (collection as [Geometry, ...Geometry[]]);
         markSymbol(this, GEOMETRY_COLLECTION_SYMBOL);
     }
 
@@ -332,7 +370,7 @@ export class GeometryCollection extends Geometry {
     }
 
     is(geometry: Geometry): geometry is GeometryCollection {
-        if (!isGeometryCollection(geometry)) return false;
+        if (!(geometry instanceof GeometryCollection)) return false;
         const gc = geometry as unknown as GeometryCollection;
         if (this.collection.length !== gc.collection.length) return false;
         for (let i = 0; i < this.collection.length; i++) {

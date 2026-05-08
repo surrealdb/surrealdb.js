@@ -1,4 +1,4 @@
-import { FUTURE_SYMBOL, isFuture, markSymbol } from "../utils/symbols";
+import { FUTURE_SYMBOL, hasSymbol, markSymbol } from "../utils/symbols";
 import { Value } from "./value";
 
 /**
@@ -7,6 +7,10 @@ import { Value } from "./value";
  * @deprecated Futures were removed in SurrealDB 3.0
  */
 export class Future extends Value {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, FUTURE_SYMBOL);
+    }
+
     readonly body: string;
 
     constructor(body: string) {
@@ -16,7 +20,7 @@ export class Future extends Value {
     }
 
     equals(other: unknown): boolean {
-        if (!isFuture(other)) return false;
+        if (!(other instanceof Future)) return false;
         return this.body === (other as unknown as Future).body;
     }
 

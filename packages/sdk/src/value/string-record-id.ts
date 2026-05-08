@@ -1,5 +1,5 @@
 import { InvalidTableError } from "../errors";
-import { isRecordId, isStringRecordId, markSymbol, STRING_RECORD_ID_SYMBOL } from "../utils/symbols";
+import { hasSymbol, markSymbol, STRING_RECORD_ID_SYMBOL } from "../utils/symbols";
 import { RecordId } from "./record-id";
 import { Value } from "./value";
 
@@ -7,6 +7,10 @@ import { Value } from "./value";
  * A SurrealQL string-represented record ID value.
  */
 export class StringRecordId extends Value {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, STRING_RECORD_ID_SYMBOL);
+    }
+
     readonly rid: string;
 
     constructor(rid: string | StringRecordId | RecordId) {
@@ -14,9 +18,9 @@ export class StringRecordId extends Value {
 
         // In some cases the same method may be used with different data sources
         // this can cause this method to be called with an already instanced class object.
-        if (isStringRecordId(rid)) {
+        if (rid instanceof StringRecordId) {
             this.rid = (rid as unknown as StringRecordId).rid;
-        } else if (isRecordId(rid)) {
+        } else if (rid instanceof RecordId) {
             this.rid = (rid as unknown as RecordId).toString();
         } else if (typeof rid === "string") {
             this.rid = rid;
@@ -27,7 +31,7 @@ export class StringRecordId extends Value {
     }
 
     equals(other: unknown): boolean {
-        if (!isStringRecordId(other)) return false;
+        if (!(other instanceof StringRecordId)) return false;
         return this.rid === (other as unknown as StringRecordId).rid;
     }
 

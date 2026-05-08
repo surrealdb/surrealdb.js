@@ -148,7 +148,10 @@ export class CborCodec implements ValueCodec {
         if (value && hasSymbol(value, RANGE_SYMBOL))
             return new Tagged(
                 TAG_RANGE,
-                rangeToCbor([(value as Range<unknown, unknown>).begin, (value as Range<unknown, unknown>).end]),
+                rangeToCbor([
+                    (value as Range<unknown, unknown>).begin,
+                    (value as Range<unknown, unknown>).end,
+                ]),
             );
         if (value && hasSymbol(value, FILE_REF_SYMBOL)) {
             return new Tagged(TAG_FILE_POINTER, [

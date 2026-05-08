@@ -1,10 +1,14 @@
-import { FILE_REF_SYMBOL, isFileRef, markSymbol } from "../utils/symbols";
+import { FILE_REF_SYMBOL, hasSymbol, markSymbol } from "../utils/symbols";
 import { Value } from "./value";
 
 /**
  * A SurrealQL file reference value.
  */
 export class FileRef extends Value {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, FILE_REF_SYMBOL);
+    }
+
     readonly bucket: string;
     readonly key: string;
 
@@ -16,7 +20,7 @@ export class FileRef extends Value {
     }
 
     equals(other: unknown): boolean {
-        if (!isFileRef(other)) return false;
+        if (!(other instanceof FileRef)) return false;
         const o = other as unknown as FileRef;
         return this.bucket === o.bucket && this.key === o.key;
     }

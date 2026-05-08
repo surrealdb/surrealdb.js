@@ -1,5 +1,5 @@
 import { InvalidDateError } from "../errors";
-import { DATETIME_SYMBOL, isDateTime, markSymbol } from "../utils/symbols";
+import { DATETIME_SYMBOL, hasSymbol, markSymbol } from "../utils/symbols";
 import { Duration } from "./duration";
 import { Value } from "./value";
 
@@ -15,15 +15,19 @@ export type DateTimeTuple = [number | bigint, number | bigint];
  * A SurrealQL datetime value with support for parsing, formatting, arithmetic, and nanosecond precision.
  */
 export class DateTime extends Value {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, DATETIME_SYMBOL);
+    }
+
     readonly _seconds: bigint;
     readonly _ns: bigint;
 
     private static loadHr =
         typeof process !== "undefined" && process.hrtime
             ? {
-                ns: process.hrtime.bigint(),
-                ms: BigInt(Date.now()),
-            }
+                  ns: process.hrtime.bigint(),
+                  ms: BigInt(Date.now()),
+              }
             : undefined;
 
     /**
@@ -74,7 +78,7 @@ export class DateTime extends Value {
             const now = DateTime.now();
             this._seconds = now._seconds;
             this._ns = now._ns;
-        } else if (isDateTime(input)) {
+        } else if (input instanceof DateTime) {
             // Clone from existing datetime (cross-version safe via public fields)
             const dt = input as unknown as DateTime;
             this._seconds = dt._seconds;
@@ -117,7 +121,7 @@ export class DateTime extends Value {
     }
 
     equals(other: unknown): boolean {
-        if (!isDateTime(other)) return false;
+        if (!(other instanceof DateTime)) return false;
         return this.nanoseconds === (other as unknown as DateTime).nanoseconds;
     }
 
@@ -144,8 +148,7 @@ export class DateTime extends Value {
      */
     toISOString(): string {
         // Calculate total milliseconds including nanosecond precision
-        const totalMilliseconds =
-            Number(this._seconds) * 1000 + Number(this._ns) / 1000000;
+        const totalMilliseconds = Number(this._seconds) * 1000 + Number(this._ns) / 1000000;
         const date = new Date(totalMilliseconds);
         const isoString = date.toISOString();
 
@@ -166,8 +169,7 @@ export class DateTime extends Value {
      * Converts to JavaScript Date object
      */
     toDate(): Date {
-        const milliseconds =
-            Number(this._seconds) * 1000 + Math.floor(Number(this._ns) / 1000000);
+        const milliseconds = Number(this._seconds) * 1000 + Math.floor(Number(this._ns) / 1000000);
         return new Date(milliseconds);
     }
 

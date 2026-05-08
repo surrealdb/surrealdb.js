@@ -12,7 +12,6 @@ import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surr
 import { Features } from "../utils";
 import { ChannelIterator } from "../utils/channel-iterator";
 import { Publisher } from "../utils/publisher";
-import { isRecordId, isUuid } from "../utils/symbols";
 import { RecordId, Uuid } from "../value";
 import { RpcEngine } from "./rpc";
 
@@ -220,10 +219,10 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                     "detail" in e && e.detail
                         ? e.detail
                         : "message" in e && e.message
-                            ? e.message
-                            : "error" in e && e.error
-                                ? e.error
-                                : "An unexpected error occurred",
+                          ? e.message
+                          : "error" in e && e.error
+                            ? e.error
+                            : "An unexpected error occurred",
                 );
 
                 caughtError = error;
@@ -305,11 +304,11 @@ function isLiveMessage(v: unknown): v is LivePayload {
     if (v === null) return false;
     if (!("id" in v && "action" in v && "result" in v && "record" in v)) return false;
 
-    if (!isUuid(v.id)) return false;
+    if (!(v.id instanceof Uuid)) return false;
     if (!LIVE_ACTIONS.includes(v.action as LiveAction)) return false;
     if (typeof v.result !== "object") return false;
     if (v.result === null) return false;
-    if (!isRecordId(v.record)) return false;
+    if (!(v.record instanceof RecordId)) return false;
 
     return true;
 }

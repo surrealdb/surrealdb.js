@@ -15,7 +15,6 @@ import {
 } from "../query";
 import type { AnyRecordId, LiveResource, RecordResult, Session, Values } from "../types";
 import { BoundQuery } from "../utils";
-import { isBoundQuery, isTable } from "../utils/symbols";
 import { type RecordId, type RecordIdRange, Table, type Uuid } from "../value";
 import { type DefaultPaths, SurrealApi } from "./api";
 
@@ -93,7 +92,10 @@ export abstract class SurrealQueryable {
     // Shadow implementation
     query(query: string | BoundQuery, bindings?: Record<string, unknown>): Query {
         return new Query(this.#connection, {
-            query: isBoundQuery(query) ? query as unknown as BoundQuery : new BoundQuery(query as string, bindings),
+            query:
+                query instanceof BoundQuery
+                    ? (query as unknown as BoundQuery)
+                    : new BoundQuery(query as string, bindings),
             transaction: this.#transaction,
             session: this.#session,
             json: false,
@@ -264,7 +266,7 @@ export abstract class SurrealQueryable {
 
     // Shadow implementation
     insert<T>(arg1: Table | Values<T> | Values<T>[], arg2?: Values<T> | Values<T>[]): unknown {
-        if (isTable(arg1)) {
+        if (arg1 instanceof Table) {
             return new InsertPromise(this.#connection, {
                 table: arg1 as unknown as Table,
                 what: arg2 ?? [],

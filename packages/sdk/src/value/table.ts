@@ -1,12 +1,16 @@
 import { InvalidTableError } from "../errors";
 import { escapeIdent } from "../utils";
-import { isTable, markSymbol, TABLE_SYMBOL } from "../utils/symbols";
+import { hasSymbol, markSymbol, TABLE_SYMBOL } from "../utils/symbols";
 import { Value } from "./value";
 
 /**
  * A SurrealQL table value.
  */
 export class Table<Tb extends string = string> extends Value {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, TABLE_SYMBOL);
+    }
+
     readonly name: Tb;
 
     constructor(tb: Tb) {
@@ -17,7 +21,7 @@ export class Table<Tb extends string = string> extends Value {
     }
 
     equals(other: unknown): boolean {
-        if (!isTable(other)) return false;
+        if (!(other instanceof Table)) return false;
         return this.name === (other as unknown as Table).name;
     }
 

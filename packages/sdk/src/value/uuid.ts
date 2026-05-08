@@ -1,11 +1,15 @@
 import { UUID, uuidv4obj, uuidv7obj } from "uuidv7";
-import { isUuid, markSymbol, UUID_SYMBOL } from "../utils/symbols";
+import { hasSymbol, markSymbol, UUID_SYMBOL } from "../utils/symbols";
 import { Value } from "./value";
 
 /**
  * A SurrealQL UUID value.
  */
 export class Uuid extends Value {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, UUID_SYMBOL);
+    }
+
     readonly inner: UUID;
 
     /**
@@ -37,7 +41,7 @@ export class Uuid extends Value {
             this.inner = UUID.ofInner(new Uint8Array(uuid));
         } else if (uuid instanceof Uint8Array) {
             this.inner = UUID.ofInner(uuid);
-        } else if (isUuid(uuid)) {
+        } else if (uuid instanceof Uuid) {
             this.inner = (uuid as unknown as Uuid).inner;
         } else if (uuid instanceof UUID) {
             this.inner = uuid;
@@ -48,7 +52,7 @@ export class Uuid extends Value {
     }
 
     equals(other: unknown): boolean {
-        if (!isUuid(other)) return false;
+        if (!(other instanceof Uuid)) return false;
         return this.inner.equals((other as unknown as Uuid).inner);
     }
 

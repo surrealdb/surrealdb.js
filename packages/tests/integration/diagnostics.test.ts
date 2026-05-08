@@ -6,9 +6,10 @@ import { createSurreal, getEngines, type Person, proto } from "./__helpers__";
 function sanitizeEvents(events: Diagnostic[]) {
     return events.map((event) => {
         const { key: _key, ...rest } = event as Record<string, unknown>;
-        const withoutDuration = "duration" in rest
-            ? (({ duration: _d, ...r }) => r)(rest as Record<string, unknown>)
-            : rest;
+        const withoutDuration =
+            "duration" in rest
+                ? (({ duration: _d, ...r }) => r)(rest as Record<string, unknown>)
+                : rest;
         const result = withoutDuration.result as Record<string, unknown> | undefined;
         if (result?.chunk) {
             const chunk = result.chunk as Record<string, unknown>;

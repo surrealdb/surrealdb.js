@@ -1,6 +1,6 @@
 import { InvalidDurationError } from "../errors";
 import { escapeRegex } from "../internal/escape-regex";
-import { DURATION_SYMBOL, isDuration, markSymbol } from "../utils/symbols";
+import { DURATION_SYMBOL, hasSymbol, markSymbol } from "../utils/symbols";
 import { Value } from "./value";
 
 export type DurationTuple = [number | bigint, number | bigint] | [number | bigint] | [];
@@ -51,6 +51,10 @@ const FLOAT_DURATION_REGEX = new RegExp(
  * A SurrealQL duration value with support for parsing, formatting, arithmetic, and nanosecond precision.
  */
 export class Duration extends Value {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, DURATION_SYMBOL);
+    }
+
     readonly _seconds: bigint;
     readonly _ns: bigint;
 
@@ -82,7 +86,7 @@ export class Duration extends Value {
         if (input === undefined) {
             this._seconds = 0n;
             this._ns = 0n;
-        } else if (isDuration(input)) {
+        } else if (input instanceof Duration) {
             // Clone from existing duration (uses public getter for cross-version compatibility)
             const totalNs = (input as unknown as Duration).nanoseconds;
             this._seconds = totalNs / SECOND;
@@ -115,7 +119,7 @@ export class Duration extends Value {
     }
 
     equals(other: unknown): boolean {
-        if (!isDuration(other)) return false;
+        if (!(other instanceof Duration)) return false;
         return this.nanoseconds === (other as unknown as Duration).nanoseconds;
     }
 
@@ -165,8 +169,8 @@ export class Duration extends Value {
         return this._ns > 0n
             ? [this._seconds, this._ns]
             : this._seconds > 0n
-                ? [this._seconds]
-                : [];
+              ? [this._seconds]
+              : [];
     }
 
     /**
@@ -254,7 +258,7 @@ export class Duration extends Value {
     div(divisor: Duration): bigint;
     div(divisor: number | bigint): Duration;
     div(divisor: number | bigint | Duration): bigint | Duration {
-        if (typeof divisor === "object" && isDuration(divisor)) {
+        if (typeof divisor === "object" && divisor instanceof Duration) {
             const a = this.nanoseconds;
             const b = (divisor as unknown as Duration).nanoseconds;
             if (b === 0n) throw new InvalidDurationError("Division by zero duration");

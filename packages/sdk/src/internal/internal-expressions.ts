@@ -1,6 +1,5 @@
 import { ExpressionError } from "../errors";
 import type { Expr, Output } from "../types";
-import { isDuration, isRecordId, isStringRecordId } from "../utils/symbols";
 import { Duration, RecordId, StringRecordId } from "../value";
 
 const OUTPUTS: Map<Output, string> = new Map([
@@ -13,7 +12,7 @@ const OUTPUTS: Map<Output, string> = new Map([
 
 export const _only = (value: unknown): Expr => ({
     toSQL: (ctx) =>
-        isRecordId(value) || isStringRecordId(value)
+        value instanceof RecordId || value instanceof StringRecordId
             ? `ONLY ${ctx.def(value)}`
             : ctx.def(value),
 });
@@ -32,7 +31,7 @@ export const _output = (value: Output): Expr => ({
 
 export const _timeout = (timeout: Duration): Expr => ({
     toSQL: () => {
-        if (!isDuration(timeout)) {
+        if (!(timeout instanceof Duration)) {
             throw new ExpressionError(`Invalid timeout value: ${timeout}`);
         }
 

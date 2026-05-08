@@ -5,7 +5,7 @@ import type { WidenRecordIdValue } from "../types/internal";
 import { equals } from "../utils/equals";
 import { escapeIdent, escapeRangeBound } from "../utils/escape";
 import type { Bound } from "../utils/range";
-import { isRecordIdRange, isTable, markSymbol, RECORD_ID_RANGE_SYMBOL } from "../utils/symbols";
+import { hasSymbol, markSymbol, RECORD_ID_RANGE_SYMBOL } from "../utils/symbols";
 import type { RecordIdValue } from "./record-id";
 import { Table } from "./table";
 import { Value } from "./value";
@@ -19,6 +19,10 @@ class RecordIdRange<
     Tb extends string = string,
     Id extends RecordIdValue = RecordIdValue,
 > extends Value {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, RECORD_ID_RANGE_SYMBOL);
+    }
+
     readonly table: Table<Tb>;
     readonly begin: Bound<Id>;
     readonly end: Bound<Id>;
@@ -30,14 +34,15 @@ class RecordIdRange<
         if (!isValidIdBound(beg)) throw new InvalidRecordIdError("Begin bound is not valid");
         if (!isValidIdBound(end)) throw new InvalidRecordIdError("End bound is not valid");
 
-        this.table = isTable(table) ? table as unknown as Table<Tb> : new Table(table as Tb);
+        this.table =
+            table instanceof Table ? (table as unknown as Table<Tb>) : new Table(table as Tb);
         this.begin = beg;
         this.end = end;
         markSymbol(this, RECORD_ID_RANGE_SYMBOL);
     }
 
     equals(other: unknown): boolean {
-        if (!isRecordIdRange(other)) return false;
+        if (!(other instanceof RecordIdRange)) return false;
         const o = other as unknown as RecordIdRange;
         if (this.begin?.constructor !== o.begin?.constructor) return false;
         if (this.end?.constructor !== o.end?.constructor) return false;

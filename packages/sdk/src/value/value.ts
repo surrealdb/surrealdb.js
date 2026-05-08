@@ -1,9 +1,13 @@
-import { markSymbol, VALUE_SYMBOL } from "../utils/symbols";
+import { hasSymbol, markSymbol, VALUE_SYMBOL } from "../utils/symbols";
 
 /**
  * A complex SurrealQL value type
  */
 export abstract class Value {
+    static [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, VALUE_SYMBOL);
+    }
+
     constructor() {
         markSymbol(this, VALUE_SYMBOL);
     }

@@ -11,19 +11,6 @@ import {
     Table,
     Uuid,
 } from "../value";
-import {
-    isDateTime,
-    isDecimal,
-    isDuration,
-    isFileRef,
-    isFuture,
-    isGeometry,
-    isRange,
-    isRecordId,
-    isStringRecordId,
-    isTable,
-    isUuid,
-} from "../utils/symbols";
 
 /**
  * Recursively convert any supported SurrealQL value into a string representation.
@@ -37,22 +24,25 @@ export function toSurqlString(input: unknown): string {
     if (input === undefined) return "NONE";
 
     if (typeof input === "object") {
-        if (isUuid(input)) return `u${JSON.stringify((input as unknown as Uuid).toString())}`;
-        if (input instanceof Date || isDateTime(input))
+        if (input instanceof Uuid)
+            return `u${JSON.stringify((input as unknown as Uuid).toString())}`;
+        if (input instanceof Date || input instanceof DateTime)
             return `d${JSON.stringify((input as unknown as DateTime).toISOString())}`;
-        if (isRecordId(input) || isStringRecordId(input))
+        if (input instanceof RecordId || input instanceof StringRecordId)
             return `r${JSON.stringify((input as unknown as RecordId | StringRecordId).toString())}`;
-        if (isFileRef(input)) return `f${JSON.stringify((input as unknown as FileRef).toString())}`;
+        if (input instanceof FileRef)
+            return `f${JSON.stringify((input as unknown as FileRef).toString())}`;
 
-        if (isGeometry(input)) return toSurqlString((input as unknown as Geometry).toJSON());
+        if (input instanceof Geometry)
+            return toSurqlString((input as unknown as Geometry).toJSON());
 
-        if (isDecimal(input)) return `${(input as unknown as Decimal).toJSON()}dec`;
+        if (input instanceof Decimal) return `${(input as unknown as Decimal).toJSON()}dec`;
 
         if (
-            isDuration(input) ||
-            isFuture(input) ||
-            isRange(input) ||
-            isTable(input)
+            input instanceof Duration ||
+            input instanceof Future ||
+            input instanceof Range ||
+            input instanceof Table
         ) {
             return (input as unknown as { toJSON: () => string }).toJSON();
         }

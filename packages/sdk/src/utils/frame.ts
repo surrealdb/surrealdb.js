@@ -14,6 +14,10 @@ import {
  * Represents a single query result frame frame
  */
 export class Frame<T, J extends boolean> {
+    static [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, FRAME_SYMBOL);
+    }
+
     readonly query: number;
 
     constructor(query: number) {
@@ -32,21 +36,21 @@ export class Frame<T, J extends boolean> {
      * Returns true if the frame is a value frame
      */
     isValue(): this is ValueFrame<T, J> {
-        return hasSymbol(this, VALUE_FRAME_SYMBOL);
+        return this instanceof ValueFrame;
     }
 
     /**
      * Returns true if the frame is an error frame
      */
     isError(): this is ErrorFrame<T, J> {
-        return hasSymbol(this, ERROR_FRAME_SYMBOL);
+        return this instanceof ErrorFrame;
     }
 
     /**
      * Returns true if the frame is a done frame
      */
     isDone(): this is DoneFrame<T, J> {
-        return hasSymbol(this, DONE_FRAME_SYMBOL);
+        return this instanceof DoneFrame;
     }
 
     /**
@@ -76,6 +80,10 @@ export class Frame<T, J extends boolean> {
  * and no further values will be returned for that specific statement.
  */
 export class ValueFrame<T, J extends boolean> extends Frame<T, J> {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, VALUE_FRAME_SYMBOL);
+    }
+
     readonly value: MaybeJsonify<T, J>;
     readonly isSingle: boolean;
 
@@ -95,6 +103,10 @@ export class ValueFrame<T, J extends boolean> extends Frame<T, J> {
  * Represents an error frame in a query result
  */
 export class ErrorFrame<T, J extends boolean> extends Frame<T, J> {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, ERROR_FRAME_SYMBOL);
+    }
+
     readonly stats: QueryStats | undefined;
     readonly error: ServerError;
 
@@ -121,6 +133,10 @@ export class ErrorFrame<T, J extends boolean> extends Frame<T, J> {
  * Represents a done frame in a query result
  */
 export class DoneFrame<T, J extends boolean> extends Frame<T, J> {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, DONE_FRAME_SYMBOL);
+    }
+
     readonly stats: QueryStats | undefined;
     readonly type: QueryType;
 

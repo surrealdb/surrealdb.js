@@ -1,5 +1,5 @@
 import { InvalidDecimalError } from "../errors";
-import { DECIMAL_SYMBOL, isDecimal, markSymbol } from "../utils/symbols";
+import { DECIMAL_SYMBOL, hasSymbol, markSymbol } from "../utils/symbols";
 import { Value } from "./value";
 
 export type DecimalTuple = [bigint, bigint, number];
@@ -8,6 +8,10 @@ export type DecimalTuple = [bigint, bigint, number];
  * A SurrealQL decimal number value with support for parsing, formatting, arithmetic, and high precision.
  */
 export class Decimal extends Value {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, DECIMAL_SYMBOL);
+    }
+
     readonly int: bigint;
     readonly frac: bigint;
     readonly scale: number;
@@ -44,7 +48,7 @@ export class Decimal extends Value {
     constructor(input: Decimal | string | number | bigint | DecimalTuple) {
         super();
 
-        if (isDecimal(input)) {
+        if (input instanceof Decimal) {
             // Clone from another Decimal (uses public getters for cross-version compatibility)
             const dec = input as unknown as Decimal;
             this.int = dec.int;
@@ -115,7 +119,7 @@ export class Decimal extends Value {
     }
 
     equals(other: unknown): boolean {
-        if (!isDecimal(other)) return false;
+        if (!(other instanceof Decimal)) return false;
         const dec = other as unknown as Decimal;
         const a = this.toBigIntWithScale();
         const bScale = dec.scale;
@@ -265,10 +269,10 @@ export class Decimal extends Value {
     abs(): Decimal {
         return this.int < 0n || this.frac < 0n
             ? new Decimal([
-                this.int < 0n ? -this.int : this.int,
-                this.frac < 0n ? -this.frac : this.frac,
-                this.scale,
-            ])
+                  this.int < 0n ? -this.int : this.int,
+                  this.frac < 0n ? -this.frac : this.frac,
+                  this.scale,
+              ])
             : this;
     }
 
