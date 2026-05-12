@@ -30,6 +30,37 @@ jobs:
       - name: Checking Code Quality
         run: bun run qc
 
+  typecheck:
+    name: Typecheck
+    needs: build-sdk
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        typescript: ["~5.8.0", "~6.0.0"]
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.2.21
+
+      - name: Code Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Download SDK build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: sdk-build
+          path: packages/sdk/dist/
+
+      - name: Install TypeScript ${{ matrix.typescript }}
+        run: bun add --dev typescript@${{ matrix.typescript }}
+
+      - name: Typecheck SDK types
+        run: bunx tsc --noEmit --project packages/tests/typecheck/tsconfig.json
+
   build-sdk:
     name: Build SDK
     runs-on: ubuntu-latest

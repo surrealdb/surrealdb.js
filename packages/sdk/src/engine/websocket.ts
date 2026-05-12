@@ -137,7 +137,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
     ready(): void {
         for (const { request } of this.#calls.values()) {
-            this.#socket?.send(this._context.codecs.cbor.encode(request));
+            this.#socket?.send(new Uint8Array(this._context.codecs.cbor.encode(request)));
         }
     }
 
@@ -158,7 +158,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             };
 
             this.#calls.set(id, call as Call<unknown>);
-            this.#socket?.send(this._context.codecs.cbor.encode(call.request));
+            this.#socket?.send(new Uint8Array(this._context.codecs.cbor.encode(call.request)));
         });
     }
 
