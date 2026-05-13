@@ -1,12 +1,23 @@
 # @surrealdb/spectron
 
-Typed REST client for the [Spectron](https://surrealdb.com/platform/spectron) API. It uses your platform `fetch`, ships no runtime dependencies, and does not depend on the `surrealdb` package.
+Typed REST client for the [Spectron](https://surrealdb.com/platform/spectron) API. It is lightweight, uses your platform `fetch`, and ships no runtime dependencies.
 
 ## Install
 
+Run the following command to add the SDK to your project:
+
 ```sh
+# using npm
+npm i @surrealdb/spectron
+
+# or using pnpm
+pnpm i @surrealdb/spectron
+
+# or using yarn
+yarn add @surrealdb/spectron
+
+# or using bun
 bun add @surrealdb/spectron
-# or npm / pnpm / yarn
 ```
 
 ## Quick start
@@ -14,15 +25,21 @@ bun add @surrealdb/spectron
 ```ts
 import { Spectron } from "@surrealdb/spectron";
 
+// Create a new Spectron client
 const client = new Spectron({
   context: "acme-prod",
-  baseUrl: "https://api.spectron.dev",
   apiKey: process.env.SPECTRON_API_KEY!,
 });
 
-await client.health();
+// Upload a new document
+const document = await client.knowledge.upload({
+  file: documentFile,
+  title: "Handbook",
+});
 
+// Create a new session
 const session = await client.sessions.create({ scope: { user: "tobie" } });
+
 await session.turn({ role: "user", content: "I just got promoted to CTO" });
 await session.chat({ message: "What do you know about me?" });
 await session.close();
@@ -32,10 +49,6 @@ await client.knowledge.upload({
   title: "Handbook",
 });
 ```
-
-## Knowledge file inputs
-
-`knowledge.upload` and `knowledge.replace` accept `File`, `Blob`, `Uint8Array` (and other `ArrayBufferView` / `ArrayBuffer`), and `ReadableStream<Uint8Array>`. Streams are buffered in full before multipart upload so behaviour is consistent across runtimes; very large files may warrant a future streaming-oriented API.
 
 ## One-shot memory
 
@@ -69,10 +82,6 @@ Idempotent `GET` requests retry on `5xx` and connection failures with backoff `2
 ## Scope
 
 Session and upload calls accept `scope?: Record<string, string>`, serialised wire-side as `{ key, value }[]` via `serialiseScope` / `deserialiseScope`.
-
-## Publishing (maintainers)
-
-Releases are **not** tied to GitHub Releases. Merge the intended `version` in `package.json`, then run the **Publish Spectron** workflow from the Actions tab (`workflow_dispatch`). Use `dry run` first if you want an npm `--dry-run`.
 
 ## Regenerating API types
 

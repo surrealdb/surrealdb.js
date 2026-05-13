@@ -65,16 +65,16 @@ Run the following command to add the SDK to your project:
 
 ```sh
 # using npm
-npm i surrealdb@alpha
+npm i surrealdb
 
 # or using pnpm
-pnpm i surrealdb@alpha
+pnpm i surrealdb
 
 # or using yarn
-yarn add surrealdb@alpha
+yarn add surrealdb
 
 # or using bun
-bun add surrealdb@alpha
+bun add surrealdb
 ```
 
 You can now import the SDK into your project with:
@@ -96,9 +96,6 @@ import Surreal from "https://cdn.jsdelivr.net/npm/surrealdb";
 _**NOTE: this bundle is not optimized for production! So don't use it in production!**_
 
 ## Getting started
-
-> [!WARNING]
-> These examples are for the v2 SDK (alpha). For the stable v1 SDK examples, see [here](https://github.com/surrealdb/surrealdb.js/blob/main/README_V1.md).
 
 In the example below you can see how to connect to a remote instance of SurrealDB, authenticating with the database, and issuing queries for creating, updating, and selecting data from records.
 
@@ -214,13 +211,13 @@ The **WebAssembly engine** for the JavaScript SDK provides a powerful way to ext
 Run the following command to add the WebAssembly engine to your project:
 
 ```sh
-npm i @surrealdb/wasm@alpha
+npm i @surrealdb/wasm
 # or
-pnpm i @surrealdb/wasm@alpha
+pnpm i @surrealdb/wasm
 # or
-yarn add @surrealdb/wasm@alpha
+yarn add @surrealdb/wasm
 # or
-bun add @surrealdb/wasm@alpha
+bun add @surrealdb/wasm
 ```
 
 ### Registering the WebAssembly engine
@@ -272,13 +269,13 @@ The **Node.js engine** for the JavaScript SDK provides a powerful way to extend 
 Run the following command to add the Node.js engine to your project:
 
 ```sh
-npm i @surrealdb/node@alpha
+npm i @surrealdb/node
 # or
-pnpm i @surrealdb/node@alpha
+pnpm i @surrealdb/node
 # or
-yarn add @surrealdb/node@alpha
+yarn add @surrealdb/node
 # or
-bun add @surrealdb/node@alpha
+bun add @surrealdb/node
 ```
 
 ### Registering the Node.js engine
