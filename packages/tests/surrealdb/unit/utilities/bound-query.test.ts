@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { RecordId } from "surrealdb";
-import { BoundQuery } from "../../../sdk/src/utils/bound-query";
+import { BoundQuery } from "../../../../sdk/src/utils/bound-query";
 
 describe("BoundQuery", () => {
     test("empty instance", () => {

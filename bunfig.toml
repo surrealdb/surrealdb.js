@@ -17,4 +17,4 @@ minimumReleaseAgeExcludes = [
 ]
 
 [test]
-preload = ["./packages/tests/global.ts"]
+preload = ["./packages/tests/surrealdb/global.ts"]

@@ -1,5 +1,5 @@
 import { type Engines, Surreal } from "surrealdb";
-import { createWasmEngines } from "../wasm/dist/surrealdb-wasm";
+import { createWasmEngines } from "../../wasm/dist/surrealdb-wasm";
 
 type GlobalThis = typeof globalThis & {
     embeddedEngines: Engines;

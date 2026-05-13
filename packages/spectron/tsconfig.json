@@ -3,5 +3,6 @@
     "compilerOptions": {
         "isolatedDeclarations": false,
         "types": ["bun"]
-    }
+    },
+    "include": ["src/**/*.ts", "build.ts", "generate.ts"]
 }

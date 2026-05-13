@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mergeBindings } from "../../../sdk/src/utils/bound-query";
+import { mergeBindings } from "../../../../sdk/src/utils/bound-query";
 
 describe("mergeBindings", () => {
     test("merges non-overlapping bindings", () => {

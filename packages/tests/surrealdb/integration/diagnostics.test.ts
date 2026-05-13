@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { applyDiagnostics, type Diagnostic, RecordId } from "surrealdb";
-import { resetIncrementalID } from "../../sdk/src/internal/get-incremental-id";
+import { resetIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
 import { createSurreal, getEngines, type Person, proto } from "./__helpers__";
 
 function sanitizeEvents(events: Diagnostic[]) {

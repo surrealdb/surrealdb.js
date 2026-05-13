@@ -1,5 +1,5 @@
 import { type Engines, Surreal } from "surrealdb";
-import { createNodeEngines } from "../node/dist/surrealdb-node";
+import { createNodeEngines } from "../../node/dist/surrealdb-node";
 
 type GlobalThis = typeof globalThis & {
     embeddedEngines: Engines;

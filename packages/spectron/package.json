@@ -1,0 +1,46 @@
+{
+    "name": "@surrealdb/spectron",
+    "version": "1.0.0-alpha.1",
+    "type": "module",
+    "license": "Apache-2.0",
+    "description": "The official Spectron client for JavaScript.",
+    "homepage": "https://surrealdb.com/platform/spectron",
+    "keywords": [
+        "spectron",
+        "surrealdb",
+        "memory",
+        "knowledge",
+        "rag"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/surrealdb/surrealdb.js.git"
+    },
+    "scripts": {
+        "build": "bun run build.ts",
+        "generate": "bun run generate.ts",
+        "deploy": "bun run ../../scripts/publish.ts"
+    },
+    "devDependencies": {
+        "@types/bun": "^1.2.21",
+        "openapi-typescript": "^7.10.0"
+    },
+    "peerDependencies": {
+        "typescript": "^5.0.0 || ^6.0.0"
+    },
+    "types": "./dist/spectron.d.ts",
+    "main": "./dist/spectron.mjs",
+    "exports": {
+        ".": {
+            "types": "./dist/spectron.d.ts",
+            "import": "./dist/spectron.mjs",
+            "require": "./dist/spectron.cjs"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE",
+        "SECURITY.md"
+    ]
+}

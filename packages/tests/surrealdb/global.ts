@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach } from "bun:test";
 import { escapeIdent } from "surrealdb";
-import { resetIncrementalID } from "../sdk/src/internal/get-incremental-id";
+import { resetIncrementalID } from "../../sdk/src/internal/get-incremental-id";
 import { SURREAL_BACKEND, SURREAL_DB, SURREAL_NS } from "./integration/__helpers__/env";
 import {
     connections,

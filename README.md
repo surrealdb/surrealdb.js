@@ -307,6 +307,18 @@ await db.connect("surrealkv://path/to/storage.db");
 await db.connect("surrealkv+versioned://path/to/storage.db");
 ```
 
+## Spectron client
+
+<img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/surreal.svg" />
+
+**Spectron** is the managed memory and knowledge layer for AI apps. The **`@surrealdb/spectron`** package is a typed HTTP client for its public API (sessions, memory, knowledge, traces)—independent of the SurrealDB database SDK.
+
+```sh
+bun add @surrealdb/spectron
+```
+
+See the [Spectron client readme](./packages/spectron/README.md) for usage, errors, retries, and publishing notes.
+
 ## Contributing
 
 ### Local setup
@@ -375,8 +387,9 @@ for VSCode are helpful.
 - `./biome.json` contains settings for code quality.
 - `./scripts` contains the build and publish scripts.
 - `./packages/sdk` contains the JavaScript SDK source code.
+- `./packages/spectron` contains the Spectron client source code.
 - `./packages/node` contains the Node.js SDK source code.
 - `./packages/wasm` contains the WebAssembly SDK source code.
-- `./packages/tests` contains the testing suite.
+- `./packages/tests` contains the testing suite (`surrealdb/` for the SDK, `spectron/` for Spectron).
 - `./demo/wasm` contains a WebAssembly demo.
 - `./demo/node` contains a Node.js demo.

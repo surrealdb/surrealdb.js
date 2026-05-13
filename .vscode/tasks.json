@@ -3,7 +3,7 @@
 	"tasks": [
 		{
 			"type": "shell",
-			"command": "cd ./packages/tests && bun run test",
+			"command": "cd ./packages/tests/surrealdb && bun run test",
 			"problemMatcher": [],
 			"label": "Run tests",
 			"detail": "bun test"

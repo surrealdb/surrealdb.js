@@ -1,0 +1,2693 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "spectron",
+        "description": "",
+        "license": {
+            "name": ""
+        },
+        "version": "0.0.0"
+    },
+    "paths": {
+        "/api/v1/health": {
+            "get": {
+                "operationId": "health_check",
+                "responses": {
+                    "200": {
+                        "description": ""
+                    },
+                    "500": {
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/{context_id}/knowledge": {
+            "get": {
+                "description": "Lists Layer 0 knowledge documents",
+                "operationId": "list_documents",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filter by document status",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "mime_type",
+                        "in": "query",
+                        "description": "Filter by mime type",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number (0-indexed)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "in": "query",
+                        "description": "Page size, max 100",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Documents",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentPageJson"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            },
+            "post": {
+                "description": "Upload a new Layer 0 knowledge document (multipart/form-data)",
+                "operationId": "upload_document",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Upload accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UploadResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed multipart",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "415": {
+                        "description": "Unsupported media type",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/keywords": {
+            "get": {
+                "description": "Lists keywords across the Context",
+                "operationId": "list_keywords",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "description": "Case-insensitive substring match on text",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "minDocumentCount",
+                        "in": "query",
+                        "description": "Minimum number of linked documents",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort key",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number (0-indexed)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "description": "Page size, max 100",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KeywordPageJson"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/keywords/search": {
+            "post": {
+                "description": "HNSW vector search over keyword embeddings",
+                "operationId": "search_keywords",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/KeywordSearchRequestJson"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KeywordSearchResponseJson"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/keywords/{normalised}": {
+            "get": {
+                "description": "Gets a keyword and its linked documents",
+                "operationId": "get_keyword",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "normalised",
+                        "in": "path",
+                        "description": "Uppercase canonical keyword form",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KeywordDetailJson"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Keyword not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/keywords/{normalised}/related": {
+            "get": {
+                "description": "Co-occurring neighbourhood from one canonical keyword form",
+                "operationId": "related_keyword_http",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "normalised",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TraverseApiResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/nodes": {
+            "get": {
+                "description": "Lists typed knowledge rows",
+                "operationId": "list_knowledge_nodes_http",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "kind",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeNodePageJson"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/nodes/batch": {
+            "post": {
+                "description": "Bulk UPSERT typed knowledge nodes and relates_to edges",
+                "operationId": "bulk_upsert_knowledge_nodes",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Vec"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": ""
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/nodes/search": {
+            "post": {
+                "description": "Hybrid BM25 + HNSW search over typed knowledge nodes",
+                "operationId": "post_search_knowledge_nodes",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/KnowledgeNodeSearchRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeNodeSearchResponseJson"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/nodes/{kind}/{slug}": {
+            "get": {
+                "description": "Fetches one typed knowledge node",
+                "operationId": "get_knowledge_node_http",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "kind",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeNodeFullJson"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": ""
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            },
+            "delete": {
+                "description": "Deletes a typed knowledge row",
+                "operationId": "delete_knowledge_node_http",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "kind",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": ""
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": ""
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/nodes/{kind}/{slug}/related": {
+            "get": {
+                "description": "Thin wrapper starting at one typed knowledge node",
+                "operationId": "related_knowledge_node_http",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "kind",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "label",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "depth",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TraverseApiResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/query": {
+            "post": {
+                "description": "Runs a top-k semantic query over the Layer 0 chunks",
+                "operationId": "query_knowledge",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/QueryRequestJson"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/QueryResponseJson"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/traverse": {
+            "post": {
+                "description": "Depth-bounded walk over Layer 0 graph edges",
+                "operationId": "post_traverse_graph",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TraverseApiRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TraverseApiResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/{id}": {
+            "get": {
+                "description": "Gets a Layer 0 knowledge document by id",
+                "operationId": "get_document",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Document id fragment",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Document",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentJson"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Document not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            },
+            "put": {
+                "description": "Replaces a Layer 0 knowledge document and re-runs its pipeline",
+                "operationId": "reprocess_document",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Document id fragment",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Upload accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UploadResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed multipart",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Document not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "415": {
+                        "description": "Unsupported media type",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            },
+            "delete": {
+                "description": "Deletes a Layer 0 knowledge document",
+                "operationId": "delete_document",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Document id fragment",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Document deleted"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Document not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/{id}/chunks": {
+            "get": {
+                "description": "Lists chunks for a document",
+                "operationId": "list_chunks",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Document id fragment",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number (0-indexed)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "in": "query",
+                        "description": "Page size, max 100",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChunkPageJson"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Document not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/{id}/keywords": {
+            "get": {
+                "description": "Lists keywords linked to a single document",
+                "operationId": "list_document_keywords",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Document id fragment",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentKeywordsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Document not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/{id}/raw": {
+            "get": {
+                "description": "Streams the raw bytes of a document",
+                "operationId": "fetch_document_raw",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Document id fragment",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Raw bytes"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Document not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/knowledge/{id}/related": {
+            "get": {
+                "description": "Keywords and neighbours from a Layer 0 document id",
+                "operationId": "related_document_http",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Document id fragment",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TraverseApiResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ApiErrorResponse": {
+                "type": "object",
+                "description": "Unified error response type for all REST endpoints.",
+                "required": ["message"],
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ChunkJson": {
+                "type": "object",
+                "required": ["id", "document", "position", "charStart", "charEnd", "text"],
+                "properties": {
+                    "charEnd": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "charStart": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "document": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "position": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "section": {
+                        "type": ["string", "null"]
+                    },
+                    "text": {
+                        "type": "string"
+                    },
+                    "tokenCount": {
+                        "type": ["integer", "null"],
+                        "format": "int64"
+                    }
+                }
+            },
+            "ChunkPageJson": {
+                "type": "object",
+                "required": ["chunks", "total", "page", "pageSize"],
+                "properties": {
+                    "chunks": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ChunkJson"
+                        }
+                    },
+                    "page": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "pageSize": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "total": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    }
+                }
+            },
+            "DocumentJson": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "title",
+                    "mimeType",
+                    "source",
+                    "contentHash",
+                    "sizeBytes",
+                    "version",
+                    "status",
+                    "createdAt",
+                    "updatedAt"
+                ],
+                "properties": {
+                    "chunkCount": {
+                        "type": ["integer", "null"],
+                        "format": "int64"
+                    },
+                    "contentHash": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "error": {
+                        "type": ["string", "null"]
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "keywordCount": {
+                        "type": ["integer", "null"],
+                        "format": "int64"
+                    },
+                    "language": {
+                        "type": ["string", "null"]
+                    },
+                    "mimeType": {
+                        "type": "string"
+                    },
+                    "processingCompletedAt": {
+                        "type": ["string", "null"],
+                        "format": "date-time"
+                    },
+                    "processingStartedAt": {
+                        "type": ["string", "null"],
+                        "format": "date-time"
+                    },
+                    "sizeBytes": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "version": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            },
+            "DocumentKeywordJson": {
+                "type": "object",
+                "required": ["id", "text", "normalised", "score"],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "normalised": {
+                        "type": "string"
+                    },
+                    "score": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "text": {
+                        "type": "string"
+                    }
+                }
+            },
+            "DocumentKeywordsResponse": {
+                "type": "object",
+                "required": ["keywords"],
+                "properties": {
+                    "keywords": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DocumentKeywordJson"
+                        }
+                    }
+                }
+            },
+            "DocumentPageJson": {
+                "type": "object",
+                "required": ["documents", "total", "page", "pageSize"],
+                "properties": {
+                    "documents": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DocumentJson"
+                        }
+                    },
+                    "page": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "pageSize": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "total": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    }
+                }
+            },
+            "GraphEvidenceJson": {
+                "type": "object",
+                "required": ["neighbourLabel", "edgeKind", "weight"],
+                "properties": {
+                    "edgeKind": {
+                        "type": "string"
+                    },
+                    "neighbourLabel": {
+                        "type": "string"
+                    },
+                    "weight": {
+                        "type": "number",
+                        "format": "float"
+                    }
+                }
+            },
+            "KeywordDetailJson": {
+                "type": "object",
+                "required": ["id", "text", "normalised", "documentCount", "documents"],
+                "properties": {
+                    "documentCount": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "documents": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KeywordDocumentJson"
+                        }
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "normalised": {
+                        "type": "string"
+                    },
+                    "text": {
+                        "type": "string"
+                    }
+                }
+            },
+            "KeywordDocumentJson": {
+                "type": "object",
+                "required": ["id", "title", "score"],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "score": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "title": {
+                        "type": "string"
+                    }
+                }
+            },
+            "KeywordJson": {
+                "type": "object",
+                "required": ["id", "text", "normalised", "documentCount"],
+                "properties": {
+                    "documentCount": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "normalised": {
+                        "type": "string"
+                    },
+                    "text": {
+                        "type": "string"
+                    }
+                }
+            },
+            "KeywordPageJson": {
+                "type": "object",
+                "required": ["keywords", "total", "page", "pageSize"],
+                "properties": {
+                    "keywords": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KeywordJson"
+                        }
+                    },
+                    "page": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "pageSize": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "total": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    }
+                }
+            },
+            "KeywordSearchHitJson": {
+                "type": "object",
+                "required": ["id", "text", "normalised", "documentCount", "score"],
+                "properties": {
+                    "documentCount": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "normalised": {
+                        "type": "string"
+                    },
+                    "score": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "text": {
+                        "type": "string"
+                    }
+                }
+            },
+            "KeywordSearchRequestJson": {
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                    "k": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "query": {
+                        "type": "string"
+                    },
+                    "threshold": {
+                        "type": "number",
+                        "format": "float"
+                    }
+                }
+            },
+            "KeywordSearchResponseJson": {
+                "type": "object",
+                "required": ["results", "queryMs"],
+                "properties": {
+                    "queryMs": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KeywordSearchHitJson"
+                        }
+                    }
+                }
+            },
+            "KnowledgeLinkTarget": {
+                "type": "object",
+                "description": "Target endpoint for [`KnowledgeLinkUpsert`].",
+                "required": ["kind", "slug"],
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "description": "Stable kind token (embedded in [`RecordId`])."
+                    },
+                    "slug": {
+                        "type": "string",
+                        "description": "Stable slug fragment (embedded in [`RecordId`])."
+                    }
+                }
+            },
+            "KnowledgeLinkUpsert": {
+                "type": "object",
+                "required": ["to", "label"],
+                "properties": {
+                    "label": {
+                        "type": "string"
+                    },
+                    "to": {
+                        "$ref": "#/components/schemas/KnowledgeLinkTarget",
+                        "description": "Directed edge target `{ kind, slug }`."
+                    }
+                }
+            },
+            "KnowledgeNodeFullJson": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "kind",
+                    "title",
+                    "content",
+                    "embedding",
+                    "scope",
+                    "createdAt",
+                    "updatedAt"
+                ],
+                "properties": {
+                    "content": {},
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "embedding": {
+                        "type": "array",
+                        "items": {
+                            "type": "number",
+                            "format": "float"
+                        }
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "scope": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "sourceDocument": {
+                        "type": ["string", "null"]
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "KnowledgeNodeListedJson": {
+                "type": "object",
+                "required": ["id", "kind", "title", "content", "scope", "createdAt", "updatedAt"],
+                "properties": {
+                    "content": {},
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "scope": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "sourceDocument": {
+                        "type": ["string", "null"]
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "KnowledgeNodePageJson": {
+                "type": "object",
+                "required": ["nodes", "total", "page", "pageSize"],
+                "properties": {
+                    "nodes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KnowledgeNodeListedJson"
+                        }
+                    },
+                    "page": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "pageSize": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "total": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    }
+                }
+            },
+            "KnowledgeNodeSearchHitJson": {
+                "type": "object",
+                "required": ["node", "score"],
+                "properties": {
+                    "node": {
+                        "$ref": "#/components/schemas/KnowledgeSummaryJson"
+                    },
+                    "score": {
+                        "type": "number",
+                        "format": "float"
+                    }
+                }
+            },
+            "KnowledgeNodeSearchRequest": {
+                "type": "object",
+                "required": ["query", "k", "threshold"],
+                "properties": {
+                    "k": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "kindFilter": {
+                        "type": ["string", "null"]
+                    },
+                    "query": {
+                        "type": "string"
+                    },
+                    "rrfK": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "threshold": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "vectorWeight": {
+                        "type": "number",
+                        "format": "float"
+                    }
+                }
+            },
+            "KnowledgeNodeSearchResponseJson": {
+                "type": "object",
+                "required": ["results", "queryMs"],
+                "properties": {
+                    "queryMs": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KnowledgeNodeSearchHitJson"
+                        }
+                    }
+                }
+            },
+            "KnowledgeNodeUpsertRow": {
+                "type": "object",
+                "description": "One row from `POST /knowledge/nodes` bulk-upsert payloads.",
+                "required": ["kind", "slug", "title"],
+                "properties": {
+                    "content": {},
+                    "kind": {
+                        "type": "string"
+                    },
+                    "links": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KnowledgeLinkUpsert"
+                        }
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "sourceDocument": {
+                        "type": ["string", "null"]
+                    },
+                    "title": {
+                        "type": "string"
+                    }
+                }
+            },
+            "KnowledgeSummaryJson": {
+                "type": "object",
+                "required": ["id", "kind", "title"],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    }
+                }
+            },
+            "QueryFilter": {
+                "type": "object",
+                "properties": {
+                    "documentIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "mimeType": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "QueryHitChunkJson": {
+                "type": "object",
+                "required": ["id", "document", "position", "text", "charStart", "charEnd"],
+                "properties": {
+                    "charEnd": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "charStart": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "document": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "position": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "section": {
+                        "type": ["string", "null"]
+                    },
+                    "text": {
+                        "type": "string"
+                    }
+                }
+            },
+            "QueryHitDocumentJson": {
+                "type": "object",
+                "required": ["id", "title", "source"],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    }
+                }
+            },
+            "QueryHitJson": {
+                "type": "object",
+                "required": ["chunk", "score", "document"],
+                "properties": {
+                    "chunk": {
+                        "$ref": "#/components/schemas/QueryHitChunkJson"
+                    },
+                    "document": {
+                        "$ref": "#/components/schemas/QueryHitDocumentJson"
+                    },
+                    "graphEvidence": {
+                        "type": ["array", "null"],
+                        "items": {
+                            "$ref": "#/components/schemas/GraphEvidenceJson"
+                        }
+                    },
+                    "graphExpansion": {},
+                    "score": {
+                        "type": "number",
+                        "format": "float"
+                    }
+                }
+            },
+            "QueryRequestJson": {
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                    "expandGraph": {
+                        "type": "boolean"
+                    },
+                    "filter": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/QueryFilter"
+                            }
+                        ]
+                    },
+                    "graphAlpha": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "graphDepth": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "graphEdges": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "k": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "mode": {
+                        "type": "string"
+                    },
+                    "query": {
+                        "type": "string"
+                    },
+                    "rrfK": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "threshold": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "vectorWeight": {
+                        "type": "number",
+                        "format": "float"
+                    }
+                }
+            },
+            "QueryResponseJson": {
+                "type": "object",
+                "required": ["results", "queryMs"],
+                "properties": {
+                    "queryMs": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/QueryHitJson"
+                        }
+                    }
+                }
+            },
+            "TraverseApiRequest": {
+                "type": "object",
+                "required": ["start", "edges"],
+                "properties": {
+                    "direction": {
+                        "type": "string"
+                    },
+                    "edges": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "labels": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "limitPerHop": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "maxDepth": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "minScore": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "start": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TraverseStartJson"
+                        }
+                    }
+                }
+            },
+            "TraverseApiResponse": {
+                "type": "object",
+                "required": ["nodes", "edges"],
+                "properties": {
+                    "edges": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TraverseEdgeJson"
+                        }
+                    },
+                    "nodes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TraverseNodeJson"
+                        }
+                    }
+                }
+            },
+            "TraverseEdgeJson": {
+                "type": "object",
+                "required": ["from", "to", "kind"],
+                "properties": {
+                    "from": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": ["string", "null"]
+                    },
+                    "score": {
+                        "type": ["number", "null"],
+                        "format": "float"
+                    },
+                    "to": {
+                        "type": "string"
+                    }
+                }
+            },
+            "TraverseNodeJson": {
+                "type": "object",
+                "required": ["type", "id", "depth"],
+                "properties": {
+                    "depth": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": ["string", "null"]
+                    },
+                    "normalised": {
+                        "type": ["string", "null"]
+                    },
+                    "title": {
+                        "type": ["string", "null"]
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            },
+            "TraverseStartJson": {
+                "oneOf": [
+                    {
+                        "type": "object",
+                        "required": ["id", "type"],
+                        "properties": {
+                            "id": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["document"]
+                            }
+                        }
+                    },
+                    {
+                        "type": "object",
+                        "required": ["normalised", "type"],
+                        "properties": {
+                            "normalised": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["keyword"]
+                            }
+                        }
+                    },
+                    {
+                        "type": "object",
+                        "required": ["kind", "slug", "type"],
+                        "properties": {
+                            "kind": {
+                                "type": "string"
+                            },
+                            "slug": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["knowledge"]
+                            }
+                        }
+                    }
+                ]
+            },
+            "UploadResponse": {
+                "type": "object",
+                "required": ["id", "status", "contentHash", "deduplicated"],
+                "properties": {
+                    "contentHash": {
+                        "type": "string"
+                    },
+                    "deduplicated": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                }
+            },
+            "Vec": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/components/schemas/KnowledgeNodeUpsertRow"
+                }
+            }
+        },
+        "securitySchemes": {
+            "api_key": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "API-KEY"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Spectron",
+            "description": "Spectron knowledge layer"
+        }
+    ]
+}

@@ -16,7 +16,7 @@ import {
 
 // The parse functions are internal, so we test them via the exported types
 // by importing from the internal module directly.
-import { parseQueryError, parseRpcError } from "../../../sdk/src/internal/parse-error";
+import { parseQueryError, parseRpcError } from "../../../../sdk/src/internal/parse-error";
 
 // =========================================================== //
 //  Error parsing: new format (kind present)                    //
