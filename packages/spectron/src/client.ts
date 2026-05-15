@@ -20,8 +20,8 @@ export interface SpectronOptions {
     context: string;
     /** Bearer API key. */
     apiKey: string;
-    /** API origin without trailing slash. Defaults to `https://api.spectron.dev`. */
-    baseUrl?: string;
+    /** API endpoint origin without trailing slash. */
+    endpoint: string;
     /** Request timeout in milliseconds. Defaults to `30_000`. */
     timeout?: number;
     /** Maximum retry attempts for idempotent `GET` requests. Defaults to `3`. */
@@ -62,7 +62,7 @@ export class Spectron {
         this.contextId = options.context;
         this.transport = new Transport({
             apiKey: options.apiKey,
-            baseUrl: options.baseUrl,
+            endpoint: options.endpoint,
             timeoutMs: options.timeout,
             maxRetries: options.maxRetries,
             fetchImpl: options.fetchImpl,

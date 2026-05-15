@@ -15,7 +15,7 @@ describe("Transport", () => {
         });
         const t = new Transport({
             apiKey: "k",
-            baseUrl: "https://example.test",
+            endpoint: "https://example.test",
             fetchImpl: fetchImpl as unknown as typeof fetch,
         });
         const body = await t.requestJson("POST", "/api/v1/health", { body: { a: 1 } });
@@ -46,7 +46,7 @@ describe("Transport", () => {
         });
         const t = new Transport({
             apiKey: "k",
-            baseUrl: "https://example.test",
+            endpoint: "https://example.test",
             maxRetries: 3,
             fetchImpl: fetchImpl as unknown as typeof fetch,
         });
@@ -63,7 +63,7 @@ describe("Transport", () => {
         });
         const t = new Transport({
             apiKey: "k",
-            baseUrl: "https://example.test",
+            endpoint: "https://example.test",
             maxRetries: 3,
             fetchImpl: fetchImpl as unknown as typeof fetch,
         });
@@ -77,7 +77,7 @@ describe("Transport", () => {
         );
         const t = new Transport({
             apiKey: "k",
-            baseUrl: "https://example.test",
+            endpoint: "https://example.test",
             timeoutMs: 10,
             maxRetries: 0,
             fetchImpl: fetchImpl as unknown as typeof fetch,

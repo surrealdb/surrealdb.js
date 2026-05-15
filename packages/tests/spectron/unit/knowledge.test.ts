@@ -24,7 +24,7 @@ describe("knowledge uploads", () => {
         const s = new Spectron({
             context: "c",
             apiKey: "k",
-            baseUrl: "https://api.test",
+            endpoint: "https://api.test",
             fetchImpl: fetchImpl as unknown as typeof fetch,
         });
         const res = await s.knowledge.upload({
@@ -48,7 +48,7 @@ describe("knowledge uploads", () => {
         const s = new Spectron({
             context: "c",
             apiKey: "k",
-            baseUrl: "https://api.test",
+            endpoint: "https://api.test",
             fetchImpl: fetchImpl as unknown as typeof fetch,
         });
         await s.knowledge.nodes.upsert({

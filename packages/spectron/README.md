@@ -27,6 +27,7 @@ import { Spectron } from "@surrealdb/spectron";
 
 // Create a new Spectron client
 const client = new Spectron({
+  endpoint: process.env.SPECTRON_ENDPOINT!,
   context: "acme-prod",
   apiKey: process.env.SPECTRON_API_KEY!,
 });

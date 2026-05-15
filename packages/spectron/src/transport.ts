@@ -1,13 +1,12 @@
 import { ConnectionError, errorFromResponse } from "./errors.js";
 import { backoffSchedule, shouldRetry } from "./retry.js";
 
-const DEFAULT_BASE_URL = "https://api.spectron.dev";
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 
 export interface TransportOptions {
-    /** API origin without trailing slash, e.g. `https://api.spectron.dev`. */
-    baseUrl?: string;
+    /** API endpoint origin without trailing slash. */
+    endpoint: string;
     /** Bearer API key (required). */
     apiKey: string;
     /** Request timeout in milliseconds. */
@@ -18,11 +17,11 @@ export interface TransportOptions {
     fetchImpl?: typeof fetch;
 }
 
-function buildUrl(baseUrl: string, path: string, query?: Record<string, unknown>): string {
+function buildUrl(endpoint: string, path: string, query?: Record<string, unknown>): string {
     const urlStr =
         path.startsWith("http://") || path.startsWith("https://")
             ? path
-            : `${baseUrl.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+            : `${endpoint.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
     if (!query || Object.keys(query).length === 0) return urlStr;
     const url = new URL(urlStr);
     for (const [k, v] of Object.entries(query)) {
@@ -49,7 +48,7 @@ function sleep(ms: number): Promise<void> {
  * Performs authenticated HTTP requests with GET retries and JSON handling.
  */
 export class Transport {
-    private readonly baseUrl: string;
+    private readonly endpoint: string;
 
     private readonly apiKey: string;
 
@@ -60,10 +59,13 @@ export class Transport {
     private readonly fetchImpl: typeof fetch;
 
     constructor(options: TransportOptions) {
+        if (!options.endpoint) {
+            throw new TypeError("Spectron endpoint is required.");
+        }
         if (!options.apiKey) {
             throw new TypeError("Spectron API key is required.");
         }
-        this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, "");
+        this.endpoint = options.endpoint.replace(/\/$/, "");
         this.apiKey = options.apiKey;
         this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
         this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
@@ -80,7 +82,7 @@ export class Transport {
         init?: { query?: Record<string, unknown>; body?: unknown; timeoutMs?: number },
     ): Promise<unknown | null> {
         const methodUpper = method.toUpperCase();
-        const url = buildUrl(this.baseUrl, path, init?.query);
+        const url = buildUrl(this.endpoint, path, init?.query);
         const timeoutMs = init?.timeoutMs ?? this.timeoutMs;
         const schedule = backoffSchedule(this.maxRetries);
 
@@ -178,7 +180,7 @@ export class Transport {
         init?: { query?: Record<string, unknown>; timeoutMs?: number },
     ): Promise<ArrayBuffer> {
         const methodUpper = method.toUpperCase();
-        const url = buildUrl(this.baseUrl, path, init?.query);
+        const url = buildUrl(this.endpoint, path, init?.query);
         const timeoutMs = init?.timeoutMs ?? this.timeoutMs;
         const schedule = backoffSchedule(this.maxRetries);
         const headers: Record<string, string> = {

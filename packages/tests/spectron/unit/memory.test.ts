@@ -20,7 +20,7 @@ describe("Spectron memory paths", () => {
         const s = new Spectron({
             context: "ctx-1",
             apiKey: "k",
-            baseUrl: "https://api.test",
+            endpoint: "https://api.test",
             fetchImpl: fetchImpl as unknown as typeof fetch,
         });
         const res = await s.query({ query: "hi", k: 3 });
@@ -37,7 +37,7 @@ describe("Spectron memory paths", () => {
         const s = new Spectron({
             context: "c",
             apiKey: "k",
-            baseUrl: "https://api.test",
+            endpoint: "https://api.test",
             fetchImpl: fetchImpl as unknown as typeof fetch,
         });
         const res = await s.context({ query: "q" });
@@ -54,7 +54,7 @@ describe("Spectron memory paths", () => {
         const s = new Spectron({
             context: "c",
             apiKey: "k",
-            baseUrl: "https://api.test",
+            endpoint: "https://api.test",
             fetchImpl: fetchImpl as unknown as typeof fetch,
         });
         const session = await s.sessions.create({ scope: { u: "1" } });
@@ -72,7 +72,7 @@ describe("Spectron memory paths", () => {
         const s = new Spectron({
             context: "c",
             apiKey: "k",
-            baseUrl: "https://api.test",
+            endpoint: "https://api.test",
             fetchImpl: fetchImpl as unknown as typeof fetch,
         });
         await s.health();
