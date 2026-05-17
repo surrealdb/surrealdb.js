@@ -88,7 +88,7 @@ export class Transport {
 
         const headerObj: Record<string, string> = {
             Accept: "application/json",
-            Authorization: `Bearer ${this.apiKey}`,
+            "API-KEY": this.apiKey,
             "User-Agent": `surrealdb-spectron-js/${import.meta.env.VERSION}`,
         };
 
@@ -185,7 +185,7 @@ export class Transport {
         const schedule = backoffSchedule(this.maxRetries);
         const headers: Record<string, string> = {
             Accept: "*/*",
-            Authorization: `Bearer ${this.apiKey}`,
+            "API-KEY": this.apiKey,
             "User-Agent": `surrealdb-spectron-js/${import.meta.env.VERSION}`,
         };
 
