@@ -28,3 +28,32 @@ exports[`insert() compile: bindings-ws 1`] = `
   },
 }
 `;
+
+exports[`insert() compile: query-http 1`] = `"INSERT RELATION IGNORE $bind__3 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__4"`;
+
+exports[`insert() compile: bindings-http 1`] = `
+{
+  "bind__3": [
+    {
+      "firstname": "John",
+      "id": RecordId {
+        "id": 3,
+        [Symbol(surrealdb.RecordId)]: true,
+        [Symbol(surrealdb.Value)]: true,
+        "table": Table {
+          "name": "person",
+          [Symbol(surrealdb.Table)]: true,
+          [Symbol(surrealdb.Value)]: true,
+        },
+      },
+      "lastname": "Doe",
+    },
+  ],
+  "bind__4": DateTime {
+    "_ns": 0n,
+    "_seconds": 0n,
+    [Symbol(surrealdb.DateTime)]: true,
+    [Symbol(surrealdb.Value)]: true,
+  },
+}
+`;

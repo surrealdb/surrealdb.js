@@ -16,3 +16,20 @@ exports[`query() inner query: bindings-ws 1`] = `
   },
 }
 `;
+
+exports[`query() inner query: query-http 1`] = `"RETURN $bind__3"`;
+
+exports[`query() inner query: bindings-http 1`] = `
+{
+  "bind__3": RecordId {
+    "id": "world",
+    [Symbol(surrealdb.RecordId)]: true,
+    [Symbol(surrealdb.Value)]: true,
+    "table": Table {
+      "name": "hello",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
+  },
+}
+`;
