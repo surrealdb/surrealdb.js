@@ -31,3 +31,35 @@ exports[`create() compile: bindings-ws 1`] = `
   },
 }
 `;
+
+exports[`create() compile: query-http 1`] = `"CREATE $bind__3 CONTENT $bind__4 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__5"`;
+
+exports[`create() compile: bindings-http 1`] = `
+{
+  "bind__3": Table {
+    "name": "person",
+    [Symbol(surrealdb.Table)]: true,
+    [Symbol(surrealdb.Value)]: true,
+  },
+  "bind__4": {
+    "firstname": "Mary",
+    "id": RecordId {
+      "id": 2,
+      [Symbol(surrealdb.RecordId)]: true,
+      [Symbol(surrealdb.Value)]: true,
+      "table": Table {
+        "name": "person",
+        [Symbol(surrealdb.Table)]: true,
+        [Symbol(surrealdb.Value)]: true,
+      },
+    },
+    "lastname": "Doe",
+  },
+  "bind__5": DateTime {
+    "_ns": 0n,
+    "_seconds": 0n,
+    [Symbol(surrealdb.DateTime)]: true,
+    [Symbol(surrealdb.Value)]: true,
+  },
+}
+`;
