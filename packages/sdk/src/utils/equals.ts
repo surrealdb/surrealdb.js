@@ -22,7 +22,7 @@ export function equals(x: unknown, y: unknown): boolean {
         return x.toString() === y.toString();
     }
     if (x instanceof Value && y instanceof Value) {
-        return x.equals(y);
+        return (x as unknown as { equals: (other: unknown) => boolean }).equals(y);
     }
     if (typeof x !== "object" || x === null || typeof y !== "object" || y === null) {
         return false;

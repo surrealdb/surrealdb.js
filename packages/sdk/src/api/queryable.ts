@@ -92,7 +92,10 @@ export abstract class SurrealQueryable {
     // Shadow implementation
     query(query: string | BoundQuery, bindings?: Record<string, unknown>): Query {
         return new Query(this.#connection, {
-            query: query instanceof BoundQuery ? query : new BoundQuery(query, bindings),
+            query:
+                query instanceof BoundQuery
+                    ? (query as unknown as BoundQuery)
+                    : new BoundQuery(query as string, bindings),
             transaction: this.#transaction,
             session: this.#session,
             json: false,
@@ -265,7 +268,7 @@ export abstract class SurrealQueryable {
     insert<T>(arg1: Table | Values<T> | Values<T>[], arg2?: Values<T> | Values<T>[]): unknown {
         if (arg1 instanceof Table) {
             return new InsertPromise(this.#connection, {
-                table: arg1,
+                table: arg1 as unknown as Table,
                 what: arg2 ?? [],
                 transaction: this.#transaction,
                 session: this.#session,

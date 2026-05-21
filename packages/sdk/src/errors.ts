@@ -1,8 +1,14 @@
 import type { Feature } from "./internal/feature";
 import type { ApiResponse } from "./query/api";
 import type { Session } from "./types";
+import { markSymbol, SERVER_ERROR_SYMBOL, SURREAL_ERROR_SYMBOL } from "./utils/symbols";
 
-export class SurrealError extends Error {}
+export class SurrealError extends Error {
+    constructor(message?: string, options?: ErrorOptions) {
+        super(message, options);
+        markSymbol(this, SURREAL_ERROR_SYMBOL);
+    }
+}
 
 /**
  * Thrown when a call has been terminated because the connection was closed
@@ -292,6 +298,7 @@ export class ServerError extends SurrealError {
         this.kind = options.kind;
         this.code = options.code ?? 0;
         this.details = (options.details ?? undefined) as ErrorDetail | undefined;
+        markSymbol(this, SERVER_ERROR_SYMBOL);
     }
 }
 

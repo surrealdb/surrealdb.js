@@ -22,8 +22,8 @@ export function surql(strings: TemplateStringsArray, ...values: unknown[]): Boun
             const value = values[i];
 
             if (value instanceof BoundQuery) {
-                result += value.query;
-                mergeBindings(bindings, value.bindings);
+                result += (value as unknown as BoundQuery).query;
+                mergeBindings(bindings, (value as unknown as BoundQuery).bindings);
             } else if (isExpression(value)) {
                 const built = expr(value);
                 result += built.query;

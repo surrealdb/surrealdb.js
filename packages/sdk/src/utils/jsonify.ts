@@ -56,7 +56,7 @@ export function jsonify<T>(input: T): Jsonify<T> {
 
         // We only want to process "SurrealQL values"
         if (input instanceof Date || input instanceof Value) {
-            return input.toJSON() as Jsonify<T>;
+            return (input as unknown as { toJSON: () => unknown }).toJSON() as Jsonify<T>;
         }
 
         // We check by prototype, because we do not want to process derivatives of objects and arrays

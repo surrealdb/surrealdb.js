@@ -1,6 +1,7 @@
 import { Tagged } from "@surrealdb/cbor";
 import { SurrealError } from "../errors";
-import { type Bound, BoundExcluded, BoundIncluded } from "../utils/range";
+import type { Bound, BoundExcluded, BoundIncluded } from "../utils/range";
+import { BOUND_EXCLUDED_SYMBOL, BOUND_INCLUDED_SYMBOL, hasSymbol } from "../utils/symbols";
 import { TAG_BOUND_EXCLUDED, TAG_BOUND_INCLUDED } from "./codec";
 
 type DecodedBound = BoundIncluded<unknown> | BoundExcluded<unknown> | null;
@@ -10,8 +11,11 @@ export function rangeToCbor([beg, end]: [Bound<unknown>, Bound<unknown>]): [
     Tagged | null,
 ] {
     function encodeBound(bound: Bound<unknown>): Tagged | null {
-        if (bound instanceof BoundIncluded) return new Tagged(TAG_BOUND_INCLUDED, bound.value);
-        if (bound instanceof BoundExcluded) return new Tagged(TAG_BOUND_EXCLUDED, bound.value);
+        if (!bound) return null;
+        if (hasSymbol(bound, BOUND_INCLUDED_SYMBOL))
+            return new Tagged(TAG_BOUND_INCLUDED, bound.value);
+        if (hasSymbol(bound, BOUND_EXCLUDED_SYMBOL))
+            return new Tagged(TAG_BOUND_EXCLUDED, bound.value);
         return null;
     }
 
@@ -23,8 +27,8 @@ export function cborToRange(
 ): [Bound<unknown>, Bound<unknown>] {
     function decodeBound(bound: DecodedBound | null): Bound<unknown> {
         if (bound === null) return undefined;
-        if (bound instanceof BoundIncluded) return bound;
-        if (bound instanceof BoundExcluded) return bound;
+        if (hasSymbol(bound, BOUND_INCLUDED_SYMBOL)) return bound;
+        if (hasSymbol(bound, BOUND_EXCLUDED_SYMBOL)) return bound;
         throw new SurrealError("Expected the bounds to be decoded already");
     }
 

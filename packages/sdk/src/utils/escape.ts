@@ -63,7 +63,7 @@ export function escapeNumber(num: number | bigint): string {
  */
 export function escapeIdPart(id: RecordIdValue): string {
     return id instanceof Uuid
-        ? `u"${id}"`
+        ? `u"${(id as unknown as Uuid).toString()}"`
         : typeof id === "string"
           ? escapeIdent(id)
           : typeof id === "bigint" || typeof id === "number"
@@ -82,6 +82,7 @@ export function escapeRangeBound<T>(bound: Bound<T>): string {
     const value = bound.value;
 
     if (isValidIdPart(value)) return escapeIdPart(value);
-    if (value instanceof Range) return `(${toSurrealqlString(value)})`;
+    if (value instanceof Range)
+        return `(${toSurrealqlString(value as unknown as Range<unknown, unknown>)})`;
     return toSurrealqlString(value);
 }
