@@ -1,6 +1,6 @@
 import { Tagged } from "@surrealdb/cbor";
 import { SqonError } from "../../errors.ts";
-import { type Bound, BoundExcluded, BoundIncluded } from "../../utils/range.ts";
+import type { Bound, BoundExcluded, BoundIncluded } from "../../utils/range.ts";
 import { BOUND_EXCLUDED_SYMBOL, BOUND_INCLUDED_SYMBOL, hasSymbol } from "../../utils/symbols.ts";
 import { TAG_BOUND_EXCLUDED, TAG_BOUND_INCLUDED } from "./codec.ts";
 

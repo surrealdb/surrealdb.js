@@ -85,8 +85,6 @@ export const isBoundExcluded = (value: object): value is { $boundExcluded: unkno
     return "$boundExcluded" in value;
 };
 
-export const isObject = (
-    value: object,
-): value is { $object: Record<string, unknown> } => {
+export const isObject = (value: object): value is { $object: Record<string, unknown> } => {
     return "$object" in value && typeof value.$object === "object" && value.$object !== null;
 };
