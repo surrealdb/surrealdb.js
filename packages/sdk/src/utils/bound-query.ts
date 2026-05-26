@@ -1,4 +1,5 @@
 import { ExpressionError } from "../errors";
+import { BOUND_QUERY_SYMBOL, hasSymbol, markSymbol } from "../utils/symbols";
 import { surql } from "./tagged-template";
 
 /**
@@ -26,6 +27,10 @@ export function mergeBindings(
  * A bound query represents a query string combined with bindings.
  */
 export class BoundQuery<R extends unknown[] = unknown[]> {
+    static [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, BOUND_QUERY_SYMBOL);
+    }
+
     #query: string;
     #bindings: Record<string, unknown>;
 
@@ -52,15 +57,17 @@ export class BoundQuery<R extends unknown[] = unknown[]> {
     // Shadow implementation
     constructor(query?: string | BoundQuery<R>, bindings?: Record<string, unknown>) {
         if (query instanceof BoundQuery) {
-            this.#query = query.query;
-            this.#bindings = { ...query.bindings };
+            const bq = query as unknown as BoundQuery;
+            this.#query = bq.query;
+            this.#bindings = { ...bq.bindings };
         } else if (query) {
-            this.#query = query;
+            this.#query = query as string;
             this.#bindings = { ...bindings };
         } else {
             this.#query = "";
             this.#bindings = {};
         }
+        markSymbol(this, BOUND_QUERY_SYMBOL);
     }
 
     /**
@@ -122,7 +129,7 @@ export class BoundQuery<R extends unknown[] = unknown[]> {
         values: unknown[],
     ): BoundQuery<R> {
         if (other instanceof BoundQuery) {
-            return other;
+            return other as unknown as BoundQuery;
         }
 
         if (typeof other === "string") {
@@ -130,7 +137,7 @@ export class BoundQuery<R extends unknown[] = unknown[]> {
         }
 
         if (Array.isArray(other)) {
-            return surql(other, ...values);
+            return surql(other as TemplateStringsArray, ...values);
         }
 
         throw new ExpressionError("Invalid query component");

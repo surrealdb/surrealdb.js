@@ -27,7 +27,10 @@ export function isPlainObject(v: unknown): v is Record<string, unknown> {
 
 export function isValidIdBound(bound: unknown): bound is Bound<RecordIdValue> {
     return bound instanceof BoundIncluded || bound instanceof BoundExcluded
-        ? isValidIdPart(bound.value)
+        ? isValidIdPart(
+              (bound as unknown as BoundIncluded<RecordIdValue> | BoundExcluded<RecordIdValue>)
+                  .value,
+          )
         : true;
 }
 

@@ -52,7 +52,7 @@ describe("delete()", async () => {
             .delete<Person>(personTable)
             .output("diff")
             .timeout(Duration.seconds(1))
-            .version(new DateTime());
+            .version(new DateTime(0));
 
         const { query, bindings } = builder.compile();
 

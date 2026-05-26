@@ -5,6 +5,7 @@ import type { WidenRecordIdValue } from "../types/internal";
 import { equals } from "../utils/equals";
 import { escapeIdent, escapeRangeBound } from "../utils/escape";
 import type { Bound } from "../utils/range";
+import { hasSymbol, markSymbol, RECORD_ID_RANGE_SYMBOL } from "../utils/symbols";
 import type { RecordIdValue } from "./record-id";
 import { Table } from "./table";
 import { Value } from "./value";
@@ -18,9 +19,13 @@ class RecordIdRange<
     Tb extends string = string,
     Id extends RecordIdValue = RecordIdValue,
 > extends Value {
-    readonly #table: Table<Tb>;
-    readonly #beg: Bound<Id>;
-    readonly #end: Bound<Id>;
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, RECORD_ID_RANGE_SYMBOL);
+    }
+
+    readonly table: Table<Tb>;
+    readonly begin: Bound<Id>;
+    readonly end: Bound<Id>;
 
     constructor(table: Tb | Table<Tb>, beg: Bound<Id>, end: Bound<Id>) {
         super();
@@ -29,20 +34,23 @@ class RecordIdRange<
         if (!isValidIdBound(beg)) throw new InvalidRecordIdError("Begin bound is not valid");
         if (!isValidIdBound(end)) throw new InvalidRecordIdError("End bound is not valid");
 
-        this.#table = table instanceof Table ? table : new Table(table);
-        this.#beg = beg;
-        this.#end = end;
+        this.table =
+            table instanceof Table ? (table as unknown as Table<Tb>) : new Table(table as Tb);
+        this.begin = beg;
+        this.end = end;
+        markSymbol(this, RECORD_ID_RANGE_SYMBOL);
     }
 
     equals(other: unknown): boolean {
         if (!(other instanceof RecordIdRange)) return false;
-        if (this.#beg?.constructor !== other.#beg?.constructor) return false;
-        if (this.#end?.constructor !== other.#end?.constructor) return false;
+        const o = other as unknown as RecordIdRange;
+        if (this.begin?.constructor !== o.begin?.constructor) return false;
+        if (this.end?.constructor !== o.end?.constructor) return false;
 
         return (
-            this.#table.equals(other.#table) &&
-            equals(this.#beg?.value, other.#beg?.value) &&
-            equals(this.#end?.value, other.#end?.value)
+            this.table.equals(o.table) &&
+            equals(this.begin?.value, o.begin?.value) &&
+            equals(this.end?.value, o.end?.value)
         );
     }
 
@@ -54,31 +62,10 @@ class RecordIdRange<
      * @returns The escaped record ID range string
      */
     toString(): string {
-        const tb = escapeIdent(this.#table.name);
-        const beg = escapeRangeBound(this.#beg);
-        const end = escapeRangeBound(this.#end);
-        return `${tb}:${beg}${getRangeJoin(this.#beg, this.#end)}${end}`;
-    }
-
-    /**
-     * The table part value
-     */
-    get table(): Table<Tb> {
-        return this.#table;
-    }
-
-    /**
-     * The range bound beginning
-     */
-    get begin(): Bound<Id> {
-        return this.#beg;
-    }
-
-    /**
-     * The range bound ending
-     */
-    get end(): Bound<Id> {
-        return this.#end;
+        const tb = escapeIdent(this.table.name);
+        const beg = escapeRangeBound(this.begin);
+        const end = escapeRangeBound(this.end);
+        return `${tb}:${beg}${getRangeJoin(this.begin, this.end)}${end}`;
     }
 }
 

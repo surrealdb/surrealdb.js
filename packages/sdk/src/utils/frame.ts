@@ -1,15 +1,28 @@
 import type { ServerError } from "../errors";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { QueryStats, QueryType } from "../types";
+import {
+    DONE_FRAME_SYMBOL,
+    ERROR_FRAME_SYMBOL,
+    FRAME_SYMBOL,
+    hasSymbol,
+    markSymbol,
+    VALUE_FRAME_SYMBOL,
+} from "../utils/symbols";
 
 /**
  * Represents a single query result frame frame
  */
 export class Frame<T, J extends boolean> {
+    static [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, FRAME_SYMBOL);
+    }
+
     readonly query: number;
 
     constructor(query: number) {
         this.query = query;
+        markSymbol(this, FRAME_SYMBOL);
     }
 
     /**
@@ -22,21 +35,21 @@ export class Frame<T, J extends boolean> {
     /**
      * Returns true if the frame is a value frame
      */
-    isValue<V = T>(): this is ValueFrame<V, J> {
+    isValue(): this is ValueFrame<T, J> {
         return this instanceof ValueFrame;
     }
 
     /**
      * Returns true if the frame is an error frame
      */
-    isError<V = T>(): this is ErrorFrame<V, J> {
+    isError(): this is ErrorFrame<T, J> {
         return this instanceof ErrorFrame;
     }
 
     /**
      * Returns true if the frame is a done frame
      */
-    isDone<V = T>(): this is DoneFrame<V, J> {
+    isDone(): this is DoneFrame<T, J> {
         return this instanceof DoneFrame;
     }
 
@@ -67,6 +80,10 @@ export class Frame<T, J extends boolean> {
  * and no further values will be returned for that specific statement.
  */
 export class ValueFrame<T, J extends boolean> extends Frame<T, J> {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, VALUE_FRAME_SYMBOL);
+    }
+
     readonly value: MaybeJsonify<T, J>;
     readonly isSingle: boolean;
 
@@ -74,6 +91,7 @@ export class ValueFrame<T, J extends boolean> extends Frame<T, J> {
         super(query);
         this.value = value;
         this.isSingle = isSingle;
+        markSymbol(this, VALUE_FRAME_SYMBOL);
     }
 
     override isOf<V = T>(query: number): this is ValueFrame<V, J> {
@@ -85,6 +103,10 @@ export class ValueFrame<T, J extends boolean> extends Frame<T, J> {
  * Represents an error frame in a query result
  */
 export class ErrorFrame<T, J extends boolean> extends Frame<T, J> {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, ERROR_FRAME_SYMBOL);
+    }
+
     readonly stats: QueryStats | undefined;
     readonly error: ServerError;
 
@@ -92,6 +114,7 @@ export class ErrorFrame<T, J extends boolean> extends Frame<T, J> {
         super(query);
         this.stats = stats;
         this.error = error;
+        markSymbol(this, ERROR_FRAME_SYMBOL);
     }
 
     override isOf<V = T>(query: number): this is ErrorFrame<V, J> {
@@ -110,6 +133,10 @@ export class ErrorFrame<T, J extends boolean> extends Frame<T, J> {
  * Represents a done frame in a query result
  */
 export class DoneFrame<T, J extends boolean> extends Frame<T, J> {
+    static override [Symbol.hasInstance](instance: unknown): boolean {
+        return hasSymbol(instance, DONE_FRAME_SYMBOL);
+    }
+
     readonly stats: QueryStats | undefined;
     readonly type: QueryType;
 
@@ -117,6 +144,7 @@ export class DoneFrame<T, J extends boolean> extends Frame<T, J> {
         super(query);
         this.stats = stats;
         this.type = type;
+        markSymbol(this, DONE_FRAME_SYMBOL);
     }
 
     override isOf<V = T>(query: number): this is DoneFrame<V, J> {

@@ -24,16 +24,19 @@ export function toSurqlString(input: unknown): string {
     if (input === undefined) return "NONE";
 
     if (typeof input === "object") {
-        if (input instanceof Uuid) return `u${JSON.stringify(input.toString())}`;
+        if (input instanceof Uuid)
+            return `u${JSON.stringify((input as unknown as Uuid).toString())}`;
         if (input instanceof Date || input instanceof DateTime)
-            return `d${JSON.stringify(input.toISOString())}`;
+            return `d${JSON.stringify((input as unknown as DateTime).toISOString())}`;
         if (input instanceof RecordId || input instanceof StringRecordId)
-            return `r${JSON.stringify(input.toString())}`;
-        if (input instanceof FileRef) return `f${JSON.stringify(input.toString())}`;
+            return `r${JSON.stringify((input as unknown as RecordId | StringRecordId).toString())}`;
+        if (input instanceof FileRef)
+            return `f${JSON.stringify((input as unknown as FileRef).toString())}`;
 
-        if (input instanceof Geometry) return toSurqlString(input.toJSON());
+        if (input instanceof Geometry)
+            return toSurqlString((input as unknown as Geometry).toJSON());
 
-        if (input instanceof Decimal) return `${input.toJSON()}dec`;
+        if (input instanceof Decimal) return `${(input as unknown as Decimal).toJSON()}dec`;
 
         if (
             input instanceof Duration ||
@@ -41,7 +44,7 @@ export function toSurqlString(input: unknown): string {
             input instanceof Range ||
             input instanceof Table
         ) {
-            return input.toJSON();
+            return (input as unknown as { toJSON: () => string }).toJSON();
         }
 
         // We check by prototype, because we do not want to process derivatives of objects and arrays
