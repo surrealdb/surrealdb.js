@@ -8,21 +8,13 @@ exports[`insert() compile: bindings-ws 1`] = `
     {
       "firstname": "John",
       "id": RecordId {
-        "id": 3,
         [Symbol(surrealdb.RecordId)]: true,
         [Symbol(surrealdb.Value)]: true,
-        "table": Table {
-          "name": "person",
-          [Symbol(surrealdb.Table)]: true,
-          [Symbol(surrealdb.Value)]: true,
-        },
       },
       "lastname": "Doe",
     },
   ],
   "bind__5": DateTime {
-    "_ns": 0n,
-    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },

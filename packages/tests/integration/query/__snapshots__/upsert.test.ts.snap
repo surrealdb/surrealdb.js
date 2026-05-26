@@ -5,14 +5,8 @@ exports[`upsert() compile: query-ws 1`] = `"UPSERT ONLY $bind__4 CONTENT $bind__
 exports[`upsert() compile: bindings-ws 1`] = `
 {
   "bind__4": RecordId {
-    "id": 1,
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
-    "table": Table {
-      "name": "person",
-      [Symbol(surrealdb.Table)]: true,
-      [Symbol(surrealdb.Value)]: true,
-    },
   },
   "bind__5": {
     "firstname": "John",

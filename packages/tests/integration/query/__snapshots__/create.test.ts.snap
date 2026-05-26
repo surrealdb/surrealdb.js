@@ -5,27 +5,18 @@ exports[`create() compile: query-ws 1`] = `"CREATE $bind__4 CONTENT $bind__5 RET
 exports[`create() compile: bindings-ws 1`] = `
 {
   "bind__4": Table {
-    "name": "person",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
   "bind__5": {
     "firstname": "Mary",
     "id": RecordId {
-      "id": 2,
       [Symbol(surrealdb.RecordId)]: true,
       [Symbol(surrealdb.Value)]: true,
-      "table": Table {
-        "name": "person",
-        [Symbol(surrealdb.Table)]: true,
-        [Symbol(surrealdb.Value)]: true,
-      },
     },
     "lastname": "Doe",
   },
   "bind__6": DateTime {
-    "_ns": 0n,
-    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },

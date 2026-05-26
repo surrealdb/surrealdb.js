@@ -5,14 +5,8 @@ exports[`query() inner query: query-ws 1`] = `"RETURN $bind__4"`;
 exports[`query() inner query: bindings-ws 1`] = `
 {
   "bind__4": RecordId {
-    "id": "world",
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
-    "table": Table {
-      "name": "hello",
-      [Symbol(surrealdb.Table)]: true,
-      [Symbol(surrealdb.Value)]: true,
-    },
   },
 }
 `;

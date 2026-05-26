@@ -5,13 +5,10 @@ exports[`delete() compile: query-ws 1`] = `"DELETE $bind__4 RETURN DIFF TIMEOUT 
 exports[`delete() compile: bindings-ws 1`] = `
 {
   "bind__4": Table {
-    "name": "person",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
   "bind__5": DateTime {
-    "_ns": 0n,
-    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },

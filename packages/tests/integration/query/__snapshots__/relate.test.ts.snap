@@ -5,33 +5,18 @@ exports[`relate() compile: query-ws 1`] = `"RELATE  ONLY $bind__4->$bind__5->$bi
 exports[`relate() compile: bindings-ws 1`] = `
 {
   "bind__4": RecordId {
-    "id": "in",
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
-    "table": Table {
-      "name": "edge",
-      [Symbol(surrealdb.Table)]: true,
-      [Symbol(surrealdb.Value)]: true,
-    },
   },
   "bind__5": Table {
-    "name": "graph",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
   "bind__6": RecordId {
-    "id": "out",
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
-    "table": Table {
-      "name": "edge",
-      [Symbol(surrealdb.Table)]: true,
-      [Symbol(surrealdb.Value)]: true,
-    },
   },
   "bind__7": DateTime {
-    "_ns": 0n,
-    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },

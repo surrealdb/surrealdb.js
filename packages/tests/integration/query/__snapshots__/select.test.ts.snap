@@ -5,8 +5,6 @@ exports[`select() compile: query-ws 1`] = `"SELECT type::fields($bind__4) FROM O
 exports[`select() compile: bindings-ws 1`] = `
 {
   "bind__10": DateTime {
-    "_ns": 0n,
-    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -16,14 +14,8 @@ exports[`select() compile: bindings-ws 1`] = `
     "lastname",
   ],
   "bind__5": RecordId {
-    "id": 1,
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
-    "table": Table {
-      "name": "person",
-      [Symbol(surrealdb.Table)]: true,
-      [Symbol(surrealdb.Value)]: true,
-    },
   },
   "bind__6": 30,
   "bind__7": 1,
