@@ -22,3 +22,41 @@ exports[`relate() compile: bindings-ws 1`] = `
   },
 }
 `;
+
+exports[`relate() compile: query-http 1`] = `"RELATE  ONLY $bind__3->$bind__4->$bind__5 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__6"`;
+
+exports[`relate() compile: bindings-http 1`] = `
+{
+  "bind__3": RecordId {
+    "id": "in",
+    [Symbol(surrealdb.RecordId)]: true,
+    [Symbol(surrealdb.Value)]: true,
+    "table": Table {
+      "name": "edge",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
+  },
+  "bind__4": Table {
+    "name": "graph",
+    [Symbol(surrealdb.Table)]: true,
+    [Symbol(surrealdb.Value)]: true,
+  },
+  "bind__5": RecordId {
+    "id": "out",
+    [Symbol(surrealdb.RecordId)]: true,
+    [Symbol(surrealdb.Value)]: true,
+    "table": Table {
+      "name": "edge",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
+  },
+  "bind__6": DateTime {
+    "_ns": 0n,
+    "_seconds": 0n,
+    [Symbol(surrealdb.DateTime)]: true,
+    [Symbol(surrealdb.Value)]: true,
+  },
+}
+`;
