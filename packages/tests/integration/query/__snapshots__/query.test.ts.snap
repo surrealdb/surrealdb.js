@@ -1,5 +1,16 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
+exports[`query() inner query: query-http 1`] = `"RETURN $bind__3"`;
+
+exports[`query() inner query: bindings-http 1`] = `
+{
+  "bind__3": RecordId {
+    [Symbol(surrealdb.RecordId)]: true,
+    [Symbol(surrealdb.Value)]: true,
+  },
+}
+`;
+
 exports[`query() inner query: query-ws 1`] = `"RETURN $bind__4"`;
 
 exports[`query() inner query: bindings-ws 1`] = `
@@ -7,23 +18,6 @@ exports[`query() inner query: bindings-ws 1`] = `
   "bind__4": RecordId {
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
-  },
-}
-`;
-
-exports[`query() inner query: query-http 1`] = `"RETURN $bind__3"`;
-
-exports[`query() inner query: bindings-http 1`] = `
-{
-  "bind__3": RecordId {
-    "id": "world",
-    [Symbol(surrealdb.RecordId)]: true,
-    [Symbol(surrealdb.Value)]: true,
-    "table": Table {
-      "name": "hello",
-      [Symbol(surrealdb.Table)]: true,
-      [Symbol(surrealdb.Value)]: true,
-    },
   },
 }
 `;

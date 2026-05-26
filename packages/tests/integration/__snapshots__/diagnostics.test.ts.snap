@@ -1,5 +1,139 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
+exports[`diagnostics diagnostic events: events-http 1`] = `
+[
+  {
+    "phase": "before",
+    "type": "open",
+  },
+  {
+    "phase": "after",
+    "result": {
+      "url": URL {},
+    },
+    "success": true,
+    "type": "open",
+  },
+  {
+    "phase": "before",
+    "type": "version",
+  },
+  {
+    "phase": "before",
+    "type": "use",
+  },
+  {
+    "phase": "after",
+    "result": {
+      "requested": {
+        "database": "test",
+        "namespace": "test",
+      },
+      "session": undefined,
+    },
+    "success": true,
+    "type": "use",
+  },
+  {
+    "phase": "before",
+    "type": "signin",
+  },
+  {
+    "phase": "after",
+    "result": {
+      "session": undefined,
+      "variant": "system_user",
+    },
+    "success": true,
+    "type": "signin",
+  },
+  {
+    "phase": "before",
+    "type": "version",
+  },
+  {
+    "phase": "before",
+    "type": "query",
+  },
+  {
+    "phase": "progress",
+    "result": {
+      "chunk": {
+        "batch": 0,
+        "kind": "single",
+        "query": 0,
+        "result": [
+          {
+            "firstname": "John",
+            "id": RecordId {
+              [Symbol(surrealdb.RecordId)]: true,
+              [Symbol(surrealdb.Value)]: true,
+            },
+            "lastname": "Doe",
+          },
+        ],
+        "stats": {
+          "bytesReceived": -1,
+          "bytesScanned": -1,
+          "recordsReceived": -1,
+          "recordsScanned": -1,
+        },
+        "type": undefined,
+      },
+      "params": {
+        "bind__1": RecordId {
+          [Symbol(surrealdb.RecordId)]: true,
+          [Symbol(surrealdb.Value)]: true,
+        },
+        "bind__2": {
+          "firstname": "John",
+          "lastname": "Doe",
+        },
+      },
+      "query": "CREATE ONLY $bind__1 CONTENT $bind__2",
+      "session": undefined,
+      "transaction": undefined,
+    },
+    "type": "query",
+  },
+  {
+    "phase": "after",
+    "result": {
+      "params": {
+        "bind__1": RecordId {
+          [Symbol(surrealdb.RecordId)]: true,
+          [Symbol(surrealdb.Value)]: true,
+        },
+        "bind__2": {
+          "firstname": "John",
+          "lastname": "Doe",
+        },
+      },
+      "query": "CREATE ONLY $bind__1 CONTENT $bind__2",
+      "session": undefined,
+      "transaction": undefined,
+    },
+    "success": true,
+    "type": "query",
+  },
+]
+`;
+
+exports[`diagnostics extract query: query-http 1`] = `"CREATE ONLY $bind__1 CONTENT $bind__2"`;
+
+exports[`diagnostics extract query: params-http 1`] = `
+{
+  "bind__1": RecordId {
+    [Symbol(surrealdb.RecordId)]: true,
+    [Symbol(surrealdb.Value)]: true,
+  },
+  "bind__2": {
+    "firstname": "John",
+    "lastname": "Doe",
+  },
+}
+`;
+
 exports[`diagnostics diagnostic events: events-ws 1`] = `
 [
   {
@@ -126,164 +260,6 @@ exports[`diagnostics extract query: params-ws 1`] = `
   "bind__1": RecordId {
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
-  },
-  "bind__2": {
-    "firstname": "John",
-    "lastname": "Doe",
-  },
-}
-`;
-
-exports[`diagnostics diagnostic events: events-http 1`] = `
-[
-  {
-    "phase": "before",
-    "type": "open",
-  },
-  {
-    "phase": "after",
-    "result": {
-      "url": URL {},
-    },
-    "success": true,
-    "type": "open",
-  },
-  {
-    "phase": "before",
-    "type": "version",
-  },
-  {
-    "phase": "before",
-    "type": "use",
-  },
-  {
-    "phase": "after",
-    "result": {
-      "requested": {
-        "database": "test",
-        "namespace": "test",
-      },
-      "session": undefined,
-    },
-    "success": true,
-    "type": "use",
-  },
-  {
-    "phase": "before",
-    "type": "signin",
-  },
-  {
-    "phase": "after",
-    "result": {
-      "session": undefined,
-      "variant": "system_user",
-    },
-    "success": true,
-    "type": "signin",
-  },
-  {
-    "phase": "before",
-    "type": "version",
-  },
-  {
-    "phase": "before",
-    "type": "query",
-  },
-  {
-    "phase": "progress",
-    "result": {
-      "chunk": {
-        "batch": 0,
-        "kind": "single",
-        "query": 0,
-        "result": [
-          {
-            "firstname": "John",
-            "id": RecordId {
-              "id": 1,
-              [Symbol(surrealdb.RecordId)]: true,
-              [Symbol(surrealdb.Value)]: true,
-              "table": Table {
-                "name": "person",
-                [Symbol(surrealdb.Table)]: true,
-                [Symbol(surrealdb.Value)]: true,
-              },
-            },
-            "lastname": "Doe",
-          },
-        ],
-        "stats": {
-          "bytesReceived": -1,
-          "bytesScanned": -1,
-          "recordsReceived": -1,
-          "recordsScanned": -1,
-        },
-        "type": undefined,
-      },
-      "params": {
-        "bind__1": RecordId {
-          "id": 1,
-          [Symbol(surrealdb.RecordId)]: true,
-          [Symbol(surrealdb.Value)]: true,
-          "table": Table {
-            "name": "person",
-            [Symbol(surrealdb.Table)]: true,
-            [Symbol(surrealdb.Value)]: true,
-          },
-        },
-        "bind__2": {
-          "firstname": "John",
-          "lastname": "Doe",
-        },
-      },
-      "query": "CREATE ONLY $bind__1 CONTENT $bind__2",
-      "session": undefined,
-      "transaction": undefined,
-    },
-    "type": "query",
-  },
-  {
-    "phase": "after",
-    "result": {
-      "params": {
-        "bind__1": RecordId {
-          "id": 1,
-          [Symbol(surrealdb.RecordId)]: true,
-          [Symbol(surrealdb.Value)]: true,
-          "table": Table {
-            "name": "person",
-            [Symbol(surrealdb.Table)]: true,
-            [Symbol(surrealdb.Value)]: true,
-          },
-        },
-        "bind__2": {
-          "firstname": "John",
-          "lastname": "Doe",
-        },
-      },
-      "query": "CREATE ONLY $bind__1 CONTENT $bind__2",
-      "session": undefined,
-      "transaction": undefined,
-    },
-    "success": true,
-    "type": "query",
-  },
-]
-`;
-
-exports[`diagnostics extract query: query-http 1`] = `"CREATE ONLY $bind__1 CONTENT $bind__2"`;
-
-exports[`diagnostics extract query: params-http 1`] = `
-{
-  "bind__1": RecordId {
-    "id": "test",
-    [Symbol(surrealdb.RecordId)]: true,
-    [Symbol(surrealdb.Value)]: true,
-    "table": Table {
-      "name": "test",
-      [Symbol(surrealdb.Table)]: true,
-      [Symbol(surrealdb.Value)]: true,
-    },
   },
   "bind__2": {
     "firstname": "John",

@@ -1,5 +1,20 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
+exports[`delete() compile: query-http 1`] = `"DELETE $bind__3 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__4"`;
+
+exports[`delete() compile: bindings-http 1`] = `
+{
+  "bind__3": Table {
+    [Symbol(surrealdb.Table)]: true,
+    [Symbol(surrealdb.Value)]: true,
+  },
+  "bind__4": DateTime {
+    [Symbol(surrealdb.DateTime)]: true,
+    [Symbol(surrealdb.Value)]: true,
+  },
+}
+`;
+
 exports[`delete() compile: query-ws 1`] = `"DELETE $bind__4 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__5"`;
 
 exports[`delete() compile: bindings-ws 1`] = `
@@ -9,24 +24,6 @@ exports[`delete() compile: bindings-ws 1`] = `
     [Symbol(surrealdb.Value)]: true,
   },
   "bind__5": DateTime {
-    [Symbol(surrealdb.DateTime)]: true,
-    [Symbol(surrealdb.Value)]: true,
-  },
-}
-`;
-
-exports[`delete() compile: query-http 1`] = `"DELETE $bind__3 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__4"`;
-
-exports[`delete() compile: bindings-http 1`] = `
-{
-  "bind__3": Table {
-    "name": "person",
-    [Symbol(surrealdb.Table)]: true,
-    [Symbol(surrealdb.Value)]: true,
-  },
-  "bind__4": DateTime {
-    "_ns": 0n,
-    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
