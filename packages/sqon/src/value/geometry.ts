@@ -81,7 +81,7 @@ export class GeometryPoint extends Geometry {
     constructor(input: [number | Decimal, number | Decimal] | GeoJsonPoint | GeometryPoint) {
         super();
         if (input instanceof GeometryPoint) {
-            this.point = (input as unknown as GeometryPoint).clone().point;
+            this.point = [...input.point];
         } else if (Array.isArray(input)) {
             this.point = [f(input[0]), f(input[1])];
         } else {
@@ -135,7 +135,7 @@ export class GeometryLine extends Geometry {
     ) {
         super();
         if (input instanceof GeometryLine) {
-            this.line = (input as unknown as GeometryLine).clone().line;
+            this.line = [...input.line];
         } else if (Array.isArray(input)) {
             this.line = input;
         } else {
@@ -201,7 +201,7 @@ export class GeometryPolygon extends Geometry {
     constructor(input: [GeometryLine, ...GeometryLine[]] | GeoJsonPolygon | GeometryPolygon) {
         super();
         if (input instanceof GeometryPolygon) {
-            this.polygon = (input as unknown as GeometryPolygon).clone().polygon;
+            this.polygon = [...input.polygon];
         } else if (Array.isArray(input)) {
             this.polygon = input.map((l) => {
                 const line = l.clone();
@@ -273,7 +273,7 @@ export class GeometryMultiPoint extends Geometry {
     ) {
         super();
         if (input instanceof GeometryMultiPoint) {
-            this.points = (input as unknown as GeometryMultiPoint).points;
+            this.points = [...input.points];
         } else if (Array.isArray(input)) {
             this.points = input;
         } else {
@@ -334,7 +334,7 @@ export class GeometryMultiLine extends Geometry {
     ) {
         super();
         if (input instanceof GeometryMultiLine) {
-            this.lines = (input as unknown as GeometryMultiLine).lines;
+            this.lines = [...input.lines];
         } else if (Array.isArray(input)) {
             this.lines = input;
         } else {
@@ -401,7 +401,7 @@ export class GeometryMultiPolygon extends Geometry {
     ) {
         super();
         if (input instanceof GeometryMultiPolygon) {
-            this.polygons = (input as unknown as GeometryMultiPolygon).polygons;
+            this.polygons = [...input.polygons];
         } else if (Array.isArray(input)) {
             this.polygons = input;
         } else {
@@ -471,7 +471,7 @@ export class GeometryCollection extends Geometry {
     constructor(input: [Geometry, ...Geometry[]] | GeoJsonCollection | GeometryCollection) {
         super();
         if (input instanceof GeometryCollection) {
-            this.collection = (input as unknown as GeometryCollection).collection;
+            this.collection = [...input.collection];
         } else if (Array.isArray(input)) {
             this.collection = input;
         } else {

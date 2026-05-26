@@ -55,7 +55,7 @@ export function jsonify<T>(input: T): Jsonify<T> {
         if (input === null) return null as Jsonify<T>;
 
         if (input instanceof Date || input instanceof Value) {
-            return (input as unknown as { toJSON: () => unknown }).toJSON() as Jsonify<T>;
+            return input.toJSON() as Jsonify<T>;
         }
 
         switch (Object.getPrototypeOf(input)) {
