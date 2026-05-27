@@ -109,9 +109,7 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         }
 
         const id = this._context.uniqueId();
-        const payload = wrapSqonError(() =>
-            this._context.codecs.cbor.encode({ id, ...request }),
-        );
+        const payload = wrapSqonError(() => this._context.codecs.cbor.encode({ id, ...request }));
 
         const response = await this.#engine.execute(payload);
         const decoded = wrapSqonError(() =>
