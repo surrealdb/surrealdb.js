@@ -1,6 +1,6 @@
 import { HttpConnectionError } from "../errors";
-import { wrapSqonError } from "./wrap-sqon-error";
 import type { ConnectionSession, ConnectionState, DriverContext } from "../types/surreal";
+import { wrapSqonError } from "./wrap-sqon-error";
 
 export interface FetchSurrealOptions {
     body?: unknown;
