@@ -1,5 +1,5 @@
 import { JsonCodec } from "../codec/json/codec.ts";
-import { InvalidTableError } from "../errors.ts";
+import { InvalidRecordIdError } from "../errors.ts";
 import { hasSymbol, markSymbol, STRING_RECORD_ID_SYMBOL } from "../utils/symbols.ts";
 import { RecordId } from "./record-id.ts";
 import { Value } from "./value.ts";
@@ -24,7 +24,7 @@ export class StringRecordId extends Value {
         } else if (typeof rid === "string") {
             this.#rid = rid;
         } else {
-            throw new InvalidTableError("String Record ID must be a string");
+            throw new InvalidRecordIdError("String Record ID must be a string");
         }
         markSymbol(this, STRING_RECORD_ID_SYMBOL);
     }

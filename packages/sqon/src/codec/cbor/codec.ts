@@ -39,7 +39,7 @@ import {
     Range,
     RecordId,
     RecordIdRange,
-    type StringRecordId,
+    StringRecordId,
     Table,
     Uuid,
 } from "../../value/index.ts";
@@ -206,6 +206,9 @@ export class CborCodec implements ValueCodec<Uint8Array> {
         [TAG_BOUND_INCLUDED]: (v) => this.#decodeValue(new BoundIncluded(v)),
         [TAG_BOUND_EXCLUDED]: (v) => this.#decodeValue(new BoundExcluded(v)),
         [TAG_RECORDID]: (v) => {
+            if (typeof v === "string") {
+                return this.#decodeValue(new StringRecordId(v));
+            }
             if (hasSymbol(v[1], RANGE_SYMBOL)) {
                 return this.#decodeValue(new RecordIdRange(v[0], v[1].begin, v[1].end));
             }

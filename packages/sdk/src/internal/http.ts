@@ -1,4 +1,5 @@
 import { HttpConnectionError } from "../errors";
+import { wrapSqonError } from "./wrap-sqon-error";
 import type { ConnectionSession, ConnectionState, DriverContext } from "../types/surreal";
 
 export interface FetchSurrealOptions {
@@ -78,5 +79,5 @@ function encodeBody(context: DriverContext, body?: unknown): BodyInit | undefine
         return body;
     }
 
-    return body ? new Uint8Array(context.codecs.cbor.encode(body)) : undefined;
+    return body ? new Uint8Array(wrapSqonError(() => context.codecs.cbor.encode(body))) : undefined;
 }

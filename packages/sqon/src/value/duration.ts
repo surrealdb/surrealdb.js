@@ -137,7 +137,7 @@ export class Duration extends Value {
             }
         }
 
-        return result;
+        return result || "0ns";
     }
 
     /**

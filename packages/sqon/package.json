@@ -35,8 +35,6 @@
     },
     "files": [
         "dist",
-        "README.md",
-        "LICENCE",
-        "SECURITY.md"
+        "LICENSE"
     ]
 }

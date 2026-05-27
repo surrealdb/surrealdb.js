@@ -4,6 +4,7 @@ import { Duration } from "surrealdb";
 
 describe("Duration", () => {
     test("string equality", () => {
+        expect(new Duration("0ns").toString()).toBe("0ns");
         expect(new Duration("1ns").toString()).toBe("1ns");
         expect(new Duration("1us").toString()).toBe("1us");
         expect(new Duration("1ms").toString()).toBe("1ms");

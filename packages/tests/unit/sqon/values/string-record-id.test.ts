@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { RecordId, StringRecordId } from "surrealdb";
+import { InvalidRecordIdError, RecordId, StringRecordId } from "surrealdb";
 
 describe("StringRecordId", () => {
     test("construct from string", () => {
@@ -21,7 +21,7 @@ describe("StringRecordId", () => {
 
     test("rejects non-string", () => {
         // @ts-expect-error
-        expect(() => new StringRecordId(123)).toThrow();
+        expect(() => new StringRecordId(123)).toThrow(InvalidRecordIdError);
     });
 
     test("equals", () => {

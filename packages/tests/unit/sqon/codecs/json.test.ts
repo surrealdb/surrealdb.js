@@ -191,6 +191,13 @@ describe("JsonCodec", () => {
             const srid = new StringRecordId("users:bob");
             expect(codec.encode(srid)).toEqual({ $recordIdString: "users:bob" });
         });
+
+        test("round-trip", () => {
+            const srid = new StringRecordId("users:bob");
+            const result = roundTrip(srid);
+            expect(result).toBeInstanceOf(StringRecordId);
+            expect((result as StringRecordId).toString()).toBe("users:bob");
+        });
     });
 
     describe("RecordIdRange", () => {

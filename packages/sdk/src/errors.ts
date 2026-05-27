@@ -1,3 +1,4 @@
+import type { SqonError } from "@surrealdb/sqon";
 import type { Feature } from "./internal/feature";
 import type { ApiResponse } from "./query/api";
 import type { Session } from "./types";
@@ -10,6 +11,20 @@ export class SurrealError extends Error {
     constructor(message?: string, options?: ErrorOptions) {
         super(message, options);
         markSymbol(this, SURREAL_ERROR_SYMBOL);
+    }
+}
+
+/**
+ * Thrown when a SQON value or codec operation fails within the SDK.
+ */
+export class SurrealSqonError extends SurrealError {
+    override name = "SurrealSqonError";
+
+    readonly inner: SqonError;
+
+    constructor(inner: SqonError) {
+        super(inner.message, { cause: inner });
+        this.inner = inner;
     }
 }
 

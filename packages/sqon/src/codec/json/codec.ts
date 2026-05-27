@@ -48,6 +48,7 @@ import {
     isRange,
     isRecordId,
     isSet,
+    isStringRecordId,
     isTable,
     isUuid,
 } from "./values.ts";
@@ -128,9 +129,6 @@ export class JsonCodec implements ValueCodec<unknown> {
         }
         if (value instanceof Future) {
             return createFuture(value.body);
-        }
-        if (value instanceof Date) {
-            return createDatetime(value.toISOString());
         }
         if (value instanceof Uint8Array) {
             return createBytes(toBase64Url(value));
@@ -233,6 +231,9 @@ export class JsonCodec implements ValueCodec<unknown> {
                 return this.#decodeValue(new RecordIdRange(obj.$recordId.tb, id.begin, id.end));
             }
             return this.#decodeValue(new RecordId(obj.$recordId.tb, id as RecordIdValue));
+        }
+        if (isStringRecordId(obj)) {
+            return this.#decodeValue(new StringRecordId(obj.$recordIdString));
         }
         if (isTable(obj)) {
             return this.#decodeValue(new Table(obj.$table));

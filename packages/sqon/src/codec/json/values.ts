@@ -38,6 +38,10 @@ export const isUuid = (value: object): value is { $uuid: string } => {
     return "$uuid" in value && typeof value.$uuid === "string";
 };
 
+export const isStringRecordId = (value: object): value is { $recordIdString: string } => {
+    return "$recordIdString" in value && typeof value.$recordIdString === "string";
+};
+
 export const isRecordId = (value: object): value is { $recordId: { tb: string; id: unknown } } => {
     return (
         "$recordId" in value &&

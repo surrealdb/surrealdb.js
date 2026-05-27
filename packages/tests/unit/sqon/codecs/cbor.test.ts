@@ -18,6 +18,7 @@ import {
     Range,
     RecordId,
     RecordIdRange,
+    StringRecordId,
     Table,
     Uuid,
 } from "surrealdb";
@@ -47,6 +48,12 @@ describe("CborCodec", () => {
             expect(roundTrip(42)).toBe(42);
             expect(roundTrip(3.14)).toBe(3.14);
             expect(roundTrip(-100)).toBe(-100);
+        });
+
+        test("bigint", () => {
+            const encoded = codec.encode(123n);
+            expect(encoded).toBeInstanceOf(Uint8Array);
+            expect(codec.decode(encoded)).toBe(123);
         });
     });
 
@@ -136,6 +143,15 @@ describe("CborCodec", () => {
         });
     });
 
+    describe("StringRecordId", () => {
+        test("round-trip", () => {
+            const srid = new StringRecordId("users:bob");
+            const result = roundTrip(srid);
+            expect(result).toBeInstanceOf(StringRecordId);
+            expect((result as StringRecordId).toString()).toBe("users:bob");
+        });
+    });
+
     describe("RecordIdRange", () => {
         test("round-trip", () => {
             const range = new RecordIdRange("users", new BoundIncluded(1), new BoundExcluded(100));
@@ -204,7 +220,7 @@ describe("CborCodec", () => {
         test("round-trip preserves binary data", () => {
             const bytes = new Uint8Array([0, 1, 2, 255]);
             const result = roundTrip(bytes);
-            const decoded = new Uint8Array(result as ArrayBuffer);
+            const decoded = result instanceof Uint8Array ? result : new Uint8Array(result as ArrayBuffer);
             expect(decoded).toEqual(bytes);
         });
     });
@@ -326,6 +342,40 @@ describe("CborCodec", () => {
             const result = roundTrip(obj) as Record<string, unknown>;
             expect(result.id).toBeInstanceOf(RecordId);
             expect(result.created).toBeInstanceOf(DateTime);
+        });
+
+        test("Map", () => {
+            const map = new Map<string, unknown>([
+                ["key1", 1],
+                ["key2", "value"],
+            ]);
+            const result = roundTrip(map);
+            expect(result).toEqual({ key1: 1, key2: "value" });
+        });
+    });
+
+    describe("visitors", () => {
+        test("valueEncodeVisitor", () => {
+            const visitor = new CborCodec({
+                valueEncodeVisitor: (v) => {
+                    if (typeof v === "string") return v.toUpperCase();
+                    return v;
+                },
+            });
+
+            expect(visitor.decode<string>(visitor.encode("hello"))).toBe("HELLO");
+        });
+
+        test("valueDecodeVisitor", () => {
+            const visitor = new CborCodec({
+                valueDecodeVisitor: (v) => {
+                    if (v instanceof Table) return v.name;
+                    return v;
+                },
+            });
+
+            const encoded = visitor.encode(new Table("users"));
+            expect(visitor.decode<string>(encoded)).toBe("users");
         });
     });
 });
