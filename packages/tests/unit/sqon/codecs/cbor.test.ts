@@ -53,7 +53,7 @@ describe("CborCodec", () => {
         test("bigint", () => {
             const encoded = codec.encode(123n);
             expect(encoded).toBeInstanceOf(Uint8Array);
-            expect(codec.decode(encoded)).toBe(123);
+            expect(codec.decode<number>(encoded)).toBe(123);
         });
     });
 
@@ -220,7 +220,8 @@ describe("CborCodec", () => {
         test("round-trip preserves binary data", () => {
             const bytes = new Uint8Array([0, 1, 2, 255]);
             const result = roundTrip(bytes);
-            const decoded = result instanceof Uint8Array ? result : new Uint8Array(result as ArrayBuffer);
+            const decoded =
+                result instanceof Uint8Array ? result : new Uint8Array(result as ArrayBuffer);
             expect(decoded).toEqual(bytes);
         });
     });
