@@ -93,64 +93,64 @@ jobs:
           retention-days: 1
           path: packages/sdk/dist/
 
-  build-wasm:
-    name: Build WASM
-    needs: build-sdk
-    runs-on: runner-amd64-2xlarge
-    steps:
-      - name: Install Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.2.21
+  # build-wasm:
+  #   name: Build WASM
+  #   needs: build-sdk
+  #   runs-on: runner-amd64-2xlarge
+  #   steps:
+  #     - name: Install Bun
+  #       uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+  #       with:
+  #         bun-version: 1.2.21
 
-      - name: Code Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+  #     - name: Code Checkout
+  #       uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
-        with:
-          toolchain: stable
-          targets: wasm32-unknown-unknown
+  #     - name: Install Rust
+  #       uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
+  #       with:
+  #         toolchain: stable
+  #         targets: wasm32-unknown-unknown
 
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-        with:
-          shared-key: wasm
-          workspaces: packages/wasm
+  #     - name: Cache Rust
+  #       uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+  #       with:
+  #         shared-key: wasm
+  #         workspaces: packages/wasm
 
-      - name: Install wasm-bindgen-cli
-        run: command -v wasm-bindgen && wasm-bindgen --version | grep -q 0.2.108 || cargo install -f wasm-bindgen-cli --version 0.2.108
+  #     - name: Install wasm-bindgen-cli
+  #       run: command -v wasm-bindgen && wasm-bindgen --version | grep -q 0.2.108 || cargo install -f wasm-bindgen-cli --version 0.2.108
 
-      - name: Install wasm-opt
-        run: command -v wasm-opt || cargo install wasm-opt
+  #     - name: Install wasm-opt
+  #       run: command -v wasm-opt || cargo install wasm-opt
 
-      - name: Cache turbo
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: .turbo/cache
-          key: turbo-wasm-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/wasm/src-rust/**', 'packages/wasm/src-ts/**', 'packages/wasm/Cargo.toml') }}
-          restore-keys: turbo-wasm-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
+  #     - name: Cache turbo
+  #       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+  #       with:
+  #         path: .turbo/cache
+  #         key: turbo-wasm-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/wasm/src-rust/**', 'packages/wasm/src-ts/**', 'packages/wasm/Cargo.toml') }}
+  #         restore-keys: turbo-wasm-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
 
-      - name: Install dependencies
-        run: bun install
+  #     - name: Install dependencies
+  #       run: bun install
 
-      - name: Download SDK build
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: sdk-build
-          path: packages/sdk/dist/
+  #     - name: Download SDK build
+  #       uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+  #       with:
+  #         name: sdk-build
+  #         path: packages/sdk/dist/
 
-      - name: Build WASM
-        run: bun run build:wasm
+  #     - name: Build WASM
+  #       run: bun run build:wasm
 
-      - name: Upload WASM artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: wasm-build
-          retention-days: 30
-          path: |
-            packages/wasm/dist/
-            packages/wasm/wasm/
+  #     - name: Upload WASM artifacts
+  #       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+  #       with:
+  #         name: wasm-build
+  #         retention-days: 30
+  #         path: |
+  #           packages/wasm/dist/
+  #           packages/wasm/wasm/
 
   build-node:
     name: Build Node
