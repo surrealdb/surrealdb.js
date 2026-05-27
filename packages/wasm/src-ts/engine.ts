@@ -19,6 +19,7 @@ import {
 } from "surrealdb";
 import type { ConnectionOptions } from "../wasm/surrealdb";
 import type { EngineBroker } from "./common";
+import { wrapSqonError } from "./wrap-sqon-error";
 
 type LiveChannels = Record<string, [LiveMessage]>;
 
@@ -104,10 +105,14 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         }
 
         const id = this._context.uniqueId();
-        const payload = this._context.codecs.cbor.encode({ id, ...request });
+        const payload = wrapSqonError(() =>
+            this._context.codecs.cbor.encode({ id, ...request }),
+        );
 
         const response = await this.#broker.execute(payload);
-        const decoded = this._context.codecs.cbor.decode<Record<string, unknown>>(response);
+        const decoded = wrapSqonError(() =>
+            this._context.codecs.cbor.decode<Record<string, unknown>>(response),
+        );
 
         if (decoded && typeof decoded === "object" && "error" in decoded) {
             throw parseRpcError(
@@ -151,7 +156,7 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
     }
 
     override async exportSql(options: Partial<SqlExportOptions>): Promise<Response> {
-        const payload = this._context.codecs.cbor.encode(options);
+        const payload = wrapSqonError(() => this._context.codecs.cbor.encode(options));
         const sql = await this.#broker.exportSql(payload);
 
         return new Response(sql);
@@ -160,7 +165,9 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
     async #initialize(state: ConnectionState, signal: AbortSignal) {
         try {
             await this.#broker.connect(state.url.toString(), this.#options, (data) => {
-                const payload = this._context.codecs.cbor.decode<LivePayload>(data);
+                const payload = wrapSqonError(() =>
+                    this._context.codecs.cbor.decode<LivePayload>(data),
+                );
 
                 if (payload.id) {
                     this.#subscriptions.publish(payload.id.toString(), {
