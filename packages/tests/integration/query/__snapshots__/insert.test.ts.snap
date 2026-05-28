@@ -1,20 +1,5 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`insert() compile: query-ws 1`] = `"INSERT RELATION IGNORE $bind__4 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__5"`;
-
-exports[`insert() compile: bindings-ws 1`] = `
-{
-  "bind__4": [
-    {
-      "firstname": "John",
-      "id": RecordId {},
-      "lastname": "Doe",
-    },
-  ],
-  "bind__5": DateTime {},
-}
-`;
-
 exports[`insert() compile: query-http 1`] = `"INSERT RELATION IGNORE $bind__3 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__4"`;
 
 exports[`insert() compile: bindings-http 1`] = `
@@ -22,25 +7,37 @@ exports[`insert() compile: bindings-http 1`] = `
   "bind__3": [
     {
       "firstname": "John",
-      "id": RecordId {},
+      "id": RecordId {
+        [Symbol(surrealdb.RecordId)]: true,
+        [Symbol(surrealdb.Value)]: true,
+      },
       "lastname": "Doe",
     },
   ],
-  "bind__4": DateTime {},
+  "bind__4": DateTime {
+    [Symbol(surrealdb.DateTime)]: true,
+    [Symbol(surrealdb.Value)]: true,
+  },
 }
 `;
 
-exports[`insert() compile: query-mem 1`] = `"INSERT RELATION IGNORE $bind__3 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__4"`;
+exports[`insert() compile: query-ws 1`] = `"INSERT RELATION IGNORE $bind__4 RETURN DIFF TIMEOUT TIMEOUT 1s VERSION $bind__5"`;
 
-exports[`insert() compile: bindings-mem 1`] = `
+exports[`insert() compile: bindings-ws 1`] = `
 {
-  "bind__3": [
+  "bind__4": [
     {
       "firstname": "John",
-      "id": RecordId {},
+      "id": RecordId {
+        [Symbol(surrealdb.RecordId)]: true,
+        [Symbol(surrealdb.Value)]: true,
+      },
       "lastname": "Doe",
     },
   ],
-  "bind__4": DateTime {},
+  "bind__5": DateTime {
+    [Symbol(surrealdb.DateTime)]: true,
+    [Symbol(surrealdb.Value)]: true,
+  },
 }
 `;

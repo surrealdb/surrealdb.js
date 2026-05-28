@@ -1,3 +1,4 @@
+import { RecordId, Uuid } from "@surrealdb/sqon";
 import {
     CallTerminatedError,
     ConnectionUnavailableError,
@@ -6,13 +7,13 @@ import {
     UnexpectedServerResponseError,
 } from "../errors";
 import { parseRpcError } from "../internal/parse-error";
+import { wrapSqonError } from "../internal/wrap-sqon-error";
 import type { LiveAction, LiveMessage, RpcRequest, RpcResponse } from "../types";
 import { LIVE_ACTIONS } from "../types/live";
 import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
 import { Features } from "../utils";
 import { ChannelIterator } from "../utils/channel-iterator";
 import { Publisher } from "../utils/publisher";
-import { RecordId, Uuid } from "../value";
 import { RpcEngine } from "./rpc";
 
 type Interval = Parameters<typeof clearInterval>[0];
@@ -137,7 +138,9 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
     ready(): void {
         for (const { request } of this.#calls.values()) {
-            this.#socket?.send(new Uint8Array(this._context.codecs.cbor.encode(request)));
+            this.#socket?.send(
+                new Uint8Array(wrapSqonError(() => this._context.codecs.cbor.encode(request))),
+            );
         }
     }
 
@@ -158,7 +161,9 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             };
 
             this.#calls.set(id, call as Call<unknown>);
-            this.#socket?.send(new Uint8Array(this._context.codecs.cbor.encode(call.request)));
+            this.#socket?.send(
+                new Uint8Array(wrapSqonError(() => this._context.codecs.cbor.encode(call.request))),
+            );
         });
     }
 
@@ -238,7 +243,9 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             socket.addEventListener("message", ({ data }) => {
                 try {
                     const buffer = this.parseBuffer(data);
-                    const decoded = this._context.codecs.cbor.decode<Response>(buffer);
+                    const decoded = wrapSqonError(() =>
+                        this._context.codecs.cbor.decode<Response>(buffer),
+                    );
 
                     if (
                         typeof decoded === "object" &&

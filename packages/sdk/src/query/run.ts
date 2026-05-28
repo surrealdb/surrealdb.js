@@ -1,3 +1,4 @@
+import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { ExpressionError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
@@ -5,7 +6,6 @@ import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { Session } from "../types";
 import { BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
-import type { Uuid } from "../value";
 import { Query } from "./query";
 
 const NAME_REGEX = /^[a-zA-Z0-9_:]+$/;

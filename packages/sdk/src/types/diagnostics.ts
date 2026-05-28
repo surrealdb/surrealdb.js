@@ -1,4 +1,4 @@
-import type { Duration, Uuid } from "../value";
+import type { Duration, Uuid } from "@surrealdb/sqon";
 import type { Nullable } from "./helpers";
 import type { LiveMessage } from "./live";
 import type { NamespaceDatabase, QueryChunk, Session, VersionInfo } from "./surreal";

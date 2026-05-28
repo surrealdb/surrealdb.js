@@ -1,12 +1,14 @@
 import {
     ConnectionUnavailableError,
     MissingNamespaceDatabaseError,
+    SurrealSqonError,
     UnexpectedServerResponseError,
     UnsupportedFeatureError,
 } from "../errors";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
 import { parseRpcError } from "../internal/parse-error";
+import { wrapSqonError } from "../internal/wrap-sqon-error";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
 import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
@@ -117,10 +119,14 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         let response: RpcResponse<Result>;
 
         try {
-            response = this._context.codecs.cbor.decode<RpcResponse<Result>>(
-                new Uint8Array(buffer),
+            response = wrapSqonError(() =>
+                this._context.codecs.cbor.decode<RpcResponse<Result>>(new Uint8Array(buffer)),
             );
         } catch (error) {
+            if (error instanceof SurrealSqonError) {
+                throw error;
+            }
+
             throw new UnexpectedServerResponseError(error);
         }
 

@@ -1,8 +1,32 @@
+import type { SqonError } from "@surrealdb/sqon";
 import type { Feature } from "./internal/feature";
 import type { ApiResponse } from "./query/api";
 import type { Session } from "./types";
+import { markSymbol, SERVER_ERROR_SYMBOL, SURREAL_ERROR_SYMBOL } from "./utils/symbols";
 
-export class SurrealError extends Error {}
+/**
+ * The base error class for all SurrealDB SDK errors.
+ */
+export class SurrealError extends Error {
+    constructor(message?: string, options?: ErrorOptions) {
+        super(message, options);
+        markSymbol(this, SURREAL_ERROR_SYMBOL);
+    }
+}
+
+/**
+ * Thrown when a SQON value or codec operation fails within the SDK.
+ */
+export class SurrealSqonError extends SurrealError {
+    override name = "SurrealSqonError";
+
+    readonly inner: SqonError;
+
+    constructor(inner: SqonError) {
+        super(inner.message, { cause: inner });
+        this.inner = inner;
+    }
+}
 
 /**
  * Thrown when a call has been terminated because the connection was closed
@@ -292,6 +316,7 @@ export class ServerError extends SurrealError {
         this.kind = options.kind;
         this.code = options.code ?? 0;
         this.details = (options.details ?? undefined) as ErrorDetail | undefined;
+        markSymbol(this, SERVER_ERROR_SYMBOL);
     }
 }
 
@@ -605,21 +630,6 @@ export class PublishError extends SurrealError {
 }
 
 /**
- * Thrown when a parsed date or datetime is invalid
- */
-export class InvalidDateError extends SurrealError {
-    override name = "InvalidDateError";
-
-    constructor(dateOrMessage: Date | string) {
-        if (typeof dateOrMessage === "string") {
-            super(dateOrMessage);
-        } else {
-            super(`The provided date is invalid: ${dateOrMessage}`);
-        }
-    }
-}
-
-/**
  * Thrown when a feature is not supported by the current engine
  */
 export class UnsupportedFeatureError extends SurrealError {
@@ -682,38 +692,4 @@ export class UnsuccessfulApiError extends SurrealError {
         this.method = method;
         this.response = response;
     }
-}
-
-// =========================================================== //
-//                                                             //
-//                   Value Validation Errors                    //
-//                                                             //
-// =========================================================== //
-
-/**
- * Thrown when a RecordId or RecordIdRange is constructed with invalid parts
- */
-export class InvalidRecordIdError extends SurrealError {
-    override name = "InvalidRecordIdError";
-}
-
-/**
- * Thrown when a Duration string cannot be parsed or a duration operation is invalid
- */
-export class InvalidDurationError extends SurrealError {
-    override name = "InvalidDurationError";
-}
-
-/**
- * Thrown when a Decimal operation fails (division by zero, invalid input, etc.)
- */
-export class InvalidDecimalError extends SurrealError {
-    override name = "InvalidDecimalError";
-}
-
-/**
- * Thrown when a Table or StringRecordId is constructed with an invalid value
- */
-export class InvalidTableError extends SurrealError {
-    override name = "InvalidTableError";
 }

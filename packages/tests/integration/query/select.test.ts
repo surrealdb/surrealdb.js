@@ -85,7 +85,7 @@ describe("select()", async () => {
             .where(eq("age", 30))
             .fetch("foo")
             .timeout(Duration.seconds(1))
-            .version(new DateTime());
+            .version(new DateTime(0));
 
         const { query, bindings } = builder.compile();
 

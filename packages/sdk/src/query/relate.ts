@@ -1,3 +1,4 @@
+import { type DateTime, type Duration, RecordId, type Table, type Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { SurrealError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
@@ -6,7 +7,6 @@ import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { AnyRecordId, Output, Session } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
-import { type DateTime, type Duration, RecordId, type Table, type Uuid } from "../value";
 import { Query } from "./query";
 
 interface RelateOptions {

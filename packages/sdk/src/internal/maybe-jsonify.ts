@@ -1,4 +1,4 @@
-import { type Jsonify, jsonify } from "../utils";
+import { type Jsonify, jsonify } from "@surrealdb/sqon";
 
 export type MaybeJsonify<T, J extends boolean> = J extends true ? Jsonify<T> : T;
 

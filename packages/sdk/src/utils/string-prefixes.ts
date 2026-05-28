@@ -1,4 +1,4 @@
-import { DateTime, StringRecordId, Uuid } from "../value";
+import { DateTime, StringRecordId, Uuid } from "@surrealdb/sqon";
 
 /**
  * A template literal tag function for parsing a string type.

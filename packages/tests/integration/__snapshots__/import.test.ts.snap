@@ -4,16 +4,10 @@ exports[`import basic 1`] = `
 [
   {
     "hello": "world",
-    "id": RecordId {},
-  },
-]
-`;
-
-exports[`import basic string 1`] = `
-[
-  {
-    "hello": "world",
-    "id": RecordId {},
+    "id": RecordId {
+      [Symbol(surrealdb.RecordId)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
   },
 ]
 `;

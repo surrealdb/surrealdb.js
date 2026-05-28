@@ -1,4 +1,4 @@
-import type { RecordId, RecordIdValue, StringRecordId } from "../value";
+import type { RecordId, RecordIdValue, StringRecordId } from "@surrealdb/sqon";
 
 export type Version = `${number}.${number}.${number}`;
 export type Values<T> = Partial<T> & Record<string, unknown>;

@@ -1,4 +1,4 @@
-import type { RecordId, Table, Uuid } from "../value";
+import type { RecordId, Table, Uuid } from "@surrealdb/sqon";
 
 export const LIVE_ACTIONS = ["CREATE", "UPDATE", "DELETE", "KILLED"] as const;
 
