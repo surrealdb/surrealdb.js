@@ -1,3 +1,4 @@
+import type { Duration, RecordIdRange, Table, Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
@@ -14,7 +15,6 @@ import type {
 } from "../types";
 import { type BoundQuery, raw, surql } from "../utils";
 import type { Frame } from "../utils/frame";
-import type { Duration, RecordIdRange, Table, Uuid } from "../value";
 import { Query } from "./query";
 
 interface UpdateOptions {

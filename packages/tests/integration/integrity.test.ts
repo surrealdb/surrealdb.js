@@ -14,7 +14,10 @@ describe("data integrity", async () => {
             });
         };
 
-        expect(execute()).rejects.toThrow(InvalidDateError);
+        expect(execute()).rejects.toMatchObject({
+            name: "SurrealSqonError",
+            inner: expect.any(InvalidDateError),
+        });
     });
 
     test("NaN number handling", async () => {

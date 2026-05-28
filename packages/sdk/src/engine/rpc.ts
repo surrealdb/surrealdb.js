@@ -1,3 +1,4 @@
+import { Duration, type Uuid } from "@surrealdb/sqon";
 import { ConnectionUnavailableError, UnexpectedServerResponseError } from "../errors";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { getSessionFromState } from "../internal/get-session-from-state";
@@ -23,7 +24,6 @@ import type {
     VersionInfo,
 } from "../types";
 import type { BoundQuery } from "../utils";
-import { Duration, type Uuid } from "../value";
 
 /**
  * JSON-based engines implement the SurrealDB v1 protocol, which uses

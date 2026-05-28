@@ -29,8 +29,7 @@
         "tslib": "^2.6.3"
     },
     "dependencies": {
-        "@surrealdb/cbor": "2.0.0-alpha.4",
-        "uuidv7": "^1.0.1"
+        "@surrealdb/sqon": "workspace:*"
     },
     "types": "./dist/surrealdb.d.ts",
     "main": "./dist/surrealdb.mjs",

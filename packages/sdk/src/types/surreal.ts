@@ -1,8 +1,15 @@
+import type {
+    CodecOptions,
+    Duration,
+    RecordId,
+    RecordIdValue,
+    Uuid,
+    ValueCodec,
+} from "@surrealdb/sqon";
 import type { ServerError } from "../errors";
 import type { Feature } from "../internal/feature";
 import type { ReconnectContext } from "../internal/reconnect";
 import type { BoundQuery } from "../utils";
-import type { Duration, RecordId, RecordIdValue, Uuid } from "../value";
 import type { AccessRecordAuth, AnyAuth, AuthProvider, Token, Tokens } from "./auth";
 import type { Nullable } from "./helpers";
 import type { Prettify } from "./internal";
@@ -10,16 +17,22 @@ import type { LiveMessage } from "./live";
 import type { EventPublisher } from "./publisher";
 
 export type Session = Uuid | undefined;
-export type CodecType = "cbor" | "flatbuffer" | (string & {});
 export type QueryResponseKind = "single" | "batched" | "batched-final";
 export type ConnectionStatus = "disconnected" | "connecting" | "reconnecting" | "connected";
 export type EngineFactory = (context: DriverContext) => SurrealEngine;
+export type Codecs = { [K in keyof CodecRegistry]?: (options: CodecOptions) => CodecRegistry[K] };
 export type Engines = Record<string, EngineFactory>;
-export type CodecFactory = (options: CodecOptions) => ValueCodec;
-export type Codecs = Partial<Record<CodecType, CodecFactory>>;
-export type CodecRegistry = Record<CodecType, ValueCodec>;
 export type DataStream = string | ReadableStream;
 export type QueryType = "live" | "kill" | "other";
+
+/**
+ * The registry of codecs supported by the SDK.
+ */
+export interface CodecRegistry {
+    cbor: ValueCodec<Uint8Array>;
+    flatbuffer: ValueCodec<Uint8Array>;
+    json: ValueCodec<unknown>;
+}
 
 /**
  * The communication contract between the SDK and a SurrealDB datastore.
@@ -190,25 +203,7 @@ export interface ConnectionState {
     sessions: Map<Uuid, ConnectionSession>;
 }
 
-/**
- * Options used to configure the value codec
- */
-export interface CodecOptions {
-    /** Use native `Date` objects instead of custom `DateTime` objects. Using `Date` objects will result in a loss of nanosecond precision. */
-    useNativeDates?: boolean;
-    /** Specify a custom visitor function to process encode values. */
-    valueEncodeVisitor?: (value: unknown) => unknown;
-    /** Specify a custom visitor function to process decode values. */
-    valueDecodeVisitor?: (value: unknown) => unknown;
-}
-
-/**
- * A codec for encoding and decoding SurrealQL values
- */
-export interface ValueCodec {
-    encode: <T>(data: T) => Uint8Array;
-    decode: <T>(data: Uint8Array) => T;
-}
+export type { CodecOptions, ValueCodec };
 
 /**
  * Context information passed to each controller and engine

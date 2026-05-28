@@ -1,7 +1,7 @@
+import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { ConnectionUnavailableError } from "../errors";
 import type { Session } from "../types";
-import type { Uuid } from "../value";
 import { SurrealQueryable } from "./queryable";
 
 /**

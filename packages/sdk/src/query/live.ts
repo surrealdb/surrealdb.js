@@ -1,3 +1,4 @@
+import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { Expr, ExprLike, LiveResource, Session } from "../types";
@@ -8,7 +9,6 @@ import {
     ManagedLiveSubscription,
     UnmanagedLiveSubscription,
 } from "../utils/live";
-import type { Uuid } from "../value";
 import { Query } from "./query";
 
 interface ManagedLiveOptions {

@@ -1,9 +1,9 @@
+import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { normalizePath } from "../internal/normalize-path";
 import { ApiPromise } from "../query/api";
 import type { Session } from "../types";
 import { Features } from "../utils";
-import type { Uuid } from "../value";
 
 /**
  * The request information for an api request.

@@ -1,6 +1,6 @@
+import { Duration, RecordId, StringRecordId } from "@surrealdb/sqon";
 import { ExpressionError } from "../errors";
 import type { Expr, Output } from "../types";
-import { Duration, RecordId, StringRecordId } from "../value";
 
 const OUTPUTS: Map<Output, string> = new Map([
     ["null", "null"],

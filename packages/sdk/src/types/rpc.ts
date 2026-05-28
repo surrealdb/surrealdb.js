@@ -1,5 +1,5 @@
+import type { Uuid } from "@surrealdb/sqon";
 import type { RpcErrorObject } from "../internal/parse-error";
-import type { Uuid } from "../value";
 import type { QueryType, Session } from "./surreal";
 
 export type RpcQueryResult<T = unknown> = RpcQueryResultOk<T> | RpcQueryResultErr;

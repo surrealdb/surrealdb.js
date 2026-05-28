@@ -1,5 +1,5 @@
+import { Uuid } from "@surrealdb/sqon";
 import { createRemoteEngines } from "../engine";
-
 import {
     AuthenticationError,
     ConnectionUnavailableError,
@@ -46,7 +46,6 @@ import {
     MINIMUM_VERSION,
     Publisher,
 } from "../utils";
-import { Uuid } from "../value";
 
 type ConnectionEvents = {
     connecting: [];

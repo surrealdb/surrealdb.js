@@ -39,22 +39,21 @@
     },
     "packages/node": {
       "name": "@surrealdb/node",
-      "version": "2.6.1",
+      "version": "3.0.3",
       "devDependencies": {
         "@napi-rs/cli": "^3.1.5",
         "dedent": "^1.7.0",
-        "surrealdb": "^2.0.0-0",
+        "surrealdb": "^2.0.1",
       },
       "peerDependencies": {
-        "surrealdb": "^2.0.0-0",
+        "surrealdb": "^2.0.1",
       },
     },
     "packages/sdk": {
       "name": "surrealdb",
-      "version": "2.0.0-beta.1",
+      "version": "2.0.3",
       "dependencies": {
-        "@surrealdb/cbor": "2.0.0-alpha.4",
-        "uuidv7": "^1.0.1",
+        "@surrealdb/sqon": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "^1.2.21",
@@ -66,11 +65,27 @@
         "typescript": "^5.0.0",
       },
     },
+    "packages/sqon": {
+      "name": "@surrealdb/sqon",
+      "version": "1.0.0",
+      "dependencies": {
+        "@surrealdb/cbor": "2.0.0-alpha.4",
+        "uuidv7": "^1.0.1",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.2.21",
+      },
+      "peerDependencies": {
+        "tslib": "^2.6.3",
+        "typescript": "^5.0.0",
+      },
+    },
     "packages/tests": {
       "name": "@surrealdb/tests",
       "dependencies": {
         "@surrealdb/cbor": "2.0.0-alpha.4",
         "@surrealdb/node": "workspace:*",
+        "@surrealdb/sqon": "workspace:*",
         "@surrealdb/wasm": "workspace:*",
         "get-port": "^7.1.0",
         "surrealdb": "workspace:*",
@@ -78,12 +93,12 @@
     },
     "packages/wasm": {
       "name": "@surrealdb/wasm",
-      "version": "2.6.1",
+      "version": "3.0.3",
       "devDependencies": {
-        "surrealdb": "^2.0.0-0",
+        "surrealdb": "^2.0.1",
       },
       "peerDependencies": {
-        "surrealdb": "^2.0.0-0",
+        "surrealdb": "^2.0.1",
       },
     },
   },
@@ -411,6 +426,8 @@
     "@surrealdb/node": ["@surrealdb/node@workspace:packages/node"],
 
     "@surrealdb/node-demo": ["@surrealdb/node-demo@workspace:demo/node"],
+
+    "@surrealdb/sqon": ["@surrealdb/sqon@workspace:packages/sqon"],
 
     "@surrealdb/tests": ["@surrealdb/tests@workspace:packages/tests"],
 

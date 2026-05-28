@@ -18,6 +18,7 @@ import {
     type Uuid,
 } from "surrealdb";
 import { type ConnectionOptions, type NotificationReceiver, SurrealNodeEngine } from "../napi";
+import { wrapSqonError } from "./wrap-sqon-error";
 
 type LiveChannels = Record<string, [LiveMessage]>;
 
@@ -108,10 +109,12 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         }
 
         const id = this._context.uniqueId();
-        const payload = this._context.codecs.cbor.encode({ id, ...request });
+        const payload = wrapSqonError(() => this._context.codecs.cbor.encode({ id, ...request }));
 
         const response = await this.#engine.execute(payload);
-        const decoded = this._context.codecs.cbor.decode<Record<string, unknown>>(response);
+        const decoded = wrapSqonError(() =>
+            this._context.codecs.cbor.decode<Record<string, unknown>>(response),
+        );
 
         if (decoded && typeof decoded === "object" && "error" in decoded) {
             throw parseRpcError(
@@ -163,7 +166,7 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
             throw new ConnectionUnavailableError();
         }
 
-        const payload = this._context.codecs.cbor.encode(options);
+        const payload = wrapSqonError(() => this._context.codecs.cbor.encode(options));
         const sql = await this.#engine.export(payload);
 
         return new Response(sql);
@@ -187,7 +190,9 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
                         break; // Channel closed
                     }
 
-                    const payload = this._context.codecs.cbor.decode<LivePayload>(value);
+                    const payload = wrapSqonError(() =>
+                        this._context.codecs.cbor.decode<LivePayload>(value),
+                    );
 
                     if (payload.id) {
                         this.#subscriptions.publish(payload.id.toString(), {

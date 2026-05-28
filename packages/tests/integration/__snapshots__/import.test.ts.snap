@@ -5,14 +5,8 @@ exports[`import basic 1`] = `
   {
     "hello": "world",
     "id": RecordId {
-      "id": 1,
       [Symbol(surrealdb.RecordId)]: true,
       [Symbol(surrealdb.Value)]: true,
-      "table": Table {
-        "name": "foo",
-        [Symbol(surrealdb.Table)]: true,
-        [Symbol(surrealdb.Value)]: true,
-      },
     },
   },
 ]
