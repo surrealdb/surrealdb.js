@@ -644,6 +644,20 @@ export class UnsupportedFeatureError extends SurrealError {
 }
 
 /**
+ * Thrown when a feature is not supported by the current protocol
+ */
+export class UnsupportedProtocolFeatureError extends SurrealError {
+    override name = "UnsupportedProtocolFeatureError";
+
+    readonly feature: Feature;
+
+    constructor(feature: Feature) {
+        super(`The configured engine does not support the feature: ${feature.name}`);
+        this.feature = feature;
+    }
+}
+
+/**
  * Thrown when a feature is not available in the used version of SurrealDB
  */
 export class UnavailableFeatureError extends SurrealError {
