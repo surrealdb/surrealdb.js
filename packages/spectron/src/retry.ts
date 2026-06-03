@@ -6,15 +6,22 @@ export function backoffSchedule(maxRetries: number): readonly number[] {
     return _BACKOFF_MS.slice(0, capped);
 }
 
-/** Whether a failed request should be retried (GET only; 5xx or connection error). */
+/**
+ * Whether a failed request should be retried.
+ *
+ * Retries apply to idempotent reads (`GET`/`HEAD`) and writes explicitly marked
+ * idempotent, on `5xx` responses or connection errors (`status === null`).
+ */
 export function shouldRetry(
     method: string,
     status: number | null,
     attempt: number,
     maxRetries: number,
+    idempotent = false,
 ): boolean {
     if (attempt >= maxRetries) return false;
-    if (method.toUpperCase() !== "GET") return false;
+    const m = method.toUpperCase();
+    if (m !== "GET" && m !== "HEAD" && !idempotent) return false;
     if (status === null) return true;
     return status >= 500;
 }

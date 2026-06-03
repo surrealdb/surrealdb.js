@@ -1,8 +1,14 @@
 import { encodePathSegment, getContextApiPrefix } from "../paths.js";
 import type { Transport } from "../transport.js";
-import type { EntityHistoryEntryWire, EntityWire } from "../types/memory-wire.js";
+import type { components } from "../types/generated.js";
 
-/** Entity CRUD and history for Layer 1 memory. */
+type EntityDetailJson = components["schemas"]["EntityDetailJson"];
+type EntityListResponseJson = components["schemas"]["EntityListResponseJson"];
+type EntityResponseJson = components["schemas"]["EntityResponseJson"];
+type EntityHistoryResponseJson = components["schemas"]["EntityHistoryResponseJson"];
+type AttributeDetailJson = components["schemas"]["AttributeDetailJson"];
+
+/** Entity records, attributes, relations, and attribute history. */
 export class Entities {
     private readonly transport: Transport;
 
@@ -18,47 +24,25 @@ export class Entities {
     }
 
     /** Lists entities, optionally filtered by type. */
-    async list(options?: { type?: string }): Promise<EntityWire[]> {
+    async list(options?: { type?: string }): Promise<EntityDetailJson[]> {
         const body = await this.transport.requestJson("GET", this.base, {
             query: options?.type !== undefined ? { type: options.type } : undefined,
         });
-        if (
-            body &&
-            typeof body === "object" &&
-            "entities" in body &&
-            Array.isArray((body as { entities: unknown }).entities)
-        ) {
-            return (body as { entities: EntityWire[] }).entities;
-        }
-        if (Array.isArray(body)) return body as EntityWire[];
-        return [];
+        return (body as EntityListResponseJson).entities;
     }
 
-    /** Fetches a single entity by type and name. */
-    async get(entityType: string, name: string): Promise<EntityWire> {
+    /** Fetches a single entity by type and name, with its attributes and relations. */
+    async get(entityType: string, name: string): Promise<EntityResponseJson> {
         const path = `${this.base}/${encodePathSegment(entityType)}/${encodePathSegment(name)}`;
         const body = await this.transport.requestJson("GET", path);
-        return body as EntityWire;
+        return body as EntityResponseJson;
     }
 
-    /** Returns history for one attribute key. */
-    async history(
-        entityType: string,
-        name: string,
-        key: string,
-    ): Promise<EntityHistoryEntryWire[]> {
+    /** Returns the supersession history for one attribute key. */
+    async history(entityType: string, name: string, key: string): Promise<AttributeDetailJson[]> {
         const path = `${this.base}/${encodePathSegment(entityType)}/${encodePathSegment(name)}/history/${encodePathSegment(key)}`;
         const body = await this.transport.requestJson("GET", path);
-        if (
-            body &&
-            typeof body === "object" &&
-            "history" in body &&
-            Array.isArray((body as { history: unknown }).history)
-        ) {
-            return (body as { history: EntityHistoryEntryWire[] }).history;
-        }
-        if (Array.isArray(body)) return body as EntityHistoryEntryWire[];
-        return [];
+        return (body as EntityHistoryResponseJson).history;
     }
 
     /** Soft-deletes an entity (sets valid-until). */

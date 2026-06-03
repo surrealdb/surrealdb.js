@@ -1,37 +1,28 @@
-/** Knowledge query mode for Layer 0 search. */
-export const QueryMode = {
-    vector: "vector",
-    bm25: "bm25",
-    hybrid: "hybrid",
-    hybrid_graph: "hybrid_graph",
+/** Inference mode for the `/facts` write API. */
+export const InferMode = {
+    full: "full",
+    triples: "triples",
+    preview: "preview",
+    none: "none",
 } as const;
-export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode];
+export type InferMode = (typeof InferMode)[keyof typeof InferMode];
 
-/** Document pipeline status values returned by the API. */
-export const DocumentStatus = {
-    queued: "queued",
-    extracting: "extracting",
-    chunking: "chunking",
-    embedding: "embedding",
-    rendering: "rendering",
-    transcribing: "transcribing",
-    captioning: "captioning",
-    keywording: "keywording",
-    ready: "ready",
-    failed: "failed",
+/** Bulk extraction strategy for `/facts/batch`. */
+export const BatchExtractionMode = {
+    per_message: "per_message",
+    whole_conversation: "whole_conversation",
 } as const;
-export type DocumentStatus = (typeof DocumentStatus)[keyof typeof DocumentStatus];
+export type BatchExtractionMode = (typeof BatchExtractionMode)[keyof typeof BatchExtractionMode];
 
-/** Multimodal ingestion profile for document upload. */
-export const IngestProfile = {
-    text_only: "text_only",
-    text_plus_ocr: "text_plus_ocr",
-    multimodal_balanced: "multimodal_balanced",
-    multimodal_full: "multimodal_full",
+/** Memory category classification applied during extraction. */
+export const MemoryCategory = {
+    identity: "identity",
+    knowledge: "knowledge",
+    context: "context",
 } as const;
-export type IngestProfile = (typeof IngestProfile)[keyof typeof IngestProfile];
+export type MemoryCategory = (typeof MemoryCategory)[keyof typeof MemoryCategory];
 
-/** Role of a message in a session turn. */
+/** Role of a conversation turn participant. */
 export const TurnRole = {
     user: "user",
     assistant: "assistant",
@@ -40,17 +31,49 @@ export const TurnRole = {
 } as const;
 export type TurnRole = (typeof TurnRole)[keyof typeof TurnRole];
 
-/** Memory category for structured updates. */
-export const MemoryCategory = {
-    identity: "identity",
-    knowledge: "knowledge",
-    context: "context",
-    instruction: "instruction",
-    uncertainty: "uncertainty",
+/** Chunk query mode for `/documents/query`. */
+export const QueryMode = {
+    hybrid: "hybrid",
+    vector: "vector",
+    bm25: "bm25",
+    hybrid_graph: "hybrid_graph",
 } as const;
-export type MemoryCategory = (typeof MemoryCategory)[keyof typeof MemoryCategory];
+export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode];
 
-/** Accepted binary inputs for knowledge uploads. */
+/** Grant verb in the scope permission model. */
+export const Verb = {
+    read: "read",
+    write: "write",
+    create_scope: "create_scope",
+    delete_scope: "delete_scope",
+    grant: "grant",
+    manage: "manage",
+    forget: "forget",
+} as const;
+export type Verb = (typeof Verb)[keyof typeof Verb];
+
+/** Scope read breadth for memory queries. */
+export const ScopeView = {
+    strict: "strict",
+    merged: "merged",
+    crossTeam: "crossTeam",
+} as const;
+export type ScopeView = (typeof ScopeView)[keyof typeof ScopeView];
+
+/** Document pipeline status values returned by the API. */
+export const DocumentStatus = {
+    queued: "queued",
+    extracting: "extracting",
+    chunking: "chunking",
+    embedding: "embedding",
+    keywording: "keywording",
+    extracting_nodes: "extracting_nodes",
+    ready: "ready",
+    failed: "failed",
+} as const;
+export type DocumentStatus = (typeof DocumentStatus)[keyof typeof DocumentStatus];
+
+/** Accepted binary inputs for document uploads. */
 export type SpectronFileInput =
     | File
     | Blob

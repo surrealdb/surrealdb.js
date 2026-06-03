@@ -25,42 +25,75 @@ bun add @surrealdb/spectron
 ```ts
 import { Spectron } from "@surrealdb/spectron";
 
-// Create a new Spectron client
+// Create a new Spectron client (pinned to one context)
 const client = new Spectron({
   endpoint: process.env.SPECTRON_ENDPOINT!,
   context: "acme-prod",
   apiKey: process.env.SPECTRON_API_KEY!,
 });
 
-// Upload a new document
-const document = await client.knowledge.upload({
+// Upload a document
+const document = await client.documents.upload({
   file: documentFile,
   title: "Handbook",
 });
 
-// Create a new session
-const session = await client.sessions.create({ scope: { user: "tobie" } });
+// Remember a fact and recall it
+await client.remember("I just got promoted to CTO", { scope: { user: "tobie" } });
+const hits = await client.recall("What is Tobie's role?", { k: 10 });
 
-await session.turn({ role: "user", content: "I just got promoted to CTO" });
-await session.chat({ message: "What do you know about me?" });
-await session.close();
-
-await client.knowledge.upload({
-  file: documentFile,
-  title: "Handbook",
-});
+// Chat (server-driven memory loop)
+const { reply } = await client.chat("What do you know about me?");
 ```
 
-## One-shot memory
+## Memory operations
 
 ```ts
-await client.query({ query: "What is Tobie's role?", k: 10 });
-await client.context({ query: "Summarise preferences", k: 5 });
+// Persist facts from free text and/or caller-supplied triples (idempotent).
+await client.remember("Tobie prefers dark mode", { infer: "full" });
+
+// Persist a batch of conversation messages.
+await client.rememberMany([
+  { role: "user", content: "I moved to Lisbon" },
+  { role: "assistant", content: "Noted." },
+]);
+
+// Recall, context, reflection, and forgetting.
+await client.recall("Where does Tobie live?", { k: 5 });
+await client.context("Summarise preferences", { k: 5 });
+await client.reflect("What changed this week?", { persist: true });
+await client.forget("Remove old project notes", { purge: true });
+
+// Snapshots and maintenance.
 await client.state();
 await client.profile();
-await client.reflect({ query: "What changed this week?", persist: true });
-await client.forget({ query: "Remove old project notes" });
+await client.consolidate({ dryRun: true });
+await client.elaborate({ entityRef: "person:tobie" });
+await client.fsck();
+await client.inspect("person:tobie");
+await client.audit({ limit: 50 });
 ```
+
+### Streaming chat
+
+```ts
+const stream = await client.chat("Tell me a story", { stream: true });
+for await (const chunk of stream) {
+  process.stdout.write(chunk.delta);
+}
+```
+
+## Namespaces
+
+| Namespace | Highlights |
+| --- | --- |
+| `client.documents` | `upload`, `reprocess`, `get`, `raw`, `chunks`, `list`, `delete`, `query`, `recomputeLinks`, `keywords.*` |
+| `client.entities` | `list`, `get`, `history`, `delete` |
+| `client.sessions` | `create` → `Session` (`turns`, `context`, `close`) |
+| `client.lifecycle` | `expire`, `decay` |
+| `client.traces` | `list`, `get`, `stats` |
+| `client.principals` | `list`, `get`, `effective`, `grant`, `revoke` |
+| `client.scopes` | `list`, `register`, `delete`, `forget` |
 
 ## Errors
 
@@ -74,15 +107,15 @@ await client.forget({ query: "Remove old project notes" });
 | `ServerError` | 5xx |
 | `ConnectionError` | Network / timeout |
 
-Use `errorFromResponse` via the internal transport, or catch subclasses of `SpectronError`.
+Catch subclasses of `SpectronError`, or use `errorFromResponse` directly.
 
-## Retries
+## Retries & idempotency
 
-Idempotent `GET` requests retry on `5xx` and connection failures with backoff `250ms`, `500ms`, `1000ms` (up to `maxRetries`, default `3`). Mutating methods are not retried automatically.
+Idempotent `GET` requests retry on `5xx` and connection failures with backoff `250ms`, `500ms`, `1000ms` (up to `maxRetries`, default `3`). The `remember` and `rememberMany` writes carry an `Idempotency-Key` derived from the request and a 30-second window, so they are retried safely too; other mutating methods are not retried automatically.
 
 ## Scope
 
-Session and upload calls accept `scope?: Record<string, string>`, serialised wire-side as `{ key, value }[]` via `serialiseScope` / `deserialiseScope`.
+Write and session calls accept `scope?: Scope`, where `Scope` is a single `key=value/` path string, an array of such strings, a `Record<string, string>`, or an array of `[key, value]` tuples. All forms normalise to the wire `ScopeSet` (a string array) via `normaliseScope`.
 
 ## Regenerating API types
 

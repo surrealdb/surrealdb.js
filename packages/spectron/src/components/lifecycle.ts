@@ -1,5 +1,8 @@
 import { getContextApiPrefix } from "../paths.js";
 import type { Transport } from "../transport.js";
+import type { components } from "../types/generated.js";
+
+type LifecycleResponseJson = components["schemas"]["LifecycleResponseJson"];
 
 /** Operator lifecycle sweeps (expiry and decay). */
 export class Lifecycle {
@@ -16,13 +19,15 @@ export class Lifecycle {
         return `${getContextApiPrefix(this.contextId)}/lifecycle`;
     }
 
-    /** Runs context-category expiry sweep. */
-    async expire(): Promise<void> {
-        await this.transport.requestJson("POST", `${this.base}/expire`, { body: {} });
+    /** Runs the context-category expiry sweep. Returns the number of affected rows. */
+    async expire(): Promise<LifecycleResponseJson> {
+        const body = await this.transport.requestJson("POST", `${this.base}/expire`, { body: {} });
+        return body as LifecycleResponseJson;
     }
 
-    /** Runs importance decay sweep. */
-    async decay(): Promise<void> {
-        await this.transport.requestJson("POST", `${this.base}/decay`, { body: {} });
+    /** Runs the importance decay sweep. Returns the number of affected rows. */
+    async decay(): Promise<LifecycleResponseJson> {
+        const body = await this.transport.requestJson("POST", `${this.base}/decay`, { body: {} });
+        return body as LifecycleResponseJson;
     }
 }

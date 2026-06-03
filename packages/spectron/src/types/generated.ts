@@ -20,7 +20,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/{context_id}/knowledge": {
+    "/api/v1/{context_id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Audit view over the trace graph. Returns recent traces with principal/key/time/kind filters. */
+        get: operations["list_audit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Phase 7.5 — Spectron-as-agent chat endpoint. Stores the user message via /facts, retrieves context via the unified /query router, calls the configured LLM provider, stores the assistant response via /facts, and emits a response_trace. Set `stream=true` for SSE. */
+        post: operations["chat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/consolidate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Phase 11b: pool recent facts and consolidate into observations */
+        post: operations["consolidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Query memory and return formatted context for LLM prompt injection */
+        post: operations["query_context"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/documents": {
         parameters: {
             query?: never;
             header?: never;
@@ -38,7 +106,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/{context_id}/knowledge/keywords": {
+    "/api/v1/{context_id}/documents/keywords": {
         parameters: {
             query?: never;
             header?: never;
@@ -55,7 +123,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/{context_id}/knowledge/keywords/search": {
+    "/api/v1/{context_id}/documents/keywords/search": {
         parameters: {
             query?: never;
             header?: never;
@@ -72,7 +140,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/{context_id}/knowledge/keywords/{normalised}": {
+    "/api/v1/{context_id}/documents/keywords/{normalised}": {
         parameters: {
             query?: never;
             header?: never;
@@ -89,110 +157,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/{context_id}/knowledge/keywords/{normalised}/related": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Co-occurring neighbourhood from one canonical keyword form */
-        get: operations["related_keyword_http"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/{context_id}/knowledge/nodes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Lists typed knowledge rows */
-        get: operations["list_knowledge_nodes_http"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/{context_id}/knowledge/nodes/batch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Bulk UPSERT typed knowledge nodes and relates_to edges */
-        post: operations["bulk_upsert_knowledge_nodes"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/{context_id}/knowledge/nodes/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Hybrid BM25 + HNSW search over typed knowledge nodes */
-        post: operations["post_search_knowledge_nodes"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/{context_id}/knowledge/nodes/{kind}/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Fetches one typed knowledge node */
-        get: operations["get_knowledge_node_http"];
-        put?: never;
-        post?: never;
-        /** @description Deletes a typed knowledge row */
-        delete: operations["delete_knowledge_node_http"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/{context_id}/knowledge/nodes/{kind}/{slug}/related": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Thin wrapper starting at one typed knowledge node */
-        get: operations["related_knowledge_node_http"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/{context_id}/knowledge/query": {
+    "/api/v1/{context_id}/documents/query": {
         parameters: {
             query?: never;
             header?: never;
@@ -202,14 +167,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** @description Runs a top-k semantic query over the Layer 0 chunks */
-        post: operations["query_knowledge"];
+        post: operations["query_documents"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/{context_id}/knowledge/traverse": {
+    "/api/v1/{context_id}/documents/recompute-links": {
         parameters: {
             query?: never;
             header?: never;
@@ -218,15 +183,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Depth-bounded walk over Layer 0 graph edges */
-        post: operations["post_traverse_graph"];
+        /** @description Phase 6c: recompute doc-to-doc semantic_similarity edges across the Context. Returns the number of edges emitted (existing edges are retained — the (in, out, kind) triple is unique). */
+        post: operations["recompute_document_links"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/{context_id}/knowledge/{id}": {
+    "/api/v1/{context_id}/documents/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -245,7 +210,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/{context_id}/knowledge/{id}/chunks": {
+    "/api/v1/{context_id}/documents/{id}/chunks": {
         parameters: {
             query?: never;
             header?: never;
@@ -262,7 +227,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/{context_id}/knowledge/{id}/keywords": {
+    "/api/v1/{context_id}/documents/{id}/keywords": {
         parameters: {
             query?: never;
             header?: never;
@@ -279,7 +244,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/{context_id}/knowledge/{id}/raw": {
+    "/api/v1/{context_id}/documents/{id}/raw": {
         parameters: {
             query?: never;
             header?: never;
@@ -296,15 +261,495 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/{context_id}/knowledge/{id}/related": {
+    "/api/v1/{context_id}/elaborate": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description Keywords and neighbours from a Layer 0 document id */
-        get: operations["related_document_http"];
+        get?: never;
+        put?: never;
+        /** @description Phase 11a: elaborate links for a single entity or sweep low-relation entities */
+        post: operations["elaborate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List all entities (optionally filtered by type) */
+        get: operations["list_entities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/entities/{entity_type}/{entity_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Get a single entity with its current attributes and relations */
+        get: operations["get_entity"];
+        put?: never;
+        post?: never;
+        /** @description Soft-delete an entity and all its current attributes and relations */
+        delete: operations["delete_entity"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/entities/{entity_type}/{entity_name}/history/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Get the full attribute history (supersession chain) for an entity key */
+        get: operations["get_entity_history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Write a single fact. Dispatches on `infer` mode: full (LLM-extracted), triples (caller-supplied), preview (dry run), none (literal). */
+        post: operations["create_fact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/facts/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Bulk conversation ingest. Persists each message as a turn and routes extraction through `reconcile_extraction`. */
+        post: operations["create_facts_batch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/forget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Semantic forget: finds matching memories by similarity and soft-deletes them */
+        post: operations["forget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/fsck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Phase 11.5 — memory hygiene sweep (duplicates / contradictions / injection) */
+        post: operations["fsck"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Resolve an inspect ref (entity, attribute, relation, passage, or trace) to a normalised view. Ref grammar: `entity:<type>/<name>`, `attribute:<type>/<name>/<key>`, `relation:<src_type>/<src_name>-[<label>]-><dst_type>/<dst_name>`, `passage:<document_id>/<index>`, `trace:<id>`. */
+        get: operations["inspect"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/lifecycle/decay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Apply periodic importance decay across all memories */
+        post: operations["decay_importance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/lifecycle/expire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Run category-driven expiry sweep for context-category memories */
+        post: operations["expire_context"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/principals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List the Context's principals (requires the `manage` grant) */
+        get: operations["list_principals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/principals/{principal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Fetch one principal by id (requires the `manage` grant) */
+        get: operations["get_principal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/principals/{principal_id}/effective": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List the verbs a principal effectively holds at a scope path (requires `manage` over the path) */
+        get: operations["effective_principal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/principals/{principal_id}/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Grant a scope pattern to a principal for the given verbs (requires `manage` over the pattern) */
+        post: operations["grant_principal"];
+        /** @description Revoke a scope pattern from a principal for the given verbs (requires `manage` over the pattern) */
+        delete: operations["revoke_principal"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Get a profile suitable for LLM system prompt injection */
+        get: operations["get_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Phase 7 unified query: four-tier router + fused ranker over the substrate */
+        post: operations["query_memory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/reflect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Reflect on stored memories with LLM synthesis */
+        post: operations["reflect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/scope-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Grant scope patterns to a principal (not implemented — surface locked) */
+        post: operations["scope_grants_stub"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/scopes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List the Context's registered scope nodes (live and tombstoned) */
+        get: operations["list_scopes"];
+        put?: never;
+        /** @description Register a scope node (auto-vivifies missing ancestors; enforces create_scope, depth, node-budget, and per-node policy). */
+        post: operations["register_scope"];
+        /** @description Tombstone a scope node (soft-delete: sets tombstoned_at = time::now()) */
+        delete: operations["delete_scope"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/scopes/forget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Erase everything tagged under a scope subtree (GDPR forget). Requires the `forget` grant over the subtree. */
+        post: operations["forget_scope"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Create a new conversation session */
+        post: operations["create_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Delete a session and all its turns */
+        delete: operations["delete_session"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/sessions/{session_id}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Retrieve session context for LLM prompt injection */
+        post: operations["get_session_context"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/sessions/{session_id}/turns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List all turns in a session */
+        get: operations["list_turns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Get the full structured memory state grouped by category */
+        get: operations["get_state"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/traces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List recent query traces */
+        get: operations["list_traces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/traces/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Get aggregate query trace statistics */
+        get: operations["get_trace_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/traces/{trace_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Get a single query trace by ID */
+        get: operations["get_trace"];
         put?: never;
         post?: never;
         delete?: never;
@@ -320,6 +765,81 @@ export interface components {
         /** @description Unified error response type for all REST endpoints. */
         ApiErrorResponse: {
             message: string;
+        };
+        AttributeDetailJson: {
+            createdAt: string;
+            entity: string;
+            id: string;
+            /** Format: double */
+            importance: number;
+            key: string;
+            memoryCategory: components["schemas"]["MemoryCategory"];
+            supersededBy?: string | null;
+            supersedes?: string | null;
+            validFrom?: string | null;
+            validUntil?: string | null;
+            value: string;
+        };
+        AttributeSummaryJson: {
+            entityId: string;
+            id: string;
+            key: string;
+            memoryCategory: components["schemas"]["MemoryCategory"];
+            value: string;
+        };
+        AuditResponseJson: {
+            rows: components["schemas"]["AuditRowJson"][];
+        };
+        AuditRowJson: {
+            /** Format: double */
+            cost: number;
+            createdAt: string;
+            kind: components["schemas"]["TraceKind"];
+            /** Format: int64 */
+            latencyMs: number;
+            model?: string | null;
+            principal?: string | null;
+            /** Format: int64 */
+            rowsTouched: number;
+            traceId: string;
+        };
+        /**
+         * @description Bulk extraction strategy for `/facts/batch`.
+         * @enum {string}
+         */
+        BatchExtractionMode: "per_message" | "whole_conversation";
+        /** @description One message in a `/facts/batch` payload. */
+        BatchMessage: {
+            content: string;
+            role: components["schemas"]["TurnRole"];
+            /** Format: date-time */
+            ts?: string | null;
+        };
+        CategoryStateJson: {
+            attributes: components["schemas"]["AttributeDetailJson"][];
+            entities: components["schemas"]["EntityDetailJson"][];
+            relations: components["schemas"]["RelationDetailJson"][];
+        };
+        ChatRequestJson: {
+            /**
+             * @description Phase 7.6 — when `true` skips the tier-2 response cache and
+             *     forces a fresh tier-3 call. Defaults to `false`.
+             */
+            bypassCache?: boolean;
+            /** @description Descriptive labels for rows the chat persists. */
+            labels?: string[];
+            message: string;
+            model?: string | null;
+            /** @description Scope paths for the conversation (hierarchical `key=value/` paths). */
+            scope?: string[];
+            sessionId?: string | null;
+            stream?: boolean;
+        };
+        ChatResponseJson: {
+            memoryUpdates: components["schemas"]["ExtractionResultJson"];
+            reply: string;
+            sessionId: string;
+            traceId: string;
         };
         ChunkJson: {
             /** Format: int64 */
@@ -344,6 +864,105 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        ConsolidateOutcomeJson: {
+            entityName: string;
+            key: string;
+            kind: components["schemas"]["DecisionKind"];
+            observationId?: string | null;
+            /** Format: int32 */
+            proofCount: number;
+            rationale?: string | null;
+            value: string;
+        };
+        ConsolidateRequestJson: {
+            dryRun?: boolean;
+            /** Format: int32 */
+            factLimit?: number | null;
+            /** Format: int32 */
+            observationLimit?: number | null;
+        };
+        ConsolidateResponseJson: {
+            /** Format: int32 */
+            created: number;
+            dryRun: boolean;
+            outcomes: components["schemas"]["ConsolidateOutcomeJson"][];
+            /** Format: int32 */
+            superseded: number;
+            traceId: string;
+            /** Format: int32 */
+            updated: number;
+        };
+        ContextQueryRequestJson: {
+            /** Format: int32 */
+            k?: number;
+            /**
+             * @description Label filter (design §4): `key=value` strings the result rows must all
+             *     carry; applied after the scope predicate (never widening).
+             */
+            labels?: string[];
+            /**
+             * @description Read **lens** narrowing the effective read region (design §7.1); see
+             *     [`QueryMemoryRequestJson::lens`]. Empty = the whole granted region.
+             */
+            lens?: string[];
+            query: string;
+            /** @description Scope read breadth: `strict` (default) | `merged` | `crossTeam` (§7.1). */
+            scopeView?: string | null;
+        };
+        ContextQueryResponseJson: {
+            context: string;
+            /** Format: int64 */
+            queryMs: number;
+            tier: string;
+        };
+        ContradictionFindingJson: {
+            entity: string;
+            key: string;
+            values: string[];
+        };
+        /** @description §15 operational signal (#174): cross-provenance contradiction rate. */
+        ContradictionStatsJson: {
+            /** Format: double */
+            contradictionRate: number;
+            /** Format: int64 */
+            contradictions: number;
+            /** Format: int64 */
+            reconciliations: number;
+        };
+        CorrectionSummaryJson: {
+            entityId: string;
+            key: string;
+            newValue: string;
+            oldValue: string;
+        };
+        CreateSessionRequestJson: {
+            metadata?: unknown;
+            /** @description Scope paths for the session (hierarchical `key=value/` paths). */
+            scope?: string[];
+        };
+        /**
+         * @description Bounded enum for the writer to dispatch on. Serializes as the lowercase
+         *     `create` / `update` / `supersede` wire strings so it can stand in for the
+         *     public `/consolidate` response `kind` field.
+         * @enum {string}
+         */
+        DecisionKind: "create" | "update" | "supersede";
+        /**
+         * @description Phase 6.5 — geographic filter on `/documents/query`. Mirrors the
+         *     shape on the memory `/query` endpoint.
+         */
+        DocGeoFilterJson: {
+            near?: null | components["schemas"]["DocGeoNearJson"];
+            within?: string | null;
+        };
+        DocGeoNearJson: {
+            /** Format: double */
+            lat: number;
+            /** Format: double */
+            lng: number;
+            /** Format: double */
+            radiusKm: number;
+        };
         DocumentJson: {
             /** Format: int64 */
             chunkCount?: number | null;
@@ -363,7 +982,7 @@ export interface components {
             /** Format: int64 */
             sizeBytes: number;
             source: string;
-            status: string;
+            status: components["schemas"]["DocumentStatus"];
             title: string;
             /** Format: date-time */
             updatedAt: string;
@@ -389,11 +1008,302 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        /**
+         * @description Lifecycle state of a [`Document`] in the ingestion pipeline.
+         *
+         *     Matches the SurrealQL `ASSERT $value IN [...]` on `document.status` in
+         *     `V1__schema.surql`. The `Keywording` state is reserved for
+         *     Phase C; in Phase A the pipeline transitions straight from `Embedding` to
+         *     `Ready`.
+         * @enum {string}
+         */
+        DocumentStatus:
+            | "queued"
+            | "extracting"
+            | "chunking"
+            | "embedding"
+            | "keywording"
+            | "extracting_nodes"
+            | "ready"
+            | "failed";
+        DuplicateFindingJson: {
+            entityA: string;
+            entityB: string;
+            /** Format: float */
+            similarity: number;
+        };
+        /** @description The `GET /{ctx}/principals/{id}/effective` response. */
+        EffectiveGrantsJson: {
+            /**
+             * Format: date-time
+             * @description Echoes the `as_of` instant the verbs were resolved at, when the request
+             *     asked for a historical view; absent for a current-grants response.
+             */
+            asOf?: string | null;
+            /** @description The scope path the verbs were resolved at (canonical form). */
+            path: string;
+            /** @description The verbs the principal effectively holds at `path`. */
+            verbs: components["schemas"]["Verb"][];
+        };
+        ElaborateOutcomeJson: {
+            dryRun: boolean;
+            entityName: string;
+            entityType: string;
+            proposedRelations: components["schemas"]["ElaborateProposedRelationJson"][];
+            relationsEmitted: number;
+            traceId: string;
+        };
+        ElaborateProposedRelationJson: {
+            label: string;
+            object: string;
+            subject: string;
+        };
+        ElaborateRequestJson: {
+            /** Format: int32 */
+            budget?: number | null;
+            dryRun?: boolean;
+            entityRef?: string | null;
+            sweep?: boolean;
+        };
+        ElaborateResponseJson: {
+            outcomes: components["schemas"]["ElaborateOutcomeJson"][];
+            relationsEmitted: number;
+        };
+        EntityDetailJson: {
+            createdAt: string;
+            entityType: string;
+            id: string;
+            /** Format: double */
+            importance: number;
+            memoryCategory: components["schemas"]["MemoryCategory"];
+            name: string;
+            updatedAt: string;
+        };
+        EntityHistoryResponseJson: {
+            history: components["schemas"]["AttributeDetailJson"][];
+        };
+        EntityListResponseJson: {
+            entities: components["schemas"]["EntityDetailJson"][];
+        };
+        EntityResponseJson: {
+            attributes: components["schemas"]["AttributeDetailJson"][];
+            entity: components["schemas"]["EntityDetailJson"];
+            relations: components["schemas"]["RelationDetailJson"][];
+        };
+        EntitySummaryJson: {
+            entityType: string;
+            id: string;
+            isNew: boolean;
+            memoryCategory: components["schemas"]["MemoryCategory"];
+            name: string;
+        };
+        ExtractionResultJson: {
+            attributes: components["schemas"]["AttributeSummaryJson"][];
+            corrections: components["schemas"]["CorrectionSummaryJson"][];
+            entities: components["schemas"]["EntitySummaryJson"][];
+            instructions: components["schemas"]["InstructionSummaryJson"][];
+            relations: components["schemas"]["RelationSummaryJson"][];
+            turnId: string;
+            uncertainties: components["schemas"]["UncertaintySummaryJson"][];
+        };
+        /** @description Request body for `POST /v1/{ctx}/facts/batch`. */
+        FactsBatchRequest: {
+            extract?: components["schemas"]["BatchExtractionMode"];
+            infer?: components["schemas"]["InferMode"];
+            /**
+             * @description Descriptive labels for the persisted rows (accepted + recorded; row
+             *     application deferred).
+             */
+            labels?: components["schemas"]["Label"][];
+            messages: components["schemas"]["BatchMessage"][];
+            /** @description Scope paths the batch targets (hierarchical `key=value/` paths). */
+            scope?: components["schemas"]["ScopeSet"];
+            session_id?: string | null;
+        };
+        FactsBatchResponseJson: {
+            extractions: components["schemas"]["ExtractionResultJson"][];
+            sessionId: string;
+            turnIds: string[];
+        };
+        /** @description Request body for `POST /v1/{ctx}/facts`. */
+        FactsRequest: {
+            /** @description Inference mode (`full` is the default). */
+            infer?: components["schemas"]["InferMode"];
+            /**
+             * @description Descriptive labels for the persisted rows (scope-model §5). Accepted
+             *     and recorded on the wire now; row-level application lands in a
+             *     follow-up (cf. `ScopeView` — accepted but behaves as `Strict`).
+             */
+            labels?: components["schemas"]["Label"][];
+            memory_category?: null | components["schemas"]["MemoryCategory"];
+            role?: null | components["schemas"]["TurnRole"];
+            /**
+             * @description Scope paths the write targets — hierarchical `key=value/` paths
+             *     (scope-model §5). Used when auto-creating a session. Empty = the
+             *     caller's default write region.
+             */
+            scope?: components["schemas"]["ScopeSet"];
+            /**
+             * @description Existing session id to attach the turn to. When absent, the
+             *     handler auto-creates a session before the write.
+             */
+            session_id?: string | null;
+            /**
+             * @description Free-form text (used by `full`, `preview`, `none`). Optional only
+             *     when `infer = triples` is supplied.
+             */
+            text?: string | null;
+            /** @description Caller-supplied triples (only consumed when `infer = triples`). */
+            triples?: components["schemas"]["Triple"][];
+        };
+        FactsResponseJson: {
+            chunkId?: string;
+            extraction?: null | components["schemas"]["ExtractionResultJson"];
+            mode: components["schemas"]["InferMode"];
+            preview?: boolean;
+            sessionId: string;
+            turnId?: string;
+        };
+        ForgetRequestJson: {
+            /**
+             * @description Phase 10.7 — right-to-be-forgotten. When `true`, the handler
+             *     also removes the supersession history (rows with `valid_until`
+             *     set) that match the same scope/entity criteria. When omitted or
+             *     `false`, prior rows are retained for audit even after the
+             *     current row is soft-deleted.
+             */
+            purge?: boolean;
+            query: string;
+        };
+        ForgetResponseJson: {
+            /** Format: int64 */
+            deleted: number;
+        };
+        /** @description Response for `POST /{context}/scopes/forget`. */
+        ForgetScopeResponseJson: {
+            /**
+             * Format: int64
+             * @description Number of fact rows erased across the scoped tables.
+             */
+            forgotten: number;
+        };
+        FsckReportJson: {
+            contradictions: components["schemas"]["ContradictionFindingJson"][];
+            duplicates: components["schemas"]["DuplicateFindingJson"][];
+            injection: components["schemas"]["InjectionFindingJson"][];
+            total: number;
+        };
+        FsckRequestJson: {
+            check?: string | null;
+            /** Format: float */
+            duplicateThreshold?: number | null;
+            /** Format: int32 */
+            maxResults?: number | null;
+        };
+        /**
+         * @description Wire shape for the Phase 6.5 geo filter on `/query`. Mirrors the
+         *     in-process [`crate::memory::types::GeoFilter`] enum.
+         */
+        GeoFilterJson: {
+            near?: null | components["schemas"]["GeoNearJson"];
+            /** @description Inside a WKT polygon. Mutually exclusive with `near`. */
+            within?: string | null;
+        };
+        GeoNearJson: {
+            /** Format: double */
+            lat: number;
+            /** Format: double */
+            lng: number;
+            /** Format: double */
+            radiusKm: number;
+        };
+        /**
+         * @description Body for `POST` / `DELETE /{ctx}/principals/{id}/grants` — the scope pattern
+         *     and the verbs to grant/revoke it for.
+         */
+        GrantRequestJson: {
+            /**
+             * @description Scope pattern, e.g. `org/apple/product/ipad` (exact) or `org/apple/*`
+             *     (subtree).
+             */
+            path: components["schemas"]["ScopePattern"];
+            /**
+             * @description Grant verbs to apply: any of `read|write|create_scope|delete_scope|grant|
+             *     manage|forget`.
+             */
+            verbs: components["schemas"]["Verb"][];
+        };
+        /** @description Per-verb scope pattern map. Keys are grant verbs (`read`, `write`, `create_scope`, `delete_scope`, `grant`, `manage`, `forget`); values are arrays of scope patterns. */
+        Grants: {
+            [key: string]: string[];
+        };
+        /**
+         * @description Graph edge kinds used by [`QueryRequest::graph_edges`] for HybridGraph re-ranking.
+         * @enum {string}
+         */
+        GraphEdgeKind:
+            | "knowledge_has_keyword"
+            | "section_match"
+            | "document_link"
+            | "document_summary"
+            | "keyword_cooccurrence"
+            | "hybrid_graph";
         GraphEvidenceJson: {
-            edgeKind: string;
+            edgeKind: components["schemas"]["GraphEdgeKind"];
             neighbourLabel: string;
             /** Format: float */
             weight: number;
+        };
+        /**
+         * @description Inference mode for the `/facts` write API.
+         *
+         *     Decides which extraction path runs and which provenance kind the
+         *     reconciler tags the writes with. See `doc/plans/plan-1-unify-knowledge-memory.md`
+         *     Phase 5 for the full table.
+         * @enum {string}
+         */
+        InferMode: "full" | "triples" | "preview" | "none";
+        InjectionFindingJson: {
+            kind: string;
+            rowId: string;
+            snippet: string;
+        };
+        InspectResponseJson:
+            | {
+                  attributes: components["schemas"]["AttributeDetailJson"][];
+                  entity: components["schemas"]["EntityDetailJson"];
+                  /** @enum {string} */
+                  kind: "entity";
+                  relations: components["schemas"]["RelationDetailJson"][];
+              }
+            | {
+                  current?: null | components["schemas"]["AttributeDetailJson"];
+                  /**
+                   * @description Full supersession chain, newest-first. Includes `current` when
+                   *     present.
+                   */
+                  history: components["schemas"]["AttributeDetailJson"][];
+                  /** @enum {string} */
+                  kind: "attribute";
+              }
+            | {
+                  /** @enum {string} */
+                  kind: "relation";
+                  /**
+                   * @description Live relations matching the `src -[label]-> dst` shape. Empty if
+                   *     none survive the temporal filter.
+                   */
+                  matches: components["schemas"]["RelationDetailJson"][];
+              }
+            | {
+                  /** @enum {string} */
+                  kind: "trace";
+                  trace: components["schemas"]["TraceRecordJson"];
+              };
+        InstructionSummaryJson: {
+            description: string;
+            id: string;
+            label: string;
         };
         KeywordDetailJson: {
             /** Format: int64 */
@@ -446,87 +1356,44 @@ export interface components {
             queryMs: number;
             results: components["schemas"]["KeywordSearchHitJson"][];
         };
-        /** @description Target endpoint for [`KnowledgeLinkUpsert`]. */
-        KnowledgeLinkTarget: {
-            /** @description Stable kind token (embedded in [`RecordId`]). */
-            kind: string;
-            /** @description Stable slug fragment (embedded in [`RecordId`]). */
-            slug: string;
-        };
-        KnowledgeLinkUpsert: {
-            label: string;
-            /** @description Directed edge target `{ kind, slug }`. */
-            to: components["schemas"]["KnowledgeLinkTarget"];
-        };
-        KnowledgeNodeFullJson: {
-            content: unknown;
-            /** Format: date-time */
-            createdAt: string;
-            embedding: number[];
-            id: string;
-            kind: string;
-            scope: string[];
-            sourceDocument?: string | null;
-            title: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        KnowledgeNodeListedJson: {
-            content: unknown;
-            /** Format: date-time */
-            createdAt: string;
-            id: string;
-            kind: string;
-            scope: string[];
-            sourceDocument?: string | null;
-            title: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        KnowledgeNodePageJson: {
-            nodes: components["schemas"]["KnowledgeNodeListedJson"][];
-            /** Format: int32 */
-            page: number;
-            /** Format: int32 */
-            pageSize: number;
+        /** @description A metadata label in the form `key=value`. Keys are soft-declared; values are free. */
+        Label: string;
+        LifecycleResponseJson: {
             /** Format: int64 */
-            total: number;
+            affected: number;
         };
-        KnowledgeNodeSearchHitJson: {
-            node: components["schemas"]["KnowledgeSummaryJson"];
+        /**
+         * @description Memory category classification applied during extraction.
+         * @enum {string}
+         */
+        MemoryCategory: "identity" | "knowledge" | "context";
+        MemoryHitJson: {
+            id: string;
             /** Format: float */
             score: number;
+            source: components["schemas"]["ResultKind"];
+            text: string;
         };
-        KnowledgeNodeSearchRequest: {
-            /** Format: int32 */
-            k: number;
-            kindFilter?: string | null;
-            query: string;
-            /** Format: int32 */
-            rrfK?: number;
-            /** Format: float */
-            threshold: number;
-            /** Format: float */
-            vectorWeight?: number;
-        };
-        KnowledgeNodeSearchResponseJson: {
-            /** Format: int64 */
-            queryMs: number;
-            results: components["schemas"]["KnowledgeNodeSearchHitJson"][];
-        };
-        /** @description One row from `POST /knowledge/nodes` bulk-upsert payloads. */
-        KnowledgeNodeUpsertRow: {
-            content?: unknown;
-            kind: string;
-            links?: components["schemas"]["KnowledgeLinkUpsert"][];
-            slug: string;
-            sourceDocument?: string | null;
-            title: string;
-        };
-        KnowledgeSummaryJson: {
+        /** @description A principal in the `GET /{ctx}/principals` / `…/{id}` responses. */
+        PrincipalJson: {
+            /** @description Human-readable display name. */
+            displayName: string;
+            /** @description Per-verb scope pattern map. */
+            grants: components["schemas"]["Grants"];
+            /** @description Record-id key (e.g. `alpha-bot`). */
             id: string;
+            /** @description Identity kind: `human` / `agent` / `service` / `unknown`. */
             kind: string;
-            title: string;
+        };
+        ProfileEntryJson: {
+            key: string;
+            value: string;
+        };
+        ProfileResponseJson: {
+            dynamic: components["schemas"]["ProfileEntryJson"][];
+            instructions: components["schemas"]["InstructionSummaryJson"][];
+            preferences: components["schemas"]["ProfileEntryJson"][];
+            static: components["schemas"]["ProfileEntryJson"][];
         };
         QueryFilter: {
             documentIds?: string[];
@@ -557,22 +1424,132 @@ export interface components {
             /** Format: float */
             score: number;
         };
+        /**
+         * @description What kind of question the query represents. Drives tier selection.
+         * @enum {string}
+         */
+        QueryKind: "direct_lookup" | "hybrid" | "full_context";
+        QueryMemoryRequestJson: {
+            /**
+             * @description Phase 11.5 — historical query timestamp (known time). When set
+             *     the retrieval path walks the supersession chain to surface the
+             *     row that was current as-of this instant.
+             */
+            asOf?: string | null;
+            /**
+             * @description Phase 11.5 — system-time query. Prepends `VERSION d'…'` to the
+             *     underlying `SELECT` so SurrealDB MVCC returns the substrate
+             *     state at the supplied instant.
+             */
+            atInstant?: string | null;
+            /**
+             * @description Phase 7 — which families of result to include. Defaults to
+             *     `["facts", "passages"]` (both). Pass either alone to scope the
+             *     response.
+             */
+            include?: string[] | null;
+            /** Format: int32 */
+            k?: number;
+            /**
+             * @description Label filter (design §4): `key=value` strings the result rows must **all**
+             *     carry. Applied after the scope predicate — labels never widen access, only
+             *     narrow the already-authorised result set. Empty = no label filter.
+             */
+            labels?: string[];
+            /**
+             * @description Scope/permission model — read **lens**: hierarchical scope paths / `/*`
+             *     subtree patterns that narrow the caller's effective read region for this
+             *     query (design §7.1). Empty = the whole granted region. The lens can only
+             *     narrow — permission gating from the caller's grants always applies on top,
+             *     so an out-of-region lens yields empty results, never a 403.
+             */
+            lens?: string[];
+            location?: null | components["schemas"]["GeoFilterJson"];
+            /** @description Phase 7 — retrieval mode. Defaults to `"hybrid"`. */
+            mode?: string | null;
+            query: string;
+            /**
+             * @description Scope read breadth: `strict` (default) | `merged` | `crossTeam`. Only
+             *     `strict` is enforced pre-launch; `merged` / `crossTeam` are accepted and
+             *     behave as `strict` until their region logic ships (design §7.1).
+             */
+            scopeView?: string | null;
+            sessionId?: string | null;
+            /**
+             * @description Phase 7 — free-form source label. Recorded on the trace for
+             *     audit replay; doesn't affect retrieval today.
+             */
+            source?: string | null;
+            /**
+             * @description Phase 11.5 — valid-time (world-time) lower bound. Filters rows
+             *     whose `valid_from` is ≥ this timestamp.
+             */
+            validFrom?: string | null;
+            /**
+             * @description Phase 11.5 — valid-time (world-time) upper bound. Filters rows
+             *     whose `valid_until` is ≤ this timestamp.
+             */
+            validUntil?: string | null;
+        };
+        QueryMemoryResponseJson: {
+            /**
+             * @description Phase 7 — query-understanding output. `kind` is one of
+             *     `direct_lookup` / `hybrid` / `full_context`; `seed_entities`
+             *     is the (possibly empty) set of entity surface forms extracted
+             *     from the query.
+             */
+            classificationKind: components["schemas"]["QueryKind"];
+            hits: components["schemas"]["MemoryHitJson"][];
+            /** Format: int64 */
+            queryMs: number;
+            seedEntities: string[];
+            tier: components["schemas"]["Tier"];
+            /** @description Phase 7 — short trace summary returned inline. */
+            trace: components["schemas"]["QueryTraceJson"];
+        };
+        /**
+         * @description Chunk query mode: vector-only, BM25-only, hybrid RRF, or hybrid plus graph-density re-rank.
+         * @enum {string}
+         */
+        QueryMode: "hybrid" | "vector" | "bm25" | "hybrid_graph";
         QueryRequestJson: {
+            /**
+             * @description W5b: opt into sub-question decomposition for this query. The
+             *     caller fans out to one retrieval per sub-question and
+             *     RRF-merges the result lists. Like `use_hyde`, requires the
+             *     Context to have an LLM provider attached.
+             */
+            decomposeQuery?: boolean | null;
             expandGraph?: boolean;
             filter?: null | components["schemas"]["QueryFilter"];
             /** Format: float */
             graphAlpha?: number;
             /** Format: int32 */
             graphDepth?: number;
-            graphEdges?: string[];
+            graphEdges?: components["schemas"]["GraphEdgeKind"][];
             /** Format: int32 */
             k?: number;
-            mode?: string;
+            location?: null | components["schemas"]["DocGeoFilterJson"];
+            mode?: components["schemas"]["QueryMode"];
             query: string;
             /** Format: float */
             rrfK?: number;
             /** Format: float */
             threshold?: number;
+            /**
+             * @description W5a: opt into HyDE (Hypothetical Document Embeddings) for this
+             *     query. Requires the Context to have an LLM provider attached;
+             *     callers without one should leave this `false`. Defaults to
+             *     `false` so existing agents see the same vector-only behaviour.
+             */
+            useHyde?: boolean | null;
+            /**
+             * @description W5c: opt into cross-encoder reranking of the top-K. Requires
+             *     the server to have a `Reranker` provider attached. Off by
+             *     default; takes effect after the store returns results so it
+             *     composes naturally with HyDE / decomposition / hybrid graph.
+             */
+            useReranker?: boolean | null;
             /** Format: float */
             vectorWeight?: number;
         };
@@ -581,63 +1558,280 @@ export interface components {
             queryMs: number;
             results: components["schemas"]["QueryHitJson"][];
         };
-        TraverseApiRequest: {
-            direction?: string;
-            edges: string[];
-            labels?: string[];
-            /** Format: int32 */
-            limitPerHop?: number;
-            /** Format: int32 */
-            maxDepth?: number;
-            /** Format: float */
-            minScore?: number;
-            start: components["schemas"]["TraverseStartJson"][];
+        QueryTraceJson: {
+            /** Format: int64 */
+            latencyMs: number;
+            resolutionTier: string;
+            retrievedCount: number;
+            tierReason: string;
+            topScores: number[];
+            traceId: string;
         };
-        TraverseApiResponse: {
-            edges: components["schemas"]["TraverseEdgeJson"][];
-            nodes: components["schemas"]["TraverseNodeJson"][];
+        /** @description Phase 6c: doc-to-doc semantic link recomputation. */
+        RecomputeLinksResponse: {
+            /** Format: int64 */
+            linksEmitted: number;
         };
-        TraverseEdgeJson: {
-            from: string;
-            kind: string;
-            label?: string | null;
-            /** Format: float */
-            score?: number | null;
-            to: string;
+        ReflectRequestJson: {
+            persist?: boolean;
+            query: string;
         };
-        TraverseNodeJson: {
-            /** Format: int32 */
-            depth: number;
+        ReflectResponseJson: {
+            evidence: string[];
+            persistedAttributes: components["schemas"]["AttributeSummaryJson"][];
+            reflection: string;
+            /**
+             * @description Id of the trace cluster written during the reflect, for correlation
+             *     with `/traces/{id}`. Empty when no trace was written (#229).
+             */
+            traceId: string;
+        };
+        /**
+         * @description Body for `POST /{context}/scopes` — the scope path plus optional display
+         *     metadata. Governance (value policy / `max_children`) is operator-only and
+         *     lives on the management API, so it is not accepted here.
+         */
+        RegisterScopeRequestJson: {
+            /** @description Optional description for the UI. */
+            description?: string | null;
+            /** @description Optional display name for the UI. */
+            displayName?: string | null;
+            /**
+             * @description Scope path to register, e.g. `org/apple/product/ipad` (a trailing `/` is
+             *     accepted and canonicalised).
+             */
+            path: components["schemas"]["ScopePath"];
+        };
+        RelationDetailJson: {
+            createdAt: string;
             id: string;
-            kind?: string | null;
-            normalised?: string | null;
-            title?: string | null;
+            label: string;
+            memoryCategory: components["schemas"]["MemoryCategory"];
+            object: string;
+            subject: string;
+            validFrom?: string | null;
+            validUntil?: string | null;
+        };
+        RelationSummaryJson: {
+            label: string;
+            memoryCategory: components["schemas"]["MemoryCategory"];
+            object: string;
+            subject: string;
+        };
+        /**
+         * @description Coarse-grained result type. Mirrors the row table the hit lives
+         *     in.
+         * @enum {string}
+         */
+        ResultKind: "attribute" | "entity" | "chunk" | "memory_chunk" | "section";
+        /** @description §15 operational signal (#174): retrieval candidate-set breadth. */
+        RetrievalStatsJson: {
+            /** Format: double */
+            avgCandidateSet: number;
+            /** Format: int64 */
+            maxCandidateSet: number;
+            /** Format: int64 */
+            traces: number;
+        };
+        /** @description Body for `POST /{context}/scopes/forget` — the scope subtree to erase. */
+        ScopeForgetRequestJson: {
+            /** @description Scope path whose subtree should be forgotten, e.g. `user/stu/`. */
+            path?: string | null;
+        };
+        /**
+         * @description Body for the `POST /{context}/scope-grants` stub. Locks the request
+         *     shape (subject principal + verb → patterns) without implementing the
+         *     grant-event write.
+         */
+        ScopeGrantRequestJson: {
+            /** @description Grant verb → scope patterns to grant. */
+            grants?: {
+                [key: string]: string[];
+            };
+            /** @description Principal the grant applies to. */
+            subject?: string | null;
+        };
+        /** @description One scope node in the `GET /{context}/scopes` response. */
+        ScopeNodeJson: {
+            /**
+             * Format: date-time
+             * @description Creation timestamp.
+             */
+            createdAt: string;
+            /** @description Canonical scope path (plain slashes, trailing `/`; `/` for root). */
+            path: components["schemas"]["ScopePath"];
+            /**
+             * Format: date-time
+             * @description Soft-delete timestamp; `null` while the node is live.
+             */
+            tombstonedAt?: string | null;
+        };
+        /** @description A validated, canonical scope path in slash form, e.g. `org/apple/product/ipad/`. Root is `/`. */
+        ScopePath: string;
+        /** @description A scope pattern: an exact node (`org/apple/product/ipad`) or a subtree (`org/apple/*` / `/*`). */
+        ScopePattern: string;
+        /** @description An ordered, de-duplicated set of scope paths. Empty is valid and represents the default write region. */
+        ScopeSet: string[];
+        SessionContextRequestJson: {
+            query: string;
+        };
+        SessionContextResponseJson: {
+            context: string;
+        };
+        SessionResponseJson: {
+            createdAt: string;
+            id: string;
+            scope: string[];
+        };
+        /** @description §15 operational signal (#174): one provenance source-kind + its count. */
+        SourceKindCountJson: {
+            /** Format: int64 */
+            count: number;
+            kind: string;
+        };
+        StateResponseJson: {
+            context: components["schemas"]["CategoryStateJson"];
+            identity: components["schemas"]["CategoryStateJson"];
+            instructions: components["schemas"]["InstructionSummaryJson"][];
+            knowledge: components["schemas"]["CategoryStateJson"];
+            unknowns: components["schemas"]["UncertaintySummaryJson"][];
+        };
+        /** @description §15 operational signal (#174): supersession churn. */
+        SupersessionStatsJson: {
+            /** Format: double */
+            churnPerEntity: number;
+            /** Format: int64 */
+            entitiesChurned: number;
+            /** Format: int64 */
+            supersessionEvents: number;
+        };
+        /**
+         * @description Which tier resolved the query. Exposed on the response for the
+         *     CLI's `--tier` flag (Phase 8) and so callers can tell when their
+         *     query went all the way to tier 4.
+         * @enum {string}
+         */
+        Tier: "direct" | "cache" | "hybrid" | "full_context";
+        TierCountsJson: {
+            /** Format: int64 */
+            direct: number;
+            /** Format: int64 */
+            fullContext: number;
+            /** Format: int64 */
+            hybrid: number;
+        };
+        /**
+         * @description The trace `kind` discriminant — a closed three-value set over the
+         *     trace tables. Serialises to `decision` / `retrieval` / `response`
+         *     so the `/audit` wire shape and the `kind=` filter stay locked to the
+         *     enum and can't drift (typos are rejected, the match arms are
+         *     exhaustive, and the OpenAPI schema enumerates the allowed values).
+         * @enum {string}
+         */
+        TraceKind: "decision" | "retrieval" | "response";
+        TraceListResponseJson: {
+            traces: components["schemas"]["TraceRecordJson"][];
+        };
+        TraceRecordJson: {
+            cached: boolean;
+            createdAt: string;
+            id: string;
+            /** Format: int64 */
+            latencyMs: number;
+            queryText: string;
+            resolutionTier: string;
+            tierReason: string;
+        };
+        TraceStatsResponseJson: {
+            /** Format: double */
+            avgLatencyMs: number;
+            /**
+             * Format: double
+             * @description Phase 7.6 — `response_traces_cached / response_traces_total`.
+             */
+            cacheHitRate: number;
+            /** Format: int64 */
+            cacheHits: number;
+            /** @description §15 — cross-provenance contradiction rate. */
+            contradiction: components["schemas"]["ContradictionStatsJson"];
+            /**
+             * Format: int64
+             * @description Phase 7.6 — subset with `reused_from IS NOT NONE` (served from
+             *     the entity-aware cache).
+             */
+            responseTracesCached: number;
+            /**
+             * Format: int64
+             * @description Phase 7.6 — `response_trace` rows in the configured window.
+             */
+            responseTracesTotal: number;
+            /** @description §15 — retrieval candidate-set breadth. */
+            retrieval: components["schemas"]["RetrievalStatsJson"];
+            /**
+             * @description §15 operational signals (#174), aggregated over the same window:
+             *     distribution of attribute provenance by `source.kind`.
+             */
+            sourceKindDistribution: components["schemas"]["SourceKindCountJson"][];
+            /** @description §15 — supersession churn. */
+            supersession: components["schemas"]["SupersessionStatsJson"];
+            tierCounts: components["schemas"]["TierCountsJson"];
+            /** Format: int64 */
+            totalQueries: number;
+            /**
+             * Format: int32
+             * @description Phase 7.6 — window over which the response-trace counts were
+             *     aggregated.
+             */
+            windowHours: number;
+        };
+        /**
+         * @description A structured triple supplied directly by the caller (no LLM).
+         *
+         *     `key` + `value` create an attribute; if `value` is `None` and `target`
+         *     is `Some`, the triple represents a relation edge from `entity` to
+         *     `target` with `key` as the relation label.
+         */
+        Triple: {
+            entity: components["schemas"]["TripleEntity"];
+            key: string;
+            memory_category?: null | components["schemas"]["MemoryCategory"];
+            target?: null | components["schemas"]["TripleEntity"];
+            value?: string | null;
+        };
+        /** @description Entity descriptor on a [`Triple`]. */
+        TripleEntity: {
+            name: string;
             type: string;
         };
-        TraverseStartJson:
-            | {
-                  id: string;
-                  /** @enum {string} */
-                  type: "document";
-              }
-            | {
-                  normalised: string;
-                  /** @enum {string} */
-                  type: "keyword";
-              }
-            | {
-                  kind: string;
-                  slug: string;
-                  /** @enum {string} */
-                  type: "knowledge";
-              };
+        TurnListResponseJson: {
+            turns: components["schemas"]["TurnResponseJson"][];
+        };
+        TurnResponseJson: {
+            content: string;
+            createdAt: string;
+            id: string;
+            role: components["schemas"]["TurnRole"];
+            /** Format: int64 */
+            seq: number;
+            session: string;
+        };
+        /**
+         * @description Role of a conversation turn participant.
+         * @enum {string}
+         */
+        TurnRole: "user" | "assistant" | "system" | "tool";
+        UncertaintySummaryJson: {
+            about: string;
+            reason: string;
+        };
         UploadResponse: {
             contentHash: string;
             deduplicated: boolean;
             id: string;
-            status: string;
+            status: components["schemas"]["DocumentStatus"];
         };
-        Vec: components["schemas"]["KnowledgeNodeUpsertRow"][];
+        /** @description A grant verb: one of `read`, `write`, `create_scope`, `delete_scope`, `grant`, `manage`, `forget`. */
+        Verb: string;
     };
     responses: never;
     parameters: never;
@@ -667,6 +1861,218 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    list_audit: {
+        parameters: {
+            query?: {
+                /** @description Filter by principal (api-key id) */
+                principal?: string;
+                /** @description Alias for `principal` */
+                key?: string;
+                /** @description Trace kind filter: decision|retrieval|response */
+                kind?: components["schemas"]["TraceKind"];
+                /** @description Inclusive lower bound on created_at (RFC 3339) */
+                since?: string;
+                /** @description Inclusive upper bound on created_at (RFC 3339) */
+                until?: string;
+                /** @description Max rows to return (default 50, max 500) */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditResponseJson"];
+                };
+            };
+            /** @description Invalid query parameter (e.g. unknown kind) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    chat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatRequestJson"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatResponseJson"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    consolidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsolidateRequestJson"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsolidateResponseJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    query_context: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContextQueryRequestJson"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContextQueryResponseJson"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
             };
         };
     };
@@ -952,350 +2358,7 @@ export interface operations {
             };
         };
     };
-    related_keyword_http: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                context_id: string;
-                normalised: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TraverseApiResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            /** @description Invalid context id */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-        };
-    };
-    list_knowledge_nodes_http: {
-        parameters: {
-            query?: {
-                kind?: string;
-                q?: string;
-                page?: number;
-                pageSize?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Spectron context id */
-                context_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KnowledgeNodePageJson"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            /** @description Invalid context id */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            /** @description Unexpected error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-        };
-    };
-    bulk_upsert_knowledge_nodes: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Spectron context id */
-                context_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Vec"];
-            };
-        };
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            /** @description Invalid context id */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            /** @description Unexpected error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-        };
-    };
-    post_search_knowledge_nodes: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Spectron context id */
-                context_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["KnowledgeNodeSearchRequest"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KnowledgeNodeSearchResponseJson"];
-                };
-            };
-            /** @description Invalid request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            /** @description Invalid context id */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            /** @description Unexpected error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-        };
-    };
-    get_knowledge_node_http: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                context_id: string;
-                kind: string;
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KnowledgeNodeFullJson"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid context id */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-        };
-    };
-    delete_knowledge_node_http: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                context_id: string;
-                kind: string;
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid context id */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-        };
-    };
-    related_knowledge_node_http: {
-        parameters: {
-            query?: {
-                label?: string;
-                depth?: number;
-            };
-            header?: never;
-            path: {
-                context_id: string;
-                kind: string;
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TraverseApiResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            /** @description Invalid context id */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-        };
-    };
-    query_knowledge: {
+    query_documents: {
         parameters: {
             query?: never;
             header?: never;
@@ -1357,7 +2420,7 @@ export interface operations {
             };
         };
     };
-    post_traverse_graph: {
+    recompute_document_links: {
         parameters: {
             query?: never;
             header?: never;
@@ -1367,27 +2430,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TraverseApiRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TraverseApiResponse"];
-                };
-            };
-            /** @description Invalid request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
+                    "application/json": components["schemas"]["RecomputeLinksResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -1793,14 +2843,69 @@ export interface operations {
             };
         };
     };
-    related_document_http: {
+    elaborate: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description Spectron context id */
                 context_id: string;
-                /** @description Document id fragment */
-                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ElaborateRequestJson"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ElaborateResponseJson"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_entities: {
+        parameters: {
+            query?: {
+                /** @description Filter by entity type */
+                type?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
             };
             cookie?: never;
         };
@@ -1811,11 +2916,1643 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TraverseApiResponse"];
+                    "application/json": components["schemas"]["EntityListResponseJson"];
                 };
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_entity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+                /** @description Entity type */
+                entity_type: string;
+                /** @description Entity name */
+                entity_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityResponseJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Entity not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_entity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+                /** @description Entity type */
+                entity_type: string;
+                /** @description Entity name */
+                entity_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entity soft-deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_entity_history: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+                /** @description Entity type */
+                entity_type: string;
+                /** @description Entity name */
+                entity_name: string;
+                /** @description Attribute key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityHistoryResponseJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    create_fact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactsResponseJson"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Idempotency-Key reused with a different body */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    create_facts_batch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactsBatchRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactsBatchResponseJson"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Idempotency-Key reused with a different body */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    forget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgetRequestJson"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForgetResponseJson"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    fsck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FsckRequestJson"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FsckReportJson"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    inspect: {
+        parameters: {
+            query: {
+                /** @description Inspect ref string */
+                ref: string;
+                /** @description Tri-temporal: read as-of this transaction time */
+                asOf?: string;
+                /** @description Tri-temporal: read at this valid time */
+                atInstant?: string;
+                /** @description Tri-temporal: rows valid on/after */
+                validFrom?: string;
+                /** @description Tri-temporal: rows valid on/before */
+                validUntil?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectResponseJson"];
+                };
+            };
+            /** @description Malformed ref */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Referent not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Ref kind not yet supported */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    decay_importance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LifecycleResponseJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    expire_context: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LifecycleResponseJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_principals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrincipalJson"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Caller lacks the `manage` grant */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_principal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+                /** @description Principal record-id key */
+                principal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrincipalJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Caller lacks the `manage` grant */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Principal does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    effective_principal: {
+        parameters: {
+            query: {
+                /** @description Scope path to resolve effective verbs at */
+                path: string;
+                /** @description RFC 3339 instant: resolve against grant history at that time instead of current grants */
+                asOf?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+                /** @description Principal record-id key */
+                principal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EffectiveGrantsJson"];
+                };
+            };
+            /** @description Invalid scope path */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Caller lacks `manage` over the path */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Principal does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    grant_principal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+                /** @description Principal record-id key */
+                principal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantRequestJson"];
+            };
+        };
+        responses: {
+            /** @description Updated principal */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrincipalJson"];
+                };
+            };
+            /** @description Invalid pattern or verb */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Caller lacks `manage` over the region */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Principal does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    revoke_principal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+                /** @description Principal record-id key */
+                principal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantRequestJson"];
+            };
+        };
+        responses: {
+            /** @description Updated principal */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrincipalJson"];
+                };
+            };
+            /** @description Invalid pattern or verb */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Caller lacks `manage` over the region */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Principal does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileResponseJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    query_memory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueryMemoryRequestJson"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueryMemoryResponseJson"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    reflect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReflectRequestJson"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReflectResponseJson"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    scope_grants_stub: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScopeGrantRequestJson"];
+            };
+        };
+        responses: {
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Not implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_scopes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeNodeJson"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    register_scope: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterScopeRequestJson"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeNodeJson"];
+                };
+            };
+            /** @description Invalid scope path */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_scope: {
+        parameters: {
+            query: {
+                /** @description Scope path to tombstone */
+                path: string;
+            };
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tombstoned */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid scope path */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    forget_scope: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScopeForgetRequestJson"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForgetScopeResponseJson"];
+                };
+            };
+            /** @description Missing or invalid scope path */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Forbidden — `forget` grant required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    create_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSessionRequestJson"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponseJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+                /** @description Session id */
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Session not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_session_context: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+                /** @description Session id */
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionContextRequestJson"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionContextResponseJson"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_turns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+                /** @description Session id */
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TurnListResponseJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Session not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_state: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StateResponseJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_traces: {
+        parameters: {
+            query?: {
+                /** @description Max traces to return (default 50) */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceListResponseJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_trace_stats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceStatsResponseJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_trace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+                /** @description Trace id */
+                trace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceRecordJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Trace not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

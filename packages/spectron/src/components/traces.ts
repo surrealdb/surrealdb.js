@@ -1,10 +1,10 @@
 import { encodePathSegment, getContextApiPrefix } from "../paths.js";
 import type { Transport } from "../transport.js";
-import type {
-    TraceListResponseWire,
-    TraceRecordWire,
-    TraceStatsWire,
-} from "../types/memory-wire.js";
+import type { components } from "../types/generated.js";
+
+type TraceListResponseJson = components["schemas"]["TraceListResponseJson"];
+type TraceRecordJson = components["schemas"]["TraceRecordJson"];
+type TraceStatsResponseJson = components["schemas"]["TraceStatsResponseJson"];
 
 /** Retrieval decision traces for a context. */
 export class Traces {
@@ -22,29 +22,25 @@ export class Traces {
     }
 
     /** Lists recent trace records. */
-    async list(options?: { limit?: number }): Promise<TraceRecordWire[]> {
+    async list(options?: { limit?: number }): Promise<TraceRecordJson[]> {
         const body = await this.transport.requestJson("GET", this.base, {
             query: options?.limit !== undefined ? { limit: options.limit } : undefined,
         });
-        if (body && typeof body === "object" && "traces" in body) {
-            return (body as TraceListResponseWire).traces;
-        }
-        if (Array.isArray(body)) return body as TraceRecordWire[];
-        return [];
+        return (body as TraceListResponseJson).traces;
     }
 
     /** Fetches one trace by id. */
-    async get(traceId: string): Promise<TraceRecordWire> {
+    async get(traceId: string): Promise<TraceRecordJson> {
         const body = await this.transport.requestJson(
             "GET",
             `${this.base}/${encodePathSegment(traceId)}`,
         );
-        return body as TraceRecordWire;
+        return body as TraceRecordJson;
     }
 
-    /** Aggregate trace statistics. */
-    async stats(): Promise<TraceStatsWire> {
+    /** Aggregate trace statistics over the recent window. */
+    async stats(): Promise<TraceStatsResponseJson> {
         const body = await this.transport.requestJson("GET", `${this.base}/stats`);
-        return body as TraceStatsWire;
+        return body as TraceStatsResponseJson;
     }
 }

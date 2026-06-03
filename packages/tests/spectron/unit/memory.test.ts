@@ -8,58 +8,80 @@ function jsonResponse(data: unknown, status = 200): Response {
     });
 }
 
+function client(fetchImpl: unknown): Spectron {
+    return new Spectron({
+        context: "ctx-1",
+        apiKey: "k",
+        endpoint: "https://api.test",
+        fetchImpl: fetchImpl as typeof fetch,
+    });
+}
+
 describe("Spectron memory paths", () => {
-    test("query posts to /api/v1/{ctx}/query", async () => {
+    test("recall posts camelCase body to /query", async () => {
         let url = "";
         const fetchImpl = mock((u: string | URL, init?: RequestInit) => {
             url = String(u);
             expect(init?.method).toBe("POST");
-            expect(JSON.parse(String(init?.body))).toEqual({ query: "hi", k: 3 });
-            return Promise.resolve(jsonResponse({ hits: [] }));
+            expect(JSON.parse(String(init?.body))).toEqual({
+                query: "hi",
+                k: 3,
+                sessionId: "s1",
+            });
+            return Promise.resolve(jsonResponse({ hits: [], queryMs: 0, tier: "direct" }));
         });
-        const s = new Spectron({
-            context: "ctx-1",
-            apiKey: "k",
-            endpoint: "https://api.test",
-            fetchImpl: fetchImpl as unknown as typeof fetch,
-        });
-        const res = await s.query({ query: "hi", k: 3 });
+        const s = client(fetchImpl);
+        const res = await s.recall("hi", { k: 3, sessionId: "s1" });
         expect(res.hits).toEqual([]);
         expect(url).toContain("/api/v1/ctx-1/query");
     });
 
-    test("context posts to /api/v1/{ctx}/context", async () => {
+    test("remember posts snake_case body to /facts with an idempotency key", async () => {
+        let init: RequestInit | undefined;
+        const fetchImpl = mock((_u: string | URL, i?: RequestInit) => {
+            init = i;
+            return Promise.resolve(jsonResponse({ mode: "full", sessionId: "s1" }));
+        });
+        const s = client(fetchImpl);
+        await s.remember("I was promoted to CTO", {
+            sessionId: "s1",
+            memoryCategory: "identity",
+            scope: { user: "tobie" },
+        });
+        expect(init?.method).toBe("POST");
+        expect(JSON.parse(String(init?.body))).toEqual({
+            text: "I was promoted to CTO",
+            session_id: "s1",
+            memory_category: "identity",
+            scope: ["user=tobie"],
+        });
+        const headers = init?.headers as Record<string, string>;
+        expect(typeof headers["Idempotency-Key"]).toBe("string");
+        expect(headers["Idempotency-Key"]?.length).toBe(64);
+    });
+
+    test("context posts to /context", async () => {
         let path = "";
-        const fetchImpl = mock((u: string | URL, _init?: RequestInit) => {
+        const fetchImpl = mock((u: string | URL) => {
             path = String(u);
-            return Promise.resolve(jsonResponse({ context: "blob" }));
+            return Promise.resolve(jsonResponse({ context: "blob", queryMs: 1, tier: "direct" }));
         });
-        const s = new Spectron({
-            context: "c",
-            apiKey: "k",
-            endpoint: "https://api.test",
-            fetchImpl: fetchImpl as unknown as typeof fetch,
-        });
-        const res = await s.context({ query: "q" });
+        const s = client(fetchImpl);
+        const res = await s.context("q");
         expect(res.context).toBe("blob");
-        expect(path.endsWith("/api/v1/c/context")).toBe(true);
+        expect(path.endsWith("/api/v1/ctx-1/context")).toBe(true);
     });
 
     test("sessions.create POST /sessions", async () => {
         let path = "";
         const fetchImpl = mock((u: string | URL) => {
             path = String(u);
-            return Promise.resolve(jsonResponse({ id: "s1" }));
+            return Promise.resolve(jsonResponse({ id: "s1", createdAt: "2026-01-01", scope: [] }));
         });
-        const s = new Spectron({
-            context: "c",
-            apiKey: "k",
-            endpoint: "https://api.test",
-            fetchImpl: fetchImpl as unknown as typeof fetch,
-        });
+        const s = client(fetchImpl);
         const session = await s.sessions.create({ scope: { u: "1" } });
         expect(session.id).toBe("s1");
-        expect(path.endsWith("/api/v1/c/sessions")).toBe(true);
+        expect(path.endsWith("/api/v1/ctx-1/sessions")).toBe(true);
     });
 
     test("health GET /api/v1/health", async () => {
@@ -69,12 +91,7 @@ describe("Spectron memory paths", () => {
             expect(init?.method).toBe("GET");
             return Promise.resolve(new Response("", { status: 200 }));
         });
-        const s = new Spectron({
-            context: "c",
-            apiKey: "k",
-            endpoint: "https://api.test",
-            fetchImpl: fetchImpl as unknown as typeof fetch,
-        });
+        const s = client(fetchImpl);
         await s.health();
         expect(path.endsWith("/api/v1/health")).toBe(true);
     });

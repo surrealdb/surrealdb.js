@@ -1,4 +1,5 @@
 import { ConnectionError, errorFromResponse } from "./errors.js";
+import { idempotencyKey } from "./idempotency.js";
 import { backoffSchedule, shouldRetry } from "./retry.js";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -7,11 +8,11 @@ const DEFAULT_MAX_RETRIES = 3;
 export interface TransportOptions {
     /** API endpoint origin without trailing slash. */
     endpoint: string;
-    /** Bearer API key (required). */
+    /** API key sent in the `API-KEY` header (required). */
     apiKey: string;
     /** Request timeout in milliseconds. */
     timeoutMs?: number;
-    /** Maximum retry attempts for idempotent GET requests. */
+    /** Maximum retry attempts for idempotent requests. */
     maxRetries?: number;
     /** Override `fetch` (testing). */
     fetchImpl?: typeof fetch;
@@ -45,7 +46,8 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Performs authenticated HTTP requests with GET retries and JSON handling.
+ * Performs authenticated HTTP requests with retries, idempotency keys, JSON
+ * handling, and server-sent-event streaming.
  */
 export class Transport {
     private readonly endpoint: string;
@@ -79,7 +81,12 @@ export class Transport {
     async requestJson(
         method: string,
         path: string,
-        init?: { query?: Record<string, unknown>; body?: unknown; timeoutMs?: number },
+        init?: {
+            query?: Record<string, unknown>;
+            body?: unknown;
+            timeoutMs?: number;
+            idempotent?: boolean;
+        },
     ): Promise<unknown | null> {
         const methodUpper = method.toUpperCase();
         const url = buildUrl(this.endpoint, path, init?.query);
@@ -93,14 +100,22 @@ export class Transport {
         };
 
         let body: BodyInit | undefined;
+        let serialisedBody = "";
         const bodyInput = init?.body;
         if (bodyInput !== undefined) {
             if (bodyInput instanceof FormData) {
                 body = bodyInput;
             } else {
-                body = JSON.stringify(bodyInput);
+                serialisedBody = JSON.stringify(bodyInput);
+                body = serialisedBody;
                 headerObj["Content-Type"] = "application/json";
             }
+        }
+
+        // Idempotent writes carry a key so retries within a 30s window collapse
+        // to a single server-side effect.
+        if (init?.idempotent) {
+            headerObj["Idempotency-Key"] = await idempotencyKey(methodUpper, path, serialisedBody);
         }
 
         let attempt = 0;
@@ -123,7 +138,13 @@ export class Transport {
 
                 if (
                     response.status >= 400 &&
-                    shouldRetry(methodUpper, response.status, attempt, this.maxRetries)
+                    shouldRetry(
+                        methodUpper,
+                        response.status,
+                        attempt,
+                        this.maxRetries,
+                        init?.idempotent,
+                    )
                 ) {
                     await sleep(schedule[attempt] ?? 1000);
                     attempt += 1;
@@ -151,7 +172,7 @@ export class Transport {
                     });
                 }
                 if (
-                    shouldRetry(methodUpper, null, attempt, this.maxRetries) &&
+                    shouldRetry(methodUpper, null, attempt, this.maxRetries, init?.idempotent) &&
                     !(e instanceof Error && "status" in e)
                 ) {
                     await sleep(schedule[attempt] ?? 1000);
@@ -241,5 +262,49 @@ export class Transport {
                 });
             }
         }
+    }
+
+    /**
+     * Opens a server-sent-event stream (e.g. streaming `chat`).
+     *
+     * Streams are not retried; the returned {@link Response} carries the raw SSE
+     * body for the caller to parse.
+     */
+    async stream(
+        method: string,
+        path: string,
+        init?: { query?: Record<string, unknown>; body?: unknown },
+    ): Promise<Response> {
+        const methodUpper = method.toUpperCase();
+        const url = buildUrl(this.endpoint, path, init?.query);
+        const headers: Record<string, string> = {
+            Accept: "text/event-stream",
+            "API-KEY": this.apiKey,
+            "User-Agent": `surrealdb-spectron-js/${import.meta.env.VERSION}`,
+        };
+
+        let body: BodyInit | undefined;
+        if (init?.body !== undefined) {
+            body = JSON.stringify(init.body);
+            headers["Content-Type"] = "application/json";
+        }
+
+        let response: Response;
+        try {
+            response = await this.fetchImpl(url, { method: methodUpper, headers, body });
+        } catch (e) {
+            throw new ConnectionError({
+                status: 0,
+                title: "Connection failed",
+                detail: e instanceof Error ? e.message : String(e),
+                cause: e,
+            });
+        }
+
+        if (!response.ok) {
+            const text = await response.text();
+            throw errorFromResponse(response.status, decodeBody(text), response.headers);
+        }
+        return response;
     }
 }
