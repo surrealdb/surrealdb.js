@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Install dependencies
-        run: bun install
+        run: bun ci
 
       - name: Validate package versions
         run: bun run validate:versions ${{ github.event.inputs.version }}
@@ -55,7 +55,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Install dependencies
-        run: bun install
+        run: bun ci
 
       - name: Build SDK
         run: bun run build:sdk
@@ -84,7 +84,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Install dependencies
-        run: bun install
+        run: bun ci
 
       - name: Download SDK artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -123,7 +123,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Install dependencies
-        run: bun install
+        run: bun ci
 
       - name: Download SDK artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
