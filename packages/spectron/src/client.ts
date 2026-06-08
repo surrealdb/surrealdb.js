@@ -40,7 +40,7 @@ type GeoFilterJson = components["schemas"]["GeoFilterJson"];
 export interface SpectronOptions {
     /** Spectron context id (API path segment). */
     context: string;
-    /** API key sent in the `API-KEY` header. */
+    /** API key sent as an `Authorization: Bearer` token. */
     apiKey: string;
     /** API endpoint origin without trailing slash. */
     endpoint: string;

@@ -116,7 +116,3 @@ Idempotent `GET` requests retry on `5xx` and connection failures with backoff `2
 ## Scope
 
 Write and session calls accept `scope?: Scope`, where `Scope` is a single `key=value/` path string, an array of such strings, a `Record<string, string>`, or an array of `[key, value]` tuples. All forms normalise to the wire `ScopeSet` (a string array) via `normaliseScope`.
-
-## Regenerating API types
-
-After updating `spec/openapi.json`, run `bun run generate` in this package, then `bun run build`.

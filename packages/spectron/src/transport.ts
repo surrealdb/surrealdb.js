@@ -8,7 +8,7 @@ const DEFAULT_MAX_RETRIES = 3;
 export interface TransportOptions {
     /** API endpoint origin without trailing slash. */
     endpoint: string;
-    /** API key sent in the `API-KEY` header (required). */
+    /** API key sent as an `Authorization: Bearer` token (required). */
     apiKey: string;
     /** Request timeout in milliseconds. */
     timeoutMs?: number;
@@ -95,7 +95,7 @@ export class Transport {
 
         const headerObj: Record<string, string> = {
             Accept: "application/json",
-            "API-KEY": this.apiKey,
+            Authorization: `Bearer ${this.apiKey}`,
             "User-Agent": `surrealdb-spectron-js/${import.meta.env.VERSION}`,
         };
 
@@ -206,7 +206,7 @@ export class Transport {
         const schedule = backoffSchedule(this.maxRetries);
         const headers: Record<string, string> = {
             Accept: "*/*",
-            "API-KEY": this.apiKey,
+            Authorization: `Bearer ${this.apiKey}`,
             "User-Agent": `surrealdb-spectron-js/${import.meta.env.VERSION}`,
         };
 
@@ -279,7 +279,7 @@ export class Transport {
         const url = buildUrl(this.endpoint, path, init?.query);
         const headers: Record<string, string> = {
             Accept: "text/event-stream",
-            "API-KEY": this.apiKey,
+            Authorization: `Bearer ${this.apiKey}`,
             "User-Agent": `surrealdb-spectron-js/${import.meta.env.VERSION}`,
         };
 

@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test";
 import { ConnectionError, ServerError, Transport } from "@surrealdb/spectron";
 
 describe("Transport", () => {
-    test("sends API-KEY and user-agent on JSON POST", async () => {
+    test("sends Authorization bearer and user-agent on JSON POST", async () => {
         const calls: RequestInit[] = [];
         const fetchImpl = mock((_url: string | URL, init?: RequestInit) => {
             calls.push(init ?? {});
@@ -23,7 +23,7 @@ describe("Transport", () => {
         const init = calls[0];
         expect(init.headers).toBeDefined();
         const h = init.headers as Record<string, string>;
-        expect(h["API-KEY"]).toBe("k");
+        expect(h.Authorization).toBe("Bearer k");
         expect(h["User-Agent"]?.startsWith("surrealdb-spectron-js/")).toBe(true);
         expect(h["Content-Type"]).toBe("application/json");
     });
