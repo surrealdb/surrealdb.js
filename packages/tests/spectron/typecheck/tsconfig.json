@@ -1,0 +1,9 @@
+{
+    "extends": "../../../../tsconfig.json",
+    "compilerOptions": {
+        "paths": {
+            "@surrealdb/spectron": ["../../../spectron/dist/spectron.d.ts"]
+        }
+    },
+    "include": ["check.ts"]
+}

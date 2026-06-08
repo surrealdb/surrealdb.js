@@ -1,0 +1,79 @@
+import { encodePathSegment, getContextApiPrefix } from "../paths.js";
+import { normaliseScope, type Scope } from "../scope.js";
+import type { Transport } from "../transport.js";
+import type { components } from "../types/generated.js";
+
+type SessionResponseJson = components["schemas"]["SessionResponseJson"];
+type SessionContextResponseJson = components["schemas"]["SessionContextResponseJson"];
+type TurnListResponseJson = components["schemas"]["TurnListResponseJson"];
+type TurnResponseJson = components["schemas"]["TurnResponseJson"];
+
+/** An open conversation session within a Spectron context. */
+export class Session {
+    private readonly transport: Transport;
+
+    private readonly contextId: string;
+
+    /** Session id (API path segment). */
+    readonly id: string;
+
+    /** Creation timestamp. */
+    readonly createdAt: string;
+
+    /** Scope paths the session writes to. */
+    readonly scope: string[];
+
+    constructor(transport: Transport, contextId: string, info: SessionResponseJson) {
+        this.transport = transport;
+        this.contextId = contextId;
+        this.id = info.id;
+        this.createdAt = info.createdAt;
+        this.scope = info.scope;
+    }
+
+    private get base(): string {
+        return `${getContextApiPrefix(this.contextId)}/sessions/${encodePathSegment(this.id)}`;
+    }
+
+    /** Deletes this session on the server. */
+    async close(): Promise<void> {
+        await this.transport.requestJson("DELETE", this.base);
+    }
+
+    /** Lists turns recorded against this session. */
+    async turns(): Promise<TurnResponseJson[]> {
+        const body = await this.transport.requestJson("GET", `${this.base}/turns`);
+        return (body as TurnListResponseJson).turns;
+    }
+
+    /** Retrieves session-scoped LLM context text for a query. */
+    async context(options: { query: string }): Promise<SessionContextResponseJson> {
+        const body = await this.transport.requestJson("POST", `${this.base}/context`, {
+            body: { query: options.query },
+        });
+        return body as SessionContextResponseJson;
+    }
+}
+
+/** Creates and manages conversation sessions for a context. */
+export class Sessions {
+    private readonly transport: Transport;
+
+    private readonly contextId: string;
+
+    constructor(transport: Transport, contextId: string) {
+        this.transport = transport;
+        this.contextId = contextId;
+    }
+
+    /** Opens a new session with optional scope and metadata. */
+    async create(options?: { scope?: Scope; metadata?: unknown }): Promise<Session> {
+        const base = `${getContextApiPrefix(this.contextId)}/sessions`;
+        const payload: Record<string, unknown> = {};
+        const scope = normaliseScope(options?.scope);
+        if (scope) payload.scope = scope;
+        if (options?.metadata !== undefined) payload.metadata = options.metadata;
+        const body = await this.transport.requestJson("POST", base, { body: payload });
+        return new Session(this.transport, this.contextId, body as SessionResponseJson);
+    }
+}

@@ -4,6 +4,7 @@
     "private": true,
     "dependencies": {
         "@surrealdb/cbor": "2.0.0-alpha.4",
+        "@surrealdb/spectron": "workspace:*",
         "surrealdb": "workspace:*",
         "@surrealdb/node": "workspace:*",
         "@surrealdb/wasm": "workspace:*",

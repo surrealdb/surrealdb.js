@@ -1,0 +1,310 @@
+import { ConnectionError, errorFromResponse } from "./errors.js";
+import { idempotencyKey } from "./idempotency.js";
+import { backoffSchedule, shouldRetry } from "./retry.js";
+
+const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_RETRIES = 3;
+
+export interface TransportOptions {
+    /** API endpoint origin without trailing slash. */
+    endpoint: string;
+    /** API key sent as an `Authorization: Bearer` token (required). */
+    apiKey: string;
+    /** Request timeout in milliseconds. */
+    timeoutMs?: number;
+    /** Maximum retry attempts for idempotent requests. */
+    maxRetries?: number;
+    /** Override `fetch` (testing). */
+    fetchImpl?: typeof fetch;
+}
+
+function buildUrl(endpoint: string, path: string, query?: Record<string, unknown>): string {
+    const urlStr =
+        path.startsWith("http://") || path.startsWith("https://")
+            ? path
+            : `${endpoint.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+    if (!query || Object.keys(query).length === 0) return urlStr;
+    const url = new URL(urlStr);
+    for (const [k, v] of Object.entries(query)) {
+        if (v === undefined || v === null) continue;
+        url.searchParams.set(k, String(v));
+    }
+    return url.toString();
+}
+
+function decodeBody(text: string): unknown {
+    if (!text) return null;
+    try {
+        return JSON.parse(text) as unknown;
+    } catch {
+        return text;
+    }
+}
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Performs authenticated HTTP requests with retries, idempotency keys, JSON
+ * handling, and server-sent-event streaming.
+ */
+export class Transport {
+    private readonly endpoint: string;
+
+    private readonly apiKey: string;
+
+    private readonly timeoutMs: number;
+
+    private readonly maxRetries: number;
+
+    private readonly fetchImpl: typeof fetch;
+
+    constructor(options: TransportOptions) {
+        if (!options.endpoint) {
+            throw new TypeError("Spectron endpoint is required.");
+        }
+        if (!options.apiKey) {
+            throw new TypeError("Spectron API key is required.");
+        }
+        this.endpoint = options.endpoint.replace(/\/$/, "");
+        this.apiKey = options.apiKey;
+        this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+        this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
+        this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
+    }
+
+    /**
+     * Sends a JSON or multipart request.
+     * @returns Parsed JSON, or `null` for empty 204 responses.
+     */
+    async requestJson(
+        method: string,
+        path: string,
+        init?: {
+            query?: Record<string, unknown>;
+            body?: unknown;
+            timeoutMs?: number;
+            idempotent?: boolean;
+        },
+    ): Promise<unknown | null> {
+        const methodUpper = method.toUpperCase();
+        const url = buildUrl(this.endpoint, path, init?.query);
+        const timeoutMs = init?.timeoutMs ?? this.timeoutMs;
+        const schedule = backoffSchedule(this.maxRetries);
+
+        const headerObj: Record<string, string> = {
+            Accept: "application/json",
+            Authorization: `Bearer ${this.apiKey}`,
+            "User-Agent": `surrealdb-spectron-js/${import.meta.env.VERSION}`,
+        };
+
+        let body: BodyInit | undefined;
+        let serialisedBody = "";
+        const bodyInput = init?.body;
+        if (bodyInput !== undefined) {
+            if (bodyInput instanceof FormData) {
+                body = bodyInput;
+            } else {
+                serialisedBody = JSON.stringify(bodyInput);
+                body = serialisedBody;
+                headerObj["Content-Type"] = "application/json";
+            }
+        }
+
+        // Idempotent writes carry a key so retries within a 30s window collapse
+        // to a single server-side effect.
+        if (init?.idempotent) {
+            headerObj["Idempotency-Key"] = await idempotencyKey(methodUpper, path, serialisedBody);
+        }
+
+        let attempt = 0;
+        for (;;) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            const headersForFetch: HeadersInit = { ...headerObj };
+            if (body instanceof FormData) {
+                delete (headersForFetch as Record<string, string>)["Content-Type"];
+            }
+
+            try {
+                const response = await this.fetchImpl(url, {
+                    method: methodUpper,
+                    headers: headersForFetch,
+                    body: methodUpper === "GET" || methodUpper === "HEAD" ? undefined : body,
+                    signal: controller.signal,
+                });
+                clearTimeout(timer);
+
+                if (
+                    response.status >= 400 &&
+                    shouldRetry(
+                        methodUpper,
+                        response.status,
+                        attempt,
+                        this.maxRetries,
+                        init?.idempotent,
+                    )
+                ) {
+                    await sleep(schedule[attempt] ?? 1000);
+                    attempt += 1;
+                    continue;
+                }
+
+                const text = await response.text();
+
+                if (!response.ok) {
+                    throw errorFromResponse(response.status, decodeBody(text), response.headers);
+                }
+
+                if (response.status === 204 || text.length === 0) {
+                    return null;
+                }
+                return decodeBody(text);
+            } catch (e) {
+                clearTimeout(timer);
+                if (e instanceof Error && e.name === "AbortError") {
+                    throw new ConnectionError({
+                        status: 0,
+                        title: "Request timed out",
+                        detail: `Exceeded ${timeoutMs}ms`,
+                        cause: e,
+                    });
+                }
+                if (
+                    shouldRetry(methodUpper, null, attempt, this.maxRetries, init?.idempotent) &&
+                    !(e instanceof Error && "status" in e)
+                ) {
+                    await sleep(schedule[attempt] ?? 1000);
+                    attempt += 1;
+                    continue;
+                }
+                if (e && typeof e === "object" && "status" in e) {
+                    throw e;
+                }
+                throw new ConnectionError({
+                    status: 0,
+                    title: "Connection failed",
+                    detail: e instanceof Error ? e.message : String(e),
+                    cause: e,
+                });
+            }
+        }
+    }
+
+    /**
+     * GET that returns raw bytes (e.g. document `raw`).
+     */
+    async requestBytes(
+        method: string,
+        path: string,
+        init?: { query?: Record<string, unknown>; timeoutMs?: number },
+    ): Promise<ArrayBuffer> {
+        const methodUpper = method.toUpperCase();
+        const url = buildUrl(this.endpoint, path, init?.query);
+        const timeoutMs = init?.timeoutMs ?? this.timeoutMs;
+        const schedule = backoffSchedule(this.maxRetries);
+        const headers: Record<string, string> = {
+            Accept: "*/*",
+            Authorization: `Bearer ${this.apiKey}`,
+            "User-Agent": `surrealdb-spectron-js/${import.meta.env.VERSION}`,
+        };
+
+        let attempt = 0;
+        for (;;) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const response = await this.fetchImpl(url, {
+                    method: methodUpper,
+                    headers,
+                    signal: controller.signal,
+                });
+                clearTimeout(timer);
+
+                if (
+                    response.status >= 400 &&
+                    shouldRetry(methodUpper, response.status, attempt, this.maxRetries)
+                ) {
+                    await sleep(schedule[attempt] ?? 1000);
+                    attempt += 1;
+                    continue;
+                }
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw errorFromResponse(response.status, decodeBody(text), response.headers);
+                }
+                return await response.arrayBuffer();
+            } catch (e) {
+                clearTimeout(timer);
+                if (e instanceof Error && e.name === "AbortError") {
+                    throw new ConnectionError({
+                        status: 0,
+                        title: "Request timed out",
+                        detail: `Exceeded ${timeoutMs}ms`,
+                        cause: e,
+                    });
+                }
+                if (shouldRetry(methodUpper, null, attempt, this.maxRetries)) {
+                    await sleep(schedule[attempt] ?? 1000);
+                    attempt += 1;
+                    continue;
+                }
+                if (e && typeof e === "object" && "status" in e) {
+                    throw e;
+                }
+                throw new ConnectionError({
+                    status: 0,
+                    title: "Connection failed",
+                    detail: e instanceof Error ? e.message : String(e),
+                    cause: e,
+                });
+            }
+        }
+    }
+
+    /**
+     * Opens a server-sent-event stream (e.g. streaming `chat`).
+     *
+     * Streams are not retried; the returned {@link Response} carries the raw SSE
+     * body for the caller to parse.
+     */
+    async stream(
+        method: string,
+        path: string,
+        init?: { query?: Record<string, unknown>; body?: unknown },
+    ): Promise<Response> {
+        const methodUpper = method.toUpperCase();
+        const url = buildUrl(this.endpoint, path, init?.query);
+        const headers: Record<string, string> = {
+            Accept: "text/event-stream",
+            Authorization: `Bearer ${this.apiKey}`,
+            "User-Agent": `surrealdb-spectron-js/${import.meta.env.VERSION}`,
+        };
+
+        let body: BodyInit | undefined;
+        if (init?.body !== undefined) {
+            body = JSON.stringify(init.body);
+            headers["Content-Type"] = "application/json";
+        }
+
+        let response: Response;
+        try {
+            response = await this.fetchImpl(url, { method: methodUpper, headers, body });
+        } catch (e) {
+            throw new ConnectionError({
+                status: 0,
+                title: "Connection failed",
+                detail: e instanceof Error ? e.message : String(e),
+                cause: e,
+            });
+        }
+
+        if (!response.ok) {
+            const text = await response.text();
+            throw errorFromResponse(response.status, decodeBody(text), response.headers);
+        }
+        return response;
+    }
+}

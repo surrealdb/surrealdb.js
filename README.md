@@ -65,16 +65,16 @@ Run the following command to add the SDK to your project:
 
 ```sh
 # using npm
-npm i surrealdb@alpha
+npm i surrealdb
 
 # or using pnpm
-pnpm i surrealdb@alpha
+pnpm i surrealdb
 
 # or using yarn
-yarn add surrealdb@alpha
+yarn add surrealdb
 
 # or using bun
-bun add surrealdb@alpha
+bun add surrealdb
 ```
 
 You can now import the SDK into your project with:
@@ -96,9 +96,6 @@ import Surreal from "https://cdn.jsdelivr.net/npm/surrealdb";
 _**NOTE: this bundle is not optimized for production! So don't use it in production!**_
 
 ## Getting started
-
-> [!WARNING]
-> These examples are for the v2 SDK (alpha). For the stable v1 SDK examples, see [here](https://github.com/surrealdb/surrealdb.js/blob/main/README_V1.md).
 
 In the example below you can see how to connect to a remote instance of SurrealDB, authenticating with the database, and issuing queries for creating, updating, and selecting data from records.
 
@@ -214,13 +211,13 @@ The **WebAssembly engine** for the JavaScript SDK provides a powerful way to ext
 Run the following command to add the WebAssembly engine to your project:
 
 ```sh
-npm i @surrealdb/wasm@alpha
+npm i @surrealdb/wasm
 # or
-pnpm i @surrealdb/wasm@alpha
+pnpm i @surrealdb/wasm
 # or
-yarn add @surrealdb/wasm@alpha
+yarn add @surrealdb/wasm
 # or
-bun add @surrealdb/wasm@alpha
+bun add @surrealdb/wasm
 ```
 
 ### Registering the WebAssembly engine
@@ -272,13 +269,13 @@ The **Node.js engine** for the JavaScript SDK provides a powerful way to extend 
 Run the following command to add the Node.js engine to your project:
 
 ```sh
-npm i @surrealdb/node@alpha
+npm i @surrealdb/node
 # or
-pnpm i @surrealdb/node@alpha
+pnpm i @surrealdb/node
 # or
-yarn add @surrealdb/node@alpha
+yarn add @surrealdb/node
 # or
-bun add @surrealdb/node@alpha
+bun add @surrealdb/node
 ```
 
 ### Registering the Node.js engine
@@ -306,6 +303,18 @@ await db.connect("surrealkv://path/to/storage.db");
 // Connect to an SurrealKV instance with versioning
 await db.connect("surrealkv+versioned://path/to/storage.db");
 ```
+
+## Spectron client
+
+<img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/surreal.svg" />
+
+**Spectron** is the managed memory and knowledge layer for AI apps. The **`@surrealdb/spectron`** package is a typed HTTP client for its public API (sessions, memory, knowledge, traces)—independent of the SurrealDB database SDK.
+
+```sh
+bun add @surrealdb/spectron
+```
+
+See the [Spectron client readme](./packages/spectron/README.md) for usage, errors, retries, and publishing notes.
 
 ## Contributing
 
@@ -375,8 +384,9 @@ for VSCode are helpful.
 - `./biome.json` contains settings for code quality.
 - `./scripts` contains the build and publish scripts.
 - `./packages/sdk` contains the JavaScript SDK source code.
+- `./packages/spectron` contains the Spectron client source code.
 - `./packages/node` contains the Node.js SDK source code.
 - `./packages/wasm` contains the WebAssembly SDK source code.
-- `./packages/tests` contains the testing suite.
+- `./packages/tests` contains the testing suite (`surrealdb/` for the SDK, `spectron/` for Spectron).
 - `./demo/wasm` contains a WebAssembly demo.
 - `./demo/node` contains a Node.js demo.
