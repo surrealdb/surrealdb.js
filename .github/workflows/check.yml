@@ -385,7 +385,6 @@ jobs:
 
   test-spectron:
     name: Test Spectron
-    needs: build-spectron
     runs-on: ubuntu-latest
     steps:
       - name: Install Bun
@@ -398,12 +397,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install
-
-      - name: Download Spectron build
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: spectron-build
-          path: packages/spectron/dist/
 
       - name: Run Spectron tests
         run: cd packages/tests/spectron && bun test --reporter=junit --reporter-outfile=junit.xml
