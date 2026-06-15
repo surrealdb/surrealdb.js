@@ -16,6 +16,8 @@ export interface TransportOptions {
     maxRetries?: number;
     /** Override `fetch` (testing). */
     fetchImpl?: typeof fetch;
+    /** Principal id to act on behalf of, sent as `X-Spectron-On-Behalf-Of`. */
+    onBehalfOf?: string;
 }
 
 function buildUrl(endpoint: string, path: string, query?: Record<string, unknown>): string {
@@ -60,6 +62,8 @@ export class Transport {
 
     private readonly fetchImpl: typeof fetch;
 
+    private readonly onBehalfOf?: string;
+
     constructor(options: TransportOptions) {
         if (!options.endpoint) {
             throw new TypeError("Spectron endpoint is required.");
@@ -72,6 +76,33 @@ export class Transport {
         this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
         this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
         this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
+        this.onBehalfOf = options.onBehalfOf;
+    }
+
+    /**
+     * Returns a copy of this transport that issues every request on behalf of
+     * `principalId` (adds the `X-Spectron-On-Behalf-Of` header).
+     */
+    withOnBehalfOf(principalId: string): Transport {
+        return new Transport({
+            endpoint: this.endpoint,
+            apiKey: this.apiKey,
+            timeoutMs: this.timeoutMs,
+            maxRetries: this.maxRetries,
+            fetchImpl: this.fetchImpl,
+            onBehalfOf: principalId,
+        });
+    }
+
+    /** Builds the common request headers, including delegation when configured. */
+    private baseHeaders(accept: string): Record<string, string> {
+        const headers: Record<string, string> = {
+            Accept: accept,
+            Authorization: `Bearer ${this.apiKey}`,
+            "User-Agent": `surrealdb-spectron-js/${import.meta.env.VERSION}`,
+        };
+        if (this.onBehalfOf) headers["X-Spectron-On-Behalf-Of"] = this.onBehalfOf;
+        return headers;
     }
 
     /**
@@ -93,11 +124,7 @@ export class Transport {
         const timeoutMs = init?.timeoutMs ?? this.timeoutMs;
         const schedule = backoffSchedule(this.maxRetries);
 
-        const headerObj: Record<string, string> = {
-            Accept: "application/json",
-            Authorization: `Bearer ${this.apiKey}`,
-            "User-Agent": `surrealdb-spectron-js/${import.meta.env.VERSION}`,
-        };
+        const headerObj = this.baseHeaders("application/json");
 
         let body: BodyInit | undefined;
         let serialisedBody = "";
@@ -204,11 +231,7 @@ export class Transport {
         const url = buildUrl(this.endpoint, path, init?.query);
         const timeoutMs = init?.timeoutMs ?? this.timeoutMs;
         const schedule = backoffSchedule(this.maxRetries);
-        const headers: Record<string, string> = {
-            Accept: "*/*",
-            Authorization: `Bearer ${this.apiKey}`,
-            "User-Agent": `surrealdb-spectron-js/${import.meta.env.VERSION}`,
-        };
+        const headers = this.baseHeaders("*/*");
 
         let attempt = 0;
         for (;;) {
@@ -277,11 +300,7 @@ export class Transport {
     ): Promise<Response> {
         const methodUpper = method.toUpperCase();
         const url = buildUrl(this.endpoint, path, init?.query);
-        const headers: Record<string, string> = {
-            Accept: "text/event-stream",
-            Authorization: `Bearer ${this.apiKey}`,
-            "User-Agent": `surrealdb-spectron-js/${import.meta.env.VERSION}`,
-        };
+        const headers = this.baseHeaders("text/event-stream");
 
         let body: BodyInit | undefined;
         if (init?.body !== undefined) {

@@ -5,9 +5,11 @@ export {
     type RememberOptions,
     Spectron,
     type SpectronOptions,
+    type WhoamiResponseJson,
 } from "./client.js";
 export { DocumentKeywords, Documents, type DocumentUploadOptions } from "./components/documents.js";
 export { Entities } from "./components/entities.js";
+export { type KeyDetailJson, Keys, type MintedKeyJson } from "./components/keys.js";
 export { Lifecycle } from "./components/lifecycle.js";
 export { Principals } from "./components/principals.js";
 export { Scopes } from "./components/scopes.js";

@@ -1,5 +1,6 @@
 import { Documents } from "./components/documents.js";
 import { Entities } from "./components/entities.js";
+import { Keys } from "./components/keys.js";
 import { Lifecycle } from "./components/lifecycle.js";
 import { Principals } from "./components/principals.js";
 import { Scopes } from "./components/scopes.js";
@@ -32,6 +33,22 @@ type InspectResponseJson = components["schemas"]["InspectResponseJson"];
 type AuditResponseJson = components["schemas"]["AuditResponseJson"];
 type StateResponseJson = components["schemas"]["StateResponseJson"];
 type ProfileResponseJson = components["schemas"]["ProfileResponseJson"];
+
+/**
+ * The calling principal's identity and resolved authorisation for this context.
+ * (`GET /me` is not yet described by the OpenAPI spec, so this shape is declared
+ * here rather than generated.)
+ */
+export interface WhoamiResponseJson {
+    principalId: string;
+    displayName: string;
+    kind: string;
+    enforce: boolean;
+    grants: Record<string, unknown>;
+    effectiveGrants: Record<string, unknown>;
+    delegatedPrincipalId?: string | null;
+    tokenGrants?: Record<string, unknown> | null;
+}
 type Triple = components["schemas"]["Triple"];
 type BatchMessage = components["schemas"]["BatchMessage"];
 type GeoFilterJson = components["schemas"]["GeoFilterJson"];
@@ -166,6 +183,9 @@ export class Spectron {
     /** The scope tree. */
     readonly scopes: Scopes;
 
+    /** Self-service API keys for this context. */
+    readonly keys: Keys;
+
     constructor(options: SpectronOptions) {
         if (!options.context) {
             throw new TypeError("Spectron context is required.");
@@ -178,17 +198,50 @@ export class Spectron {
             maxRetries: options.maxRetries,
             fetchImpl: options.fetchImpl,
         });
-        this.documents = new Documents(this.transport, this.contextId);
-        this.entities = new Entities(this.transport, this.contextId);
-        this.sessions = new Sessions(this.transport, this.contextId);
-        this.lifecycle = new Lifecycle(this.transport, this.contextId);
-        this.traces = new Traces(this.transport, this.contextId);
-        this.principals = new Principals(this.transport, this.contextId);
-        this.scopes = new Scopes(this.transport, this.contextId);
+        const components = Spectron.buildComponents(this.transport, this.contextId);
+        this.documents = components.documents;
+        this.entities = components.entities;
+        this.sessions = components.sessions;
+        this.lifecycle = components.lifecycle;
+        this.traces = components.traces;
+        this.principals = components.principals;
+        this.scopes = components.scopes;
+        this.keys = components.keys;
+    }
+
+    private static buildComponents(transport: Transport, contextId: string) {
+        return {
+            documents: new Documents(transport, contextId),
+            entities: new Entities(transport, contextId),
+            sessions: new Sessions(transport, contextId),
+            lifecycle: new Lifecycle(transport, contextId),
+            traces: new Traces(transport, contextId),
+            principals: new Principals(transport, contextId),
+            scopes: new Scopes(transport, contextId),
+            keys: new Keys(transport, contextId),
+        };
     }
 
     private get base(): string {
         return getContextApiPrefix(this.contextId);
+    }
+
+    /**
+     * Returns a client that issues every request on behalf of `principalId`,
+     * sending the `X-Spectron-On-Behalf-Of` delegation header. Requires the
+     * `manage` grant. The original client is left unchanged.
+     */
+    onBehalfOf(principalId: string): Spectron {
+        if (!principalId) {
+            throw new TypeError("onBehalfOf requires a principal id.");
+        }
+        const transport = this.transport.withOnBehalfOf(principalId);
+        const delegate = Object.create(Spectron.prototype) as Spectron;
+        return Object.assign(delegate, {
+            contextId: this.contextId,
+            transport,
+            ...Spectron.buildComponents(transport, this.contextId),
+        });
     }
 
     /**
@@ -432,5 +485,11 @@ export class Spectron {
     async profile(): Promise<ProfileResponseJson> {
         const body = await this.transport.requestJson("GET", `${this.base}/profile`);
         return body as ProfileResponseJson;
+    }
+
+    /** The calling principal's identity and resolved grants (`GET /me`). */
+    async whoami(): Promise<WhoamiResponseJson> {
+        const body = await this.transport.requestJson("GET", `${this.base}/me`);
+        return body as WhoamiResponseJson;
     }
 }
