@@ -10,25 +10,36 @@ describe("normaliseScope", () => {
         expect(normaliseScope([])).toBeUndefined();
     });
 
-    test("maps a record to key=value paths", () => {
+    test("maps a record to slash-path strings", () => {
         const scope: Scope = { user: "a", tenant: "b" };
-        expect(normaliseScope(scope)).toEqual(["user=a", "tenant=b"]);
+        expect(normaliseScope(scope)).toEqual(["user/a", "tenant/b"]);
     });
 
     test("passes a single path string through", () => {
-        expect(normaliseScope("team=acme/project=x")).toEqual(["team=acme/project=x"]);
+        expect(normaliseScope("team/eng")).toEqual(["team/eng"]);
     });
 
     test("passes a path-string array through", () => {
-        expect(normaliseScope(["a=1", "b=2"])).toEqual(["a=1", "b=2"]);
+        expect(normaliseScope(["a/1", "b/2"])).toEqual(["a/1", "b/2"]);
     });
 
-    test("joins tuple pairs into paths", () => {
+    test("joins tuple pairs into slash-paths", () => {
         expect(
             normaliseScope([
                 ["a", "1"],
                 ["b", "2"],
             ]),
-        ).toEqual(["a=1", "b=2"]);
+        ).toEqual(["a/1", "b/2"]);
+    });
+
+    test("de-duplicates while preserving first-seen order", () => {
+        expect(normaliseScope(["org/acme", "team/eng", "org/acme"])).toEqual([
+            "org/acme",
+            "team/eng",
+        ]);
+    });
+
+    test("drops empty path strings", () => {
+        expect(normaliseScope(["", "team/eng"])).toEqual(["team/eng"]);
     });
 });

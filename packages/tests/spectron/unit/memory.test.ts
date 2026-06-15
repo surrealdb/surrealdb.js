@@ -53,7 +53,7 @@ describe("Spectron memory paths", () => {
             text: "I was promoted to CTO",
             session_id: "s1",
             memory_category: "identity",
-            scope: ["user=tobie"],
+            scope: ["user/tobie"],
         });
         const headers = init?.headers as Record<string, string>;
         expect(typeof headers["Idempotency-Key"]).toBe("string");
@@ -82,6 +82,30 @@ describe("Spectron memory paths", () => {
         const session = await s.sessions.create({ scope: { u: "1" } });
         expect(session.id).toBe("s1");
         expect(path.endsWith("/api/v1/ctx-1/sessions")).toBe(true);
+    });
+
+    test("whoami GET /me", async () => {
+        let url = "";
+        let method = "";
+        const fetchImpl = mock((u: string | URL, init?: RequestInit) => {
+            url = String(u);
+            method = String(init?.method);
+            return Promise.resolve(
+                jsonResponse({
+                    principalId: "principal:tobie",
+                    displayName: "Tobie",
+                    kind: "user",
+                    enforce: true,
+                    grants: {},
+                    effectiveGrants: {},
+                }),
+            );
+        });
+        const s = client(fetchImpl);
+        const me = await s.whoami();
+        expect(me.principalId).toBe("principal:tobie");
+        expect(method).toBe("GET");
+        expect(url.endsWith("/api/v1/ctx-1/me")).toBe(true);
     });
 
     test("health GET /api/v1/health", async () => {

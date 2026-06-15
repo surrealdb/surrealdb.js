@@ -67,11 +67,18 @@ await client.forget("Remove old project notes", { purge: true });
 // Snapshots and maintenance.
 await client.state();
 await client.profile();
+await client.whoami();
 await client.consolidate({ dryRun: true });
 await client.elaborate({ entityRef: "person:tobie" });
 await client.fsck();
 await client.inspect("person:tobie");
 await client.audit({ limit: 50 });
+
+// Self-service API keys.
+const minted = await client.keys.create({ name: "ci", ttlSeconds: 3600 });
+await client.keys.list();
+await client.keys.rotate("ci");
+await client.keys.delete("ci");
 ```
 
 ### Streaming chat
@@ -94,6 +101,17 @@ for await (const chunk of stream) {
 | `client.traces` | `list`, `get`, `stats` |
 | `client.principals` | `list`, `get`, `effective`, `grant`, `revoke` |
 | `client.scopes` | `list`, `register`, `delete`, `forget` |
+| `client.keys` | `create`, `list`, `delete`, `rotate` |
+
+## Delegation
+
+`client.onBehalfOf(principalId)` returns a new client whose every request carries the `X-Spectron-On-Behalf-Of` header, so calls run with that principal's authorisation. This requires the `manage` grant. The original client is left unchanged.
+
+```ts
+const asAlex = client.onBehalfOf("principal:alex");
+await asAlex.remember("Reviewed the Q3 plan");
+await asAlex.recall("What did Alex review?");
+```
 
 ## Errors
 
@@ -115,4 +133,10 @@ Idempotent `GET` requests retry on `5xx` and connection failures with backoff `2
 
 ## Scope
 
-Write and session calls accept `scope?: Scope`, where `Scope` is a single `key=value/` path string, an array of such strings, a `Record<string, string>`, or an array of `[key, value]` tuples. All forms normalise to the wire `ScopeSet` (a string array) via `normaliseScope`.
+Write and session calls accept `scope?: Scope`, where `Scope` is a single `key/value` slash-path string, an array of such strings, a `Record<string, string>`, or an array of `[key, value]` tuples. All forms normalise to the wire `ScopeSet` — an ordered, de-duplicated string array — via `normaliseScope`. Empty entries are dropped; omit `scope` entirely to use the key's default write region.
+
+```ts
+client.remember("...", { scope: "team/eng" });
+client.remember("...", { scope: ["team/eng", "org/acme"] });
+client.remember("...", { scope: { org: "acme" } }); // -> ["org/acme"]
+```
