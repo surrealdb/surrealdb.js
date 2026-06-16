@@ -39,7 +39,7 @@ const document = await client.documents.upload({
 });
 
 // Remember a fact and recall it
-await client.remember("I just got promoted to CTO", { scope: { user: "tobie" } });
+await client.remember("I just got promoted to CTO", { scopes: "user/tobie" });
 const hits = await client.recall("What is Tobie's role?", { k: 10 });
 
 // Chat (server-driven memory loop)
@@ -133,10 +133,12 @@ Idempotent `GET` requests retry on `5xx` and connection failures with backoff `2
 
 ## Scope
 
-Write and session calls accept `scope?: Scope`, where `Scope` is a single `key/value` slash-path string, an array of such strings, a `Record<string, string>`, or an array of `[key, value]` tuples. All forms normalise to the wire `ScopeSet` — an ordered, de-duplicated string array — via `normaliseScope`. Empty entries are dropped; omit `scope` entirely to use the key's default write region.
+Write and session calls accept `scopes?: Scope`, and read calls accept the same shape as `lens?: Scope`. The wire format is a `ScopeSets`: a DNF (disjunctive-normal-form) selector, `string[][]`. The outer array is an OR of clauses; each inner array is an AND of `key/value` slash-paths. So `[["team/a"], ["team/b", "clearance/secret"]]` means `team/a OR (team/b AND clearance/secret)`.
+
+For ergonomics a bare string is a single-path clause and a flat string array is an OR of single-path clauses, and the two mix. All forms normalise to the wire shape via `normaliseScope`. Empty paths and empty clauses are dropped; omit `scopes` entirely to use the key's default write region.
 
 ```ts
-client.remember("...", { scope: "team/eng" });
-client.remember("...", { scope: ["team/eng", "org/acme"] });
-client.remember("...", { scope: { org: "acme" } }); // -> ["org/acme"]
+client.remember("...", { scopes: "team/eng" }); // -> [["team/eng"]]
+client.remember("...", { scopes: ["team/eng", "org/acme"] }); // OR -> [["team/eng"], ["org/acme"]]
+client.remember("...", { scopes: [["team/eng", "org/acme"]] }); // AND -> [["team/eng", "org/acme"]]
 ```

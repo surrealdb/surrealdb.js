@@ -20,15 +20,15 @@ export class Session {
     /** Creation timestamp. */
     readonly createdAt: string;
 
-    /** Scope paths the session writes to. */
-    readonly scope: string[];
+    /** DNF scope selector the session writes to (outer OR, inner AND). */
+    readonly scopes: string[][];
 
     constructor(transport: Transport, contextId: string, info: SessionResponseJson) {
         this.transport = transport;
         this.contextId = contextId;
         this.id = info.id;
         this.createdAt = info.createdAt;
-        this.scope = info.scope;
+        this.scopes = info.scopes;
     }
 
     private get base(): string {
@@ -66,12 +66,12 @@ export class Sessions {
         this.contextId = contextId;
     }
 
-    /** Opens a new session with optional scope and metadata. */
-    async create(options?: { scope?: Scope; metadata?: unknown }): Promise<Session> {
+    /** Opens a new session with an optional DNF scope selector and metadata. */
+    async create(options?: { scopes?: Scope; metadata?: unknown }): Promise<Session> {
         const base = `${getContextApiPrefix(this.contextId)}/sessions`;
         const payload: Record<string, unknown> = {};
-        const scope = normaliseScope(options?.scope);
-        if (scope) payload.scope = scope;
+        const scopes = normaliseScope(options?.scopes);
+        if (scopes) payload.scopes = scopes;
         if (options?.metadata !== undefined) payload.metadata = options.metadata;
         const body = await this.transport.requestJson("POST", base, { body: payload });
         return new Session(this.transport, this.contextId, body as SessionResponseJson);

@@ -36,6 +36,7 @@
             "!**/node_modules",
             "!**/dist/*",
             "!**/*.js",
+            "!packages/spectron/src/types/generated.ts",
             "!packages/wasm/wasm/*",
             "!packages/wasm/target/*",
             "!packages/node/napi/*",

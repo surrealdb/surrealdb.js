@@ -830,8 +830,8 @@ export interface components {
             labels?: string[];
             message: string;
             model?: string | null;
-            /** @description Scope paths for the conversation (hierarchical `key=value/` paths). */
-            scope?: string[];
+            /** @description DNF scope selector for the conversation, e.g. `[["org/apple"]]` or co-owned `["team/a","team/b"]`. Tags the rows the chat persists and seeds the session. */
+            scopes?: components["schemas"]["ScopeSets"];
             sessionId?: string | null;
             stream?: boolean;
         };
@@ -904,7 +904,7 @@ export interface components {
              * @description Read **lens** narrowing the effective read region (design §7.1); see
              *     [`QueryMemoryRequestJson::lens`]. Empty = the whole granted region.
              */
-            lens?: string[];
+            lens?: components["schemas"]["ScopeSets"];
             query: string;
             /** @description Scope read breadth: `strict` (default) | `merged` | `crossTeam` (§7.1). */
             scopeView?: string | null;
@@ -937,8 +937,8 @@ export interface components {
         };
         CreateSessionRequestJson: {
             metadata?: unknown;
-            /** @description Scope paths for the session (hierarchical `key=value/` paths). */
-            scope?: string[];
+            /** @description DNF scope selector for the session, e.g. `[["org/apple"]]` or co-owned `["team/a","team/b"]`. Each clause's nodes must lie within the caller's write region; empty means the caller's default write region. */
+            scopes?: components["schemas"]["ScopeSets"];
         };
         /**
          * @description Bounded enum for the writer to dispatch on. Serializes as the lowercase
@@ -1017,15 +1017,17 @@ export interface components {
          *     `Ready`.
          * @enum {string}
          */
-        DocumentStatus:
-            | "queued"
-            | "extracting"
-            | "chunking"
-            | "embedding"
-            | "keywording"
-            | "extracting_nodes"
-            | "ready"
-            | "failed";
+        DocumentStatus: "queued" | "extracting" | "chunking" | "embedding" | "keywording" | "extracting_nodes" | "ready" | "failed";
+        /** @description OpenAPI documentation shape for the `multipart/form-data` upload/reprocess body: a `file` part plus a `metadata` JSON part ([`UploadMetadataJson`], which carries `scopes` / `labels` / `title` / ...). The handlers parse the multipart stream directly; this type exists only so the parts (and `scopes`) appear in the generated spec. The `metadata` part MUST precede `file` on the wire. */
+        DocumentUploadForm: {
+            /**
+             * Format: binary
+             * @description The raw document bytes.
+             */
+            file: string;
+            /** @description The document metadata part, sent as a serialised JSON object. */
+            metadata: components["schemas"]["UploadMetadataJson"];
+        };
         DuplicateFindingJson: {
             entityA: string;
             entityB: string;
@@ -1116,8 +1118,8 @@ export interface components {
              */
             labels?: components["schemas"]["Label"][];
             messages: components["schemas"]["BatchMessage"][];
-            /** @description Scope paths the batch targets (hierarchical `key=value/` paths). */
-            scope?: components["schemas"]["ScopeSet"];
+            /** @description DNF scope selector the batch targets, e.g. `[["org/apple"]]` or co-owned `["team/a","team/b"]`. */
+            scopes?: components["schemas"]["ScopeSets"];
             session_id?: string | null;
         };
         FactsBatchResponseJson: {
@@ -1137,12 +1139,8 @@ export interface components {
             labels?: components["schemas"]["Label"][];
             memory_category?: null | components["schemas"]["MemoryCategory"];
             role?: null | components["schemas"]["TurnRole"];
-            /**
-             * @description Scope paths the write targets — hierarchical `key=value/` paths
-             *     (scope-model §5). Used when auto-creating a session. Empty = the
-             *     caller's default write region.
-             */
-            scope?: components["schemas"]["ScopeSet"];
+            /** @description DNF scope selector the write targets (scope-model §5). Used when auto-creating a session. Empty means the caller's default write region. */
+            scopes?: components["schemas"]["ScopeSets"];
             /**
              * @description Existing session id to attach the turn to. When absent, the
              *     handler auto-creates a session before the write.
@@ -1241,13 +1239,7 @@ export interface components {
          * @description Graph edge kinds used by [`QueryRequest::graph_edges`] for HybridGraph re-ranking.
          * @enum {string}
          */
-        GraphEdgeKind:
-            | "knowledge_has_keyword"
-            | "section_match"
-            | "document_link"
-            | "document_summary"
-            | "keyword_cooccurrence"
-            | "hybrid_graph";
+        GraphEdgeKind: "knowledge_has_keyword" | "section_match" | "document_link" | "document_summary" | "keyword_cooccurrence" | "hybrid_graph";
         GraphEvidenceJson: {
             edgeKind: components["schemas"]["GraphEdgeKind"];
             neighbourLabel: string;
@@ -1268,38 +1260,34 @@ export interface components {
             rowId: string;
             snippet: string;
         };
-        InspectResponseJson:
-            | {
-                  attributes: components["schemas"]["AttributeDetailJson"][];
-                  entity: components["schemas"]["EntityDetailJson"];
-                  /** @enum {string} */
-                  kind: "entity";
-                  relations: components["schemas"]["RelationDetailJson"][];
-              }
-            | {
-                  current?: null | components["schemas"]["AttributeDetailJson"];
-                  /**
-                   * @description Full supersession chain, newest-first. Includes `current` when
-                   *     present.
-                   */
-                  history: components["schemas"]["AttributeDetailJson"][];
-                  /** @enum {string} */
-                  kind: "attribute";
-              }
-            | {
-                  /** @enum {string} */
-                  kind: "relation";
-                  /**
-                   * @description Live relations matching the `src -[label]-> dst` shape. Empty if
-                   *     none survive the temporal filter.
-                   */
-                  matches: components["schemas"]["RelationDetailJson"][];
-              }
-            | {
-                  /** @enum {string} */
-                  kind: "trace";
-                  trace: components["schemas"]["TraceRecordJson"];
-              };
+        InspectResponseJson: {
+            attributes: components["schemas"]["AttributeDetailJson"][];
+            entity: components["schemas"]["EntityDetailJson"];
+            /** @enum {string} */
+            kind: "entity";
+            relations: components["schemas"]["RelationDetailJson"][];
+        } | {
+            current?: null | components["schemas"]["AttributeDetailJson"];
+            /**
+             * @description Full supersession chain, newest-first. Includes `current` when
+             *     present.
+             */
+            history: components["schemas"]["AttributeDetailJson"][];
+            /** @enum {string} */
+            kind: "attribute";
+        } | {
+            /** @enum {string} */
+            kind: "relation";
+            /**
+             * @description Live relations matching the `src -[label]-> dst` shape. Empty if
+             *     none survive the temporal filter.
+             */
+            matches: components["schemas"]["RelationDetailJson"][];
+        } | {
+            /** @enum {string} */
+            kind: "trace";
+            trace: components["schemas"]["TraceRecordJson"];
+        };
         InstructionSummaryJson: {
             description: string;
             id: string;
@@ -1463,7 +1451,7 @@ export interface components {
              *     narrow — permission gating from the caller's grants always applies on top,
              *     so an out-of-region lens yields empty results, never a 403.
              */
-            lens?: string[];
+            lens?: components["schemas"]["ScopeSets"];
             location?: null | components["schemas"]["GeoFilterJson"];
             /** @description Phase 7 — retrieval mode. Defaults to `"hybrid"`. */
             mode?: string | null;
@@ -1670,8 +1658,8 @@ export interface components {
         ScopePath: string;
         /** @description A scope pattern: an exact node (`org/apple/product/ipad`) or a subtree (`org/apple/*` / `/*`). */
         ScopePattern: string;
-        /** @description An ordered, de-duplicated set of scope paths. Empty is valid and represents the default write region. */
-        ScopeSet: string[];
+        /** @description A DNF scope selector: an OR of conjunctive clauses. Each clause is an array of scope paths, ALL of which a reader must cover (AND); the outer array is the OR. E.g. [["team/a"],["team/b","clearance/secret"]] means team/a OR (team/b AND clearance/secret). Empty means unscoped (the caller's default region). A bare string is also accepted as a singleton clause. */
+        ScopeSets: string[][];
         SessionContextRequestJson: {
             query: string;
         };
@@ -1681,7 +1669,7 @@ export interface components {
         SessionResponseJson: {
             createdAt: string;
             id: string;
-            scope: string[];
+            scopes: components["schemas"]["ScopeSets"];
         };
         /** @description §15 operational signal (#174): one provenance source-kind + its count. */
         SourceKindCountJson: {
@@ -1823,6 +1811,15 @@ export interface components {
         UncertaintySummaryJson: {
             about: string;
             reason: string;
+        };
+        UploadMetadataJson: {
+            /** @description Optional `"key=value"` labels stamped onto the document and inherited by its chunks/sections (validated like facts: `_`-prefixed keys rejected with 400, a per-fact count cap with 409). Reconciled graph rows are never labelled. */
+            labels?: string[];
+            mimeType?: string | null;
+            /** @description Optional DNF scope selector tagging the document, e.g. `[["org/apple/product/macbook"]]` (or co-owned `["team/a","team/b"]`). Each clause's nodes must lie within the caller's `memory:write` region (a request outside it is a 403). Omitted means the document inherits the caller's whole write region (unchanged behaviour). Clients must send the `metadata` part before the `file` part for it to apply. */
+            scopes?: components["schemas"]["ScopeSets"];
+            source?: string | null;
+            title?: string | null;
         };
         UploadResponse: {
             contentHash: string;
@@ -2145,7 +2142,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["DocumentUploadForm"];
+            };
+        };
         responses: {
             /** @description Upload accepted */
             202: {
@@ -2542,7 +2543,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["DocumentUploadForm"];
+            };
+        };
         responses: {
             /** @description Upload accepted */
             202: {
