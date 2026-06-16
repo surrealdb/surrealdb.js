@@ -35,20 +35,10 @@ type StateResponseJson = components["schemas"]["StateResponseJson"];
 type ProfileResponseJson = components["schemas"]["ProfileResponseJson"];
 
 /**
- * The calling principal's identity and resolved authorisation for this context.
- * (`GET /me` is not yet described by the OpenAPI spec, so this shape is declared
- * here rather than generated.)
+ * The calling principal's identity and resolved authorisation for this context
+ * (`GET /me`). Aliased to the generated OpenAPI `WhoamiJson` schema.
  */
-export interface WhoamiResponseJson {
-    principalId: string;
-    displayName: string;
-    kind: string;
-    enforce: boolean;
-    grants: Record<string, unknown>;
-    effectiveGrants: Record<string, unknown>;
-    delegatedPrincipalId?: string | null;
-    tokenGrants?: Record<string, unknown> | null;
-}
+export type WhoamiResponseJson = components["schemas"]["WhoamiJson"];
 type Triple = components["schemas"]["Triple"];
 type BatchMessage = components["schemas"]["BatchMessage"];
 type GeoFilterJson = components["schemas"]["GeoFilterJson"];

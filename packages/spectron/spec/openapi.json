@@ -379,7 +379,7 @@
                         }
                     },
                     {
-                        "name": "mime_type",
+                        "name": "mimeType",
                         "in": "query",
                         "description": "Filter by mime type",
                         "required": false,
@@ -399,7 +399,7 @@
                         }
                     },
                     {
-                        "name": "page_size",
+                        "name": "pageSize",
                         "in": "query",
                         "description": "Page size, max 100",
                         "required": false,
@@ -494,7 +494,7 @@
                         }
                     },
                     "400": {
-                        "description": "Malformed multipart",
+                        "description": "Malformed multipart, scope, or label",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -505,6 +505,26 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requested scope outside the caller's write region",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Label count exceeds the per-fact cap",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1253,7 +1273,7 @@
                         }
                     },
                     {
-                        "name": "page_size",
+                        "name": "pageSize",
                         "in": "query",
                         "description": "Page size, max 100",
                         "required": false,
@@ -1548,7 +1568,7 @@
         },
         "/api/v1/{context_id}/entities": {
             "get": {
-                "description": "List all entities (optionally filtered by type)",
+                "description": "List entities (optionally filtered by type), ordered by type then name. Unpaginated by default; pass `limit` (capped at 500) and `offset` to page.",
                 "operationId": "list_entities",
                 "parameters": [
                     {
@@ -1567,6 +1587,28 @@
                         "required": false,
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Max entities to return (default: all, capped at 500)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "description": "Number of entities to skip (default 0)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
                         }
                     }
                 ],
@@ -2079,7 +2121,7 @@
         },
         "/api/v1/{context_id}/fsck": {
             "post": {
-                "description": "Phase 11.5 — memory hygiene sweep (duplicates / contradictions / injection)",
+                "description": "Memory hygiene sweep (duplicates / contradictions / injection / unscoped content)",
                 "operationId": "fsck",
                 "parameters": [
                     {
@@ -2280,6 +2322,352 @@
                 ]
             }
         },
+        "/api/v1/{context_id}/keys": {
+            "get": {
+                "description": "List the caller's own data-plane keys (id, name, timestamps, attenuating grants). Never returns the secret. Gated by the Context's `allow_self_service_keys` flag.",
+                "operationId": "list_self_keys",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/KeyDetailJson"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Self-service keys disabled",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            },
+            "post": {
+                "description": "Mint a new data-plane API key bound to the caller's own principal. The optional `grants` body only attenuates (never widens) the caller's effective grants. Gated by the Context's `allow_self_service_keys` flag; rejects legacy / delegated callers.",
+                "operationId": "create_self_key",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "ttlSeconds",
+                        "in": "query",
+                        "description": "Seconds until the minted/rotated key expires. Omitted on create =\n\"never expires\" (subject to the Context's `max_token_ttl_seconds` cap).\nOmitted on rotate = inherit the key's current expiry.",
+                        "required": false,
+                        "schema": {
+                            "type": ["integer", "null"],
+                            "format": "int64",
+                            "minimum": 0
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "null"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/MintKeyBody"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Plaintext key returned once",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MintedKeyJson"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid grants or attenuation widens",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Self-service keys disabled or ineligible caller",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Key name already taken in the Context",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/keys/{key_name}": {
+            "delete": {
+                "description": "Delete one of the caller's own keys by name. A name that does not belong to the caller surfaces as 404 (no cross-principal leakage). Gated by `allow_self_service_keys`; rejects legacy / delegated callers.",
+                "operationId": "delete_self_key",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "key_name",
+                        "in": "path",
+                        "description": "Key name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Self-service keys disabled or ineligible caller",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Key does not exist or is not owned by the caller",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/keys/{key_name}/rotate": {
+            "post": {
+                "description": "Rotate the secret on one of the caller's own keys. The id stays stable (preserving the principal binding and attenuating grants); the previous secret stops validating immediately. `ttlSeconds` is reset-or-inherit, matching the management rotate path.",
+                "operationId": "rotate_self_key",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "key_name",
+                        "in": "path",
+                        "description": "Key name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "ttlSeconds",
+                        "in": "query",
+                        "description": "Seconds until the minted/rotated key expires. Omitted on create =\n\"never expires\" (subject to the Context's `max_token_ttl_seconds` cap).\nOmitted on rotate = inherit the key's current expiry.",
+                        "required": false,
+                        "schema": {
+                            "type": ["integer", "null"],
+                            "format": "int64",
+                            "minimum": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Plaintext rotated key returned once",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MintedKeyJson"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Self-service keys disabled or ineligible caller",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Key does not exist or is not owned by the caller",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
         "/api/v1/{context_id}/lifecycle/decay": {
             "post": {
                 "description": "Apply periodic importance decay across all memories",
@@ -2388,9 +2776,63 @@
                 ]
             }
         },
+        "/api/v1/{context_id}/me": {
+            "get": {
+                "description": "Return the calling token's resolved identity, the principal's grants, the key's attenuating grants (if any), and the effective per-verb grants. Self-only; never requires `grant:manage`.",
+                "operationId": "whoami",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WhoamiJson"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
         "/api/v1/{context_id}/principals": {
             "get": {
-                "description": "List the Context's principals (requires the `manage` grant)",
+                "description": "List the Context's principals (requires the `grant:manage` grant)",
                 "operationId": "list_principals",
                 "parameters": [
                     {
@@ -2428,7 +2870,7 @@
                         }
                     },
                     "403": {
-                        "description": "Caller lacks the `manage` grant",
+                        "description": "Caller lacks the `grant:manage` grant",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2457,7 +2899,7 @@
         },
         "/api/v1/{context_id}/principals/{principal_id}": {
             "get": {
-                "description": "Fetch one principal by id (requires the `manage` grant)",
+                "description": "Fetch one principal by id (requires the `grant:manage` grant)",
                 "operationId": "get_principal",
                 "parameters": [
                     {
@@ -2501,7 +2943,7 @@
                         }
                     },
                     "403": {
-                        "description": "Caller lacks the `manage` grant",
+                        "description": "Caller lacks the `grant:manage` grant",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2540,7 +2982,7 @@
         },
         "/api/v1/{context_id}/principals/{principal_id}/effective": {
             "get": {
-                "description": "List the verbs a principal effectively holds at a scope path (requires `manage` over the path)",
+                "description": "List the verbs a principal effectively holds at a scope path (requires `grant:manage` over the path)",
                 "operationId": "effective_principal",
                 "parameters": [
                     {
@@ -2612,7 +3054,7 @@
                         }
                     },
                     "403": {
-                        "description": "Caller lacks `manage` over the path",
+                        "description": "Caller lacks `grant:manage` over the path",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2651,7 +3093,7 @@
         },
         "/api/v1/{context_id}/principals/{principal_id}/grants": {
             "post": {
-                "description": "Grant a scope pattern to a principal for the given verbs (requires `manage` over the pattern)",
+                "description": "Grant a scope pattern to a principal for the given verbs (requires `grant:manage` over the pattern)",
                 "operationId": "grant_principal",
                 "parameters": [
                     {
@@ -2715,7 +3157,7 @@
                         }
                     },
                     "403": {
-                        "description": "Caller lacks `manage` over the region",
+                        "description": "Caller lacks `grant:manage` over the region, or the target is the immutable `system` principal",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2752,7 +3194,7 @@
                 ]
             },
             "delete": {
-                "description": "Revoke a scope pattern from a principal for the given verbs (requires `manage` over the pattern)",
+                "description": "Revoke a scope pattern from a principal for the given verbs (requires `grant:manage` over the pattern)",
                 "operationId": "revoke_principal",
                 "parameters": [
                     {
@@ -2816,7 +3258,7 @@
                         }
                     },
                     "403": {
-                        "description": "Caller lacks `manage` over the region",
+                        "description": "Caller lacks `grant:manage` over the region, or the target is the immutable `system` principal",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3121,7 +3563,7 @@
         },
         "/api/v1/{context_id}/scopes": {
             "get": {
-                "description": "List the Context's registered scope nodes (live and tombstoned)",
+                "description": "List the Context's registered scope nodes (live and tombstoned). Only nodes the caller has a grant over are returned (`scope:read`, or any other verb in the region); a `grant:manage` holder over `/` sees the whole tree.",
                 "operationId": "list_scopes",
                 "parameters": [
                     {
@@ -3176,7 +3618,7 @@
                 ]
             },
             "post": {
-                "description": "Register a scope node (auto-vivifies missing ancestors; enforces create_scope, depth, node-budget, and per-node policy).",
+                "description": "Register a scope node (auto-vivifies missing ancestors; enforces scope:create, depth, node-budget, and per-node policy).",
                 "operationId": "register_scope",
                 "parameters": [
                     {
@@ -3314,7 +3756,7 @@
         },
         "/api/v1/{context_id}/scopes/forget": {
             "post": {
-                "description": "Erase everything tagged under a scope subtree (GDPR forget). Requires the `forget` grant over the subtree.",
+                "description": "Erase everything tagged under a scope subtree (GDPR forget). Requires the `memory:forget` grant over the subtree.",
                 "operationId": "forget_scope",
                 "parameters": [
                     {
@@ -3369,7 +3811,7 @@
                         }
                     },
                     "403": {
-                        "description": "Forbidden — `forget` grant required",
+                        "description": "Forbidden — `memory:forget` grant required",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3611,7 +4053,7 @@
         },
         "/api/v1/{context_id}/sessions/{session_id}/turns": {
             "get": {
-                "description": "List all turns in a session",
+                "description": "List turns in a session, oldest first. Paginated: `limit` defaults to 100 and is capped at 500; use `offset` to page.",
                 "operationId": "list_turns",
                 "parameters": [
                     {
@@ -3630,6 +4072,28 @@
                         "required": true,
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Max turns to return (default 100, max 500)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "description": "Number of turns to skip (default 0)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
                         }
                     }
                 ],
@@ -3753,7 +4217,7 @@
                     {
                         "name": "limit",
                         "in": "query",
-                        "description": "Max traces to return (default 50)",
+                        "description": "Max traces to return (default 50, max 500)",
                         "required": false,
                         "schema": {
                             "type": "integer",
@@ -3857,7 +4321,7 @@
         },
         "/api/v1/{context_id}/traces/{trace_id}": {
             "get": {
-                "description": "Get a single query trace by ID",
+                "description": "Get a single query trace by ID, with its one-hop neighborhood: the owning response trace and the retrieval traces that fed it, including their returned targets. Accepts both decision-trace ids and chat response-trace ids.",
                 "operationId": "get_trace",
                 "parameters": [
                     {
@@ -3971,6 +4435,16 @@
                     },
                     "memoryCategory": {
                         "$ref": "#/components/schemas/MemoryCategory"
+                    },
+                    "source": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/SourceRefJson"
+                            }
+                        ]
                     },
                     "supersededBy": {
                         "type": ["string", "null"]
@@ -4124,7 +4598,7 @@
                     },
                     "scopes": {
                         "$ref": "#/components/schemas/ScopeSets",
-                        "description": "DNF scope selector for the conversation, e.g. `[[\"org/apple\"]]` or co-owned `[\"team/a\",\"team/b\"]`. Tags the rows the chat persists and seeds the session."
+                        "description": "DNF scope selector for the conversation, e.g. `[[\"org/apple\"]]` or co-owned\n`[\"team/a\",\"team/b\"]`. Tags the rows the chat persists and seeds the session."
                     },
                     "sessionId": {
                         "type": ["string", "null"]
@@ -4300,6 +4774,7 @@
                     "k": {
                         "type": "integer",
                         "format": "int32",
+                        "description": "Max hits to return (default 10, max 50).",
                         "minimum": 0
                     },
                     "labels": {
@@ -4311,7 +4786,7 @@
                     },
                     "lens": {
                         "$ref": "#/components/schemas/ScopeSets",
-                        "description": "Read **lens** narrowing the effective read region (design §7.1); see\n[`QueryMemoryRequestJson::lens`]. Empty = the whole granted region."
+                        "description": "Read **lens** (DNF: OR of conjunctive clauses) narrowing the effective read\nregion (design §7.1); see [`QueryMemoryRequestJson::lens`]. Empty = the\nwhole granted region."
                     },
                     "query": {
                         "type": "string"
@@ -4335,7 +4810,7 @@
                         "minimum": 0
                     },
                     "tier": {
-                        "type": "string"
+                        "$ref": "#/components/schemas/Tier"
                     }
                 }
             },
@@ -4402,13 +4877,13 @@
                     "metadata": {},
                     "scopes": {
                         "$ref": "#/components/schemas/ScopeSets",
-                        "description": "DNF scope selector for the session, e.g. `[[\"org/apple\"]]` or co-owned `[\"team/a\",\"team/b\"]`. Each clause's nodes must lie within the caller's write region; empty means the caller's default write region."
+                        "description": "DNF scope selector for the session, e.g. `[[\"org/apple\"]]` or co-owned\n`[\"team/a\",\"team/b\"]`. Each clause's nodes must lie within the caller's\nwrite region; empty ⇒ the caller's default write region."
                     }
                 }
             },
             "DecisionKind": {
                 "type": "string",
-                "description": "Bounded enum for the writer to dispatch on. Serializes as the lowercase\n`create` / `update` / `supersede` wire strings so it can stand in for the\npublic `/consolidate` response `kind` field.",
+                "description": "Bounded enum for the writer to dispatch on. Serializes as the\n`create` / `update` / `supersede` wire strings so it can stand in for\nthe public `/consolidate` response `kind` field.",
                 "enum": ["create", "update", "supersede"]
             },
             "DocGeoFilterJson": {
@@ -4463,10 +4938,6 @@
                     "updatedAt"
                 ],
                 "properties": {
-                    "chunkCount": {
-                        "type": ["integer", "null"],
-                        "format": "int64"
-                    },
                     "contentHash": {
                         "type": "string"
                     },
@@ -4479,13 +4950,6 @@
                     },
                     "id": {
                         "type": "string"
-                    },
-                    "keywordCount": {
-                        "type": ["integer", "null"],
-                        "format": "int64"
-                    },
-                    "language": {
-                        "type": ["string", "null"]
                     },
                     "mimeType": {
                         "type": "string"
@@ -4595,7 +5059,7 @@
             },
             "DocumentUploadForm": {
                 "type": "object",
-                "description": "OpenAPI documentation shape for the `multipart/form-data` upload/reprocess body: a `file` part plus a `metadata` JSON part ([`UploadMetadataJson`], which carries `scopes` / `labels` / `title` / ...). The handlers parse the multipart stream directly; this type exists only so the parts (and `scopes`) appear in the generated spec. The `metadata` part MUST precede `file` on the wire.",
+                "description": "OpenAPI documentation shape for the `multipart/form-data` upload/reprocess\nbody: a `file` part plus a `metadata` JSON part ([`UploadMetadataJson`], which\ncarries `scopes` / `labels` / `title` / …). The handlers parse the multipart\nstream directly; this type exists only so the parts (and `scopes`) appear in\nthe generated spec. The `metadata` part MUST precede `file` on the wire.",
                 "required": ["file", "metadata"],
                 "properties": {
                     "file": {
@@ -4890,7 +5354,7 @@
             },
             "FactsBatchRequest": {
                 "type": "object",
-                "description": "Request body for `POST /v1/{ctx}/facts/batch`.",
+                "description": "Request body for `POST /api/v1/{ctx}/facts/batch`.",
                 "required": ["messages"],
                 "properties": {
                     "extract": {
@@ -4914,7 +5378,7 @@
                     },
                     "scopes": {
                         "$ref": "#/components/schemas/ScopeSets",
-                        "description": "DNF scope selector the batch targets, e.g. `[[\"org/apple\"]]` or co-owned `[\"team/a\",\"team/b\"]`."
+                        "description": "Scope paths the batch targets (canonical slash-paths, e.g. `org/apple/`)."
                     },
                     "session_id": {
                         "type": ["string", "null"]
@@ -4944,7 +5408,7 @@
             },
             "FactsRequest": {
                 "type": "object",
-                "description": "Request body for `POST /v1/{ctx}/facts`.",
+                "description": "Request body for `POST /api/v1/{ctx}/facts`.",
                 "properties": {
                     "infer": {
                         "$ref": "#/components/schemas/InferMode",
@@ -4968,6 +5432,10 @@
                             }
                         ]
                     },
+                    "observed_at": {
+                        "type": ["string", "null"],
+                        "description": "Optional RFC3339 known/observed time for the written facts (backfill).\nWhen set, the facts are stamped with this `created_at` (known time), so\n`as_of` queries see them dated to when they were observed rather than to\nwall-clock ingest. `None` keeps the default (facts dated to ingest time)."
+                    },
                     "role": {
                         "oneOf": [
                             {
@@ -4981,7 +5449,7 @@
                     },
                     "scopes": {
                         "$ref": "#/components/schemas/ScopeSets",
-                        "description": "DNF scope selector the write targets (scope-model §5). Used when auto-creating a session. Empty means the caller's default write region."
+                        "description": "Scope paths the write targets — canonical slash-paths, e.g. `org/apple/`\n(scope-model §5). Used when auto-creating a session. Empty = the\ncaller's default write region."
                     },
                     "session_id": {
                         "type": ["string", "null"],
@@ -5035,6 +5503,10 @@
                 "type": "object",
                 "required": ["query"],
                 "properties": {
+                    "dryRun": {
+                        "type": "boolean",
+                        "description": "When `true`, the handler computes and returns the would-be deletion\ncount (`deleted`) without writing anything — the preview side of a\npreview-then-confirm flow. When omitted or `false`, matching memories\nare soft-deleted immediately."
+                    },
                     "purge": {
                         "type": "boolean",
                         "description": "Phase 10.7 — right-to-be-forgotten. When `true`, the handler\nalso removes the supersession history (rows with `valid_until`\nset) that match the same scope/entity criteria. When omitted or\n`false`, prior rows are retained for audit even after the\ncurrent row is soft-deleted."
@@ -5070,7 +5542,13 @@
             },
             "FsckReportJson": {
                 "type": "object",
-                "required": ["duplicates", "contradictions", "injection", "total"],
+                "required": [
+                    "duplicates",
+                    "contradictions",
+                    "injection",
+                    "unscopedContent",
+                    "total"
+                ],
                 "properties": {
                     "contradictions": {
                         "type": "array",
@@ -5093,6 +5571,12 @@
                     "total": {
                         "type": "integer",
                         "minimum": 0
+                    },
+                    "unscopedContent": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/UnscopedContentFindingJson"
+                        }
                     }
                 }
             },
@@ -5166,13 +5650,13 @@
                         "items": {
                             "$ref": "#/components/schemas/Verb"
                         },
-                        "description": "Grant verbs to apply: any of `read|write|create_scope|delete_scope|grant|\nmanage|forget`."
+                        "description": "Grant verbs to apply: any of `memory:read|memory:write|memory:forget|\nscope:read|scope:create|scope:delete|grant:manage`."
                     }
                 }
             },
             "Grants": {
                 "type": "object",
-                "description": "Per-verb scope pattern map. Keys are grant verbs (`read`, `write`, `create_scope`, `delete_scope`, `grant`, `manage`, `forget`); values are arrays of scope patterns.",
+                "description": "Per-verb scope pattern map. Keys are grant verbs in `<noun>:<verb>` form (`memory:read`, `memory:write`, `memory:forget`, `scope:read`, `scope:create`, `scope:delete`, `grant:manage`); values are arrays of scope patterns.",
                 "additionalProperties": {
                     "type": "array",
                     "items": {
@@ -5188,7 +5672,6 @@
                     "section_match",
                     "document_link",
                     "document_summary",
-                    "keyword_cooccurrence",
                     "hybrid_graph"
                 ]
             },
@@ -5210,7 +5693,7 @@
             },
             "InferMode": {
                 "type": "string",
-                "description": "Inference mode for the `/facts` write API.\n\nDecides which extraction path runs and which provenance kind the\nreconciler tags the writes with. See `doc/plans/plan-1-unify-knowledge-memory.md`\nPhase 5 for the full table.",
+                "description": "Inference mode for the `/facts` write API.\n\nDecides which extraction path runs and which provenance kind the\nreconciler tags the writes with (see the per-variant docs below).",
                 "enum": ["full", "triples", "preview", "none"]
             },
             "InjectionFindingJson": {
@@ -5218,7 +5701,7 @@
                 "required": ["rowId", "kind", "snippet"],
                 "properties": {
                     "kind": {
-                        "type": "string"
+                        "$ref": "#/components/schemas/InjectionKind"
                     },
                     "rowId": {
                         "type": "string"
@@ -5227,6 +5710,18 @@
                         "type": "string"
                     }
                 }
+            },
+            "InjectionKind": {
+                "type": "string",
+                "description": "The detector taxonomy — the closed set of injection-pattern\ncategories the scanner can emit. Serialises to `snake_case` wire\nstrings (`instruction_override`, `system_prompt_leak`, …) on the\n`/fsck` response and in the persisted `uncertainty.source.kinds`\naudit payload, consistent with the rest of the API's enums. Because\nthe pattern table is keyed by this enum (not `&'static str`), adding a\ndetector without a matching variant is a compile error.",
+                "enum": [
+                    "instruction_override",
+                    "role_override",
+                    "tool_override",
+                    "system_prompt_leak",
+                    "prompt_template_injection",
+                    "base64_instruction"
+                ]
             },
             "InspectResponseJson": {
                 "oneOf": [
@@ -5327,6 +5822,47 @@
                     },
                     "label": {
                         "type": "string"
+                    }
+                }
+            },
+            "KeyDetailJson": {
+                "type": "object",
+                "description": "One row in `GET /{ctx}/keys`. Bearer secret and stored hash never surface.",
+                "required": ["id", "name", "createdAt"],
+                "properties": {
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Creation timestamp."
+                    },
+                    "grants": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/Grants",
+                                "description": "The key's attenuating grants, when set. Absent ⇒ inherits the\nprincipal's grants."
+                            }
+                        ]
+                    },
+                    "id": {
+                        "type": "string",
+                        "description": "Stable record-id key (e.g. `abc123defghi`)."
+                    },
+                    "lastUsedAt": {
+                        "type": ["string", "null"],
+                        "format": "date-time",
+                        "description": "Last successful validation; absent if the key has never been used."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Human-readable name (unique within the Context)."
+                    },
+                    "validUntil": {
+                        "type": ["string", "null"],
+                        "format": "date-time",
+                        "description": "Mint-time expiry. Absent ⇒ no expiry was set."
                     }
                 }
             },
@@ -5447,6 +5983,7 @@
                     "k": {
                         "type": "integer",
                         "format": "int32",
+                        "description": "Max hits to return (default 10, max 50).",
                         "minimum": 0
                     },
                     "query": {
@@ -5511,6 +6048,54 @@
                     },
                     "text": {
                         "type": "string"
+                    }
+                }
+            },
+            "MemoryQueryMode": {
+                "type": "string",
+                "description": "Retrieval mode hint. The default is `Hybrid`, which engages the\nfull fused ranker. The other modes are kept as escape hatches so\ncallers can debug a single signal in isolation.",
+                "enum": ["hybrid", "vector", "bm25", "graph"]
+            },
+            "MintKeyBody": {
+                "type": "object",
+                "description": "Request body for `POST /{ctx}/keys`. Every field is optional — an empty\nbody mints a key inheriting the caller's grants with no expiry, named\nafter the random key id.",
+                "properties": {
+                    "grants": {
+                        "type": ["object", "null"],
+                        "description": "Optional attenuating per-verb grant map. Every requested pattern must\nbe ⊆ the caller's effective region for that verb (fail-closed); an\nout-of-range pattern returns 400. Absent ⇒ inherit principal grants.",
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "propertyNames": {
+                            "type": "string"
+                        }
+                    },
+                    "name": {
+                        "type": ["string", "null"],
+                        "description": "Optional human-readable name (unique per Context). Auto-derived from\nthe minted key id when absent."
+                    }
+                }
+            },
+            "MintedKeyJson": {
+                "type": "object",
+                "description": "`POST /{ctx}/keys` response. The plaintext key is returned **once** and\nnever persisted in this shape — the caller must store it themselves.",
+                "required": ["key", "id"],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "The key's stable record-id key (survives rotation)."
+                    },
+                    "key": {
+                        "type": "string",
+                        "description": "The full bearer key (`sp-{id}-{secret}`). Send as\n`Authorization: Bearer …`."
+                    },
+                    "validUntil": {
+                        "type": ["string", "null"],
+                        "format": "date-time",
+                        "description": "Mint-time expiry. Absent ⇒ no expiry."
                     }
                 }
             },
@@ -5688,9 +6273,14 @@
                         },
                         "description": "Phase 7 — which families of result to include. Defaults to\n`[\"facts\", \"passages\"]` (both). Pass either alone to scope the\nresponse."
                     },
+                    "includeDuplicates": {
+                        "type": ["boolean", "null"],
+                        "description": "When `false` (the default), chunks flagged as near-duplicates of an older\nchunk are excluded from the fused ranker's chunk recall so the same text\ndoes not occupy several ranks. Set `true` to include them (parity with the\ndocuments `/query` opt-in)."
+                    },
                     "k": {
                         "type": "integer",
                         "format": "int32",
+                        "description": "Max hits to return (default 10, max 50).",
                         "minimum": 0
                     },
                     "labels": {
@@ -5702,7 +6292,7 @@
                     },
                     "lens": {
                         "$ref": "#/components/schemas/ScopeSets",
-                        "description": "Scope/permission model — read **lens**: hierarchical scope paths / `/*`\nsubtree patterns that narrow the caller's effective read region for this\nquery (design §7.1). Empty = the whole granted region. The lens can only\nnarrow — permission gating from the caller's grants always applies on top,\nso an out-of-region lens yields empty results, never a 403."
+                        "description": "Scope/permission model — read **lens**, a DNF selector (OR of conjunctive\nclauses): each clause is an AND of scope paths / `/*` subtree patterns, and\na row is kept if it involves every pattern of some clause (clauses are\nOR'd). Narrows the caller's effective read region for this query (design\n§7.1); empty = the whole granted region. The lens can only narrow —\npermission gating from the caller's grants always applies on top, so an\nout-of-region lens yields empty results, never a 403."
                     },
                     "location": {
                         "oneOf": [
@@ -5716,8 +6306,15 @@
                         ]
                     },
                     "mode": {
-                        "type": ["string", "null"],
-                        "description": "Phase 7 — retrieval mode. Defaults to `\"hybrid\"`."
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/MemoryQueryMode",
+                                "description": "Phase 7 — retrieval mode. Defaults to `\"hybrid\"`."
+                            }
+                        ]
                     },
                     "query": {
                         "type": "string"
@@ -5828,6 +6425,7 @@
                     "k": {
                         "type": "integer",
                         "format": "int32",
+                        "description": "Max hits to return (default 10, max 50).",
                         "minimum": 0
                     },
                     "location": {
@@ -5903,7 +6501,7 @@
                         "minimum": 0
                     },
                     "resolutionTier": {
-                        "type": "string"
+                        "$ref": "#/components/schemas/Tier"
                     },
                     "retrievedCount": {
                         "type": "integer",
@@ -6011,6 +6609,16 @@
                     "object": {
                         "type": "string"
                     },
+                    "source": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/SourceRefJson"
+                            }
+                        ]
+                    },
                     "subject": {
                         "type": "string"
                     },
@@ -6040,6 +6648,49 @@
                     }
                 }
             },
+            "ResponseTraceSummaryJson": {
+                "type": "object",
+                "description": "Summary of the response trace that owns a decision trace.",
+                "required": [
+                    "id",
+                    "userMessage",
+                    "responseText",
+                    "source",
+                    "cached",
+                    "latencyMs",
+                    "createdAt"
+                ],
+                "properties": {
+                    "cached": {
+                        "type": "boolean"
+                    },
+                    "createdAt": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "latencyMs": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "responseText": {
+                        "type": "string"
+                    },
+                    "reusedFrom": {
+                        "type": ["string", "null"]
+                    },
+                    "sessionId": {
+                        "type": ["string", "null"]
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "userMessage": {
+                        "type": "string"
+                    }
+                }
+            },
             "ResultKind": {
                 "type": "string",
                 "description": "Coarse-grained result type. Mirrors the row table the hit lives\nin.",
@@ -6063,6 +6714,94 @@
                         "type": "integer",
                         "format": "int64",
                         "minimum": 0
+                    }
+                }
+            },
+            "RetrievalTraceSummaryJson": {
+                "type": "object",
+                "description": "Summary of one retrieval trace paired with a decision trace.",
+                "required": [
+                    "id",
+                    "mode",
+                    "tierEntered",
+                    "tierReason",
+                    "retrievedIds",
+                    "scores",
+                    "latencyMs",
+                    "createdAt",
+                    "returned"
+                ],
+                "properties": {
+                    "createdAt": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "latencyMs": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "mode": {
+                        "type": "string"
+                    },
+                    "retrievedIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "returned": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReturnedRefJson"
+                        },
+                        "description": "The targets this retrieval returned, ranked. Empty for legacy traces\nthat persisted only the `retrievedIds` array."
+                    },
+                    "scores": {
+                        "type": "array",
+                        "items": {
+                            "type": "number",
+                            "format": "double"
+                        }
+                    },
+                    "tierEntered": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "tierReason": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ReturnedRefJson": {
+                "type": "object",
+                "description": "One returned retrieval target.",
+                "required": ["id", "table"],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "The target row id (`table:key` form)."
+                    },
+                    "label": {
+                        "type": ["string", "null"],
+                        "description": "A short human label for the target."
+                    },
+                    "rank": {
+                        "type": ["integer", "null"],
+                        "format": "int64"
+                    },
+                    "ref": {
+                        "type": ["string", "null"],
+                        "description": "An inspect ref for the target (`attribute:<type>/<name>/<key>`,\n`entity:<type>/<name>`, `passage:<document_id>/<index>`), when the\ntarget kind has one."
+                    },
+                    "score": {
+                        "type": ["number", "null"],
+                        "format": "double"
+                    },
+                    "table": {
+                        "type": "string",
+                        "description": "The target's table (`attribute` / `entity` / `chunk` / `memory_chunk`)."
                     }
                 }
             },
@@ -6186,6 +6925,25 @@
                     }
                 }
             },
+            "SourceRefJson": {
+                "type": "object",
+                "description": "Compact provenance ref carried on attribute/relation detail JSON.",
+                "required": ["kind"],
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "description": "Source kind: `turn`, `document`, `upsert`, `reflect`,\n`elaboration`, or `consolidation`."
+                    },
+                    "ref": {
+                        "type": ["string", "null"],
+                        "description": "Compact navigable ref — `turn:<id>`, `doc:<id>`, or `trace:<id>` —\nwhen the source carries one. Document refs carry no passage index\n(only the passage record id is stored)."
+                    },
+                    "sessionId": {
+                        "type": ["string", "null"],
+                        "description": "The session the source turn belongs to (`turn` kind only)."
+                    }
+                }
+            },
             "StateResponseJson": {
                 "type": "object",
                 "required": ["identity", "knowledge", "context", "instructions", "unknowns"],
@@ -6302,11 +7060,29 @@
                         "type": "integer",
                         "format": "int64"
                     },
+                    "parent": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/ResponseTraceSummaryJson",
+                                "description": "The owning response trace (chat / reflect / the legacy query persist).\nPopulated on single-trace reads only; absent from `/traces` lists."
+                            }
+                        ]
+                    },
                     "queryText": {
                         "type": "string"
                     },
                     "resolutionTier": {
                         "type": "string"
+                    },
+                    "retrievals": {
+                        "type": ["array", "null"],
+                        "items": {
+                            "$ref": "#/components/schemas/RetrievalTraceSummaryJson"
+                        },
+                        "description": "The retrieval traces that fed this decision, with their returned\ntargets. Populated on single-trace reads only; absent from `/traces`\nlists."
                     },
                     "tierReason": {
                         "type": "string"
@@ -6494,6 +7270,26 @@
                     }
                 }
             },
+            "UnscopedContentFindingJson": {
+                "type": "object",
+                "required": ["table", "count", "sampleIds"],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "sampleIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "table": {
+                        "type": "string"
+                    }
+                }
+            },
             "UploadMetadataJson": {
                 "type": "object",
                 "properties": {
@@ -6502,14 +7298,18 @@
                         "items": {
                             "type": "string"
                         },
-                        "description": "Optional `\"key=value\"` labels stamped onto the document and inherited by its chunks/sections (validated like facts: `_`-prefixed keys rejected with 400, a per-fact count cap with 409). Reconciled graph rows are never labelled."
+                        "description": "Optional `\"key=value\"` labels stamped onto the document and inherited by its\nchunks/sections (validated like facts: `_`-prefixed keys rejected with 400, a\nper-fact count cap with 409). Reconciled graph rows are never labelled."
                     },
                     "mimeType": {
                         "type": ["string", "null"]
                     },
+                    "observedAt": {
+                        "type": ["string", "null"],
+                        "description": "Optional RFC3339 known/observed time for the content (backfill). Stamped as the\nknown-time of facts derived from this document, so `as_of` queries see them\ndated to when the content was observed. Omitted means facts date to ingest time."
+                    },
                     "scopes": {
                         "$ref": "#/components/schemas/ScopeSets",
-                        "description": "Optional DNF scope selector tagging the document, e.g. `[[\"org/apple/product/macbook\"]]` (or co-owned `[\"team/a\",\"team/b\"]`). Each clause's nodes must lie within the caller's `memory:write` region (a request outside it is a 403). Omitted means the document inherits the caller's whole write region (unchanged behaviour). Clients must send the `metadata` part before the `file` part for it to apply."
+                        "description": "Optional DNF scope selector tagging the document, e.g.\n`[[\"org/apple/product/macbook\"]]` (or co-owned `[\"team/a\",\"team/b\"]`). Each\nclause's nodes must lie within the caller's `memory:write` region (a request\noutside it is a 403). Omitted ⇒ the document inherits the caller's whole\nwrite region (unchanged behaviour). Clients must send the `metadata` part\nbefore the `file` part for it to apply."
                     },
                     "source": {
                         "type": ["string", "null"]
@@ -6539,14 +7339,55 @@
             },
             "Verb": {
                 "type": "string",
-                "description": "A grant verb: one of `read`, `write`, `create_scope`, `delete_scope`, `grant`, `manage`, `forget`."
+                "description": "A grant verb in `<noun>:<verb>` form: one of `memory:read`, `memory:write`, `memory:forget`, `scope:read`, `scope:create`, `scope:delete`, `grant:manage`."
+            },
+            "WhoamiJson": {
+                "type": "object",
+                "description": "The `GET /{ctx}/me` response. Reflects only the *calling* token's resolved\nidentity — no principal lookup gated by `grant:manage`.",
+                "required": ["principalId", "kind", "displayName", "grants", "effectiveGrants"],
+                "properties": {
+                    "delegatedPrincipalId": {
+                        "type": ["string", "null"],
+                        "description": "When the token is delegating (`X-Spectron-On-Behalf-Of`), the target\nprincipal id; absent for non-delegated calls."
+                    },
+                    "displayName": {
+                        "type": "string",
+                        "description": "Human-readable display name."
+                    },
+                    "effectiveGrants": {
+                        "$ref": "#/components/schemas/Grants",
+                        "description": "Effective per-verb grants after attenuation + delegation. This is what\ngates every read/write — useful for clients pre-flighting writes."
+                    },
+                    "grants": {
+                        "$ref": "#/components/schemas/Grants",
+                        "description": "The principal's authoritative per-verb grant map."
+                    },
+                    "kind": {
+                        "type": "string",
+                        "description": "Principal kind (`human`/`agent`/`service`/`unknown`)."
+                    },
+                    "principalId": {
+                        "type": "string",
+                        "description": "The token's principal id. Always a bound principal — an unbound key is\nrejected at authentication, so this is never a bare key id."
+                    },
+                    "tokenGrants": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/Grants",
+                                "description": "The calling key's attenuating grants, when set. Absent ⇒ the key\ninherits the principal's grants wholesale."
+                            }
+                        ]
+                    }
+                }
             }
         },
         "securitySchemes": {
             "api_key": {
-                "type": "apiKey",
-                "in": "header",
-                "name": "API-KEY"
+                "type": "http",
+                "scheme": "bearer"
             }
         }
     },

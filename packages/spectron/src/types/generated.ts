@@ -285,7 +285,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List all entities (optionally filtered by type) */
+        /** @description List entities (optionally filtered by type), ordered by type then name. Unpaginated by default; pass `limit` (capped at 500) and `offset` to page. */
         get: operations["list_entities"];
         put?: never;
         post?: never;
@@ -390,7 +390,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Phase 11.5 — memory hygiene sweep (duplicates / contradictions / injection) */
+        /** @description Memory hygiene sweep (duplicates / contradictions / injection / unscoped content) */
         post: operations["fsck"];
         delete?: never;
         options?: never;
@@ -409,6 +409,58 @@ export interface paths {
         get: operations["inspect"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List the caller's own data-plane keys (id, name, timestamps, attenuating grants). Never returns the secret. Gated by the Context's `allow_self_service_keys` flag. */
+        get: operations["list_self_keys"];
+        put?: never;
+        /** @description Mint a new data-plane API key bound to the caller's own principal. The optional `grants` body only attenuates (never widens) the caller's effective grants. Gated by the Context's `allow_self_service_keys` flag; rejects legacy / delegated callers. */
+        post: operations["create_self_key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/keys/{key_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Delete one of the caller's own keys by name. A name that does not belong to the caller surfaces as 404 (no cross-principal leakage). Gated by `allow_self_service_keys`; rejects legacy / delegated callers. */
+        delete: operations["delete_self_key"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/keys/{key_name}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Rotate the secret on one of the caller's own keys. The id stays stable (preserving the principal binding and attenuating grants); the previous secret stops validating immediately. `ttlSeconds` is reset-or-inherit, matching the management rotate path. */
+        post: operations["rotate_self_key"];
         delete?: never;
         options?: never;
         head?: never;
@@ -449,6 +501,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/{context_id}/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Return the calling token's resolved identity, the principal's grants, the key's attenuating grants (if any), and the effective per-verb grants. Self-only; never requires `grant:manage`. */
+        get: operations["whoami"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/{context_id}/principals": {
         parameters: {
             query?: never;
@@ -456,7 +525,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List the Context's principals (requires the `manage` grant) */
+        /** @description List the Context's principals (requires the `grant:manage` grant) */
         get: operations["list_principals"];
         put?: never;
         post?: never;
@@ -473,7 +542,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Fetch one principal by id (requires the `manage` grant) */
+        /** @description Fetch one principal by id (requires the `grant:manage` grant) */
         get: operations["get_principal"];
         put?: never;
         post?: never;
@@ -490,7 +559,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List the verbs a principal effectively holds at a scope path (requires `manage` over the path) */
+        /** @description List the verbs a principal effectively holds at a scope path (requires `grant:manage` over the path) */
         get: operations["effective_principal"];
         put?: never;
         post?: never;
@@ -509,9 +578,9 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Grant a scope pattern to a principal for the given verbs (requires `manage` over the pattern) */
+        /** @description Grant a scope pattern to a principal for the given verbs (requires `grant:manage` over the pattern) */
         post: operations["grant_principal"];
-        /** @description Revoke a scope pattern from a principal for the given verbs (requires `manage` over the pattern) */
+        /** @description Revoke a scope pattern from a principal for the given verbs (requires `grant:manage` over the pattern) */
         delete: operations["revoke_principal"];
         options?: never;
         head?: never;
@@ -593,10 +662,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List the Context's registered scope nodes (live and tombstoned) */
+        /** @description List the Context's registered scope nodes (live and tombstoned). Only nodes the caller has a grant over are returned (`scope:read`, or any other verb in the region); a `grant:manage` holder over `/` sees the whole tree. */
         get: operations["list_scopes"];
         put?: never;
-        /** @description Register a scope node (auto-vivifies missing ancestors; enforces create_scope, depth, node-budget, and per-node policy). */
+        /** @description Register a scope node (auto-vivifies missing ancestors; enforces scope:create, depth, node-budget, and per-node policy). */
         post: operations["register_scope"];
         /** @description Tombstone a scope node (soft-delete: sets tombstoned_at = time::now()) */
         delete: operations["delete_scope"];
@@ -614,7 +683,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Erase everything tagged under a scope subtree (GDPR forget). Requires the `forget` grant over the subtree. */
+        /** @description Erase everything tagged under a scope subtree (GDPR forget). Requires the `memory:forget` grant over the subtree. */
         post: operations["forget_scope"];
         delete?: never;
         options?: never;
@@ -680,7 +749,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List all turns in a session */
+        /** @description List turns in a session, oldest first. Paginated: `limit` defaults to 100 and is capped at 500; use `offset` to page. */
         get: operations["list_turns"];
         put?: never;
         post?: never;
@@ -748,7 +817,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Get a single query trace by ID */
+        /** @description Get a single query trace by ID, with its one-hop neighborhood: the owning response trace and the retrieval traces that fed it, including their returned targets. Accepts both decision-trace ids and chat response-trace ids. */
         get: operations["get_trace"];
         put?: never;
         post?: never;
@@ -774,6 +843,7 @@ export interface components {
             importance: number;
             key: string;
             memoryCategory: components["schemas"]["MemoryCategory"];
+            source?: null | components["schemas"]["SourceRefJson"];
             supersededBy?: string | null;
             supersedes?: string | null;
             validFrom?: string | null;
@@ -830,7 +900,10 @@ export interface components {
             labels?: string[];
             message: string;
             model?: string | null;
-            /** @description DNF scope selector for the conversation, e.g. `[["org/apple"]]` or co-owned `["team/a","team/b"]`. Tags the rows the chat persists and seeds the session. */
+            /**
+             * @description DNF scope selector for the conversation, e.g. `[["org/apple"]]` or co-owned
+             *     `["team/a","team/b"]`. Tags the rows the chat persists and seeds the session.
+             */
             scopes?: components["schemas"]["ScopeSets"];
             sessionId?: string | null;
             stream?: boolean;
@@ -893,7 +966,10 @@ export interface components {
             updated: number;
         };
         ContextQueryRequestJson: {
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Max hits to return (default 10, max 50).
+             */
             k?: number;
             /**
              * @description Label filter (design §4): `key=value` strings the result rows must all
@@ -901,8 +977,9 @@ export interface components {
              */
             labels?: string[];
             /**
-             * @description Read **lens** narrowing the effective read region (design §7.1); see
-             *     [`QueryMemoryRequestJson::lens`]. Empty = the whole granted region.
+             * @description Read **lens** (DNF: OR of conjunctive clauses) narrowing the effective read
+             *     region (design §7.1); see [`QueryMemoryRequestJson::lens`]. Empty = the
+             *     whole granted region.
              */
             lens?: components["schemas"]["ScopeSets"];
             query: string;
@@ -913,7 +990,7 @@ export interface components {
             context: string;
             /** Format: int64 */
             queryMs: number;
-            tier: string;
+            tier: components["schemas"]["Tier"];
         };
         ContradictionFindingJson: {
             entity: string;
@@ -937,13 +1014,17 @@ export interface components {
         };
         CreateSessionRequestJson: {
             metadata?: unknown;
-            /** @description DNF scope selector for the session, e.g. `[["org/apple"]]` or co-owned `["team/a","team/b"]`. Each clause's nodes must lie within the caller's write region; empty means the caller's default write region. */
+            /**
+             * @description DNF scope selector for the session, e.g. `[["org/apple"]]` or co-owned
+             *     `["team/a","team/b"]`. Each clause's nodes must lie within the caller's
+             *     write region; empty ⇒ the caller's default write region.
+             */
             scopes?: components["schemas"]["ScopeSets"];
         };
         /**
-         * @description Bounded enum for the writer to dispatch on. Serializes as the lowercase
-         *     `create` / `update` / `supersede` wire strings so it can stand in for the
-         *     public `/consolidate` response `kind` field.
+         * @description Bounded enum for the writer to dispatch on. Serializes as the
+         *     `create` / `update` / `supersede` wire strings so it can stand in for
+         *     the public `/consolidate` response `kind` field.
          * @enum {string}
          */
         DecisionKind: "create" | "update" | "supersede";
@@ -964,16 +1045,11 @@ export interface components {
             radiusKm: number;
         };
         DocumentJson: {
-            /** Format: int64 */
-            chunkCount?: number | null;
             contentHash: string;
             /** Format: date-time */
             createdAt: string;
             error?: string | null;
             id: string;
-            /** Format: int64 */
-            keywordCount?: number | null;
-            language?: string | null;
             mimeType: string;
             /** Format: date-time */
             processingCompletedAt?: string | null;
@@ -1018,7 +1094,13 @@ export interface components {
          * @enum {string}
          */
         DocumentStatus: "queued" | "extracting" | "chunking" | "embedding" | "keywording" | "extracting_nodes" | "ready" | "failed";
-        /** @description OpenAPI documentation shape for the `multipart/form-data` upload/reprocess body: a `file` part plus a `metadata` JSON part ([`UploadMetadataJson`], which carries `scopes` / `labels` / `title` / ...). The handlers parse the multipart stream directly; this type exists only so the parts (and `scopes`) appear in the generated spec. The `metadata` part MUST precede `file` on the wire. */
+        /**
+         * @description OpenAPI documentation shape for the `multipart/form-data` upload/reprocess
+         *     body: a `file` part plus a `metadata` JSON part ([`UploadMetadataJson`], which
+         *     carries `scopes` / `labels` / `title` / …). The handlers parse the multipart
+         *     stream directly; this type exists only so the parts (and `scopes`) appear in
+         *     the generated spec. The `metadata` part MUST precede `file` on the wire.
+         */
         DocumentUploadForm: {
             /**
              * Format: binary
@@ -1108,7 +1190,7 @@ export interface components {
             turnId: string;
             uncertainties: components["schemas"]["UncertaintySummaryJson"][];
         };
-        /** @description Request body for `POST /v1/{ctx}/facts/batch`. */
+        /** @description Request body for `POST /api/v1/{ctx}/facts/batch`. */
         FactsBatchRequest: {
             extract?: components["schemas"]["BatchExtractionMode"];
             infer?: components["schemas"]["InferMode"];
@@ -1118,7 +1200,7 @@ export interface components {
              */
             labels?: components["schemas"]["Label"][];
             messages: components["schemas"]["BatchMessage"][];
-            /** @description DNF scope selector the batch targets, e.g. `[["org/apple"]]` or co-owned `["team/a","team/b"]`. */
+            /** @description Scope paths the batch targets (canonical slash-paths, e.g. `org/apple/`). */
             scopes?: components["schemas"]["ScopeSets"];
             session_id?: string | null;
         };
@@ -1127,7 +1209,7 @@ export interface components {
             sessionId: string;
             turnIds: string[];
         };
-        /** @description Request body for `POST /v1/{ctx}/facts`. */
+        /** @description Request body for `POST /api/v1/{ctx}/facts`. */
         FactsRequest: {
             /** @description Inference mode (`full` is the default). */
             infer?: components["schemas"]["InferMode"];
@@ -1138,8 +1220,19 @@ export interface components {
              */
             labels?: components["schemas"]["Label"][];
             memory_category?: null | components["schemas"]["MemoryCategory"];
+            /**
+             * @description Optional RFC3339 known/observed time for the written facts (backfill).
+             *     When set, the facts are stamped with this `created_at` (known time), so
+             *     `as_of` queries see them dated to when they were observed rather than to
+             *     wall-clock ingest. `None` keeps the default (facts dated to ingest time).
+             */
+            observed_at?: string | null;
             role?: null | components["schemas"]["TurnRole"];
-            /** @description DNF scope selector the write targets (scope-model §5). Used when auto-creating a session. Empty means the caller's default write region. */
+            /**
+             * @description Scope paths the write targets — canonical slash-paths, e.g. `org/apple/`
+             *     (scope-model §5). Used when auto-creating a session. Empty = the
+             *     caller's default write region.
+             */
             scopes?: components["schemas"]["ScopeSets"];
             /**
              * @description Existing session id to attach the turn to. When absent, the
@@ -1163,6 +1256,13 @@ export interface components {
             turnId?: string;
         };
         ForgetRequestJson: {
+            /**
+             * @description When `true`, the handler computes and returns the would-be deletion
+             *     count (`deleted`) without writing anything — the preview side of a
+             *     preview-then-confirm flow. When omitted or `false`, matching memories
+             *     are soft-deleted immediately.
+             */
+            dryRun?: boolean;
             /**
              * @description Phase 10.7 — right-to-be-forgotten. When `true`, the handler
              *     also removes the supersession history (rows with `valid_until`
@@ -1190,6 +1290,7 @@ export interface components {
             duplicates: components["schemas"]["DuplicateFindingJson"][];
             injection: components["schemas"]["InjectionFindingJson"][];
             total: number;
+            unscopedContent: components["schemas"]["UnscopedContentFindingJson"][];
         };
         FsckRequestJson: {
             check?: string | null;
@@ -1226,12 +1327,12 @@ export interface components {
              */
             path: components["schemas"]["ScopePattern"];
             /**
-             * @description Grant verbs to apply: any of `read|write|create_scope|delete_scope|grant|
-             *     manage|forget`.
+             * @description Grant verbs to apply: any of `memory:read|memory:write|memory:forget|
+             *     scope:read|scope:create|scope:delete|grant:manage`.
              */
             verbs: components["schemas"]["Verb"][];
         };
-        /** @description Per-verb scope pattern map. Keys are grant verbs (`read`, `write`, `create_scope`, `delete_scope`, `grant`, `manage`, `forget`); values are arrays of scope patterns. */
+        /** @description Per-verb scope pattern map. Keys are grant verbs in `<noun>:<verb>` form (`memory:read`, `memory:write`, `memory:forget`, `scope:read`, `scope:create`, `scope:delete`, `grant:manage`); values are arrays of scope patterns. */
         Grants: {
             [key: string]: string[];
         };
@@ -1239,7 +1340,7 @@ export interface components {
          * @description Graph edge kinds used by [`QueryRequest::graph_edges`] for HybridGraph re-ranking.
          * @enum {string}
          */
-        GraphEdgeKind: "knowledge_has_keyword" | "section_match" | "document_link" | "document_summary" | "keyword_cooccurrence" | "hybrid_graph";
+        GraphEdgeKind: "knowledge_has_keyword" | "section_match" | "document_link" | "document_summary" | "hybrid_graph";
         GraphEvidenceJson: {
             edgeKind: components["schemas"]["GraphEdgeKind"];
             neighbourLabel: string;
@@ -1250,16 +1351,26 @@ export interface components {
          * @description Inference mode for the `/facts` write API.
          *
          *     Decides which extraction path runs and which provenance kind the
-         *     reconciler tags the writes with. See `doc/plans/plan-1-unify-knowledge-memory.md`
-         *     Phase 5 for the full table.
+         *     reconciler tags the writes with (see the per-variant docs below).
          * @enum {string}
          */
         InferMode: "full" | "triples" | "preview" | "none";
         InjectionFindingJson: {
-            kind: string;
+            kind: components["schemas"]["InjectionKind"];
             rowId: string;
             snippet: string;
         };
+        /**
+         * @description The detector taxonomy — the closed set of injection-pattern
+         *     categories the scanner can emit. Serialises to `snake_case` wire
+         *     strings (`instruction_override`, `system_prompt_leak`, …) on the
+         *     `/fsck` response and in the persisted `uncertainty.source.kinds`
+         *     audit payload, consistent with the rest of the API's enums. Because
+         *     the pattern table is keyed by this enum (not `&'static str`), adding a
+         *     detector without a matching variant is a compile error.
+         * @enum {string}
+         */
+        InjectionKind: "instruction_override" | "role_override" | "tool_override" | "system_prompt_leak" | "prompt_template_injection" | "base64_instruction";
         InspectResponseJson: {
             attributes: components["schemas"]["AttributeDetailJson"][];
             entity: components["schemas"]["EntityDetailJson"];
@@ -1292,6 +1403,29 @@ export interface components {
             description: string;
             id: string;
             label: string;
+        };
+        /** @description One row in `GET /{ctx}/keys`. Bearer secret and stored hash never surface. */
+        KeyDetailJson: {
+            /**
+             * Format: date-time
+             * @description Creation timestamp.
+             */
+            createdAt: string;
+            grants?: null | components["schemas"]["Grants"];
+            /** @description Stable record-id key (e.g. `abc123defghi`). */
+            id: string;
+            /**
+             * Format: date-time
+             * @description Last successful validation; absent if the key has never been used.
+             */
+            lastUsedAt?: string | null;
+            /** @description Human-readable name (unique within the Context). */
+            name: string;
+            /**
+             * Format: date-time
+             * @description Mint-time expiry. Absent ⇒ no expiry was set.
+             */
+            validUntil?: string | null;
         };
         KeywordDetailJson: {
             /** Format: int64 */
@@ -1333,7 +1467,10 @@ export interface components {
             text: string;
         };
         KeywordSearchRequestJson: {
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Max hits to return (default 10, max 50).
+             */
             k?: number;
             query: string;
             /** Format: float */
@@ -1361,6 +1498,51 @@ export interface components {
             score: number;
             source: components["schemas"]["ResultKind"];
             text: string;
+        };
+        /**
+         * @description Retrieval mode hint. The default is `Hybrid`, which engages the
+         *     full fused ranker. The other modes are kept as escape hatches so
+         *     callers can debug a single signal in isolation.
+         * @enum {string}
+         */
+        MemoryQueryMode: "hybrid" | "vector" | "bm25" | "graph";
+        /**
+         * @description Request body for `POST /{ctx}/keys`. Every field is optional — an empty
+         *     body mints a key inheriting the caller's grants with no expiry, named
+         *     after the random key id.
+         */
+        MintKeyBody: {
+            /**
+             * @description Optional attenuating per-verb grant map. Every requested pattern must
+             *     be ⊆ the caller's effective region for that verb (fail-closed); an
+             *     out-of-range pattern returns 400. Absent ⇒ inherit principal grants.
+             */
+            grants?: {
+                [key: string]: string[];
+            } | null;
+            /**
+             * @description Optional human-readable name (unique per Context). Auto-derived from
+             *     the minted key id when absent.
+             */
+            name?: string | null;
+        };
+        /**
+         * @description `POST /{ctx}/keys` response. The plaintext key is returned **once** and
+         *     never persisted in this shape — the caller must store it themselves.
+         */
+        MintedKeyJson: {
+            /** @description The key's stable record-id key (survives rotation). */
+            id: string;
+            /**
+             * @description The full bearer key (`sp-{id}-{secret}`). Send as
+             *     `Authorization: Bearer …`.
+             */
+            key: string;
+            /**
+             * Format: date-time
+             * @description Mint-time expiry. Absent ⇒ no expiry.
+             */
+            validUntil?: string | null;
         };
         /** @description A principal in the `GET /{ctx}/principals` / `…/{id}` responses. */
         PrincipalJson: {
@@ -1436,7 +1618,17 @@ export interface components {
              *     response.
              */
             include?: string[] | null;
-            /** Format: int32 */
+            /**
+             * @description When `false` (the default), chunks flagged as near-duplicates of an older
+             *     chunk are excluded from the fused ranker's chunk recall so the same text
+             *     does not occupy several ranks. Set `true` to include them (parity with the
+             *     documents `/query` opt-in).
+             */
+            includeDuplicates?: boolean | null;
+            /**
+             * Format: int32
+             * @description Max hits to return (default 10, max 50).
+             */
             k?: number;
             /**
              * @description Label filter (design §4): `key=value` strings the result rows must **all**
@@ -1445,16 +1637,17 @@ export interface components {
              */
             labels?: string[];
             /**
-             * @description Scope/permission model — read **lens**: hierarchical scope paths / `/*`
-             *     subtree patterns that narrow the caller's effective read region for this
-             *     query (design §7.1). Empty = the whole granted region. The lens can only
-             *     narrow — permission gating from the caller's grants always applies on top,
-             *     so an out-of-region lens yields empty results, never a 403.
+             * @description Scope/permission model — read **lens**, a DNF selector (OR of conjunctive
+             *     clauses): each clause is an AND of scope paths / `/*` subtree patterns, and
+             *     a row is kept if it involves every pattern of some clause (clauses are
+             *     OR'd). Narrows the caller's effective read region for this query (design
+             *     §7.1); empty = the whole granted region. The lens can only narrow —
+             *     permission gating from the caller's grants always applies on top, so an
+             *     out-of-region lens yields empty results, never a 403.
              */
             lens?: components["schemas"]["ScopeSets"];
             location?: null | components["schemas"]["GeoFilterJson"];
-            /** @description Phase 7 — retrieval mode. Defaults to `"hybrid"`. */
-            mode?: string | null;
+            mode?: null | components["schemas"]["MemoryQueryMode"];
             query: string;
             /**
              * @description Scope read breadth: `strict` (default) | `merged` | `crossTeam`. Only
@@ -1515,7 +1708,10 @@ export interface components {
             /** Format: int32 */
             graphDepth?: number;
             graphEdges?: components["schemas"]["GraphEdgeKind"][];
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Max hits to return (default 10, max 50).
+             */
             k?: number;
             location?: null | components["schemas"]["DocGeoFilterJson"];
             mode?: components["schemas"]["QueryMode"];
@@ -1549,7 +1745,7 @@ export interface components {
         QueryTraceJson: {
             /** Format: int64 */
             latencyMs: number;
-            resolutionTier: string;
+            resolutionTier: components["schemas"]["Tier"];
             retrievedCount: number;
             tierReason: string;
             topScores: number[];
@@ -1596,6 +1792,7 @@ export interface components {
             label: string;
             memoryCategory: components["schemas"]["MemoryCategory"];
             object: string;
+            source?: null | components["schemas"]["SourceRefJson"];
             subject: string;
             validFrom?: string | null;
             validUntil?: string | null;
@@ -1605,6 +1802,19 @@ export interface components {
             memoryCategory: components["schemas"]["MemoryCategory"];
             object: string;
             subject: string;
+        };
+        /** @description Summary of the response trace that owns a decision trace. */
+        ResponseTraceSummaryJson: {
+            cached: boolean;
+            createdAt: string;
+            id: string;
+            /** Format: int64 */
+            latencyMs: number;
+            responseText: string;
+            reusedFrom?: string | null;
+            sessionId?: string | null;
+            source: string;
+            userMessage: string;
         };
         /**
          * @description Coarse-grained result type. Mirrors the row table the hit lives
@@ -1620,6 +1830,43 @@ export interface components {
             maxCandidateSet: number;
             /** Format: int64 */
             traces: number;
+        };
+        /** @description Summary of one retrieval trace paired with a decision trace. */
+        RetrievalTraceSummaryJson: {
+            createdAt: string;
+            id: string;
+            /** Format: int64 */
+            latencyMs: number;
+            mode: string;
+            retrievedIds: string[];
+            /**
+             * @description The targets this retrieval returned, ranked. Empty for legacy traces
+             *     that persisted only the `retrievedIds` array.
+             */
+            returned: components["schemas"]["ReturnedRefJson"][];
+            scores: number[];
+            /** Format: int64 */
+            tierEntered: number;
+            tierReason: string;
+        };
+        /** @description One returned retrieval target. */
+        ReturnedRefJson: {
+            /** @description The target row id (`table:key` form). */
+            id: string;
+            /** @description A short human label for the target. */
+            label?: string | null;
+            /** Format: int64 */
+            rank?: number | null;
+            /**
+             * @description An inspect ref for the target (`attribute:<type>/<name>/<key>`,
+             *     `entity:<type>/<name>`, `passage:<document_id>/<index>`), when the
+             *     target kind has one.
+             */
+            ref?: string | null;
+            /** Format: double */
+            score?: number | null;
+            /** @description The target's table (`attribute` / `entity` / `chunk` / `memory_chunk`). */
+            table: string;
         };
         /** @description Body for `POST /{context}/scopes/forget` — the scope subtree to erase. */
         ScopeForgetRequestJson: {
@@ -1677,6 +1924,22 @@ export interface components {
             count: number;
             kind: string;
         };
+        /** @description Compact provenance ref carried on attribute/relation detail JSON. */
+        SourceRefJson: {
+            /**
+             * @description Source kind: `turn`, `document`, `upsert`, `reflect`,
+             *     `elaboration`, or `consolidation`.
+             */
+            kind: string;
+            /**
+             * @description Compact navigable ref — `turn:<id>`, `doc:<id>`, or `trace:<id>` —
+             *     when the source carries one. Document refs carry no passage index
+             *     (only the passage record id is stored).
+             */
+            ref?: string | null;
+            /** @description The session the source turn belongs to (`turn` kind only). */
+            sessionId?: string | null;
+        };
         StateResponseJson: {
             context: components["schemas"]["CategoryStateJson"];
             identity: components["schemas"]["CategoryStateJson"];
@@ -1726,8 +1989,15 @@ export interface components {
             id: string;
             /** Format: int64 */
             latencyMs: number;
+            parent?: null | components["schemas"]["ResponseTraceSummaryJson"];
             queryText: string;
             resolutionTier: string;
+            /**
+             * @description The retrieval traces that fed this decision, with their returned
+             *     targets. Populated on single-trace reads only; absent from `/traces`
+             *     lists.
+             */
+            retrievals?: components["schemas"]["RetrievalTraceSummaryJson"][] | null;
             tierReason: string;
         };
         TraceStatsResponseJson: {
@@ -1812,11 +2082,34 @@ export interface components {
             about: string;
             reason: string;
         };
+        UnscopedContentFindingJson: {
+            /** Format: int64 */
+            count: number;
+            sampleIds: string[];
+            table: string;
+        };
         UploadMetadataJson: {
-            /** @description Optional `"key=value"` labels stamped onto the document and inherited by its chunks/sections (validated like facts: `_`-prefixed keys rejected with 400, a per-fact count cap with 409). Reconciled graph rows are never labelled. */
+            /**
+             * @description Optional `"key=value"` labels stamped onto the document and inherited by its
+             *     chunks/sections (validated like facts: `_`-prefixed keys rejected with 400, a
+             *     per-fact count cap with 409). Reconciled graph rows are never labelled.
+             */
             labels?: string[];
             mimeType?: string | null;
-            /** @description Optional DNF scope selector tagging the document, e.g. `[["org/apple/product/macbook"]]` (or co-owned `["team/a","team/b"]`). Each clause's nodes must lie within the caller's `memory:write` region (a request outside it is a 403). Omitted means the document inherits the caller's whole write region (unchanged behaviour). Clients must send the `metadata` part before the `file` part for it to apply. */
+            /**
+             * @description Optional RFC3339 known/observed time for the content (backfill). Stamped as the
+             *     known-time of facts derived from this document, so `as_of` queries see them
+             *     dated to when the content was observed. Omitted means facts date to ingest time.
+             */
+            observedAt?: string | null;
+            /**
+             * @description Optional DNF scope selector tagging the document, e.g.
+             *     `[["org/apple/product/macbook"]]` (or co-owned `["team/a","team/b"]`). Each
+             *     clause's nodes must lie within the caller's `memory:write` region (a request
+             *     outside it is a 403). Omitted ⇒ the document inherits the caller's whole
+             *     write region (unchanged behaviour). Clients must send the `metadata` part
+             *     before the `file` part for it to apply.
+             */
             scopes?: components["schemas"]["ScopeSets"];
             source?: string | null;
             title?: string | null;
@@ -1827,8 +2120,36 @@ export interface components {
             id: string;
             status: components["schemas"]["DocumentStatus"];
         };
-        /** @description A grant verb: one of `read`, `write`, `create_scope`, `delete_scope`, `grant`, `manage`, `forget`. */
+        /** @description A grant verb in `<noun>:<verb>` form: one of `memory:read`, `memory:write`, `memory:forget`, `scope:read`, `scope:create`, `scope:delete`, `grant:manage`. */
         Verb: string;
+        /**
+         * @description The `GET /{ctx}/me` response. Reflects only the *calling* token's resolved
+         *     identity — no principal lookup gated by `grant:manage`.
+         */
+        WhoamiJson: {
+            /**
+             * @description When the token is delegating (`X-Spectron-On-Behalf-Of`), the target
+             *     principal id; absent for non-delegated calls.
+             */
+            delegatedPrincipalId?: string | null;
+            /** @description Human-readable display name. */
+            displayName: string;
+            /**
+             * @description Effective per-verb grants after attenuation + delegation. This is what
+             *     gates every read/write — useful for clients pre-flighting writes.
+             */
+            effectiveGrants: components["schemas"]["Grants"];
+            /** @description The principal's authoritative per-verb grant map. */
+            grants: components["schemas"]["Grants"];
+            /** @description Principal kind (`human`/`agent`/`service`/`unknown`). */
+            kind: string;
+            /**
+             * @description The token's principal id. Always a bound principal — an unbound key is
+             *     rejected at authentication, so this is never a bare key id.
+             */
+            principalId: string;
+            tokenGrants?: null | components["schemas"]["Grants"];
+        };
     };
     responses: never;
     parameters: never;
@@ -2079,11 +2400,11 @@ export interface operations {
                 /** @description Filter by document status */
                 status?: string;
                 /** @description Filter by mime type */
-                mime_type?: string;
+                mimeType?: string;
                 /** @description Page number (0-indexed) */
                 page?: number;
                 /** @description Page size, max 100 */
-                page_size?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -2157,7 +2478,7 @@ export interface operations {
                     "application/json": components["schemas"]["UploadResponse"];
                 };
             };
-            /** @description Malformed multipart */
+            /** @description Malformed multipart, scope, or label */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -2168,6 +2489,24 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Requested scope outside the caller's write region */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Label count exceeds the per-fact cap */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2679,7 +3018,7 @@ export interface operations {
                 /** @description Page number (0-indexed) */
                 page?: number;
                 /** @description Page size, max 100 */
-                page_size?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -2906,6 +3245,10 @@ export interface operations {
             query?: {
                 /** @description Filter by entity type */
                 type?: string;
+                /** @description Max entities to return (default: all, capped at 500) */
+                limit?: number;
+                /** @description Number of entities to skip (default 0) */
+                offset?: number;
             };
             header?: never;
             path: {
@@ -3394,6 +3737,261 @@ export interface operations {
             };
         };
     };
+    list_self_keys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyDetailJson"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Self-service keys disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    create_self_key: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Seconds until the minted/rotated key expires. Omitted on create =
+                 *     "never expires" (subject to the Context's `max_token_ttl_seconds` cap).
+                 *     Omitted on rotate = inherit the key's current expiry.
+                 */
+                ttlSeconds?: number | null;
+            };
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": null | components["schemas"]["MintKeyBody"];
+            };
+        };
+        responses: {
+            /** @description Plaintext key returned once */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MintedKeyJson"];
+                };
+            };
+            /** @description Invalid grants or attenuation widens */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Self-service keys disabled or ineligible caller */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Key name already taken in the Context */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_self_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+                /** @description Key name */
+                key_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Self-service keys disabled or ineligible caller */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Key does not exist or is not owned by the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    rotate_self_key: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Seconds until the minted/rotated key expires. Omitted on create =
+                 *     "never expires" (subject to the Context's `max_token_ttl_seconds` cap).
+                 *     Omitted on rotate = inherit the key's current expiry.
+                 */
+                ttlSeconds?: number | null;
+            };
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+                /** @description Key name */
+                key_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plaintext rotated key returned once */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MintedKeyJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Self-service keys disabled or ineligible caller */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Key does not exist or is not owned by the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     decay_importance: {
         parameters: {
             query?: never;
@@ -3474,6 +4072,46 @@ export interface operations {
             };
         };
     };
+    whoami: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhoamiJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     list_principals: {
         parameters: {
             query?: never;
@@ -3503,7 +4141,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
-            /** @description Caller lacks the `manage` grant */
+            /** @description Caller lacks the `grant:manage` grant */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3554,7 +4192,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
-            /** @description Caller lacks the `manage` grant */
+            /** @description Caller lacks the `grant:manage` grant */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3628,7 +4266,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
-            /** @description Caller lacks `manage` over the path */
+            /** @description Caller lacks `grant:manage` over the path */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3702,7 +4340,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
-            /** @description Caller lacks `manage` over the region */
+            /** @description Caller lacks `grant:manage` over the region, or the target is the immutable `system` principal */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3776,7 +4414,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
-            /** @description Caller lacks `manage` over the region */
+            /** @description Caller lacks `grant:manage` over the region, or the target is the immutable `system` principal */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4182,7 +4820,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
-            /** @description Forbidden — `forget` grant required */
+            /** @description Forbidden — `memory:forget` grant required */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4353,7 +4991,12 @@ export interface operations {
     };
     list_turns: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Max turns to return (default 100, max 500) */
+                limit?: number;
+                /** @description Number of turns to skip (default 0) */
+                offset?: number;
+            };
             header?: never;
             path: {
                 /** @description Spectron context id */
@@ -4445,7 +5088,7 @@ export interface operations {
     list_traces: {
         parameters: {
             query?: {
-                /** @description Max traces to return (default 50) */
+                /** @description Max traces to return (default 50, max 500) */
                 limit?: number;
             };
             header?: never;
