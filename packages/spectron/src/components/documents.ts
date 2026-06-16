@@ -1,5 +1,6 @@
 import { spectronFileInputToBlob } from "../file-body.js";
 import { encodePathSegment, getContextApiPrefix } from "../paths.js";
+import { normaliseScope, type Scope } from "../scope.js";
 import type { Transport } from "../transport.js";
 import type { QueryMode, SpectronFileInput } from "../types/domain.js";
 import type { components } from "../types/generated.js";
@@ -30,6 +31,10 @@ export interface DocumentUploadOptions {
     title?: string;
     /** Source label for the document (recorded in the `metadata` part). */
     source?: string;
+    /** DNF scope selector tagging the document (outer OR, inner AND). */
+    scopes?: Scope;
+    /** Descriptive `key=value` labels stamped onto the document and its chunks. */
+    labels?: string[];
 }
 
 async function buildUploadForm(options: DocumentUploadOptions): Promise<FormData> {
@@ -38,9 +43,12 @@ async function buildUploadForm(options: DocumentUploadOptions): Promise<FormData
 
     // The server reads multipart fields in declaration order, so the metadata
     // part must precede the file part.
-    const metadata: Record<string, string> = {};
+    const metadata: Record<string, unknown> = {};
     if (options.title !== undefined) metadata.title = options.title;
     if (options.source !== undefined) metadata.source = options.source;
+    const scopes = normaliseScope(options.scopes);
+    if (scopes) metadata.scopes = scopes;
+    if (options.labels !== undefined) metadata.labels = options.labels;
     if (Object.keys(metadata).length > 0) {
         form.append("metadata", JSON.stringify(metadata));
     }

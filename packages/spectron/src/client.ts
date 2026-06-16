@@ -75,8 +75,8 @@ export interface RememberOptions {
     infer?: InferMode | string;
     /** Existing session to attach the turn to (auto-created when absent). */
     sessionId?: string;
-    /** Scope paths the write targets. */
-    scope?: Scope;
+    /** DNF scope selector the write targets (outer OR, inner AND). */
+    scopes?: Scope;
     /** Role to record on the turn. `user` by default. */
     role?: TurnRole | string;
     /** Override the memory category for extracted/triple facts. */
@@ -91,8 +91,8 @@ export interface RememberOptions {
 export interface RememberManyOptions {
     /** Existing session to attach the turns to (auto-created when absent). */
     sessionId?: string;
-    /** Scope paths the batch targets. */
-    scope?: Scope;
+    /** DNF scope selector the batch targets (outer OR, inner AND). */
+    scopes?: Scope;
     /** Bulk extraction strategy. */
     extract?: BatchExtractionMode | string;
     /** Inference mode. */
@@ -117,8 +117,8 @@ export interface RecallOptions {
     atInstant?: string;
     /** `key=value` label filter the result rows must all carry. */
     labels?: string[];
-    /** Read lens: scope paths / subtree patterns that narrow the read region. */
-    lens?: string[];
+    /** Read lens: a DNF scope selector that narrows the read region (outer OR, inner AND). */
+    lens?: Scope;
     /** Scope read breadth. Defaults to `strict`. */
     scopeView?: ScopeView | string;
     /** Valid-time lower bound. */
@@ -135,8 +135,8 @@ export interface RecallOptions {
 export interface ChatOptions {
     /** Session to attach the conversation to. */
     sessionId?: string;
-    /** Scope paths for the conversation. */
-    scope?: Scope;
+    /** DNF scope selector for the conversation (outer OR, inner AND). */
+    scopes?: Scope;
     /** Model override. */
     model?: string;
     /** Skip the response cache and force a fresh call. */
@@ -261,7 +261,7 @@ export class Spectron {
         addDefined(payload, "text", text);
         addDefined(payload, "infer", options?.infer);
         addDefined(payload, "session_id", options?.sessionId);
-        addDefined(payload, "scope", normaliseScope(options?.scope));
+        addDefined(payload, "scopes", normaliseScope(options?.scopes));
         addDefined(payload, "role", options?.role);
         addDefined(payload, "memory_category", options?.memoryCategory);
         addDefined(payload, "labels", options?.labels);
@@ -283,7 +283,7 @@ export class Spectron {
     ): Promise<FactsBatchResponseJson> {
         const payload: Record<string, unknown> = { messages };
         addDefined(payload, "session_id", options?.sessionId);
-        addDefined(payload, "scope", normaliseScope(options?.scope));
+        addDefined(payload, "scopes", normaliseScope(options?.scopes));
         addDefined(payload, "extract", options?.extract);
         addDefined(payload, "infer", options?.infer);
         addDefined(payload, "labels", options?.labels);
@@ -304,7 +304,7 @@ export class Spectron {
         addDefined(payload, "asOf", options?.asOf);
         addDefined(payload, "atInstant", options?.atInstant);
         addDefined(payload, "labels", options?.labels);
-        addDefined(payload, "lens", options?.lens);
+        addDefined(payload, "lens", normaliseScope(options?.lens));
         addDefined(payload, "scopeView", options?.scopeView);
         addDefined(payload, "validFrom", options?.validFrom);
         addDefined(payload, "validUntil", options?.validUntil);
@@ -344,7 +344,7 @@ export class Spectron {
     ): Promise<ChatResponseJson | AsyncGenerator<ChatChunk>> {
         const payload: Record<string, unknown> = { message };
         addDefined(payload, "sessionId", options?.sessionId);
-        addDefined(payload, "scope", normaliseScope(options?.scope));
+        addDefined(payload, "scopes", normaliseScope(options?.scopes));
         addDefined(payload, "model", options?.model);
         if (options?.bypassCache) payload.bypassCache = true;
         addDefined(payload, "labels", options?.labels);
@@ -368,14 +368,14 @@ export class Spectron {
         options?: {
             k?: number;
             labels?: string[];
-            lens?: string[];
+            lens?: Scope;
             scopeView?: ScopeView | string;
         },
     ): Promise<ContextQueryResponseJson> {
         const payload: Record<string, unknown> = { query };
         addDefined(payload, "k", options?.k);
         addDefined(payload, "labels", options?.labels);
-        addDefined(payload, "lens", options?.lens);
+        addDefined(payload, "lens", normaliseScope(options?.lens));
         addDefined(payload, "scopeView", options?.scopeView);
         const body = await this.transport.requestJson("POST", `${this.base}/context`, {
             body: payload,

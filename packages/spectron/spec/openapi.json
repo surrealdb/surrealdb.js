@@ -472,6 +472,16 @@
                         }
                     }
                 ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DocumentUploadForm"
+                            }
+                        }
+                    },
+                    "required": true
+                },
                 "responses": {
                     "202": {
                         "description": "Upload accepted",
@@ -1045,6 +1055,16 @@
                         }
                     }
                 ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DocumentUploadForm"
+                            }
+                        }
+                    },
+                    "required": true
+                },
                 "responses": {
                     "202": {
                         "description": "Upload accepted",
@@ -4102,12 +4122,9 @@
                     "model": {
                         "type": ["string", "null"]
                     },
-                    "scope": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        },
-                        "description": "Scope paths for the conversation (hierarchical `key=value/` paths)."
+                    "scopes": {
+                        "$ref": "#/components/schemas/ScopeSets",
+                        "description": "DNF scope selector for the conversation, e.g. `[[\"org/apple\"]]` or co-owned `[\"team/a\",\"team/b\"]`. Tags the rows the chat persists and seeds the session."
                     },
                     "sessionId": {
                         "type": ["string", "null"]
@@ -4293,10 +4310,7 @@
                         "description": "Label filter (design §4): `key=value` strings the result rows must all\ncarry; applied after the scope predicate (never widening)."
                     },
                     "lens": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        },
+                        "$ref": "#/components/schemas/ScopeSets",
                         "description": "Read **lens** narrowing the effective read region (design §7.1); see\n[`QueryMemoryRequestJson::lens`]. Empty = the whole granted region."
                     },
                     "query": {
@@ -4386,12 +4400,9 @@
                 "type": "object",
                 "properties": {
                     "metadata": {},
-                    "scope": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        },
-                        "description": "Scope paths for the session (hierarchical `key=value/` paths)."
+                    "scopes": {
+                        "$ref": "#/components/schemas/ScopeSets",
+                        "description": "DNF scope selector for the session, e.g. `[[\"org/apple\"]]` or co-owned `[\"team/a\",\"team/b\"]`. Each clause's nodes must lie within the caller's write region; empty means the caller's default write region."
                     }
                 }
             },
@@ -4581,6 +4592,22 @@
                     "ready",
                     "failed"
                 ]
+            },
+            "DocumentUploadForm": {
+                "type": "object",
+                "description": "OpenAPI documentation shape for the `multipart/form-data` upload/reprocess body: a `file` part plus a `metadata` JSON part ([`UploadMetadataJson`], which carries `scopes` / `labels` / `title` / ...). The handlers parse the multipart stream directly; this type exists only so the parts (and `scopes`) appear in the generated spec. The `metadata` part MUST precede `file` on the wire.",
+                "required": ["file", "metadata"],
+                "properties": {
+                    "file": {
+                        "type": "string",
+                        "format": "binary",
+                        "description": "The raw document bytes."
+                    },
+                    "metadata": {
+                        "$ref": "#/components/schemas/UploadMetadataJson",
+                        "description": "The document metadata part, sent as a serialised JSON object."
+                    }
+                }
             },
             "DuplicateFindingJson": {
                 "type": "object",
@@ -4885,9 +4912,9 @@
                             "$ref": "#/components/schemas/BatchMessage"
                         }
                     },
-                    "scope": {
-                        "$ref": "#/components/schemas/ScopeSet",
-                        "description": "Scope paths the batch targets (hierarchical `key=value/` paths)."
+                    "scopes": {
+                        "$ref": "#/components/schemas/ScopeSets",
+                        "description": "DNF scope selector the batch targets, e.g. `[[\"org/apple\"]]` or co-owned `[\"team/a\",\"team/b\"]`."
                     },
                     "session_id": {
                         "type": ["string", "null"]
@@ -4952,9 +4979,9 @@
                             }
                         ]
                     },
-                    "scope": {
-                        "$ref": "#/components/schemas/ScopeSet",
-                        "description": "Scope paths the write targets — hierarchical `key=value/` paths\n(scope-model §5). Used when auto-creating a session. Empty = the\ncaller's default write region."
+                    "scopes": {
+                        "$ref": "#/components/schemas/ScopeSets",
+                        "description": "DNF scope selector the write targets (scope-model §5). Used when auto-creating a session. Empty means the caller's default write region."
                     },
                     "session_id": {
                         "type": ["string", "null"],
@@ -5674,10 +5701,7 @@
                         "description": "Label filter (design §4): `key=value` strings the result rows must **all**\ncarry. Applied after the scope predicate — labels never widen access, only\nnarrow the already-authorised result set. Empty = no label filter."
                     },
                     "lens": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        },
+                        "$ref": "#/components/schemas/ScopeSets",
                         "description": "Scope/permission model — read **lens**: hierarchical scope paths / `/*`\nsubtree patterns that narrow the caller's effective read region for this\nquery (design §7.1). Empty = the whole granted region. The lens can only\nnarrow — permission gating from the caller's grants always applies on top,\nso an out-of-region lens yields empty results, never a 403."
                     },
                     "location": {
@@ -6104,12 +6128,15 @@
                 "type": "string",
                 "description": "A scope pattern: an exact node (`org/apple/product/ipad`) or a subtree (`org/apple/*` / `/*`)."
             },
-            "ScopeSet": {
+            "ScopeSets": {
                 "type": "array",
                 "items": {
-                    "type": "string"
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
-                "description": "An ordered, de-duplicated set of scope paths. Empty is valid and represents the default write region."
+                "description": "A DNF scope selector: an OR of conjunctive clauses. Each clause is an array of scope paths, ALL of which a reader must cover (AND); the outer array is the OR. E.g. [[\"team/a\"],[\"team/b\",\"clearance/secret\"]] means team/a OR (team/b AND clearance/secret). Empty means unscoped (the caller's default region). A bare string is also accepted as a singleton clause."
             },
             "SessionContextRequestJson": {
                 "type": "object",
@@ -6131,7 +6158,7 @@
             },
             "SessionResponseJson": {
                 "type": "object",
-                "required": ["id", "scope", "createdAt"],
+                "required": ["id", "scopes", "createdAt"],
                 "properties": {
                     "createdAt": {
                         "type": "string"
@@ -6139,11 +6166,8 @@
                     "id": {
                         "type": "string"
                     },
-                    "scope": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
+                    "scopes": {
+                        "$ref": "#/components/schemas/ScopeSets"
                     }
                 }
             },
@@ -6467,6 +6491,31 @@
                     },
                     "reason": {
                         "type": "string"
+                    }
+                }
+            },
+            "UploadMetadataJson": {
+                "type": "object",
+                "properties": {
+                    "labels": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Optional `\"key=value\"` labels stamped onto the document and inherited by its chunks/sections (validated like facts: `_`-prefixed keys rejected with 400, a per-fact count cap with 409). Reconciled graph rows are never labelled."
+                    },
+                    "mimeType": {
+                        "type": ["string", "null"]
+                    },
+                    "scopes": {
+                        "$ref": "#/components/schemas/ScopeSets",
+                        "description": "Optional DNF scope selector tagging the document, e.g. `[[\"org/apple/product/macbook\"]]` (or co-owned `[\"team/a\",\"team/b\"]`). Each clause's nodes must lie within the caller's `memory:write` region (a request outside it is a 403). Omitted means the document inherits the caller's whole write region (unchanged behaviour). Clients must send the `metadata` part before the `file` part for it to apply."
+                    },
+                    "source": {
+                        "type": ["string", "null"]
+                    },
+                    "title": {
+                        "type": ["string", "null"]
                     }
                 }
             },
