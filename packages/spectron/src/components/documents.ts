@@ -184,7 +184,7 @@ export class Documents {
     ): Promise<ChunkPageJson> {
         const q: Record<string, unknown> = {};
         if (options?.page !== undefined) q.page = options.page;
-        if (options?.pageSize !== undefined) q.page_size = options.pageSize;
+        if (options?.pageSize !== undefined) q.pageSize = options.pageSize;
         const body = await this.transport.requestJson(
             "GET",
             `${this.base}/${encodePathSegment(documentId)}/chunks`,
@@ -202,9 +202,9 @@ export class Documents {
     }): Promise<DocumentPageJson> {
         const q: Record<string, unknown> = {};
         if (options?.status !== undefined) q.status = options.status;
-        if (options?.mimeType !== undefined) q.mime_type = options.mimeType;
+        if (options?.mimeType !== undefined) q.mimeType = options.mimeType;
         if (options?.page !== undefined) q.page = options.page;
-        if (options?.pageSize !== undefined) q.page_size = options.pageSize;
+        if (options?.pageSize !== undefined) q.pageSize = options.pageSize;
         const body = await this.transport.requestJson("GET", this.base, { query: q });
         return body as DocumentPageJson;
     }
