@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, expectTypeOf, test } from "bun:test";
 import { eq, raw, surql, Table } from "surrealdb";
 import { resetIncrementalID } from "../../../../sdk/src/internal/get-incremental-id";
 import { BoundQuery } from "../../../../sdk/src/utils/bound-query";
@@ -72,6 +72,16 @@ describe("Tagged template", () => {
         expect(Object.values(query.bindings)).toContainEqual(new Table("user"));
         expect(Object.values(query.bindings)).toContain("john");
         expect(Object.values(query.bindings)).toContain(10);
+    });
+
+    test("result type defaults to unknown[]", () => {
+        const query = surql`SELECT * FROM user`;
+        expectTypeOf(query).toEqualTypeOf<BoundQuery<unknown[]>>();
+    });
+
+    test("result type can be specified via type argument", () => {
+        const query = surql<[{ name: string }[]]>`SELECT * FROM user`;
+        expectTypeOf(query).toEqualTypeOf<BoundQuery<[{ name: string }[]]>>();
     });
 
     test("query with binding conflict throws", () => {
