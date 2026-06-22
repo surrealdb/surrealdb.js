@@ -168,6 +168,21 @@ export interface ConnectOptions {
      * @default true
      */
     reconnect?: boolean | Partial<ReconnectOptions>;
+    /**
+     * Configure the default retry behavior used to automatically replay work that fails due
+     * to a transaction conflict under concurrent load.
+     *
+     * This default is used by the `transaction()` helper and by queries marked with `.retry()`.
+     * It is disabled by default; auto-retrying must be opted into explicitly because replaying
+     * a non-atomic, multi-statement query could apply some statements more than once.
+     *
+     * - When set to `false` (the default), no work is retried automatically.
+     * - When set to `true`, retry is enabled using default options.
+     * - When set to an object, retry is enabled using the provided options.
+     *
+     * @default false
+     */
+    retry?: boolean | Partial<RetryOptions>;
 }
 
 /**
@@ -190,6 +205,29 @@ export interface ReconnectOptions {
     catch?: (error: Error) => boolean;
 }
 
+/**
+ * Options to configure automatic retry behavior for transaction conflicts
+ */
+export interface RetryOptions {
+    /** Whether retry is enabled. When `false`, work is executed once and conflicts are surfaced as-is */
+    enabled: boolean;
+    /** How many attempts will be made at retrying, -1 for unlimited */
+    attempts: number;
+    /** The minimum amount of time in milliseconds to wait before retrying */
+    retryDelay: number;
+    /** The maximum amount of time in milliseconds to wait before retrying */
+    retryDelayMax: number;
+    /** The amount to multiply the delay by after each failed attempt */
+    retryDelayMultiplier: number;
+    /** A float percentage to randomly offset each delay by */
+    retryDelayJitter: number;
+    /**
+     * Decide whether a caught error is a retryable conflict. Defaults to a built-in heuristic
+     * that matches SurrealDB transaction conflict errors. Provide your own predicate to override.
+     */
+    retryable?: (error: unknown) => boolean;
+}
+
 export interface ConnectionSession {
     id: Session;
     namespace: string | undefined;
@@ -207,6 +245,7 @@ export interface ConnectionSession {
 export interface ConnectionState {
     url: URL;
     reconnect: ReconnectContext;
+    retry: RetryOptions;
     rootSession: ConnectionSession;
     sessions: Map<Uuid, ConnectionSession>;
 }

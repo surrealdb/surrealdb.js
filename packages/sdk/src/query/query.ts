@@ -2,7 +2,8 @@ import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
-import type { QueryResponse, Session } from "../types";
+import { RetryContext, withRetry } from "../internal/retry";
+import type { QueryResponse, RetryOptions, Session } from "../types";
 import type { BoundQuery } from "../utils";
 import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../utils/frame";
 
@@ -11,6 +12,7 @@ interface QueryOptions {
     transaction: Uuid | undefined;
     session: Session;
     json: boolean;
+    retry?: RetryOptions;
 }
 
 type Collect<T extends unknown[], J extends boolean> = T extends []
@@ -59,6 +61,38 @@ export class Query<
     }
 
     /**
+     * Configure the query to automatically retry when it fails due to a transaction conflict.
+     *
+     * Under concurrent load a query may fail because another transaction wrote to the same data.
+     * When retry is enabled, the entire query is re-sent with exponential backoff until it
+     * succeeds or the configured attempts are exhausted.
+     *
+     * Retry only applies to `.collect()` (and awaiting the query directly), as the whole query is
+     * re-sent on conflict. It does not apply to `.responses()` (which exposes partial results) or
+     * `.stream()` (which yields results incrementally and cannot be safely replayed mid-stream).
+     *
+     * **NOTE:** Retrying re-sends the full query. Only use this for queries that are safe to replay,
+     * such as a single statement or a query wrapped in an explicit `BEGIN`/`COMMIT` block.
+     * Re-sending a non-atomic, multi-statement query may apply some statements more than once.
+     *
+     * @example
+     * ```ts
+     * const [person] = await this.query("BEGIN; UPDATE counter SET n += 1; COMMIT").retry();
+     * ```
+     *
+     * @param options Retry behavior. Defaults to enabling retry using the connection defaults.
+     * @returns A new `Query` configured to retry on conflict.
+     */
+    retry(options: boolean | Partial<RetryOptions> = true): Query<R, J> {
+        const base = this.#connection.state?.retry;
+
+        return new Query(this.#connection, {
+            ...this.#options,
+            retry: new RetryContext(options, base).options,
+        });
+    }
+
+    /**
      * Collect and return the results of all queries at once. If any of the queries fail, the promise
      * will reject.
      *
@@ -77,40 +111,44 @@ export class Query<
     async collect<T extends unknown[] = R>(...queries: number[]): Promise<Collect<T, J>> {
         await this.#connection.ready();
 
-        const { query, transaction, session, json } = this.#options;
-        const chunks = this.#connection.query(query, session, transaction);
-        const responses: unknown[] = [];
-        const queryIndexes =
-            queries.length > 0 ? new Map(queries.map((idx, i) => [idx, i])) : undefined;
+        const retry = new RetryContext(this.#options.retry);
 
-        for await (const chunk of chunks) {
-            if (chunk.error) {
-                throw chunk.error;
+        return withRetry(retry, async () => {
+            const { query, transaction, session, json } = this.#options;
+            const chunks = this.#connection.query(query, session, transaction);
+            const responses: unknown[] = [];
+            const queryIndexes =
+                queries.length > 0 ? new Map(queries.map((idx, i) => [idx, i])) : undefined;
+
+            for await (const chunk of chunks) {
+                if (chunk.error) {
+                    throw chunk.error;
+                }
+
+                if (queryIndexes?.has(chunk.query) === false) {
+                    continue;
+                }
+
+                const index = queryIndexes?.get(chunk.query) ?? chunk.query;
+
+                if (chunk.kind === "single") {
+                    responses[index] = maybeJsonify(chunk.result?.[0], json);
+                    continue;
+                }
+
+                const additions = maybeJsonify(chunk.result ?? [], json);
+                let records = responses[index] as unknown[];
+
+                if (!records) {
+                    records = additions;
+                    responses[index] = records;
+                } else {
+                    records.push(...additions);
+                }
             }
 
-            if (queryIndexes?.has(chunk.query) === false) {
-                continue;
-            }
-
-            const index = queryIndexes?.get(chunk.query) ?? chunk.query;
-
-            if (chunk.kind === "single") {
-                responses[index] = maybeJsonify(chunk.result?.[0], json);
-                continue;
-            }
-
-            const additions = maybeJsonify(chunk.result ?? [], json);
-            let records = responses[index] as unknown[];
-
-            if (!records) {
-                records = additions;
-                responses[index] = records;
-            } else {
-                records.push(...additions);
-            }
-        }
-
-        return responses as Collect<T, J>;
+            return responses as Collect<T, J>;
+        });
     }
 
     /**

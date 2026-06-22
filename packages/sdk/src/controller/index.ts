@@ -14,6 +14,7 @@ import {
 import type { Feature } from "../internal/feature";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { ReconnectContext } from "../internal/reconnect";
+import { RetryContext } from "../internal/retry";
 import { fastParseJwt } from "../internal/tokens";
 import type {
     AccessRecordAuth,
@@ -123,6 +124,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             url,
             sessions: new Map(),
             reconnect: new ReconnectContext(options.reconnect),
+            retry: new RetryContext(options.retry).options,
             rootSession: {
                 ...this.#createSessionState(undefined),
                 namespace: options.namespace,
