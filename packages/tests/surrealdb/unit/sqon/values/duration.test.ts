@@ -69,6 +69,12 @@ describe("Duration", () => {
         expect(new Duration("1s").equals(new Duration("1s500ms"))).toBe(false);
     });
 
+    test("compare", () => {
+        expect(new Duration("1ms").compare(new Duration("2ms"))).toBe(-1);
+        expect(new Duration("3y").compare(new Duration("2s"))).toBe(1);
+        expect(new Duration("24h").compare(new Duration("1d"))).toBe(0);
+    });
+
     test("add", () => {
         const a = new Duration("1s");
         const b = new Duration("500ms");
