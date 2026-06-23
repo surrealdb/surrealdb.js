@@ -1,4 +1,4 @@
-import { ServerError } from "../errors";
+import { QueryError } from "../errors";
 import type { RetryOptions } from "../types/surreal";
 import { rand } from "./rand";
 
@@ -15,19 +15,23 @@ export const DEFAULT_RETRY_OPTIONS: RetryOptions = {
  * Determine whether an error represents a retryable SurrealDB transaction conflict.
  *
  * Under concurrent load a transaction can fail because another transaction wrote to the
- * same data. SurrealDB surfaces this as a {@link ServerError} whose message indicates the
- * conflict can be retried. There is currently no dedicated structured error kind for this,
- * so detection is performed by inspecting the error message.
+ * same data. The server reports this with the structured {@link QueryError} detail
+ * `TransactionConflict` (wire code `-32009`). This predicate matches that detail and
+ * nothing else — detection is based purely on the structured error, never on the
+ * human-readable message.
  *
- * This is the default predicate used by retry logic. You can supply your own through the
+ * @remarks
+ * The structured `TransactionConflict` detail is emitted by **SurrealDB 3.1.0 and later**.
+ * Against older servers this predicate never matches, so the built-in auto-retry will not
+ * trigger. To retry conflicts reported by an older server, supply your own predicate via
+ * the {@link RetryOptions.retryable} option (see its documentation for a message-matching
+ * example).
+ *
+ * This is the default predicate used by retry logic. Provide your own through the
  * `retryable` option to override or extend it.
  */
 export function isRetryableConflict(error: unknown): boolean {
-    if (!(error instanceof ServerError)) return false;
-
-    const message = error.message.toLowerCase();
-
-    return message.includes("conflict") || message.includes("can be retried");
+    return error instanceof QueryError && error.isTransactionConflict;
 }
 
 /**

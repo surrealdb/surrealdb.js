@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { isRetryableConflict as publicIsRetryableConflict } from "surrealdb";
-import { ThrownError, ValidationError } from "../../../sdk/src/errors";
+import { QueryError, ThrownError, ValidationError } from "../../../sdk/src/errors";
 import {
     DEFAULT_RETRY_OPTIONS,
     isRetryableConflict,
@@ -13,7 +13,32 @@ test("isRetryableConflict is exported from the package root", () => {
 });
 
 describe("isRetryableConflict", () => {
-    test("matches conflict server errors", () => {
+    test("matches the structured transaction conflict detail", () => {
+        expect(
+            isRetryableConflict(
+                new QueryError({
+                    message: "Transaction conflict",
+                    kind: "Query",
+                    details: { kind: "TransactionConflict" },
+                }),
+            ),
+        ).toBe(true);
+    });
+
+    test("ignores other structured query errors", () => {
+        expect(
+            isRetryableConflict(
+                new QueryError({
+                    message: "cancelled",
+                    kind: "Query",
+                    details: { kind: "Cancelled" },
+                }),
+            ),
+        ).toBe(false);
+    });
+
+    test("does not match conflicts reported only via the message", () => {
+        // The message is no longer inspected: only the structured detail counts.
         expect(
             isRetryableConflict(
                 new ThrownError({
@@ -22,11 +47,7 @@ describe("isRetryableConflict", () => {
                     kind: "Thrown",
                 }),
             ),
-        ).toBe(true);
-
-        expect(
-            isRetryableConflict(new ThrownError({ message: "CONFLICT detected", kind: "Thrown" })),
-        ).toBe(true);
+        ).toBe(false);
     });
 
     test("ignores unrelated server errors", () => {
@@ -95,7 +116,11 @@ describe("RetryContext", () => {
 describe("withRetry", () => {
     const fast = { enabled: true, retryDelay: 0, retryDelayMax: 0 };
     const conflict = () =>
-        new ThrownError({ message: "read or write conflict, can be retried", kind: "Thrown" });
+        new QueryError({
+            message: "Transaction conflict",
+            kind: "Query",
+            details: { kind: "TransactionConflict" },
+        });
 
     test("runs once when retry is disabled", async () => {
         let calls = 0;
@@ -104,7 +129,7 @@ describe("withRetry", () => {
                 calls++;
                 throw conflict();
             }),
-        ).rejects.toBeInstanceOf(ThrownError);
+        ).rejects.toBeInstanceOf(QueryError);
         expect(calls).toBe(1);
     });
 
@@ -144,7 +169,7 @@ describe("withRetry", () => {
                     retries++;
                 },
             ),
-        ).rejects.toBeInstanceOf(ThrownError);
+        ).rejects.toBeInstanceOf(QueryError);
         expect(calls).toBe(3); // initial + 2 retries
         expect(retries).toBe(2);
     });

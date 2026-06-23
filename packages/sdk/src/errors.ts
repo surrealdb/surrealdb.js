@@ -224,7 +224,8 @@ export type QueryErrorDetail =
               readonly duration: { readonly secs: number; readonly nanos: number };
           };
       }
-    | { readonly kind: "Cancelled" };
+    | { readonly kind: "Cancelled" }
+    | { readonly kind: "TransactionConflict" };
 
 /** Serialization error details. */
 export type SerializationErrorDetail =
@@ -391,6 +392,14 @@ export class QueryError extends ServerError {
     /** True if the query was cancelled. */
     get isCancelled(): boolean {
         return this.details?.kind === "Cancelled";
+    }
+
+    /**
+     * True if the query failed due to a transaction conflict (a concurrent
+     * transaction wrote to the same data). Such errors are safe to retry.
+     */
+    get isTransactionConflict(): boolean {
+        return this.details?.kind === "TransactionConflict";
     }
 
     /** The timeout duration, if this is a timeout error. Returns `{ secs, nanos }` or undefined. */

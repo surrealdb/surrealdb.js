@@ -4,8 +4,23 @@ import { createSurreal, requestVersion, SURREAL_PROTOCOL } from "./__helpers__";
 
 const { is3x } = await requestVersion();
 
+// These tests simulate conflicts with `THROW`, which surfaces a generic server error
+// rather than the structured `TransactionConflict` detail that the default predicate
+// matches. They therefore opt into a message-based `retryable` predicate — the same
+// custom-callback pattern documented for targeting servers older than 3.1.0.
+const messageRetryable = (error: unknown): boolean => {
+    if (!(error instanceof ServerError)) return false;
+    const message = error.message.toLowerCase();
+    return message.includes("conflict") || message.includes("can be retried");
+};
+
 // Fast retry options so tests don't spend real time backing off.
-const FAST_RETRY = { enabled: true, retryDelay: 1, retryDelayMax: 5 } as const;
+const FAST_RETRY = {
+    enabled: true,
+    retryDelay: 1,
+    retryDelayMax: 5,
+    retryable: messageRetryable,
+} as const;
 
 describe.if(is3x && (SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem"))(
     "retry",
