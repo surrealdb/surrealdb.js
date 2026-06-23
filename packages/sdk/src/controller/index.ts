@@ -547,13 +547,17 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         if (!payload || !payload.exp) return;
 
         const now = Math.floor(Date.now() / 1000);
-        const delay = Math.max(payload.exp - now - this.#expiryMargin, this.#expiryMargin) * 1000;
+        const remaining = Math.max(payload.exp - now, 0);
+        const delay = Math.min(
+            remaining,
+            Math.max(remaining - this.#expiryMargin, this.#expiryMargin),
+        );
 
         sessionState.authRenewal = setTimeout(() => {
             this.#applyAuthentication(session).catch((err) => {
                 this.#eventPublisher.publish("error", new AuthenticationError(err));
             });
-        }, delay);
+        }, delay * 1000);
     }
 
     async #abortAuthentication(session: Session): Promise<void> {
@@ -581,12 +585,13 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
             if (payload?.exp) {
                 const now = Math.floor(Date.now() / 1000);
-                const minimum = Math.max(
-                    payload.exp - now - this.#expiryMargin,
-                    this.#expiryMargin,
+                const remaining = Math.max(payload.exp - now, 0);
+                const renewalDelay = Math.min(
+                    remaining,
+                    Math.max(remaining - this.#expiryMargin, this.#expiryMargin),
                 );
 
-                if (payload.exp - now > minimum) {
+                if (remaining > renewalDelay) {
                     try {
                         await this.authenticate(sessionState.accessToken, session, true);
                         return;
