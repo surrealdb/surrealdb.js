@@ -194,11 +194,11 @@ export class Duration extends Value {
      * @returns -1 if this is shorter, 0 if equal, 1 if this is longer
      */
     compare(other: Duration): number {
-        if (this.#seconds < other.#seconds) return -1
-        if (this.#seconds > other.#seconds) return 1
-        if (this.#nanoseconds < other.#nanoseconds) return -1
-        if (this.#nanoseconds > other.#nanoseconds) return 1
-        return 0
+        if (this.#seconds < other.#seconds) return -1;
+        if (this.#seconds > other.#seconds) return 1;
+        if (this.#nanoseconds < other.#nanoseconds) return -1;
+        if (this.#nanoseconds > other.#nanoseconds) return 1;
+        return 0;
     }
 
     /**
