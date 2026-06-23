@@ -66,9 +66,9 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #status: ConnectionStatus = "disconnected";
     #authProvider: AuthProvider | undefined;
     #cachedVersion: string | undefined;
-
-    #skipRenewal = false;
-    #checkVersion = false;
+    #expiryMargin: number = 10;
+    #skipRenewal: boolean = false;
+    #checkVersion: boolean = false;
 
     subscribe<K extends keyof ConnectionEvents>(
         event: K,
@@ -118,6 +118,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#authProvider = options.authentication;
         this.#skipRenewal = options.invalidateOnExpiry ?? false;
         this.#checkVersion = options.versionCheck ?? true;
+        this.#expiryMargin = options.expiryMargin ?? 10;
         this.#state = {
             url,
             sessions: new Map(),
@@ -545,9 +546,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         if (!payload || !payload.exp) return;
 
-        // Renew 60 seconds before expiry
         const now = Math.floor(Date.now() / 1000);
-        const delay = Math.max((payload.exp - now - 60) * 1000, 0);
+        const delay = Math.max(payload.exp - now - this.#expiryMargin, this.#expiryMargin) * 1000;
 
         sessionState.authRenewal = setTimeout(() => {
             this.#applyAuthentication(session).catch((err) => {
@@ -581,9 +581,12 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
             if (payload?.exp) {
                 const now = Math.floor(Date.now() / 1000);
-                const isValid = payload.exp - now > 60;
+                const minimum = Math.max(
+                    payload.exp - now - this.#expiryMargin,
+                    this.#expiryMargin,
+                );
 
-                if (isValid) {
+                if (payload.exp - now > minimum) {
                     try {
                         await this.authenticate(sessionState.accessToken, session, true);
                         return;
