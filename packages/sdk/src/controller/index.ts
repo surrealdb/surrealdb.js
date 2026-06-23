@@ -66,7 +66,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #status: ConnectionStatus = "disconnected";
     #authProvider: AuthProvider | undefined;
     #cachedVersion: string | undefined;
-    #expiryMargin: number = 10;
+    #expiryMargin: number = 60;
     #skipRenewal: boolean = false;
     #checkVersion: boolean = false;
 
