@@ -270,7 +270,7 @@ export class DateTime extends Value {
      * Compares this DateTime with another
      *
      * @param other The DateTime to compare with
-     * @returns -1 if other is before, 0 if equal, 1 if other is after
+     * @returns -1 if other is after, 0 if equal, 1 if other is before
      */
     compare(other: DateTime): number {
         const a = this.nanoseconds;
