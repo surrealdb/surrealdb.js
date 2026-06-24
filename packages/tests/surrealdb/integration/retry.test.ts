@@ -57,6 +57,5 @@ describe.if(is3x && (SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem"))(
 
             expect(promise).rejects.toBeInstanceOf(ServerError);
         });
-
     },
 );
