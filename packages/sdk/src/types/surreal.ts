@@ -154,7 +154,7 @@ export interface ConnectOptions {
      * The amount of time in seconds before the expected expiry of the session token to attempt
      * a renewal or invalidation of the session.
      *
-     * @default 10
+     * @default 60
      */
     expiryMargin?: number;
     /**
