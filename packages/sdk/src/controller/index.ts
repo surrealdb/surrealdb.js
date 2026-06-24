@@ -124,7 +124,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             url,
             sessions: new Map(),
             reconnect: new ReconnectContext(options.reconnect),
-            retry: new RetryContext(options.retry).options,
+            retry: new RetryContext(options.retry),
             rootSession: {
                 ...this.#createSessionState(undefined),
                 namespace: options.namespace,
@@ -179,6 +179,12 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         if (!feature.supports(this.#cachedVersion)) {
             throw new UnavailableFeatureError(feature, this.#cachedVersion);
         }
+    }
+
+    public createRetry(): RetryContext {
+        if (!this.#state) throw new ConnectionUnavailableError();
+
+        return this.#state.retry.extend();
     }
 
     #instanceEngine(url: URL): SurrealEngine {

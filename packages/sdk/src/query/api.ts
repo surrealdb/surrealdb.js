@@ -149,6 +149,7 @@ export class ApiPromise<
             transaction,
             json,
             session,
+            retry: this.#connection.createRetry(),
             query: surql`api::invoke(${path}, ${{
                 body,
                 method,

@@ -12,7 +12,7 @@ interface QueryOptions {
     transaction: Uuid | undefined;
     session: Session;
     json: boolean;
-    retry?: RetryOptions;
+    retry: RetryContext;
 }
 
 type Collect<T extends unknown[], J extends boolean> = T extends []
@@ -84,11 +84,9 @@ export class Query<
      * @returns A new `Query` configured to retry on conflict.
      */
     retry(options: boolean | Partial<RetryOptions> = true): Query<R, J> {
-        const base = this.#connection.state?.retry;
-
         return new Query(this.#connection, {
             ...this.#options,
-            retry: new RetryContext(options, base).options,
+            retry: this.#options.retry.extend(options),
         });
     }
 

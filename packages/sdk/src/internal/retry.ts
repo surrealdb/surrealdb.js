@@ -44,22 +44,26 @@ export class RetryContext {
 
     readonly options: RetryOptions;
 
+    // Process options as passed by the user
+    constructor(input: undefined | Partial<RetryOptions> | boolean) {
+        const override = typeof input === "boolean" ? { enabled: input } : input;
+
+        this.options = {
+            ...DEFAULT_RETRY_OPTIONS,
+            ...override,
+        };
+    }
+
     /**
-     * @param input The per-call retry options, layered over the resolved `base`.
-     * @param base The resolved connection-wide default to fall back to.
+     * Create a new retry context with the given options layered over the current options.
      */
-    constructor(
-        input: undefined | Partial<RetryOptions> | boolean,
-        base: RetryOptions = DEFAULT_RETRY_OPTIONS,
-    ) {
-        if (input === undefined) {
-            this.options = base;
-        } else if (typeof input === "boolean") {
-            this.options = { ...base, enabled: input };
-        } else {
-            // Providing an explicit options object opts in to retry unless `enabled` says otherwise
-            this.options = { ...base, ...input, enabled: input.enabled ?? true };
-        }
+    extend(input?: Partial<RetryOptions> | boolean): RetryContext {
+        const override = typeof input === "boolean" ? { enabled: input } : input;
+
+        return new RetryContext({
+            ...this.options,
+            ...override,
+        });
     }
 
     get attempts(): number {

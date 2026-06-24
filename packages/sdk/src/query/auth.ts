@@ -73,6 +73,7 @@ export class AuthPromise<T, J extends boolean = false> extends DispatchedPromise
         const { transaction, session, json } = this.#options;
 
         return new Query(this.#connection, {
+            retry: this.#connection.createRetry(),
             query: new BoundQuery("SELECT * FROM ONLY $auth"),
             transaction,
             session,

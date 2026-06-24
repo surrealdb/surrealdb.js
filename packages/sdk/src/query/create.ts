@@ -3,7 +3,8 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { AnyRecordId, Mutation, Output, Patch, Session, Values } from "../types";
+import type { RetryContext } from "../internal/retry";
+import type { AnyRecordId, Mutation, Output, Patch, RetryOptions, Session, Values } from "../types";
 import { type BoundQuery, raw, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import { Query } from "./query";
@@ -17,6 +18,7 @@ interface CreateOptions {
     version?: DateTime;
     transaction: Uuid | undefined;
     session: Session;
+    retry: RetryContext;
     json: boolean;
 }
 
@@ -46,6 +48,33 @@ export class CreatePromise<T, I, J extends boolean = false> extends DispatchedPr
         return new CreatePromise<T, I, true>(this.#connection, {
             ...this.#options,
             json: true,
+        });
+    }
+
+    /**
+     * Configure the query to automatically retry when it fails due to a transaction conflict.
+     *
+     * Under concurrent load a query may fail because another transaction wrote to the same data.
+     * When retry is enabled, the entire query is re-sent with exponential backoff until it
+     * succeeds or the configured attempts are exhausted.
+     *
+     * **NOTE:** Retrying re-sends the full query. Only use this for queries that are safe to replay.
+     * Re-sending a non-atomic, multi-statement query may apply some statements more than once.
+     *
+     * @example
+     * ```ts
+     * const user = await db.create(new RecordId('users', 'john'))
+     *     .content({ name: 'John Doe' })
+     *     .retry();
+     * ```
+     *
+     * @param options Retry behavior. Defaults to enabling retry using the connection defaults.
+     * @returns A new `CreatePromise` configured to retry on conflict.
+     */
+    retry(options: boolean | Partial<RetryOptions> = true): CreatePromise<T, I, J> {
+        return new CreatePromise<T, I, J>(this.#connection, {
+            ...this.#options,
+            retry: this.#options.retry.extend(options),
         });
     }
 
@@ -130,8 +159,18 @@ export class CreatePromise<T, I, J extends boolean = false> extends DispatchedPr
     }
 
     #build(): Query<[T], J> {
-        const { what, data, transaction, session, json, output, timeout, version, mutation } =
-            this.#options;
+        const {
+            what,
+            data,
+            transaction,
+            session,
+            json,
+            output,
+            timeout,
+            version,
+            mutation,
+            retry,
+        } = this.#options;
 
         const query = surql`CREATE ${_only(what)}`;
 
@@ -152,6 +191,7 @@ export class CreatePromise<T, I, J extends boolean = false> extends DispatchedPr
         }
 
         return new Query(this.#connection, {
+            retry,
             query,
             transaction,
             json,

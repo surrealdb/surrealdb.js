@@ -98,6 +98,7 @@ export abstract class SurrealQueryable {
                     : new BoundQuery(query as string, bindings),
             transaction: this.#transaction,
             session: this.#session,
+            retry: this.#connection.createRetry(),
             json: false,
         });
     }
@@ -197,6 +198,7 @@ export abstract class SurrealQueryable {
             what,
             transaction: this.#transaction,
             session: this.#session,
+            retry: this.#connection.createRetry(),
             json: false,
         });
     }
@@ -245,6 +247,7 @@ export abstract class SurrealQueryable {
             data,
             transaction: this.#transaction,
             session: this.#session,
+            retry: this.#connection.createRetry(),
             json: false,
         });
     }
@@ -272,6 +275,7 @@ export abstract class SurrealQueryable {
                 what: arg2 ?? [],
                 transaction: this.#transaction,
                 session: this.#session,
+                retry: this.#connection.createRetry(),
                 json: false,
             });
         }
@@ -281,6 +285,7 @@ export abstract class SurrealQueryable {
             what: arg1,
             transaction: this.#transaction,
             session: this.#session,
+            retry: this.#connection.createRetry(),
             json: false,
         });
     }
@@ -312,6 +317,7 @@ export abstract class SurrealQueryable {
             what,
             transaction: this.#transaction,
             session: this.#session,
+            retry: this.#connection.createRetry(),
             json: false,
         });
     }
@@ -352,6 +358,7 @@ export abstract class SurrealQueryable {
             what,
             transaction: this.#transaction,
             session: this.#session,
+            retry: this.#connection.createRetry(),
             json: false,
         });
     }
@@ -384,6 +391,7 @@ export abstract class SurrealQueryable {
             output: "before",
             transaction: this.#transaction,
             session: this.#session,
+            retry: this.#connection.createRetry(),
             json: false,
         });
     }
@@ -414,6 +422,7 @@ export abstract class SurrealQueryable {
                 args: arg3 ?? [],
                 transaction: this.#transaction,
                 session: this.#session,
+                retry: this.#connection.createRetry(),
                 json: false,
             });
         }
@@ -424,6 +433,7 @@ export abstract class SurrealQueryable {
             args: arg2 ?? [],
             transaction: this.#transaction,
             session: this.#session,
+            retry: this.#connection.createRetry(),
             json: false,
         });
     }

@@ -9,6 +9,7 @@ import type {
 import type { ServerError } from "../errors";
 import type { Feature } from "../internal/feature";
 import type { ReconnectContext } from "../internal/reconnect";
+import type { RetryContext } from "../internal/retry";
 import type { BoundQuery } from "../utils";
 import type { AccessRecordAuth, AnyAuth, AuthProvider, Token, Tokens } from "./auth";
 import type { Nullable } from "./helpers";
@@ -276,7 +277,7 @@ export interface ConnectionSession {
 export interface ConnectionState {
     url: URL;
     reconnect: ReconnectContext;
-    retry: RetryOptions;
+    retry: RetryContext;
     rootSession: ConnectionSession;
     sessions: Map<Uuid, ConnectionSession>;
 }

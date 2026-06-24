@@ -3,7 +3,8 @@ import type { ConnectionController } from "../controller";
 import { ExpressionError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Session } from "../types";
+import type { RetryContext } from "../internal/retry";
+import type { RetryOptions, Session } from "../types";
 import { BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import { Query } from "./query";
@@ -17,6 +18,7 @@ interface RunOptions {
     args: unknown[];
     transaction: Uuid | undefined;
     session: Session;
+    retry: RetryContext;
     json: boolean;
 }
 
@@ -50,6 +52,31 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
     }
 
     /**
+     * Configure the query to automatically retry when it fails due to a transaction conflict.
+     *
+     * Under concurrent load a query may fail because another transaction wrote to the same data.
+     * When retry is enabled, the entire query is re-sent with exponential backoff until it
+     * succeeds or the configured attempts are exhausted.
+     *
+     * **NOTE:** Retrying re-sends the full query. Only use this for queries that are safe to replay.
+     * Re-sending a non-atomic, multi-statement query may apply some statements more than once.
+     *
+     * @example
+     * ```ts
+     * const result = await db.run('my::function', [arg]).retry();
+     * ```
+     *
+     * @param options Retry behavior. Defaults to enabling retry using the connection defaults.
+     * @returns A new `RunPromise` configured to retry on conflict.
+     */
+    retry(options: boolean | Partial<RetryOptions> = true): RunPromise<T, J> {
+        return new RunPromise<T, J>(this.#connection, {
+            ...this.#options,
+            retry: this.#options.retry.extend(options),
+        });
+    }
+
+    /**
      * Compile this qurery into a BoundQuery
      */
     compile(): BoundQuery<[T]> {
@@ -77,7 +104,7 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
     }
 
     #build(): Query<[T], J> {
-        const { name, version, args, transaction, session, json } = this.#options;
+        const { name, version, args, transaction, session, json, retry } = this.#options;
 
         if (!NAME_REGEX.test(name)) {
             throw new ExpressionError("Invalid function name");
@@ -102,6 +129,7 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
         query.append(")");
 
         return new Query(this.#connection, {
+            retry,
             query,
             transaction,
             json,
