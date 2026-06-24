@@ -18,16 +18,12 @@ export class ReconnectContext {
 
     // Process options as passed by the user
     constructor(input: undefined | Partial<ReconnectOptions> | boolean) {
-        if (!input) {
-            this.options = DEFAULT_RECONNECT_OPTIONS;
-        } else if (input === true) {
-            this.options = DEFAULT_RECONNECT_OPTIONS;
-        } else {
-            this.options = {
-                ...DEFAULT_RECONNECT_OPTIONS,
-                ...input,
-            };
-        }
+        const override = typeof input === "boolean" ? { enabled: input } : input;
+
+        this.options = {
+            ...DEFAULT_RECONNECT_OPTIONS,
+            ...override,
+        };
     }
 
     get attempts(): number {
