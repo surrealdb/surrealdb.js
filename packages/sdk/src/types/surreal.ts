@@ -152,7 +152,8 @@ export interface ConnectOptions {
     invalidateOnExpiry?: boolean;
     /**
      * The amount of time in seconds before the expected expiry of the session token to attempt
-     * a renewal or invalidation of the session.
+     * a renewal or invalidation of the session. When the session duration is shorter than the
+     * expiry margin, the margin is skipped and the token expiry is used as the delay.
      *
      * @default 60
      */
