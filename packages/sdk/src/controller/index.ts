@@ -118,7 +118,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#authProvider = options.authentication;
         this.#skipRenewal = options.invalidateOnExpiry ?? false;
         this.#checkVersion = options.versionCheck ?? true;
-        this.#expiryMargin = options.expiryMargin ?? 10;
+        this.#expiryMargin = options.expiryMargin ?? 60;
         this.#state = {
             url,
             sessions: new Map(),
