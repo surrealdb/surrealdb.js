@@ -104,36 +104,29 @@ export class RetryContext {
         // Wait for the next iteration
         await new Promise<void>((r) => setTimeout(r, nextDelay));
     }
-}
 
-/**
- * Execute `fn`, retrying it on retryable conflict errors according to the provided context.
- *
- * When retry is disabled the function is executed exactly once. On a retryable error, the
- * context backs off and retries until its attempts are exhausted, at which point the last
- * error is rethrown. Non-retryable errors are rethrown immediately.
- *
- * @param ctx A fresh retry context for this loop.
- * @param fn The work to execute. Receives the zero-based attempt number.
- * @param onRetry Optional hook invoked with the caught error before each backoff, e.g. to clean up.
- */
-export async function withRetry<T>(
-    ctx: RetryContext,
-    fn: (attempt: number) => Promise<T>,
-    onRetry?: (error: unknown) => void | Promise<void>,
-): Promise<T> {
-    const retryable = ctx.retryable;
+    /**
+     * Execute `fn`, retrying it on retryable conflict errors.
+     *
+     * When retry is disabled the function is executed exactly once. On a retryable error, the
+     * context backs off and retries until its attempts are exhausted, at which point the last
+     * error is rethrown. Non-retryable errors are rethrown immediately.
+     *
+     * @param fn The work to execute. Receives the zero-based attempt number.
+     */
+    async run<T>(fn: (attempt: number) => Promise<T>): Promise<T> {
+        const retryable = this.retryable;
 
-    for (;;) {
-        try {
-            return await fn(ctx.attempts);
-        } catch (error) {
-            if (!ctx.enabled || !retryable(error) || !ctx.allowed) {
-                throw error;
+        for (;;) {
+            try {
+                return await fn(this.#attempts);
+            } catch (error) {
+                if (!this.enabled || !retryable(error) || !this.allowed) {
+                    throw error;
+                }
+
+                await this.iterate();
             }
-
-            await onRetry?.(error);
-            await ctx.iterate();
         }
     }
 }

@@ -2,7 +2,7 @@ import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
-import { RetryContext, withRetry } from "../internal/retry";
+import { RetryContext } from "../internal/retry";
 import type { QueryResponse, RetryOptions, Session } from "../types";
 import type { BoundQuery } from "../utils";
 import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../utils/frame";
@@ -113,7 +113,7 @@ export class Query<
 
         const retry = new RetryContext(this.#options.retry);
 
-        return withRetry(retry, async () => {
+        return retry.run(async () => {
             const { query, transaction, session, json } = this.#options;
             const chunks = this.#connection.query(query, session, transaction);
             const responses: unknown[] = [];

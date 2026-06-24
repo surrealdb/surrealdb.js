@@ -1,11 +1,9 @@
 import type { ConnectionController } from "../controller";
-import { RetryContext, withRetry } from "../internal/retry";
 import type {
     AccessRecordAuth,
     AnyAuth,
     NamespaceDatabase,
     Nullable,
-    RetryOptions,
     Session,
     Token,
     Tokens,
@@ -164,56 +162,6 @@ export class SurrealSession extends SurrealQueryable {
     async beginTransaction(): Promise<SurrealTransaction> {
         const transactionId = await this.#connection.begin(this.#session);
         return new SurrealTransaction(this.#connection, this.#session, transactionId);
-    }
-
-    /**
-     * Run a unit of work inside a transaction, automatically retrying it on a transaction conflict.
-     *
-     * The provided callback receives a fresh transaction. When it resolves, the transaction is
-     * committed and its return value is returned. If the callback throws or the commit fails due
-     * to a conflict, the transaction is cancelled and the entire callback is replayed with
-     * exponential backoff, until it succeeds or the configured attempts are exhausted.
-     *
-     * Because the callback may run more than once, it must be safe to re-execute (idempotent in
-     * its side effects outside the transaction).
-     *
-     * Retry is opt-in: it is only performed when enabled, either through the connection-wide
-     * `retry` option or the `options` argument here. When retry is disabled the callback runs
-     * once and conflicts are surfaced as-is.
-     *
-     * @example
-     * ```ts
-     * const balance = await db.transaction(async (tx) => {
-     *     await tx.query("UPDATE account:a SET balance -= 10");
-     *     const [acc] = await tx.query<[Account]>("UPDATE account:b SET balance += 10");
-     *     return acc.balance;
-     * }, { enabled: true });
-     * ```
-     *
-     * @param fn The unit of work to run within the transaction.
-     * @param options Retry behavior. Defaults to the connection-wide retry configuration.
-     * @returns The value returned by the callback once the transaction commits successfully.
-     */
-    async transaction<T>(
-        fn: (tx: SurrealTransaction) => Promise<T>,
-        options?: boolean | Partial<RetryOptions>,
-    ): Promise<T> {
-        const retry = new RetryContext(options, this.#connection.state?.retry);
-
-        return withRetry(retry, async () => {
-            const tx = await this.beginTransaction();
-
-            try {
-                const result = await fn(tx);
-                await tx.commit();
-                return result;
-            } catch (error) {
-                // Discard the failed transaction; it may already be rolled back server-side,
-                // so any error from cancelling is ignored in favor of the original error.
-                await tx.cancel().catch(() => {});
-                throw error;
-            }
-        });
     }
 
     // =========================================================== //

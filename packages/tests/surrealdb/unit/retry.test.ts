@@ -5,7 +5,6 @@ import {
     DEFAULT_RETRY_OPTIONS,
     isRetryableConflict,
     RetryContext,
-    withRetry,
 } from "../../../sdk/src/internal/retry";
 
 test("isRetryableConflict is exported from the package root", () => {
@@ -113,7 +112,7 @@ describe("RetryContext", () => {
     });
 });
 
-describe("withRetry", () => {
+describe("RetryContext.run", () => {
     const fast = { enabled: true, retryDelay: 0, retryDelayMax: 0 };
     const conflict = () =>
         new QueryError({
@@ -125,7 +124,7 @@ describe("withRetry", () => {
     test("runs once when retry is disabled", async () => {
         let calls = 0;
         await expect(
-            withRetry(new RetryContext(false), async () => {
+            new RetryContext(false).run(async () => {
                 calls++;
                 throw conflict();
             }),
@@ -135,7 +134,7 @@ describe("withRetry", () => {
 
     test("retries retryable errors until success", async () => {
         let calls = 0;
-        const result = await withRetry(new RetryContext(fast), async () => {
+        const result = await new RetryContext(fast).run(async () => {
             calls++;
             if (calls < 3) throw conflict();
             return "ok";
@@ -147,7 +146,7 @@ describe("withRetry", () => {
     test("does not retry non-retryable errors", async () => {
         let calls = 0;
         await expect(
-            withRetry(new RetryContext(fast), async () => {
+            new RetryContext(fast).run(async () => {
                 calls++;
                 throw new ValidationError({ message: "nope", kind: "Validation" });
             }),
@@ -155,35 +154,24 @@ describe("withRetry", () => {
         expect(calls).toBe(1);
     });
 
-    test("rethrows after exhausting attempts and fires onRetry", async () => {
+    test("rethrows after exhausting attempts", async () => {
         let calls = 0;
-        let retries = 0;
         await expect(
-            withRetry(
-                new RetryContext({ ...fast, attempts: 2 }),
-                async () => {
-                    calls++;
-                    throw conflict();
-                },
-                () => {
-                    retries++;
-                },
-            ),
+            new RetryContext({ ...fast, attempts: 2 }).run(async () => {
+                calls++;
+                throw conflict();
+            }),
         ).rejects.toBeInstanceOf(QueryError);
         expect(calls).toBe(3); // initial + 2 retries
-        expect(retries).toBe(2);
     });
 
     test("honors a custom retryable predicate", async () => {
         let calls = 0;
-        const result = await withRetry(
-            new RetryContext({ ...fast, retryable: () => true }),
-            async () => {
-                calls++;
-                if (calls < 2) throw new Error("anything");
-                return "done";
-            },
-        );
+        const result = await new RetryContext({ ...fast, retryable: () => true }).run(async () => {
+            calls++;
+            if (calls < 2) throw new Error("anything");
+            return "done";
+        });
         expect(result).toBe("done");
         expect(calls).toBe(2);
     });
