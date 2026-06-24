@@ -4,14 +4,8 @@
     <img width=120 src="https://raw.githubusercontent.com/surrealdb/icons/main/surreal.svg" />
 </p>
 
-<div id="toc">
-    <ul align="center" style="list-style: none;">
-        <summary>
-            <h1 align="center">SurrealDB JavaScript SDK</h1><br/>
-            <p align="center">Connect to remote and embedded SurrealDB instances</p>
-        </summary>
-    </ul>
-</div>
+<h1 align="center">SurrealDB JavaScript SDK</h1><br/>
+<p align="center">Connect to remote and embedded SurrealDB instances</p>
 
 <br>
 
@@ -316,6 +310,18 @@ bun add @surrealdb/spectron
 
 See the [Spectron client readme](./packages/spectron/README.md) for usage, errors, retries, and publishing notes.
 
+## SQON library
+
+<img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/javascript.svg" />
+
+**SQON** (SurrealQL Object Notation) is the value type and codec layer for SurrealDB's JavaScript ecosystem. The **`@surrealdb/sqon`** package provides typed value classes (`RecordId`, `DateTime`, `Decimal`, and more), CBOR and JSON codecs, and core utilities such as `equals` and `jsonify`. The full `surrealdb` SDK re-exports everything from SQON for convenience.
+
+```sh
+bun add @surrealdb/sqon
+```
+
+See the [SQON readme](./packages/sqon/README.md) for installation, codec usage, and when to install the package directly.
+
 ## Contributing
 
 ### Local setup
@@ -384,6 +390,7 @@ for VSCode are helpful.
 - `./biome.json` contains settings for code quality.
 - `./scripts` contains the build and publish scripts.
 - `./packages/sdk` contains the JavaScript SDK source code.
+- `./packages/sqon` contains the SQON value types and codecs source code.
 - `./packages/spectron` contains the Spectron client source code.
 - `./packages/node` contains the Node.js SDK source code.
 - `./packages/wasm` contains the WebAssembly SDK source code.
