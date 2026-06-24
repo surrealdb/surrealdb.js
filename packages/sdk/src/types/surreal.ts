@@ -151,6 +151,14 @@ export interface ConnectOptions {
      */
     invalidateOnExpiry?: boolean;
     /**
+     * The amount of time in seconds before the expected expiry of the session token to attempt
+     * a renewal or invalidation of the session. When the session duration is shorter than the
+     * expiry margin, the margin is skipped and the token expiry is used as the delay.
+     *
+     * @default 60
+     */
+    expiryMargin?: number;
+    /**
      * Configure reconnect behavior for supported engines (WebSocket).
      *
      * - When set to `false`, the driver will remain disconnected after a connection is lost.
