@@ -65,6 +65,7 @@ const CODE_TO_KIND: Record<number, string> = {
     [-32003]: "Query",
     [-32004]: "Query",
     [-32005]: "Query",
+    [-32009]: "Query",
     [-32006]: "Thrown",
     [-32007]: "Serialization",
     [-32008]: "Serialization",

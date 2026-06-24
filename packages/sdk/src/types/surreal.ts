@@ -24,6 +24,7 @@ export type Codecs = { [K in keyof CodecRegistry]?: (options: CodecOptions) => C
 export type Engines = Record<string, EngineFactory>;
 export type DataStream = string | ReadableStream;
 export type QueryType = "live" | "kill" | "other";
+export type RetryValue = boolean | Partial<RetryOptions>;
 
 /**
  * The registry of codecs supported by the SDK.
@@ -151,6 +152,14 @@ export interface ConnectOptions {
      */
     invalidateOnExpiry?: boolean;
     /**
+     * The amount of time in seconds before the expected expiry of the session token to attempt
+     * a renewal or invalidation of the session. When the session duration is shorter than the
+     * expiry margin, the margin is skipped and the token expiry is used as the delay.
+     *
+     * @default 60
+     */
+    expiryMargin?: number;
+    /**
      * Configure reconnect behavior for supported engines (WebSocket).
      *
      * - When set to `false`, the driver will remain disconnected after a connection is lost.
@@ -160,6 +169,26 @@ export interface ConnectOptions {
      * @default true
      */
     reconnect?: boolean | Partial<ReconnectOptions>;
+    /**
+     * Configure the default retry behavior used to automatically replay work that fails due
+     * to a transaction conflict under concurrent load.
+     *
+     * This default is used by the `transaction()` helper and by queries marked with `.retry()`.
+     * It is disabled by default; auto-retrying must be opted into explicitly because replaying
+     * a non-atomic, multi-statement query could apply some statements more than once.
+     *
+     * - When set to `false` (the default), no work is retried automatically.
+     * - When set to `true`, retry is enabled using default options.
+     * - When set to an object, retry is enabled using the provided options.
+     *
+     * @remarks
+     * Automatic retry is supported by this SDK from **v2.1.0**. Conflict detection relies on
+     * the structured `TransactionConflict` error introduced in **SurrealDB 3.1.0**; against
+     * older servers, supply a custom {@link RetryOptions.retryable} predicate.
+     *
+     * @default false
+     */
+    retry?: boolean | Partial<RetryOptions>;
 }
 
 /**
@@ -182,6 +211,55 @@ export interface ReconnectOptions {
     catch?: (error: Error) => boolean;
 }
 
+/**
+ * Options to configure automatic retry behavior for transaction conflicts.
+ *
+ * @remarks
+ * Supported by this SDK from **v2.1.0**. By default, retries are triggered only by the
+ * structured `TransactionConflict` error emitted by **SurrealDB 3.1.0 and later**. To
+ * customize what counts as retryable (for example, to support older servers), provide a
+ * {@link RetryOptions.retryable} predicate.
+ */
+export interface RetryOptions {
+    /** Whether retry is enabled. When `false`, work is executed once and conflicts are surfaced as-is */
+    enabled: boolean;
+    /** How many attempts will be made at retrying, -1 for unlimited */
+    attempts: number;
+    /** The minimum amount of time in milliseconds to wait before retrying */
+    retryDelay: number;
+    /** The maximum amount of time in milliseconds to wait before retrying */
+    retryDelayMax: number;
+    /** The amount to multiply the delay by after each failed attempt */
+    retryDelayMultiplier: number;
+    /** A float percentage to randomly offset each delay by */
+    retryDelayJitter: number;
+    /**
+     * Decide whether a caught error should trigger a retry.
+     *
+     * Defaults to {@link isRetryableConflict}, which matches the structured
+     * `TransactionConflict` error emitted by SurrealDB 3.1.0+. Provide your own predicate to
+     * override or extend this — for example, to retry on additional error kinds, or to detect
+     * conflicts reported by an older server that does not emit the structured error.
+     *
+     * The predicate receives the thrown error and returns `true` to retry it. It fully
+     * replaces the default check when provided.
+     *
+     * @example Match conflicts by message (e.g. for servers older than 3.1.0)
+     * ```ts
+     * const db = new Surreal({
+     *     retry: {
+     *         retryable: (error) => {
+     *             if (!(error instanceof ServerError)) return false;
+     *             const message = error.message.toLowerCase();
+     *             return message.includes("conflict") || message.includes("can be retried");
+     *         },
+     *     },
+     * });
+     * ```
+     */
+    retryable?: (error: unknown) => boolean;
+}
+
 export interface ConnectionSession {
     id: Session;
     namespace: string | undefined;
@@ -199,6 +277,7 @@ export interface ConnectionSession {
 export interface ConnectionState {
     url: URL;
     reconnect: ReconnectContext;
+    retry: RetryOptions;
     rootSession: ConnectionSession;
     sessions: Map<Uuid, ConnectionSession>;
 }

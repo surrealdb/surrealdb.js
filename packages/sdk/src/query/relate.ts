@@ -4,7 +4,7 @@ import { SurrealError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { AnyRecordId, Output, Session } from "../types";
+import type { AnyRecordId, Output, RetryValue, Session } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import { Query } from "./query";
@@ -20,6 +20,7 @@ interface RelateOptions {
     data?: unknown;
     transaction: Uuid | undefined;
     session: Session;
+    retry?: RetryValue;
     json: boolean;
 }
 
@@ -49,6 +50,31 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
         return new RelatePromise<T, true>(this.#connection, {
             ...this.#options,
             json: true,
+        });
+    }
+
+    /**
+     * Configure the query to automatically retry when it fails due to a transaction conflict.
+     *
+     * Under concurrent load a query may fail because another transaction wrote to the same data.
+     * When retry is enabled, the entire query is re-sent with exponential backoff until it
+     * succeeds or the configured attempts are exhausted.
+     *
+     * **NOTE:** Retrying re-sends the full query. Only use this for queries that are safe to replay.
+     * Re-sending a non-atomic, multi-statement query may apply some statements more than once.
+     *
+     * @example
+     * ```ts
+     * await db.relate(from, 'likes', to).retry();
+     * ```
+     *
+     * @param options Retry behavior. Defaults to enabling retry using the connection defaults.
+     * @returns A new `RelatePromise` configured to retry on conflict.
+     */
+    retry(options: RetryValue = true): RelatePromise<T, J> {
+        return new RelatePromise<T, J>(this.#connection, {
+            ...this.#options,
+            retry: options,
         });
     }
 
@@ -121,8 +147,19 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
     }
 
     #build(): Query<[T], J> {
-        const { from, what, to, data, transaction, session, json, output, timeout, version } =
-            this.#options;
+        const {
+            from,
+            what,
+            to,
+            data,
+            transaction,
+            session,
+            json,
+            output,
+            timeout,
+            version,
+            retry,
+        } = this.#options;
 
         const isMultiple = Array.isArray(from) || Array.isArray(to);
 
@@ -155,6 +192,7 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
         }
 
         return new Query(this.#connection, {
+            retry,
             query,
             transaction,
             json,

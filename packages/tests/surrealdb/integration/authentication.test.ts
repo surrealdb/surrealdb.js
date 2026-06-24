@@ -129,24 +129,48 @@ describe.skipIf(!isRemote)("record auth", async () => {
 });
 
 describe.skipIf(!isRemote)("session renewal", async () => {
+    beforeEach(async () => {
+        const surreal = await createSurreal();
+
+        if (is3x) {
+            await surreal.query(/* surql */ `
+                DEFINE USER IF NOT EXISTS renewal_test ON ROOT PASSWORD 'test' ROLES OWNER DURATION FOR TOKEN 2s;
+                DEFINE ACCESS IF NOT EXISTS renewal_user ON DATABASE TYPE RECORD
+                    SIGNUP ( CREATE type::record('user', $id) )
+                    SIGNIN ( SELECT * FROM type::record('user', $id) )
+                    DURATION FOR TOKEN 2s;
+            `);
+        } else {
+            await surreal.query(/* surql */ `
+                DEFINE USER IF NOT EXISTS renewal_test ON ROOT PASSWORD 'test' ROLES OWNER DURATION FOR TOKEN 2s;
+                DEFINE ACCESS IF NOT EXISTS renewal_user ON DATABASE TYPE RECORD
+                    SIGNUP ( CREATE type::thing('user', $id) )
+                    SIGNIN ( SELECT * FROM type::thing('user', $id) )
+                    DURATION FOR TOKEN 2s;
+            `);
+        }
+
+        await surreal.close();
+    });
+
     test("basic", async () => {
         const { connect } = await createIdleSurreal({
             auth: "none",
         });
 
         const authentication = mock(() => ({
-            username: "test",
+            username: "renewal_test",
             password: "test",
         }));
 
         await connect({
             authentication,
+            expiryMargin: 1,
         });
 
-        // Wait at least 1s for token to renew
+        // 2s token with 1s expiry margin schedules renewal after 1s
         await Bun.sleep(1500);
 
-        // Should be called twice in this timeframe
         expect(authentication).toBeCalledTimes(2);
     });
 
@@ -161,17 +185,17 @@ describe.skipIf(!isRemote)("session renewal", async () => {
 
         await connect({
             invalidateOnExpiry: true,
+            expiryMargin: 1,
         });
 
         await surreal.signup({
-            access: "user",
+            access: "renewal_user",
             variables: { id: 456 },
         });
 
-        // Wait at least 1s for token to renew
+        // 2s token with 1s expiry margin schedules invalidation after 1s
         await Bun.sleep(1500);
 
-        // One authentication, one renewal
         expect(handleAuth).toBeCalledTimes(2);
     });
 

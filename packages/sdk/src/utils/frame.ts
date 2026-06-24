@@ -35,21 +35,21 @@ export class Frame<T, J extends boolean> {
     /**
      * Returns true if the frame is a value frame
      */
-    isValue(): this is ValueFrame<T, J> {
+    isValue<V = T>(): this is ValueFrame<V, J> {
         return this instanceof ValueFrame;
     }
 
     /**
      * Returns true if the frame is an error frame
      */
-    isError(): this is ErrorFrame<T, J> {
+    isError<V = T>(): this is ErrorFrame<V, J> {
         return this instanceof ErrorFrame;
     }
 
     /**
      * Returns true if the frame is a done frame
      */
-    isDone(): this is DoneFrame<T, J> {
+    isDone<V = T>(): this is DoneFrame<V, J> {
         return this instanceof DoneFrame;
     }
 

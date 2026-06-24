@@ -10,6 +10,7 @@ import type {
     Mutation,
     Output,
     Patch,
+    RetryValue,
     Session,
     Values,
 } from "../types";
@@ -26,6 +27,7 @@ interface UpdateOptions {
     timeout?: Duration;
     transaction: Uuid | undefined;
     session: Session;
+    retry?: RetryValue;
     json: boolean;
 }
 
@@ -55,6 +57,33 @@ export class UpdatePromise<T, I, J extends boolean = false> extends DispatchedPr
         return new UpdatePromise<T, I, true>(this.#connection, {
             ...this.#options,
             json: true,
+        });
+    }
+
+    /**
+     * Configure the query to automatically retry when it fails due to a transaction conflict.
+     *
+     * Under concurrent load a query may fail because another transaction wrote to the same data.
+     * When retry is enabled, the entire query is re-sent with exponential backoff until it
+     * succeeds or the configured attempts are exhausted.
+     *
+     * **NOTE:** Retrying re-sends the full query. Only use this for queries that are safe to replay.
+     * Re-sending a non-atomic, multi-statement query may apply some statements more than once.
+     *
+     * @example
+     * ```ts
+     * const user = await db.update(new RecordId('users', 'john'))
+     *     .content({ name: 'John Doe' })
+     *     .retry();
+     * ```
+     *
+     * @param options Retry behavior. Defaults to enabling retry using the connection defaults.
+     * @returns A new `UpdatePromise` configured to retry on conflict.
+     */
+    retry(options: RetryValue = true): UpdatePromise<T, I, J> {
+        return new UpdatePromise<T, I, J>(this.#connection, {
+            ...this.#options,
+            retry: options,
         });
     }
 
@@ -165,7 +194,7 @@ export class UpdatePromise<T, I, J extends boolean = false> extends DispatchedPr
     }
 
     #build(): Query<[T], J> {
-        const { what, data, transaction, session, json, cond, output, timeout, mutation } =
+        const { what, data, transaction, session, json, cond, output, timeout, mutation, retry } =
             this.#options;
 
         const query = surql`UPDATE ${_only(what)}`;
@@ -187,6 +216,7 @@ export class UpdatePromise<T, I, J extends boolean = false> extends DispatchedPr
         }
 
         return new Query(this.#connection, {
+            retry,
             query,
             transaction,
             json,
