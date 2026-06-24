@@ -252,6 +252,8 @@ esbuild: {
 }
 ```
 
+See the [WebAssembly engine readme](https://github.com/surrealdb/surrealdb.js/blob/main/packages/wasm/README.md) for worker setup, Vite configuration, and package details.
+
 ##  Embedding SurrealDB in Node.js, Deno, and Bun
 
 <img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/nodejs.svg" />
@@ -298,17 +300,7 @@ await db.connect("surrealkv://path/to/storage.db");
 await db.connect("surrealkv+versioned://path/to/storage.db");
 ```
 
-## Spectron client
-
-<img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/surreal.svg" />
-
-**Spectron** is the managed memory and knowledge layer for AI apps. The **`@surrealdb/spectron`** package is a typed HTTP client for its public API (sessions, memory, knowledge, traces)—independent of the SurrealDB database SDK.
-
-```sh
-bun add @surrealdb/spectron
-```
-
-See the [Spectron client readme](./packages/spectron/README.md) for usage, errors, retries, and publishing notes.
+See the [Node.js engine readme](https://github.com/surrealdb/surrealdb.js/blob/main/packages/node/README.md) for connection options, storage backends, and shutdown behaviour.
 
 ## SQON library
 
@@ -320,7 +312,19 @@ See the [Spectron client readme](./packages/spectron/README.md) for usage, error
 bun add @surrealdb/sqon
 ```
 
-See the [SQON readme](./packages/sqon/README.md) for installation, codec usage, and when to install the package directly.
+See the [SQON readme](https://github.com/surrealdb/surrealdb.js/blob/main/packages/sqon/README.md) for installation, codec usage, and when to install the package directly.
+
+## Spectron client
+
+<img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/surreal.svg" />
+
+**Spectron** is the managed memory and knowledge layer for AI apps. The **`@surrealdb/spectron`** package is a typed HTTP client for interacting with the Spectron API (sessions, memory, knowledge, traces).
+
+```sh
+bun add @surrealdb/spectron
+```
+
+See the [Spectron client readme](https://github.com/surrealdb/surrealdb.js/blob/main/packages/spectron/README.md) for usage, errors, retries, and publishing notes.
 
 ## Contributing
 
