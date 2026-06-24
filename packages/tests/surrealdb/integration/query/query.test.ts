@@ -81,14 +81,14 @@ describe("query()", async () => {
 
     test("stream single result query", async () => {
         const surreal = await createSurreal();
-        const stream = surreal.query(`RETURN { foo: "bar" }`).stream();
+        const stream = surreal.query(`RETURN { foo: "bar" }`).stream<{ foo: string }>();
 
         let valueCount = 0;
         let doneCount = 0;
         let errorCount = 0;
 
         for await (const frame of stream) {
-            if (frame.isValue<{ foo: string }>() && frame.isSingle) {
+            if (frame.isValue() && frame.isSingle) {
                 expect(frame.value.foo).toEqual("bar");
                 valueCount++;
             } else if (frame.isDone()) {

@@ -3,7 +3,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Output, Session } from "../types";
+import type { Output, RetryValue, Session } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import { Query } from "./query";
@@ -18,6 +18,7 @@ interface InsertOptions {
     version?: DateTime;
     transaction: Uuid | undefined;
     session: Session;
+    retry?: RetryValue;
     json: boolean;
 }
 
@@ -47,6 +48,31 @@ export class InsertPromise<T, J extends boolean = false> extends DispatchedPromi
         return new InsertPromise<T, true>(this.#connection, {
             ...this.#options,
             json: true,
+        });
+    }
+
+    /**
+     * Configure the query to automatically retry when it fails due to a transaction conflict.
+     *
+     * Under concurrent load a query may fail because another transaction wrote to the same data.
+     * When retry is enabled, the entire query is re-sent with exponential backoff until it
+     * succeeds or the configured attempts are exhausted.
+     *
+     * **NOTE:** Retrying re-sends the full query. Only use this for queries that are safe to replay.
+     * Re-sending a non-atomic, multi-statement query may apply some statements more than once.
+     *
+     * @example
+     * ```ts
+     * await db.insert({ name: 'John Doe' }).retry();
+     * ```
+     *
+     * @param options Retry behavior. Defaults to enabling retry using the connection defaults.
+     * @returns A new `InsertPromise` configured to retry on conflict.
+     */
+    retry(options: RetryValue = true): InsertPromise<T, J> {
+        return new InsertPromise<T, J>(this.#connection, {
+            ...this.#options,
+            retry: options,
         });
     }
 
@@ -140,6 +166,7 @@ export class InsertPromise<T, J extends boolean = false> extends DispatchedPromi
             version,
             relation,
             ignore,
+            retry,
         } = this.#options;
 
         const query = surql`INSERT`;
@@ -171,6 +198,7 @@ export class InsertPromise<T, J extends boolean = false> extends DispatchedPromi
         }
 
         return new Query(this.#connection, {
+            retry,
             query,
             transaction,
             json,

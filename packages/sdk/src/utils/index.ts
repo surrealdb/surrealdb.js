@@ -1,3 +1,4 @@
+export { isRetryableConflict } from "../internal/retry";
 export * from "./bound-query";
 export * from "./channel-iterator";
 export * from "./expr";

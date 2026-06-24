@@ -14,6 +14,7 @@ import {
 import type { Feature } from "../internal/feature";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { ReconnectContext } from "../internal/reconnect";
+import { RetryContext } from "../internal/retry";
 import { fastParseJwt } from "../internal/tokens";
 import type {
     AccessRecordAuth,
@@ -30,6 +31,7 @@ import type {
     NamespaceDatabase,
     Nullable,
     QueryChunk,
+    RetryOptions,
     Session,
     SqlExportOptions,
     SurrealEngine,
@@ -123,6 +125,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             url,
             sessions: new Map(),
             reconnect: new ReconnectContext(options.reconnect),
+            retry: RetryContext.mergeOptions(options.retry),
             rootSession: {
                 ...this.#createSessionState(undefined),
                 namespace: options.namespace,
@@ -177,6 +180,12 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         if (!feature.supports(this.#cachedVersion)) {
             throw new UnavailableFeatureError(feature, this.#cachedVersion);
         }
+    }
+
+    public get retry(): RetryOptions {
+        if (!this.#state) throw new ConnectionUnavailableError();
+
+        return this.#state.retry;
     }
 
     #instanceEngine(url: URL): SurrealEngine {
