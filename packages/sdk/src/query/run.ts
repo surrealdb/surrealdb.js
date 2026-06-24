@@ -3,8 +3,7 @@ import type { ConnectionController } from "../controller";
 import { ExpressionError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { RetryContext } from "../internal/retry";
-import type { RetryOptions, Session } from "../types";
+import type { RetryValue, Session } from "../types";
 import { BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import { Query } from "./query";
@@ -18,7 +17,7 @@ interface RunOptions {
     args: unknown[];
     transaction: Uuid | undefined;
     session: Session;
-    retry: RetryContext;
+    retry?: RetryValue;
     json: boolean;
 }
 
@@ -69,10 +68,10 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
      * @param options Retry behavior. Defaults to enabling retry using the connection defaults.
      * @returns A new `RunPromise` configured to retry on conflict.
      */
-    retry(options: boolean | Partial<RetryOptions> = true): RunPromise<T, J> {
+    retry(options: RetryValue = true): RunPromise<T, J> {
         return new RunPromise<T, J>(this.#connection, {
             ...this.#options,
-            retry: this.#options.retry.extend(options),
+            retry: options,
         });
     }
 

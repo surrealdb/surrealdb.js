@@ -136,7 +136,6 @@ export class ManagedLiveSubscription extends LiveSubscription {
                 transaction: undefined,
                 session: this.#session,
                 json: false,
-                retry: this.#controller.createRetry(),
             });
         }
     }
@@ -240,7 +239,6 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
                 transaction: undefined,
                 session: this.#session,
                 json: false,
-                retry: this.#controller.createRetry(),
             });
         }
     }

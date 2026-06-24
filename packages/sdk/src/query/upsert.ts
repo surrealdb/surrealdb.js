@@ -3,7 +3,6 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { RetryContext } from "../internal/retry";
 import type {
     AnyRecordId,
     Expr,
@@ -11,7 +10,7 @@ import type {
     Mutation,
     Output,
     Patch,
-    RetryOptions,
+    RetryValue,
     Session,
     Values,
 } from "../types";
@@ -28,7 +27,7 @@ interface UpsertOptions {
     timeout?: Duration;
     transaction: Uuid | undefined;
     session: Session;
-    retry: RetryContext;
+    retry?: RetryValue;
     json: boolean;
 }
 
@@ -81,10 +80,10 @@ export class UpsertPromise<T, I, J extends boolean = false> extends DispatchedPr
      * @param options Retry behavior. Defaults to enabling retry using the connection defaults.
      * @returns A new `UpsertPromise` configured to retry on conflict.
      */
-    retry(options: boolean | Partial<RetryOptions> = true): UpsertPromise<T, I, J> {
+    retry(options: RetryValue = true): UpsertPromise<T, I, J> {
         return new UpsertPromise<T, I, J>(this.#connection, {
             ...this.#options,
-            retry: this.#options.retry.extend(options),
+            retry: options,
         });
     }
 

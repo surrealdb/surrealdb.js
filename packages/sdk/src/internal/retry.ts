@@ -1,5 +1,5 @@
 import { QueryError } from "../errors";
-import type { RetryOptions } from "../types/surreal";
+import type { RetryOptions, RetryValue } from "../types/surreal";
 import { rand } from "./rand";
 
 export const DEFAULT_RETRY_OPTIONS: RetryOptions = {
@@ -44,26 +44,8 @@ export class RetryContext {
 
     readonly options: RetryOptions;
 
-    // Process options as passed by the user
-    constructor(input: undefined | Partial<RetryOptions> | boolean) {
-        const override = typeof input === "boolean" ? { enabled: input } : input;
-
-        this.options = {
-            ...DEFAULT_RETRY_OPTIONS,
-            ...override,
-        };
-    }
-
-    /**
-     * Create a new retry context with the given options layered over the current options.
-     */
-    extend(input?: Partial<RetryOptions> | boolean): RetryContext {
-        const override = typeof input === "boolean" ? { enabled: input } : input;
-
-        return new RetryContext({
-            ...this.options,
-            ...override,
-        });
+    constructor(options: RetryOptions) {
+        this.options = options;
     }
 
     get attempts(): number {
@@ -132,5 +114,20 @@ export class RetryContext {
                 await this.iterate();
             }
         }
+    }
+
+    static mergeOptions(
+        input: undefined | RetryValue,
+        base: RetryOptions = DEFAULT_RETRY_OPTIONS,
+    ): RetryOptions {
+        if (input === undefined) {
+            return base;
+        }
+
+        if (typeof input === "boolean") {
+            return { ...base, enabled: input };
+        }
+
+        return { ...base, ...input, enabled: input.enabled ?? true };
     }
 }

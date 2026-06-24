@@ -142,7 +142,6 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
             transaction: undefined,
             json: false,
             session,
-            retry: this.#connection.createRetry(),
         });
     }
 }

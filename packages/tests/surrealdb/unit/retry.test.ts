@@ -64,40 +64,51 @@ describe("isRetryableConflict", () => {
     });
 });
 
-describe("RetryContext", () => {
+describe("RetryContext.mergeOptions", () => {
     test("disabled by default", () => {
-        expect(new RetryContext(undefined).enabled).toBe(false);
-        expect(new RetryContext(undefined).options).toBe(DEFAULT_RETRY_OPTIONS);
+        expect(RetryContext.mergeOptions(undefined).enabled).toBe(false);
+        expect(RetryContext.mergeOptions(undefined)).toBe(DEFAULT_RETRY_OPTIONS);
     });
 
     test("boolean input toggles enabled", () => {
-        expect(new RetryContext(true).enabled).toBe(true);
-        expect(new RetryContext(false).enabled).toBe(false);
+        expect(RetryContext.mergeOptions(true).enabled).toBe(true);
+        expect(RetryContext.mergeOptions(false).enabled).toBe(false);
     });
 
     test("object input opts in unless disabled explicitly", () => {
-        const ctx = new RetryContext({ attempts: 3 });
-        expect(ctx.enabled).toBe(true);
-        expect(ctx.options.attempts).toBe(3);
+        const options = RetryContext.mergeOptions({ attempts: 3 });
+        expect(options.enabled).toBe(true);
+        expect(options.attempts).toBe(3);
 
-        expect(new RetryContext({ enabled: false, attempts: 3 }).enabled).toBe(false);
+        expect(RetryContext.mergeOptions({ enabled: false, attempts: 3 }).enabled).toBe(false);
     });
 
     test("layers over a provided base", () => {
         const base = { ...DEFAULT_RETRY_OPTIONS, retryDelay: 50, enabled: true };
-        const ctx = new RetryContext({ attempts: 2 }, base);
-        expect(ctx.options.retryDelay).toBe(50);
-        expect(ctx.options.attempts).toBe(2);
+        const options = RetryContext.mergeOptions({ attempts: 2 }, base);
+        expect(options.retryDelay).toBe(50);
+        expect(options.attempts).toBe(2);
+        expect(options.enabled).toBe(true);
+    });
+});
+
+describe("RetryContext", () => {
+    test("reflects merged options", () => {
+        const options = RetryContext.mergeOptions({ enabled: true, attempts: 3 });
+        const ctx = new RetryContext(options);
         expect(ctx.enabled).toBe(true);
+        expect(ctx.options.attempts).toBe(3);
     });
 
     test("allowed respects the attempt limit", async () => {
-        const ctx = new RetryContext({
-            enabled: true,
-            attempts: 2,
-            retryDelay: 0,
-            retryDelayMax: 0,
-        });
+        const ctx = new RetryContext(
+            RetryContext.mergeOptions({
+                enabled: true,
+                attempts: 2,
+                retryDelay: 0,
+                retryDelayMax: 0,
+            }),
+        );
         expect(ctx.allowed).toBe(true);
         await ctx.iterate();
         expect(ctx.attempts).toBe(1);
@@ -108,12 +119,12 @@ describe("RetryContext", () => {
     });
 
     test("disabled context is never allowed", () => {
-        expect(new RetryContext(false).allowed).toBe(false);
+        expect(new RetryContext(RetryContext.mergeOptions(false)).allowed).toBe(false);
     });
 });
 
 describe("RetryContext.run", () => {
-    const fast = { enabled: true, retryDelay: 0, retryDelayMax: 0 };
+    const fast = RetryContext.mergeOptions({ enabled: true, retryDelay: 0, retryDelayMax: 0 });
     const conflict = () =>
         new QueryError({
             message: "Transaction conflict",
@@ -124,7 +135,7 @@ describe("RetryContext.run", () => {
     test("runs once when retry is disabled", async () => {
         let calls = 0;
         await expect(
-            new RetryContext(false).run(async () => {
+            new RetryContext(RetryContext.mergeOptions(false)).run(async () => {
                 calls++;
                 throw conflict();
             }),
@@ -157,7 +168,7 @@ describe("RetryContext.run", () => {
     test("rethrows after exhausting attempts", async () => {
         let calls = 0;
         await expect(
-            new RetryContext({ ...fast, attempts: 2 }).run(async () => {
+            new RetryContext(RetryContext.mergeOptions({ ...fast, attempts: 2 })).run(async () => {
                 calls++;
                 throw conflict();
             }),
@@ -167,7 +178,9 @@ describe("RetryContext.run", () => {
 
     test("honors a custom retryable predicate", async () => {
         let calls = 0;
-        const result = await new RetryContext({ ...fast, retryable: () => true }).run(async () => {
+        const result = await new RetryContext(
+            RetryContext.mergeOptions({ ...fast, retryable: () => true }),
+        ).run(async () => {
             calls++;
             if (calls < 2) throw new Error("anything");
             return "done";

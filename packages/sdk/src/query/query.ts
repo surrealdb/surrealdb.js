@@ -3,7 +3,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
 import { RetryContext } from "../internal/retry";
-import type { QueryResponse, RetryOptions, Session } from "../types";
+import type { QueryResponse, RetryValue, Session } from "../types";
 import type { BoundQuery } from "../utils";
 import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../utils/frame";
 
@@ -12,7 +12,7 @@ interface QueryOptions {
     transaction: Uuid | undefined;
     session: Session;
     json: boolean;
-    retry: RetryContext;
+    retry?: RetryValue;
 }
 
 type Collect<T extends unknown[], J extends boolean> = T extends []
@@ -54,10 +54,7 @@ export class Query<
      * that your responses will lose SurrealDB type information.
      */
     json(): Query<R, true> {
-        return new Query(this.#connection, {
-            ...this.#options,
-            json: true,
-        });
+        return new Query(this.#connection, { ...this.#options, json: true });
     }
 
     /**
@@ -83,10 +80,10 @@ export class Query<
      * @param options Retry behavior. Defaults to enabling retry using the connection defaults.
      * @returns A new `Query` configured to retry on conflict.
      */
-    retry(options: boolean | Partial<RetryOptions> = true): Query<R, J> {
+    retry(options: RetryValue = true): Query<R, J> {
         return new Query(this.#connection, {
             ...this.#options,
-            retry: this.#options.retry.extend(options),
+            retry: options,
         });
     }
 
@@ -109,9 +106,10 @@ export class Query<
     async collect<T extends unknown[] = R>(...queries: number[]): Promise<Collect<T, J>> {
         await this.#connection.ready();
 
-        const retry = new RetryContext(this.#options.retry);
+        const options = RetryContext.mergeOptions(this.#options.retry, this.#connection.retry);
+        const context = new RetryContext(options);
 
-        return retry.run(async () => {
+        return context.run(async () => {
             const { query, transaction, session, json } = this.#options;
             const chunks = this.#connection.query(query, session, transaction);
             const responses: unknown[] = [];

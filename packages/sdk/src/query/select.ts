@@ -225,7 +225,6 @@ export class SelectPromise<T, I, J extends boolean = false> extends DispatchedPr
             transaction,
             json,
             session,
-            retry: this.#connection.createRetry(),
         });
     }
 }

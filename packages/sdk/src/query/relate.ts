@@ -4,8 +4,7 @@ import { SurrealError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { RetryContext } from "../internal/retry";
-import type { AnyRecordId, Output, RetryOptions, Session } from "../types";
+import type { AnyRecordId, Output, RetryValue, Session } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import { Query } from "./query";
@@ -21,7 +20,7 @@ interface RelateOptions {
     data?: unknown;
     transaction: Uuid | undefined;
     session: Session;
-    retry: RetryContext;
+    retry?: RetryValue;
     json: boolean;
 }
 
@@ -72,10 +71,10 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
      * @param options Retry behavior. Defaults to enabling retry using the connection defaults.
      * @returns A new `RelatePromise` configured to retry on conflict.
      */
-    retry(options: boolean | Partial<RetryOptions> = true): RelatePromise<T, J> {
+    retry(options: RetryValue = true): RelatePromise<T, J> {
         return new RelatePromise<T, J>(this.#connection, {
             ...this.#options,
-            retry: this.#options.retry.extend(options),
+            retry: options,
         });
     }
 
