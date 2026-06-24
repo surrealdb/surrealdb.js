@@ -11,11 +11,11 @@
 
 <p align="center">
     <img width=74 src="https://raw.githubusercontent.com/surrealdb/icons/main/javascript.svg" />
-	&nbsp;
-	<img width=74 src="https://raw.githubusercontent.com/surrealdb/icons/main/webassembly.svg" />
-	&nbsp;
-	<img width=74 src="https://raw.githubusercontent.com/surrealdb/icons/main/nodejs.svg" />
-<br>
+    &nbsp;
+    <img width=74 src="https://raw.githubusercontent.com/surrealdb/icons/main/webassembly.svg" />
+    &nbsp;
+    <img width=74 src="https://raw.githubusercontent.com/surrealdb/icons/main/nodejs.svg" />
+</p>
 
 <br>
 
@@ -48,283 +48,35 @@ View the SDK documentation [here](https://surrealdb.com/docs/sdk/javascript).
 ## Learn SurrealDB
 
 - A Tour of SurrealDB: https://surrealdb.com/learn/tour
-- Aeon's Surreal Renaissance (Interative book): https://surrealdb.com/learn/book
+- Aeon's Surreal Renaissance (Interactive book): https://surrealdb.com/learn/book
 - Documentation: https://surrealdb.com/docs
 
-## How to install
+## Packages
 
-### Install with a package manager
+This monorepo publishes several npm packages. Most applications only need **`surrealdb`** - install engine or utility packages when your use case requires them.
 
-Run the following command to add the SDK to your project:
+| Package | npm | Description | Readme |
+| --- | --- | --- | --- |
+| **`surrealdb`** | [`surrealdb`](https://www.npmjs.com/package/surrealdb) | Official database client - connect, query, live subscriptions, sessions | [Read more](./packages/sdk/README.md) |
+| **`@surrealdb/sqon`** | [`@surrealdb/sqon`](https://www.npmjs.com/package/@surrealdb/sqon) | Value types, CBOR/JSON codecs, and core utilities (re-exported by `surrealdb`) | [Read more](./packages/sqon/README.md) |
+| **`@surrealdb/wasm`** | [`@surrealdb/wasm`](https://www.npmjs.com/package/@surrealdb/wasm) | Embedded SurrealDB engine for browsers (`mem://`, `indxdb://`) | [Read more](./packages/wasm/README.md) |
+| **`@surrealdb/node`** | [`@surrealdb/node`](https://www.npmjs.com/package/@surrealdb/node) | Embedded SurrealDB engine for Node.js, Bun, and Deno | [Read more](./packages/node/README.md) |
+| **`@surrealdb/spectron`** | [`@surrealdb/spectron`](https://www.npmjs.com/package/@surrealdb/spectron) | Typed HTTP client for the Spectron AI memory API | [Read more](./packages/spectron/README.md) |
+
+### Quick start
 
 ```sh
-# using npm
-npm i surrealdb
-
-# or using pnpm
-pnpm i surrealdb
-
-# or using yarn
-yarn add surrealdb
-
-# or using bun
 bun add surrealdb
 ```
 
-You can now import the SDK into your project with:
-
 ```ts
 import { Surreal } from "surrealdb";
-```
 
-### Install for the browser with a CDN
-
-For fast prototyping we provide a browser-ready bundle. You can import it with:
-
-```ts
-import Surreal from "https://unpkg.com/surrealdb";
-// or
-import Surreal from "https://cdn.jsdelivr.net/npm/surrealdb";
-```
-
-_**NOTE: this bundle is not optimized for production! So don't use it in production!**_
-
-## Getting started
-
-In the example below you can see how to connect to a remote instance of SurrealDB, authenticating with the database, and issuing queries for creating, updating, and selecting data from records.
-
-### Don't have a SurrealDB instance yet?
-
-If you don't already have a SurrealDB instance running, you can easily get started by using Surreal Cloud. Simply [sign up here](https://app.surrealdb.com/signin/deploy) to provision a free SurrealDB instance in the cloud. This will allow you to experiment with SurrealDB without any local setup, and you'll be able to connect to your new instance right away.
-
-### Connecting
-
-The first step in using the SDK is to instantiate the SurrealDB client, after which you can connect to a SurrealDB instance using a connection URI. After that, select a namespace and database, and signin as a namespace, database, root, or record user.
-
-Make sure you have created a user before you signin.
-
-```ts
-import { Surreal, RecordId, Table } from "surrealdb";
-
-// Instantiate the SurrealDB client
 const db = new Surreal();
-
-// Connect to the specified instance
 await db.connect("wss://my-instance.aws-euw1.surreal.cloud");
-
-// Select a specific namespace / database
-await db.use({
-    namespace: "test",
-    database: "test"
-});
-
-// Signin as a namespace, database, root, or record user
-await db.signin({
-    username: "root",
-    password: "root",
-});
 ```
 
-### Sending queries
-
-After you have connected to a SurrealDB instance, you can send queries to the database. Queries can be sent in two ways:
-
-- Type-safe using the query builder methods
-- As a string using the `query` method
-
-#### Type-safe query builders
-```ts
-const personTable = new Table("person");
-
-// Create a new person with a random id
-let created = await db.create<Person>(personTable, {
-    title: "Founder & CEO",
-    name: {
-        first: "Tobie",
-        last: "Morgan Hitchcock",
-    },
-    marketing: false,
-});
-
-// Update a person record with a specific id
-let updated = await db.update<Person>(created.id).merge({
-    marketing: true,
-});
-
-// Select all people records
-let people = await db.select<Person>(personTable);
-```
-
-#### String based queries
-```ts
-const personTable = new Table("person");
-
-// Execute a query and collect the results
-let [created] = await db
-	query("CREATE ONLY $table CONTENT $content", {
-		table: personTable,
-		content: {
-			title: "Founder & CEO",
-			name: {
-				first: "Tobie",
-				last: "Morgan Hitchcock",
-			},
-		},
-	})
-	.collect<[Person]>();
-```
-
-### Subscribing to live queries
-
-You can subscribe to live queries to receive updates when the data in the database changes.
-
-```ts
-// Subscribe to all records in the person table
-const subscription = await db.live(personTable);
-
-// Use an async iterator
-for await (const { action, value } of subscription) {
-	if (action === "CREATE") {
-		console.log("A new person was created:", value);
-	}
-}
-```
-
-### Next steps
-
-We have only scratched the surface of what the JavaScript SDK can do. For more information, please refer to the [documentation](https://surrealdb.com/docs/sdk/javascript).
-
-## Embedding SurrealDB in the browser
-
-<img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/webassembly.svg" />
-
-The **WebAssembly engine** for the JavaScript SDK provides a powerful way to extend your SurrealDB client with support for running embedded databases. The engine allows you to run SurrealDB in-memory or persisted to the browsers IndexedDB storage with minimal effort.
-
-### Install with a package manager
-
-Run the following command to add the WebAssembly engine to your project:
-
-```sh
-npm i @surrealdb/wasm
-# or
-pnpm i @surrealdb/wasm
-# or
-yarn add @surrealdb/wasm
-# or
-bun add @surrealdb/wasm
-```
-
-### Registering the WebAssembly engine
-
-You can now configure the SurrealDB client to use the WebAssembly engine.
-
-```ts
-import { createWasmEngines } from "@surrealdb/wasm";
-import { Surreal } from "surrealdb";
-
-// Register the WebAssembly engine
-const db = new Surreal({
-	engines: createWasmEngines(),
-});
-
-// Connect to an in-memory instance
-await db.connect("mem://");
-
-// Connect to an IndexedDB instance
-await db.connect("indxdb://demo");
-```
-
-### Usage with Vite
-
-When using [Vite](https://vitejs.dev/) the following configuration is recommended to be placed in your `vite.config.ts` to ensure the WebAssembly engine is properly bundled.
-
-```js
-optimizeDeps: {
-    exclude: ["@surrealdb/wasm"],
-    esbuildOptions: {
-        target: "esnext",
-    },
-},
-esbuild: {
-    supported: {
-        "top-level-await": true
-    },
-}
-```
-
-See the [WebAssembly engine readme](https://github.com/surrealdb/surrealdb.js/blob/main/packages/wasm/README.md) for worker setup, Vite configuration, and package details.
-
-##  Embedding SurrealDB in Node.js, Deno, and Bun
-
-<img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/nodejs.svg" />
-
-The **Node.js engine** for the JavaScript SDK provides a powerful way to extend your SurrealDB client with support for running embedded databases. The engine allows you to run SurrealDB in-memory or persisted to disk (RocksDB or SurrealKV) with minimal effort.
-
-### Install with a package manager
-
-Run the following command to add the Node.js engine to your project:
-
-```sh
-npm i @surrealdb/node
-# or
-pnpm i @surrealdb/node
-# or
-yarn add @surrealdb/node
-# or
-bun add @surrealdb/node
-```
-
-### Registering the Node.js engine
-
-You can now configure the SurrealDB client to use the Node.js engine when running in Node.js, Deno, or Bun.
-
-```ts
-import { createNodeEngines } from "@surrealdb/node";
-import { Surreal } from "surrealdb";
-
-// Register the Node.js engine
-const db = new Surreal({
-	engines: createNodeEngines(),
-});
-
-// Connect to an in-memory instance
-await db.connect("mem://");
-
-// Connect to an RocksDB instance
-await db.connect("rocksdb://path/to/storage.db");
-
-// Connect to an SurrealKV instance
-await db.connect("surrealkv://path/to/storage.db");
-
-// Connect to an SurrealKV instance with versioning
-await db.connect("surrealkv+versioned://path/to/storage.db");
-```
-
-See the [Node.js engine readme](https://github.com/surrealdb/surrealdb.js/blob/main/packages/node/README.md) for connection options, storage backends, and shutdown behaviour.
-
-## SQON library
-
-<img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/javascript.svg" />
-
-**SQON** (SurrealQL Object Notation) is the value type and codec layer for SurrealDB's JavaScript ecosystem. The **`@surrealdb/sqon`** package provides typed value classes (`RecordId`, `DateTime`, `Decimal`, and more), CBOR and JSON codecs, and core utilities such as `equals` and `jsonify`. The full `surrealdb` SDK re-exports everything from SQON for convenience.
-
-```sh
-bun add @surrealdb/sqon
-```
-
-See the [SQON readme](https://github.com/surrealdb/surrealdb.js/blob/main/packages/sqon/README.md) for installation, codec usage, and when to install the package directly.
-
-## Spectron client
-
-<img width=74 align="left" src="https://raw.githubusercontent.com/surrealdb/icons/main/surreal.svg" />
-
-**Spectron** is the managed memory and knowledge layer for AI apps. The **`@surrealdb/spectron`** package is a typed HTTP client for interacting with the Spectron API (sessions, memory, knowledge, traces).
-
-```sh
-bun add @surrealdb/spectron
-```
-
-See the [Spectron client readme](https://github.com/surrealdb/surrealdb.js/blob/main/packages/spectron/README.md) for usage, errors, retries, and publishing notes.
+For installation options, connection setup, query examples, live queries, embedded engines, and TypeScript notes, see the [**`surrealdb` package readme**](./packages/sdk/README.md).
 
 ## Contributing
 
@@ -358,46 +110,43 @@ This SDK supports both TypeScript 5 and TypeScript 6. If you are using TypeScrip
 
 ### Build for all supported environments
 
-For Deno, no build is needed. For all other environments run
+For Deno, no build is needed. For all other environments run:
 
-`bun run build`.
+`bun run build`
 
-### Code Quality Fixes
+### Code quality
 
-`bun run qa`
+`bun run qa` - apply formatting and safe fixes
 
-### Code Quality unsafe fixes
+`bun run qau` - apply formatting and unsafe fixes
 
-`bun run qau`
+`bun run qc` - check code quality
 
-### Run tests for WS
+`bun run qts` - TypeScript type check
 
-`bun run test`
+### Run tests
 
-### Run tests for HTTP
+`bun run test` - WebSocket protocol
 
-`SURREAL_DEFAULT_PROTOCOL=http bun test`
+`SURREAL_DEFAULT_PROTOCOL=http bun test` - HTTP protocol
 
 ### PRs
 
-Before you commit, please format and lint your code accordingly to check for
-errors, and ensure all tests still pass
+Before you commit, please format and lint your code accordingly to check for errors, and ensure all tests still pass.
 
-### Local setup
+### Editor extensions
 
-For local development the
-[Bun extension](https://marketplace.visualstudio.com/items?itemName=oven.bun-vscode) and [Biome extension](https://marketplace.visualstudio.com/items?itemName=biomejs.biome)
-for VSCode are helpful.
+For local development the [Bun extension](https://marketplace.visualstudio.com/items?itemName=oven.bun-vscode) and [Biome extension](https://marketplace.visualstudio.com/items?itemName=biomejs.biome) for VSCode are helpful.
 
 ### Directory structure
 
-- `./biome.json` contains settings for code quality.
-- `./scripts` contains the build and publish scripts.
-- `./packages/sdk` contains the JavaScript SDK source code.
-- `./packages/sqon` contains the SQON value types and codecs source code.
-- `./packages/spectron` contains the Spectron client source code.
-- `./packages/node` contains the Node.js SDK source code.
-- `./packages/wasm` contains the WebAssembly SDK source code.
-- `./packages/tests` contains the testing suite (`surrealdb/` for the SDK, `spectron/` for Spectron).
-- `./demo/wasm` contains a WebAssembly demo.
-- `./demo/node` contains a Node.js demo.
+- `./biome.json` - code quality settings
+- `./scripts` - build and publish scripts
+- `./packages/sdk` - JavaScript SDK (`surrealdb` on npm)
+- `./packages/sqon` - SQON value types and codecs
+- `./packages/node` - embedded Node.js engine
+- `./packages/wasm` - embedded WebAssembly engine
+- `./packages/spectron` - Spectron HTTP client
+- `./packages/tests` - test suite (`surrealdb/` for the SDK, `spectron/` for Spectron)
+- `./demo/wasm` - WebAssembly demo
+- `./demo/node` - Node.js demo
