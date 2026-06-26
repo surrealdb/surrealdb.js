@@ -1,6 +1,10 @@
 import { CborCodec, FlatBufferCodec, JsonCodec, type Uuid } from "@surrealdb/sqon";
 import { ConnectionController } from "../controller";
-import { UnavailableFeatureError, UnsupportedFeatureError } from "../errors";
+import {
+    UnavailableFeatureError,
+    UnsupportedFeatureError,
+    UnsupportedProtocolFeatureError,
+} from "../errors";
 import type { Feature } from "../internal/feature";
 import { getIncrementalID } from "../internal/get-incremental-id";
 import { parseEndpoint } from "../internal/http";
@@ -13,6 +17,7 @@ import type {
     SqlExportOptions,
     VersionInfo,
 } from "../types";
+import { Features } from "../utils";
 import { Publisher } from "../utils/publisher";
 import { ExportModelPromise, ExportPromise } from "./export";
 import { type SessionEvents, SurrealSession } from "./session";
@@ -201,9 +206,15 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
     /**
      * Lists all sessions created on the current connection.
      *
+     * Note: Sessions require a WebSocket connection (ws:// or wss://). HTTP(S) connections are not supported.
+     *
      * @returns A list of active session IDs
      */
     sessions(): Promise<Uuid[]> {
+        const protocol = this.#connection.state?.url.protocol;
+        if (protocol === "http:" || protocol === "https:") {
+            throw new UnsupportedProtocolFeatureError(Features.Sessions);
+        }
         return this.#connection.sessions();
     }
 
@@ -216,9 +227,15 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
      *
      * You can invoke `reset()` on the created session to destroy it, after which it cannot be used again.
      *
+     * Note: Sessions require a WebSocket connection (ws:// or wss://). HTTP(S) connections are not supported.
+     *
      * @returns The new session
      */
     async newSession(): Promise<SurrealSession> {
+        const protocol = this.#connection.state?.url.protocol;
+        if (protocol === "http:" || protocol === "https:") {
+            throw new UnsupportedProtocolFeatureError(Features.Sessions);
+        }
         const created = await this.#connection.createSession(null);
 
         return SurrealSession.of(this, created);

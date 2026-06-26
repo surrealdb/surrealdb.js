@@ -1,5 +1,6 @@
 import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
+import { UnsupportedProtocolFeatureError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { Expr, ExprLike, LiveResource, Session } from "../types";
 import type { Field, Selection } from "../types/internal";
@@ -102,6 +103,11 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
     protected async dispatch(): Promise<LiveSubscription> {
         await this.#connection.ready();
 
+        const protocol = this.#connection.state?.url.protocol;
+        if (protocol === "http:" || protocol === "https:") {
+            throw new UnsupportedProtocolFeatureError(Features.LiveQueries);
+        }
+
         this.#connection.assertFeature(Features.LiveQueries);
 
         return new ManagedLiveSubscription(
@@ -166,6 +172,11 @@ export class UnmanagedLivePromise extends DispatchedPromise<LiveSubscription> {
 
     protected async dispatch(): Promise<LiveSubscription> {
         await this.#connection.ready();
+
+        const protocol = this.#connection.state?.url.protocol;
+        if (protocol === "http:" || protocol === "https:") {
+            throw new UnsupportedProtocolFeatureError(Features.LiveQueries);
+        }
 
         this.#connection.assertFeature(Features.LiveQueries);
 
