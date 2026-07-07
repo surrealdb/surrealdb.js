@@ -128,7 +128,7 @@ export class Transport {
         let body: BodyInit | undefined;
         let serialisedBody = "";
         const bodyInput = init?.body;
-		const isMultipart = bodyInput instanceof FormData;
+        const isMultipart = bodyInput instanceof FormData;
 
         if (bodyInput !== undefined) {
             if (isMultipart) {
@@ -156,8 +156,9 @@ export class Transport {
         let attempt = 0;
         for (;;) {
             const controller = new AbortController();
-            const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
-			const headersForFetch: HeadersInit = { ...headerObj };
+            const timer =
+                timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+            const headersForFetch: HeadersInit = { ...headerObj };
 
             if (body instanceof FormData) {
                 delete (headersForFetch as Record<string, string>)["Content-Type"];
@@ -169,7 +170,7 @@ export class Transport {
                     headers: headersForFetch,
                     body: methodUpper === "GET" || methodUpper === "HEAD" ? undefined : body,
                     signal: controller.signal,
-				});
+                });
 
                 clearTimeout(timer);
 
