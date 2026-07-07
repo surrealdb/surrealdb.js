@@ -84,4 +84,66 @@ describe("Transport", () => {
         });
         await expect(t.requestJson("GET", "/y")).rejects.toBeInstanceOf(ConnectionError);
     });
+
+    // A fetch impl that resolves after `delayMs`, or rejects with an AbortError
+    // as soon as its signal fires — mimicking a slow upload against the timeout.
+    const slowFetch = (delayMs: number) =>
+        mock((_url: string | URL, init?: RequestInit) => {
+            return new Promise<Response>((resolve, reject) => {
+                const signal = init?.signal;
+                const timer = setTimeout(() => {
+                    resolve(
+                        new Response(JSON.stringify({ ok: true }), {
+                            status: 200,
+                            headers: { "Content-Type": "application/json" },
+                        }),
+                    );
+                }, delayMs);
+                signal?.addEventListener("abort", () => {
+                    clearTimeout(timer);
+                    reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+                });
+            });
+        });
+
+    test("multipart requests are not aborted by the default timeout", async () => {
+        const t = new Transport({
+            apiKey: "k",
+            endpoint: "https://example.test",
+            timeoutMs: 5,
+            maxRetries: 0,
+            fetchImpl: slowFetch(30) as unknown as typeof fetch,
+        });
+        const form = new FormData();
+        form.append("file", new Blob(["data"]), "f.bin");
+        const body = await t.requestJson("POST", "/documents", { body: form });
+        expect(body).toEqual({ ok: true });
+    });
+
+    test("multipart requests still honor an explicit per-request timeout", async () => {
+        const t = new Transport({
+            apiKey: "k",
+            endpoint: "https://example.test",
+            maxRetries: 0,
+            fetchImpl: slowFetch(30) as unknown as typeof fetch,
+        });
+        const form = new FormData();
+        form.append("file", new Blob(["data"]), "f.bin");
+        await expect(
+            t.requestJson("POST", "/documents", { body: form, timeoutMs: 5 }),
+        ).rejects.toBeInstanceOf(ConnectionError);
+    });
+
+    test("JSON requests are still aborted by the default timeout", async () => {
+        const t = new Transport({
+            apiKey: "k",
+            endpoint: "https://example.test",
+            timeoutMs: 5,
+            maxRetries: 0,
+            fetchImpl: slowFetch(30) as unknown as typeof fetch,
+        });
+        await expect(t.requestJson("POST", "/x", { body: { a: 1 } })).rejects.toBeInstanceOf(
+            ConnectionError,
+        );
+    });
 });

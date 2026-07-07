@@ -121,7 +121,6 @@ export class Transport {
     ): Promise<unknown | null> {
         const methodUpper = method.toUpperCase();
         const url = buildUrl(this.endpoint, path, init?.query);
-        const timeoutMs = init?.timeoutMs ?? this.timeoutMs;
         const schedule = backoffSchedule(this.maxRetries);
 
         const headerObj = this.baseHeaders("application/json");
@@ -129,8 +128,10 @@ export class Transport {
         let body: BodyInit | undefined;
         let serialisedBody = "";
         const bodyInput = init?.body;
+		const isMultipart = bodyInput instanceof FormData;
+
         if (bodyInput !== undefined) {
-            if (bodyInput instanceof FormData) {
+            if (isMultipart) {
                 body = bodyInput;
             } else {
                 serialisedBody = JSON.stringify(bodyInput);
@@ -138,6 +139,13 @@ export class Transport {
                 headerObj["Content-Type"] = "application/json";
             }
         }
+
+        // Multipart uploads can legitimately stream large bodies for longer than
+        // the default request timeout, so the fixed deadline is not applied to
+        // them, only an explicit per-request `timeoutMs` bounds a multipart send.
+        const timeoutMs = isMultipart
+            ? (init?.timeoutMs ?? 0)
+            : (init?.timeoutMs ?? this.timeoutMs);
 
         // Idempotent writes carry a key so retries within a 30s window collapse
         // to a single server-side effect.
@@ -148,8 +156,9 @@ export class Transport {
         let attempt = 0;
         for (;;) {
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), timeoutMs);
-            const headersForFetch: HeadersInit = { ...headerObj };
+            const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+			const headersForFetch: HeadersInit = { ...headerObj };
+
             if (body instanceof FormData) {
                 delete (headersForFetch as Record<string, string>)["Content-Type"];
             }
@@ -160,7 +169,8 @@ export class Transport {
                     headers: headersForFetch,
                     body: methodUpper === "GET" || methodUpper === "HEAD" ? undefined : body,
                     signal: controller.signal,
-                });
+				});
+
                 clearTimeout(timer);
 
                 if (
