@@ -3,6 +3,12 @@ import { JsonCodec } from "../codec/json/codec.ts";
 import { hasSymbol, markSymbol, UUID_SYMBOL } from "../utils/symbols.ts";
 import { Value } from "./value.ts";
 
+// SharedArrayBuffer is only exposed on cross-origin-isolated pages, so
+// referencing it directly throws a ReferenceError everywhere else.
+function isSharedArrayBuffer(value: unknown): value is SharedArrayBuffer {
+    return typeof SharedArrayBuffer !== "undefined" && value instanceof SharedArrayBuffer;
+}
+
 /**
  * A SurrealQL UUID value.
  */
@@ -38,7 +44,7 @@ export class Uuid extends Value {
     constructor(uuid: Uuid | UUID | string | ArrayBufferLike | Uint8Array) {
         super();
 
-        if (uuid instanceof ArrayBuffer || uuid instanceof SharedArrayBuffer) {
+        if (uuid instanceof ArrayBuffer || isSharedArrayBuffer(uuid)) {
             this.#inner = UUID.ofInner(new Uint8Array(uuid));
         } else if (uuid instanceof Uint8Array) {
             this.#inner = UUID.ofInner(uuid);
