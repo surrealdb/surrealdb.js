@@ -84,6 +84,7 @@ export class JsonCodec implements ValueCodec<unknown> {
 
     #serialize(input: unknown): unknown {
         const value = this.#encodeValue(input);
+        const wasEncoded = value !== input;
 
         if (this.#isEncodePrimitive(value)) {
             return value;
@@ -160,7 +161,7 @@ export class JsonCodec implements ValueCodec<unknown> {
 
                     if (encoded !== undefined) {
                         result[key] = encoded;
-                        if (key[0] === "$") escaped = true;
+                        if (!wasEncoded && key[0] === "$") escaped = true;
                     }
                 }
 
@@ -194,11 +195,11 @@ export class JsonCodec implements ValueCodec<unknown> {
 
     #deserialize(input: unknown): unknown {
         if (this.#isDecodePrimitive(input)) {
-            return input;
+            return this.#decodeValue(input);
         }
 
         if (Array.isArray(input)) {
-            return input.map((v) => this.#deserialize(v));
+            return this.#decodeValue(input.map((v) => this.#deserialize(v)));
         }
 
         const obj = input as Record<string, unknown>;
@@ -259,10 +260,12 @@ export class JsonCodec implements ValueCodec<unknown> {
             return this.#decodeValue(new Future(obj.$future));
         }
 
-        return Object.fromEntries(
-            Object.entries(obj)
-                .map(([k, v]) => [k, this.#deserialize(v)])
-                .filter(([, decoded]) => decoded !== undefined),
+        return this.#decodeValue(
+            Object.fromEntries(
+                Object.entries(obj)
+                    .map(([k, v]) => [k, this.#deserialize(v)])
+                    .filter(([, decoded]) => decoded !== undefined),
+            ),
         );
     }
 
