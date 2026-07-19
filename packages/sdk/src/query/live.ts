@@ -104,12 +104,18 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
 
         this.#connection.assertFeature(Features.LiveQueries);
 
-        return new ManagedLiveSubscription(
+        const subscription = new ManagedLiveSubscription(
             this.#connection,
             this.#options.what,
             this.#options.session,
             this.#build(),
         );
+
+        // Await the LIVE round-trip so the query is registered on the server and
+        // this client is subscribed before the caller can issue any writes.
+        await subscription.ready();
+
+        return subscription;
     }
 
     #build(): Query {

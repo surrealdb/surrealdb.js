@@ -6,6 +6,7 @@ import {
     type EngineEvents,
     Features,
     type LiveAction,
+    LiveDispatcher,
     type LiveMessage,
     Publisher,
     parseRpcError,
@@ -21,8 +22,6 @@ import type { ConnectionOptions } from "../wasm/surrealdb";
 import type { EngineBroker } from "./common";
 import { wrapSqonError } from "./wrap-sqon-error";
 
-type LiveChannels = Record<string, [LiveMessage]>;
-
 interface LivePayload {
     id: Uuid;
     action: LiveAction;
@@ -37,7 +36,7 @@ interface LivePayload {
 export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
     #broker: EngineBroker;
     #publisher = new Publisher<EngineEvents>();
-    #subscriptions = new Publisher<LiveChannels>();
+    #live = new LiveDispatcher();
     #abort: AbortController | undefined;
     #options: ConnectionOptions | undefined;
 
@@ -67,6 +66,7 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         this.#abort?.abort();
         this.#abort = undefined;
         await this.#broker.close();
+        this.#live.clear();
         this.#publisher.publish("disconnected");
     }
 
@@ -87,7 +87,7 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
             unsub2();
         });
 
-        const unsub1 = this.#subscriptions.subscribe(id.toString(), (msg) => {
+        const unsub1 = this.#live.subscribe(id.toString(), (msg) => {
             channel.submit(msg);
         });
         const unsub2 = this.#publisher.subscribe("disconnected", () => {
@@ -168,7 +168,7 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
                 );
 
                 if (payload.id) {
-                    this.#subscriptions.publish(payload.id.toString(), {
+                    this.#live.dispatch(payload.id.toString(), {
                         queryId: payload.id,
                         action: payload.action,
                         recordId: payload.record,

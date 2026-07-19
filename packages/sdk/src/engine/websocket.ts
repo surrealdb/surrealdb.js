@@ -13,6 +13,7 @@ import { LIVE_ACTIONS } from "../types/live";
 import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
 import { Features } from "../utils";
 import { ChannelIterator } from "../utils/channel-iterator";
+import { LiveDispatcher } from "../utils/live-dispatcher";
 import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
 
@@ -24,8 +25,6 @@ interface Call<T> {
     resolve: (value: T) => void;
     reject: (error: Error) => void;
 }
-
-type LiveChannels = Record<string, [LiveMessage]>;
 
 interface LivePayload {
     id: Uuid;
@@ -41,7 +40,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     #publisher = new Publisher<EngineEvents>();
     #socket: WebSocket | undefined;
     #calls = new Map<string, Call<unknown>>();
-    #subscriptions = new Publisher<LiveChannels>();
+    #live = new LiveDispatcher();
     #pinger: Interval;
     #active = false;
     #terminated = false;
@@ -80,6 +79,11 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 });
 
                 this.#socket = undefined;
+
+                // The socket is gone; any notifications buffered for live
+                // queries registered on it are stale and will be re-registered
+                // under fresh ids if the connection is re-established.
+                this.#live.clear();
 
                 if (error) {
                     this.#publisher.publish("error", error);
@@ -173,7 +177,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             unsub2();
         });
 
-        const unsub1 = this.#subscriptions.subscribe(id.toString(), (msg) => {
+        const unsub1 = this.#live.subscribe(id.toString(), (msg) => {
             channel.submit(msg);
         });
         const unsub2 = this.#publisher.subscribe("disconnected", () => {
@@ -293,7 +297,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         }
 
         if (isLiveMessage(res.result)) {
-            this.#subscriptions.publish(res.result.id.toString(), {
+            this.#live.dispatch(res.result.id.toString(), {
                 queryId: res.result.id,
                 action: res.result.action,
                 recordId: res.result.record,
