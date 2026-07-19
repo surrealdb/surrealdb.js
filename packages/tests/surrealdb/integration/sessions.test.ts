@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Features } from "surrealdb";
+import { Features, Table } from "surrealdb";
 import {
     createSurreal,
     requestVersion,
@@ -68,6 +68,25 @@ describe.if(is3x && (SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem"))(
             await session.closeSession();
 
             expect(session.isValid).toBeFalse();
+        });
+
+        test("closeSession() marks its live subscriptions not alive", async () => {
+            const surreal = await createSurreal();
+            const session = await surreal.forkSession();
+            await session.query("DEFINE TABLE watched SCHEMALESS");
+
+            const sub = await session.live(new Table("watched"));
+            expect(sub.isAlive).toBeTrue();
+
+            await session.closeSession();
+
+            // The owning session was disposed, so the subscription is no longer alive.
+            expect(sub.isAlive).toBeFalse();
+
+            // A subscription on the still-open root session is unaffected.
+            const rootSub = await surreal.live(new Table("watched"));
+            expect(rootSub.isAlive).toBeTrue();
+            await rootSub.kill();
         });
 
         test("request sessions list", async () => {

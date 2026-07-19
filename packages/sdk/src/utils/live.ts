@@ -131,7 +131,10 @@ export class ManagedLiveSubscription extends LiveSubscription {
     }
 
     public get isAlive(): boolean {
-        return !this.#killed;
+        // Alive until permanent teardown: killed explicitly, the owning session
+        // destroyed, or the connection closed for good. hasSession() stays true
+        // across a transient reconnect, whose state is not cleared.
+        return !this.#killed && this.#controller.hasSession(this.#session);
     }
 
     public async kill(): Promise<void> {
@@ -254,7 +257,10 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
     }
 
     public get isAlive(): boolean {
-        return !this.#killed;
+        // Alive until permanent teardown: killed explicitly, the owning session
+        // destroyed, or the connection closed for good. hasSession() stays true
+        // across a transient reconnect, whose state is not cleared.
+        return !this.#killed && this.#controller.hasSession(this.#session);
     }
 
     public async kill(): Promise<void> {
