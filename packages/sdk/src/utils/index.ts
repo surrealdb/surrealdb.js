@@ -6,6 +6,7 @@ export * from "./features";
 export * from "./frame";
 export * from "./is-version-supported";
 export * from "./live";
+export * from "./live-dispatcher";
 export * from "./publisher";
 export * from "./string-prefixes";
 export * from "./tagged-template";

@@ -83,6 +83,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
     #killed = false;
     #channels: Set<ChannelIterator<LiveMessage>> = new Set();
     #unsubscribe: () => void;
+    #ready: Promise<void> = Promise.resolve();
 
     constructor(
         controller: ConnectionController,
@@ -97,12 +98,24 @@ export class ManagedLiveSubscription extends LiveSubscription {
         this.#query = query;
 
         this.#unsubscribe = this.#controller.subscribe("connected", () => {
-            this.#listen();
+            // Re-establish the subscription in the background on reconnect.
+            this.#listen().catch(() => {
+                // Errors are already surfaced via propagateError inside #listen.
+            });
         });
 
         if (this.#controller.status === "connected") {
-            this.#listen();
+            this.#ready = this.#listen();
         }
+    }
+
+    /**
+     * Resolves once the live query has been registered on the server and this
+     * client is subscribed to its notification stream. Callers can await this
+     * before issuing writes to guarantee no notification is missed.
+     */
+    public ready(): Promise<void> {
+        return this.#ready;
     }
 
     public get id(): Uuid {
@@ -155,13 +168,31 @@ export class ManagedLiveSubscription extends LiveSubscription {
     }
 
     async #listen(): Promise<void> {
+        let messageStream: AsyncIterable<LiveMessage>;
+
         try {
             const [id] = await this.#query.collect<[Uuid]>();
 
             this.#currentId = id;
 
-            const messageStream = this.#controller.liveQuery(id);
+            // Subscribe to the notification stream immediately after the query
+            // resolves. The engine buffers any notification that arrived before
+            // this point, so the window between server registration and this
+            // subscription cannot drop notifications.
+            messageStream = this.#controller.liveQuery(id);
+        } catch (err: unknown) {
+            const error = new LiveSubscriptionError(err);
+            this.#controller.propagateError(error);
+            throw error;
+        }
 
+        // Fan out notifications to consumers in the background; the round-trip
+        // is complete, so #listen (and thus ready()) may resolve now.
+        void this.#consume(messageStream);
+    }
+
+    async #consume(messageStream: AsyncIterable<LiveMessage>): Promise<void> {
+        try {
             for await (const message of messageStream) {
                 for (const channel of this.#channels) {
                     channel.submit(message);
