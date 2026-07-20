@@ -3,12 +3,19 @@ import type { AnyAuth, ConnectionSession } from "../types";
 
 export function buildRpcAuth(session: ConnectionSession, auth: AnyAuth): Record<string, unknown> {
     if ("key" in auth) {
-        return {
-            ns: auth.namespace,
-            db: auth.database,
+        if (auth.database && !auth.namespace) {
+            throw new MissingNamespaceDatabaseError();
+        }
+
+        const result: Record<string, unknown> = {
             ac: auth.access,
             key: auth.key,
         };
+
+        if (auth.namespace) result.ns = auth.namespace;
+        if (auth.database) result.db = auth.database;
+
+        return result;
     }
 
     // Record user authentication
