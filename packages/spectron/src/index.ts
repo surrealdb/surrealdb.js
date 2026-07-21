@@ -27,12 +27,12 @@ export {
 } from "./client.js";
 export {
     type ChunkPageJson,
-    DocumentKeywords,
-    Documents,
     type DocumentJson,
     type DocumentKeywordJson,
+    DocumentKeywords,
     type DocumentKeywordsResponse,
     type DocumentPageJson,
+    Documents,
     type DocumentUploadOptions,
     type KeywordDetailJson,
     type KeywordPageJson,
@@ -55,10 +55,10 @@ export { type KeyDetailJson, Keys, type MintedKeyJson } from "./components/keys.
 export { Lifecycle, type LifecycleResponseJson } from "./components/lifecycle.js";
 export {
     type EffectiveGrantsJson,
-    Principals,
     type PrincipalJson,
+    Principals,
 } from "./components/principals.js";
-export { type ForgetScopeResponseJson, Scopes, type ScopeNodeJson } from "./components/scopes.js";
+export { type ForgetScopeResponseJson, type ScopeNodeJson, Scopes } from "./components/scopes.js";
 export {
     Session,
     type SessionContextResponseJson,
@@ -68,10 +68,10 @@ export {
     type TurnResponseJson,
 } from "./components/sessions.js";
 export {
-    Traces,
     type TraceListResponseJson,
     type TraceRecordJson,
     type TraceStatsResponseJson,
+    Traces,
 } from "./components/traces.js";
 export {
     AuthError,
