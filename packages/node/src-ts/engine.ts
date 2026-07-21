@@ -24,8 +24,8 @@ import { wrapSqonError } from "./wrap-sqon-error";
 interface LivePayload {
     id: Uuid;
     action: LiveAction;
-    result: LiveMessage;
-    record: RecordId;
+    result?: Record<string, unknown>;
+    record?: RecordId;
 }
 
 /**
@@ -195,12 +195,17 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
                     );
 
                     if (payload.id) {
-                        this.#live.dispatch(payload.id.toString(), {
-                            queryId: payload.id,
-                            action: payload.action,
-                            recordId: payload.record,
-                            value: payload.result,
-                        });
+                        this.#live.dispatch(
+                            payload.id.toString(),
+                            payload.action === "KILLED"
+                                ? { queryId: payload.id, action: "KILLED" }
+                                : {
+                                      queryId: payload.id,
+                                      action: payload.action,
+                                      recordId: payload.record as RecordId,
+                                      value: payload.result as Record<string, unknown>,
+                                  },
+                        );
                     }
                 }
             })();

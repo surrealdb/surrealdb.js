@@ -81,6 +81,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
     #session: Session;
     #query: Query;
     #killed = false;
+    #serverKilled = false;
     #channels: Set<ChannelIterator<LiveMessage>> = new Set();
     #unsubscribe: () => void;
     #ready: Promise<void> = Promise.resolve();
@@ -134,7 +135,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
         // Alive until permanent teardown: killed explicitly, the owning session
         // destroyed, or the connection closed for good. hasSession() stays true
         // across a transient reconnect, whose state is not cleared.
-        return !this.#killed && this.#controller.hasSession(this.#session);
+        return !this.#killed && !this.#serverKilled && this.#controller.hasSession(this.#session);
     }
 
     public async kill(): Promise<void> {
@@ -200,6 +201,20 @@ export class ManagedLiveSubscription extends LiveSubscription {
                 for (const channel of this.#channels) {
                     channel.submit(message);
                 }
+
+                // A server-side KILLED (e.g. the subscription's table was
+                // removed) is terminal: deliver it, stop tracking, and do not
+                // restart on reconnect. isAlive flips to false.
+                if (message.action === "KILLED") {
+                    this.#serverKilled = true;
+                    this.#unsubscribe();
+
+                    for (const channel of this.#channels) {
+                        channel.cancel();
+                    }
+
+                    return;
+                }
             }
         } catch (err: unknown) {
             this.#controller.propagateError(new LiveSubscriptionError(err));
@@ -217,6 +232,7 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
     #controller: ConnectionController;
     #session: Session;
     #killed = false;
+    #serverKilled = false;
     #channels: Set<ChannelIterator<LiveMessage>> = new Set();
 
     constructor(controller: ConnectionController, session: Session, id: Uuid) {
@@ -235,6 +251,13 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
             for await (const message of messageStream) {
                 for (const channel of this.#channels) {
                     channel.submit(message);
+                }
+
+                // A server-side KILLED is terminal: deliver it, then stop.
+                // isAlive flips to false.
+                if (message.action === "KILLED") {
+                    this.#serverKilled = true;
+                    break;
                 }
             }
 
@@ -260,7 +283,7 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
         // Alive until permanent teardown: killed explicitly, the owning session
         // destroyed, or the connection closed for good. hasSession() stays true
         // across a transient reconnect, whose state is not cleared.
-        return !this.#killed && this.#controller.hasSession(this.#session);
+        return !this.#killed && !this.#serverKilled && this.#controller.hasSession(this.#session);
     }
 
     public async kill(): Promise<void> {
