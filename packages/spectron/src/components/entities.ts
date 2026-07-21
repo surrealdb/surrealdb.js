@@ -2,11 +2,11 @@ import { encodePathSegment, getContextApiPrefix } from "../paths.js";
 import type { Transport } from "../transport.js";
 import type { components } from "../types/generated.js";
 
-type EntityDetailJson = components["schemas"]["EntityDetailJson"];
-type EntityListResponseJson = components["schemas"]["EntityListResponseJson"];
-type EntityResponseJson = components["schemas"]["EntityResponseJson"];
-type EntityHistoryResponseJson = components["schemas"]["EntityHistoryResponseJson"];
-type AttributeDetailJson = components["schemas"]["AttributeDetailJson"];
+export type EntityDetailJson = components["schemas"]["EntityDetailJson"];
+export type EntityListResponseJson = components["schemas"]["EntityListResponseJson"];
+export type EntityResponseJson = components["schemas"]["EntityResponseJson"];
+export type EntityHistoryResponseJson = components["schemas"]["EntityHistoryResponseJson"];
+export type AttributeDetailJson = components["schemas"]["AttributeDetailJson"];
 
 /** Entity records, attributes, relations, and attribute history. */
 export class Entities {

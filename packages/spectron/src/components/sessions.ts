@@ -3,10 +3,10 @@ import { normaliseScope, type Scope } from "../scope.js";
 import type { Transport } from "../transport.js";
 import type { components } from "../types/generated.js";
 
-type SessionResponseJson = components["schemas"]["SessionResponseJson"];
-type SessionContextResponseJson = components["schemas"]["SessionContextResponseJson"];
-type TurnListResponseJson = components["schemas"]["TurnListResponseJson"];
-type TurnResponseJson = components["schemas"]["TurnResponseJson"];
+export type SessionResponseJson = components["schemas"]["SessionResponseJson"];
+export type SessionContextResponseJson = components["schemas"]["SessionContextResponseJson"];
+export type TurnListResponseJson = components["schemas"]["TurnListResponseJson"];
+export type TurnResponseJson = components["schemas"]["TurnResponseJson"];
 
 /** An open conversation session within a Spectron context. */
 export class Session {

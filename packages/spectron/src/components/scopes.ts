@@ -2,8 +2,8 @@ import { getContextApiPrefix } from "../paths.js";
 import type { Transport } from "../transport.js";
 import type { components } from "../types/generated.js";
 
-type ScopeNodeJson = components["schemas"]["ScopeNodeJson"];
-type ForgetScopeResponseJson = components["schemas"]["ForgetScopeResponseJson"];
+export type ScopeNodeJson = components["schemas"]["ScopeNodeJson"];
+export type ForgetScopeResponseJson = components["schemas"]["ForgetScopeResponseJson"];
 
 /** The scope tree: register, list, delete, and forget scope subtrees. */
 export class Scopes {

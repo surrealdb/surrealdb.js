@@ -2,9 +2,9 @@ import { encodePathSegment, getContextApiPrefix } from "../paths.js";
 import type { Transport } from "../transport.js";
 import type { components } from "../types/generated.js";
 
-type TraceListResponseJson = components["schemas"]["TraceListResponseJson"];
-type TraceRecordJson = components["schemas"]["TraceRecordJson"];
-type TraceStatsResponseJson = components["schemas"]["TraceStatsResponseJson"];
+export type TraceListResponseJson = components["schemas"]["TraceListResponseJson"];
+export type TraceRecordJson = components["schemas"]["TraceRecordJson"];
+export type TraceStatsResponseJson = components["schemas"]["TraceStatsResponseJson"];
 
 /** Retrieval decision traces for a context. */
 export class Traces {

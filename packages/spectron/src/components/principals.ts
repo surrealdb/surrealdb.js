@@ -3,8 +3,8 @@ import type { Transport } from "../transport.js";
 import type { Verb } from "../types/domain.js";
 import type { components } from "../types/generated.js";
 
-type PrincipalJson = components["schemas"]["PrincipalJson"];
-type EffectiveGrantsJson = components["schemas"]["EffectiveGrantsJson"];
+export type PrincipalJson = components["schemas"]["PrincipalJson"];
+export type EffectiveGrantsJson = components["schemas"]["EffectiveGrantsJson"];
 
 /** Principals and their scope grants (requires the `manage` grant). */
 export class Principals {
