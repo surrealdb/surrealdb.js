@@ -6,12 +6,14 @@ import {
     type Person,
     personTable,
     proto,
+    requestVersion,
     respawnServer,
     SURREAL_BACKEND,
     SURREAL_PROTOCOL,
 } from "../__helpers__";
 
 const _isRemote = SURREAL_BACKEND === "remote";
+const { is3x } = await requestVersion();
 
 describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
     "live() / liveOf()",
@@ -287,30 +289,35 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
             expect(messages[2].action).toEqual("DELETE");
         });
 
-        test("removing the subscribed table delivers KILLED and ends the subscription", async () => {
-            const surreal = await createSurreal();
-            await insertMockRecords(surreal);
-            const subscription = await surreal.live(personTable);
-            const messages: LiveMessage[] = [];
+        // REMOVE TABLE terminates the live query with a KILLED notification on
+        // 3.x servers; 2.x does not emit one, so this is gated to 3.x.
+        test.skipIf(!is3x)(
+            "removing the subscribed table delivers KILLED and ends the subscription",
+            async () => {
+                const surreal = await createSurreal();
+                await insertMockRecords(surreal);
+                const subscription = await surreal.live(personTable);
+                const messages: LiveMessage[] = [];
 
-            expect(subscription.isAlive).toBeTrue();
+                expect(subscription.isAlive).toBeTrue();
 
-            (async () => {
-                await Bun.sleep(100);
-                // Removing the subscribed table terminates the live query
-                // server-side, which emits a KILLED notification.
-                await surreal.query("REMOVE TABLE person");
-            })();
+                (async () => {
+                    await Bun.sleep(100);
+                    // Removing the subscribed table terminates the live query
+                    // server-side, which emits a KILLED notification.
+                    await surreal.query("REMOVE TABLE person");
+                })();
 
-            for await (const message of subscription) {
-                messages.push(message);
-            }
+                for await (const message of subscription) {
+                    messages.push(message);
+                }
 
-            // The final message is the server-side KILLED (which carries no
-            // record), and the subscription is no longer alive afterwards.
-            expect(messages.at(-1)?.action).toEqual("KILLED");
-            expect(subscription.isAlive).toBeFalse();
-        });
+                // The final message is the server-side KILLED (which carries no
+                // record), and the subscription is no longer alive afterwards.
+                expect(messages.at(-1)?.action).toEqual("KILLED");
+                expect(subscription.isAlive).toBeFalse();
+            },
+        );
 
         test.todo("iterable survives reconnect", async () => {
             const surreal = await createSurreal({
