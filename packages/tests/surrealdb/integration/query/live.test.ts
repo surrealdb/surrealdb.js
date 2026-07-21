@@ -287,6 +287,31 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
             expect(messages[2].action).toEqual("DELETE");
         });
 
+        test("removing the subscribed table delivers KILLED and ends the subscription", async () => {
+            const surreal = await createSurreal();
+            await insertMockRecords(surreal);
+            const subscription = await surreal.live(personTable);
+            const messages: LiveMessage[] = [];
+
+            expect(subscription.isAlive).toBeTrue();
+
+            (async () => {
+                await Bun.sleep(100);
+                // Removing the subscribed table terminates the live query
+                // server-side, which emits a KILLED notification.
+                await surreal.query("REMOVE TABLE person");
+            })();
+
+            for await (const message of subscription) {
+                messages.push(message);
+            }
+
+            // The final message is the server-side KILLED (which carries no
+            // record), and the subscription is no longer alive afterwards.
+            expect(messages.at(-1)?.action).toEqual("KILLED");
+            expect(subscription.isAlive).toBeFalse();
+        });
+
         test.todo("iterable survives reconnect", async () => {
             const surreal = await createSurreal({
                 reconnect: {
