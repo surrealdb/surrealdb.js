@@ -5,19 +5,19 @@ import type { Transport } from "../transport.js";
 import type { QueryMode, SpectronFileInput } from "../types/domain.js";
 import type { components } from "../types/generated.js";
 
-type DocumentJson = components["schemas"]["DocumentJson"];
-type DocumentPageJson = components["schemas"]["DocumentPageJson"];
-type ChunkPageJson = components["schemas"]["ChunkPageJson"];
-type UploadResponse = components["schemas"]["UploadResponse"];
-type QueryRequestJson = components["schemas"]["QueryRequestJson"];
-type QueryResponseJson = components["schemas"]["QueryResponseJson"];
-type KeywordPageJson = components["schemas"]["KeywordPageJson"];
-type KeywordSearchResponseJson = components["schemas"]["KeywordSearchResponseJson"];
-type KeywordSearchRequestJson = components["schemas"]["KeywordSearchRequestJson"];
-type KeywordDetailJson = components["schemas"]["KeywordDetailJson"];
-type DocumentKeywordsResponse = components["schemas"]["DocumentKeywordsResponse"];
-type DocumentKeywordJson = components["schemas"]["DocumentKeywordJson"];
-type RecomputeLinksResponse = components["schemas"]["RecomputeLinksResponse"];
+export type DocumentJson = components["schemas"]["DocumentJson"];
+export type DocumentPageJson = components["schemas"]["DocumentPageJson"];
+export type ChunkPageJson = components["schemas"]["ChunkPageJson"];
+export type UploadResponse = components["schemas"]["UploadResponse"];
+export type QueryRequestJson = components["schemas"]["QueryRequestJson"];
+export type QueryResponseJson = components["schemas"]["QueryResponseJson"];
+export type KeywordPageJson = components["schemas"]["KeywordPageJson"];
+export type KeywordSearchResponseJson = components["schemas"]["KeywordSearchResponseJson"];
+export type KeywordSearchRequestJson = components["schemas"]["KeywordSearchRequestJson"];
+export type KeywordDetailJson = components["schemas"]["KeywordDetailJson"];
+export type DocumentKeywordsResponse = components["schemas"]["DocumentKeywordsResponse"];
+export type DocumentKeywordJson = components["schemas"]["DocumentKeywordJson"];
+export type RecomputeLinksResponse = components["schemas"]["RecomputeLinksResponse"];
 
 /** Options shared by document upload and reprocess. */
 export interface DocumentUploadOptions {

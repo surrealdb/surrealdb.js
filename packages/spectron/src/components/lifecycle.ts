@@ -2,7 +2,7 @@ import { getContextApiPrefix } from "../paths.js";
 import type { Transport } from "../transport.js";
 import type { components } from "../types/generated.js";
 
-type LifecycleResponseJson = components["schemas"]["LifecycleResponseJson"];
+export type LifecycleResponseJson = components["schemas"]["LifecycleResponseJson"];
 
 /** Operator lifecycle sweeps (expiry and decay). */
 export class Lifecycle {

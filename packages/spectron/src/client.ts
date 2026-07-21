@@ -19,29 +19,30 @@ import type {
 } from "./types/domain.js";
 import type { components } from "./types/generated.js";
 
-type FactsResponseJson = components["schemas"]["FactsResponseJson"];
-type FactsBatchResponseJson = components["schemas"]["FactsBatchResponseJson"];
-type QueryMemoryResponseJson = components["schemas"]["QueryMemoryResponseJson"];
-type ChatResponseJson = components["schemas"]["ChatResponseJson"];
-type ForgetResponseJson = components["schemas"]["ForgetResponseJson"];
-type ContextQueryResponseJson = components["schemas"]["ContextQueryResponseJson"];
-type ReflectResponseJson = components["schemas"]["ReflectResponseJson"];
-type ConsolidateResponseJson = components["schemas"]["ConsolidateResponseJson"];
-type ElaborateResponseJson = components["schemas"]["ElaborateResponseJson"];
-type FsckReportJson = components["schemas"]["FsckReportJson"];
-type InspectResponseJson = components["schemas"]["InspectResponseJson"];
-type AuditResponseJson = components["schemas"]["AuditResponseJson"];
-type StateResponseJson = components["schemas"]["StateResponseJson"];
-type ProfileResponseJson = components["schemas"]["ProfileResponseJson"];
+export type FactsResponseJson = components["schemas"]["FactsResponseJson"];
+export type FactsBatchResponseJson = components["schemas"]["FactsBatchResponseJson"];
+export type QueryMemoryResponseJson = components["schemas"]["QueryMemoryResponseJson"];
+export type MemoryHitJson = components["schemas"]["MemoryHitJson"];
+export type ChatResponseJson = components["schemas"]["ChatResponseJson"];
+export type ForgetResponseJson = components["schemas"]["ForgetResponseJson"];
+export type ContextQueryResponseJson = components["schemas"]["ContextQueryResponseJson"];
+export type ReflectResponseJson = components["schemas"]["ReflectResponseJson"];
+export type ConsolidateResponseJson = components["schemas"]["ConsolidateResponseJson"];
+export type ElaborateResponseJson = components["schemas"]["ElaborateResponseJson"];
+export type FsckReportJson = components["schemas"]["FsckReportJson"];
+export type InspectResponseJson = components["schemas"]["InspectResponseJson"];
+export type AuditResponseJson = components["schemas"]["AuditResponseJson"];
+export type StateResponseJson = components["schemas"]["StateResponseJson"];
+export type ProfileResponseJson = components["schemas"]["ProfileResponseJson"];
 
 /**
  * The calling principal's identity and resolved authorisation for this context
  * (`GET /me`). Aliased to the generated OpenAPI `WhoamiJson` schema.
  */
 export type WhoamiResponseJson = components["schemas"]["WhoamiJson"];
-type Triple = components["schemas"]["Triple"];
-type BatchMessage = components["schemas"]["BatchMessage"];
-type GeoFilterJson = components["schemas"]["GeoFilterJson"];
+export type Triple = components["schemas"]["Triple"];
+export type BatchMessage = components["schemas"]["BatchMessage"];
+export type GeoFilterJson = components["schemas"]["GeoFilterJson"];
 
 /** Options for constructing a {@link Spectron} client. */
 export interface SpectronOptions {
