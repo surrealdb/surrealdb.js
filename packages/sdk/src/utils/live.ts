@@ -47,7 +47,9 @@ function watchAbort(
 /**
  * Represents a subscription to a LIVE SELECT query
  */
-export abstract class LiveSubscription implements AsyncIterable<LiveMessage> {
+export abstract class LiveSubscription<T = Record<string, unknown>>
+    implements AsyncIterable<LiveMessage<T>>
+{
     /**
      * The ID of the live subscription. Note that this id might change after
      * a live query has been restarted.
@@ -79,12 +81,12 @@ export abstract class LiveSubscription implements AsyncIterable<LiveMessage> {
     /**
      * The async iterator for the live subscription
      */
-    abstract [Symbol.asyncIterator](): AsyncIterator<LiveMessage>;
+    abstract [Symbol.asyncIterator](): AsyncIterator<LiveMessage<T>>;
 
     /**
      * Subscribe to the live subscription and return an unsubscribe function
      */
-    public subscribe(handler: (message: LiveMessage) => void): () => void {
+    public subscribe(handler: (message: LiveMessage<T>) => void): () => void {
         let killed = false;
 
         (async () => {
@@ -107,7 +109,7 @@ export abstract class LiveSubscription implements AsyncIterable<LiveMessage> {
  * A managed live subscription that is automatically restarted when the connection
  * is re-established.
  */
-export class ManagedLiveSubscription extends LiveSubscription {
+export class ManagedLiveSubscription<T = Record<string, unknown>> extends LiveSubscription<T> {
     #currentId!: Uuid;
     #controller: ConnectionController;
     #resource: LiveResource;
@@ -115,7 +117,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
     #query: Query;
     #killed = false;
     #serverKilled = false;
-    #channels: Set<ChannelIterator<LiveMessage>> = new Set();
+    #channels: Set<ChannelIterator<LiveMessage<T>>> = new Set();
     #unsubscribe: () => void;
     #unwatch: () => void = () => {};
     #killing: Promise<void> | undefined;
@@ -216,12 +218,12 @@ export class ManagedLiveSubscription extends LiveSubscription {
         }
     }
 
-    public [Symbol.asyncIterator](): AsyncIterator<LiveMessage> {
+    public [Symbol.asyncIterator](): AsyncIterator<LiveMessage<T>> {
         if (this.#killed) {
             throw new LiveSubscriptionError("Subscription has been killed");
         }
 
-        const channel = new ChannelIterator<LiveMessage>(() => {
+        const channel = new ChannelIterator<LiveMessage<T>>(() => {
             this.#channels.delete(channel);
         });
 
@@ -311,7 +313,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
         try {
             for await (const message of { [Symbol.asyncIterator]: () => stream }) {
                 for (const channel of this.#channels) {
-                    channel.submit(message);
+                    channel.submit(message as LiveMessage<T>);
                 }
 
                 // A server-side KILLED (e.g. the subscription's table was
@@ -340,7 +342,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
  * a known pre-existing ID. This subscription will not be automatically
  * restarted when the connection is re-established.
  */
-export class UnmanagedLiveSubscription extends LiveSubscription {
+export class UnmanagedLiveSubscription<T = Record<string, unknown>> extends LiveSubscription<T> {
     #id: Uuid;
     #controller: ConnectionController;
     #session: Session;
@@ -349,7 +351,7 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
     #unwatch: () => void = () => {};
     #killing: Promise<void> | undefined;
     #stream: AsyncIterator<LiveMessage> | undefined;
-    #channels: Set<ChannelIterator<LiveMessage>> = new Set();
+    #channels: Set<ChannelIterator<LiveMessage<T>>> = new Set();
 
     /**
      * @param abort When given, the subscription is killed once its signal aborts, and the scope is
@@ -374,7 +376,7 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
 
             for await (const message of { [Symbol.asyncIterator]: () => stream }) {
                 for (const channel of this.#channels) {
-                    channel.submit(message);
+                    channel.submit(message as LiveMessage<T>);
                 }
 
                 // A server-side KILLED is terminal: deliver it, then stop.
@@ -453,12 +455,12 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
         }
     }
 
-    public [Symbol.asyncIterator](): AsyncIterator<LiveMessage> {
+    public [Symbol.asyncIterator](): AsyncIterator<LiveMessage<T>> {
         if (this.#killed) {
             throw new LiveSubscriptionError("Subscription has been killed");
         }
 
-        const channel = new ChannelIterator<LiveMessage>(() => {
+        const channel = new ChannelIterator<LiveMessage<T>>(() => {
             this.#channels.delete(channel);
         });
 

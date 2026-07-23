@@ -26,7 +26,7 @@ interface ManagedLiveOptions {
 /**
  * A promise representing a managed `live` RPC call to the server.
  */
-export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
+export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription<T>> {
     #connection: ConnectionController;
     #options: ManagedLiveOptions;
 
@@ -102,9 +102,9 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
         return this.#build().inner;
     }
 
-    protected async dispatch(): Promise<LiveSubscription> {
+    protected async dispatch(): Promise<LiveSubscription<T>> {
         const abort = abortScope(this.#options.signals ?? []);
-        let subscription: ManagedLiveSubscription | undefined;
+        let subscription: ManagedLiveSubscription<T> | undefined;
 
         try {
             // A signal which has aborted already means no live query is registered at all
@@ -115,7 +115,7 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
             throwIfAborted(abort.signal);
 
             // From here the subscription owns the signals, and kills itself when they abort
-            subscription = new ManagedLiveSubscription(
+            subscription = new ManagedLiveSubscription<T>(
                 this.#connection,
                 this.#options.what,
                 this.#options.session,
