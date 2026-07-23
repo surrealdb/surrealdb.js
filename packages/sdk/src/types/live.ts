@@ -11,12 +11,12 @@ export type LiveAction = (typeof LIVE_ACTIONS)[number];
  * terminated server-side (for example when its table is removed) and carries
  * no record. It is the final message a subscription emits.
  */
-export type LiveMessage =
+export type LiveMessage<T = Record<string, unknown>> =
     | {
           queryId: Uuid;
           action: Exclude<LiveAction, "KILLED">;
           recordId: RecordId;
-          value: Record<string, unknown>;
+          value: T;
       }
     | {
           queryId: Uuid;

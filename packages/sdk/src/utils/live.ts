@@ -14,7 +14,7 @@ function newKill(id: Uuid): BoundQuery {
 /**
  * Represents a subscription to a LIVE SELECT query
  */
-export abstract class LiveSubscription implements AsyncIterable<LiveMessage> {
+export abstract class LiveSubscription<T = Record<string, unknown>> implements AsyncIterable<LiveMessage<T>> {
     /**
      * The ID of the live subscription. Note that this id might change after
      * a live query has been restarted.
@@ -46,12 +46,12 @@ export abstract class LiveSubscription implements AsyncIterable<LiveMessage> {
     /**
      * The async iterator for the live subscription
      */
-    abstract [Symbol.asyncIterator](): AsyncIterator<LiveMessage>;
+    abstract [Symbol.asyncIterator](): AsyncIterator<LiveMessage<T>>;
 
     /**
      * Subscribe to the live subscription and return an unsubscribe function
      */
-    public subscribe(handler: (message: LiveMessage) => void): () => void {
+    public subscribe(handler: (message: LiveMessage<T>) => void): () => void {
         let killed = false;
 
         (async () => {
@@ -74,7 +74,7 @@ export abstract class LiveSubscription implements AsyncIterable<LiveMessage> {
  * A managed live subscription that is automatically restarted when the connection
  * is re-established.
  */
-export class ManagedLiveSubscription extends LiveSubscription {
+export class ManagedLiveSubscription<T = Record<string, unknown>> extends LiveSubscription<T> {
     #currentId!: Uuid;
     #controller: ConnectionController;
     #resource: LiveResource;
@@ -82,7 +82,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
     #query: Query;
     #killed = false;
     #serverKilled = false;
-    #channels: Set<ChannelIterator<LiveMessage>> = new Set();
+    #channels: Set<ChannelIterator<LiveMessage<T>>> = new Set();
     #unsubscribe: () => void;
     #ready: Promise<void> = Promise.resolve();
 
@@ -157,12 +157,12 @@ export class ManagedLiveSubscription extends LiveSubscription {
         }
     }
 
-    public [Symbol.asyncIterator](): AsyncIterator<LiveMessage> {
+    public [Symbol.asyncIterator](): AsyncIterator<LiveMessage<T>> {
         if (this.#killed) {
             throw new LiveSubscriptionError("Subscription has been killed");
         }
 
-        const channel = new ChannelIterator<LiveMessage>(() => {
+        const channel = new ChannelIterator<LiveMessage<T>>(() => {
             this.#channels.delete(channel);
         });
 
@@ -199,7 +199,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
         try {
             for await (const message of messageStream) {
                 for (const channel of this.#channels) {
-                    channel.submit(message);
+                    channel.submit(message as LiveMessage<T>);
                 }
 
                 // A server-side KILLED (e.g. the subscription's table was
@@ -227,13 +227,13 @@ export class ManagedLiveSubscription extends LiveSubscription {
  * a known pre-existing ID. This subscription will not be automatically
  * restarted when the connection is re-established.
  */
-export class UnmanagedLiveSubscription extends LiveSubscription {
+export class UnmanagedLiveSubscription<T = Record<string, unknown>> extends LiveSubscription<T> {
     #id: Uuid;
     #controller: ConnectionController;
     #session: Session;
     #killed = false;
     #serverKilled = false;
-    #channels: Set<ChannelIterator<LiveMessage>> = new Set();
+    #channels: Set<ChannelIterator<LiveMessage<T>>> = new Set();
 
     constructor(controller: ConnectionController, session: Session, id: Uuid) {
         super();
@@ -250,7 +250,7 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
 
             for await (const message of messageStream) {
                 for (const channel of this.#channels) {
-                    channel.submit(message);
+                    channel.submit(message as LiveMessage<T>);
                 }
 
                 // A server-side KILLED is terminal: deliver it, then stop.
@@ -303,12 +303,12 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
         }
     }
 
-    public [Symbol.asyncIterator](): AsyncIterator<LiveMessage> {
+    public [Symbol.asyncIterator](): AsyncIterator<LiveMessage<T>> {
         if (this.#killed) {
             throw new LiveSubscriptionError("Subscription has been killed");
         }
 
-        const channel = new ChannelIterator<LiveMessage>(() => {
+        const channel = new ChannelIterator<LiveMessage<T>>(() => {
             this.#channels.delete(channel);
         });
 
