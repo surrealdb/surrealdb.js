@@ -197,7 +197,13 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             // Open a new connection
             const WebSocketImpl = this._context.options.websocketImpl ?? globalThis.WebSocket;
             const socket = new WebSocketImpl(this._state.url.toString(), "cbor");
-            if (socket.binaryType === "blob") socket.binaryType = "arraybuffer";
+
+            // Binary frames must arrive as something parseBuffer accepts. Assert the desired
+            // type rather than correcting one specific unwanted value: React Native leaves
+            // binaryType uninitialised, so its getter returns null and `=== "blob"` never fires.
+            if (socket.binaryType !== "arraybuffer") {
+                socket.binaryType = "arraybuffer";
+            }
 
             this.#socket = socket;
 
@@ -260,8 +266,19 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                     } else {
                         throw new UnexpectedServerResponseError(decoded);
                     }
-                } catch (detail) {
-                    socket.dispatchEvent(new CustomEvent("error", { detail }));
+                } catch (cause) {
+                    // Report malformed frames on the engine's own error channel, as
+                    // handleRpcResponse already does for unrecognised frames. Round-tripping
+                    // through a synthetic CustomEvent required a global which does not exist in
+                    // every runtime (React Native), was rejected by event-target-shim based
+                    // EventTarget implementations, and only stashed the error in caughtError -
+                    // deferring it until the socket closed and then misreporting it as the cause
+                    // of that closure.
+                    try {
+                        this.#publisher.publish("error", new UnexpectedConnectionError(cause));
+                    } catch {
+                        // A throwing subscriber must not escape the socket listener
+                    }
                 }
             });
         });

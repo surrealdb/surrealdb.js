@@ -27,5 +27,15 @@
             "@surrealdb/sqon": ["./packages/sqon/src"],
             "@surrealdb/spectron": ["./packages/spectron/src"]
         }
-    }
+    },
+
+    // `demo/expo` is checked by its own tsconfig (`bun run qts:expo`), which extends
+    // `expo/tsconfig.base`. Including it here would inject React Native and Expo globals
+    // into every file in this program - `expo-env.d.ts` carries a
+    // `/// <reference types="expo/types" />` - and would resolve `surrealdb` through the
+    // `paths` map above rather than through the built types a real consumer sees.
+    //
+    // The other three entries are TypeScript's defaults, which are dropped as soon as
+    // `exclude` is specified at all.
+    "exclude": ["node_modules", "bower_components", "jspm_packages", "demo/expo"]
 }

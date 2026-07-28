@@ -1,5 +1,6 @@
 import { UUID, uuidv4obj, uuidv7obj } from "uuidv7";
 import { JsonCodec } from "../codec/json/codec.ts";
+import { isSharedArrayBuffer } from "../internal/shared-array-buffer.ts";
 import { hasSymbol, markSymbol, UUID_SYMBOL } from "../utils/symbols.ts";
 import { Value } from "./value.ts";
 
@@ -38,7 +39,7 @@ export class Uuid extends Value {
     constructor(uuid: Uuid | UUID | string | ArrayBufferLike | Uint8Array) {
         super();
 
-        if (uuid instanceof ArrayBuffer || uuid instanceof SharedArrayBuffer) {
+        if (uuid instanceof ArrayBuffer || isSharedArrayBuffer(uuid)) {
             this.#inner = UUID.ofInner(new Uint8Array(uuid));
         } else if (uuid instanceof Uint8Array) {
             this.#inner = UUID.ofInner(uuid);
