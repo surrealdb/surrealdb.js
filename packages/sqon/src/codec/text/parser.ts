@@ -1,4 +1,4 @@
-import { SqonParseError } from "../../errors.ts";
+import { TextParseError } from "../../errors.ts";
 import { fromBase64Url } from "../../internal/base64.ts";
 import { type Bound, BoundExcluded, BoundIncluded } from "../../utils/range.ts";
 import {
@@ -18,7 +18,7 @@ import {
 /**
  * Options used to configure the SQON text parser.
  */
-export interface SqonParseOptions {
+export interface TextParseOptions {
     /**
      * Use native `Date` objects instead of custom `DateTime` objects.
      * Using `Date` objects will result in a loss of nanosecond precision.
@@ -43,12 +43,12 @@ const ANGLE_CLOSE = "⟩"; // ⟩
  * derivatives for SurrealDB-specific types. The output shape matches what the
  * CBOR and JSON codecs produce when decoding.
  */
-export class SqonParser {
+export class TextParser {
     readonly #src: string;
-    readonly #opts: SqonParseOptions;
+    readonly #opts: TextParseOptions;
     #pos = 0;
 
-    constructor(src: string, opts: SqonParseOptions = {}) {
+    constructor(src: string, opts: TextParseOptions = {}) {
         this.#src = src;
         this.#opts = opts;
     }
@@ -64,6 +64,187 @@ export class SqonParser {
             this.#error(`Unexpected trailing input '${this.#peek()}'`);
         }
         return value;
+    }
+
+    // ------------------------------------------------------------------
+    // Typed static entry points
+    // ------------------------------------------------------------------
+
+    static #expect<T>(
+        input: string,
+        options: TextParseOptions | undefined,
+        expected: string,
+        check: (value: unknown) => value is T,
+    ): T {
+        const value = new TextParser(input, options).parse();
+        if (!check(value)) {
+            throw new TextParseError(`Expected a ${expected} value`, 0);
+        }
+        return value;
+    }
+
+    /** Parse any single SQON value. */
+    static parseValue(input: string, options?: TextParseOptions): unknown {
+        return new TextParser(input, options).parse();
+    }
+
+    /** Parse a string value. */
+    static parseString(input: string, options?: TextParseOptions): string {
+        return TextParser.#expect(
+            input,
+            options,
+            "string",
+            (v): v is string => typeof v === "string",
+        );
+    }
+
+    /** Parse a numeric value (`int` as `number`/`bigint`, `float` as `number`). */
+    static parseNumber(input: string, options?: TextParseOptions): number | bigint {
+        return TextParser.#expect(
+            input,
+            options,
+            "number",
+            (v): v is number | bigint => typeof v === "number" || typeof v === "bigint",
+        );
+    }
+
+    /** Parse a boolean value. */
+    static parseBool(input: string, options?: TextParseOptions): boolean {
+        return TextParser.#expect(
+            input,
+            options,
+            "boolean",
+            (v): v is boolean => typeof v === "boolean",
+        );
+    }
+
+    /** Parse a decimal value. */
+    static parseDecimal(input: string, options?: TextParseOptions): Decimal {
+        return TextParser.#expect(
+            input,
+            options,
+            "decimal",
+            (v): v is Decimal => v instanceof Decimal,
+        );
+    }
+
+    /** Parse a duration value. */
+    static parseDuration(input: string, options?: TextParseOptions): Duration {
+        return TextParser.#expect(
+            input,
+            options,
+            "duration",
+            (v): v is Duration => v instanceof Duration,
+        );
+    }
+
+    /** Parse a datetime value (a `Date` when `useNativeDates` is set). */
+    static parseDatetime(input: string, options?: TextParseOptions): DateTime | Date {
+        return TextParser.#expect(
+            input,
+            options,
+            "datetime",
+            (v): v is DateTime | Date => v instanceof DateTime || v instanceof Date,
+        );
+    }
+
+    /** Parse a UUID value. */
+    static parseUuid(input: string, options?: TextParseOptions): Uuid {
+        return TextParser.#expect(input, options, "uuid", (v): v is Uuid => v instanceof Uuid);
+    }
+
+    /** Parse a bytes value. */
+    static parseBytes(input: string, options?: TextParseOptions): Uint8Array {
+        return TextParser.#expect(
+            input,
+            options,
+            "bytes",
+            (v): v is Uint8Array => v instanceof Uint8Array,
+        );
+    }
+
+    /** Parse a file reference value. */
+    static parseFile(input: string, options?: TextParseOptions): FileRef {
+        return TextParser.#expect(
+            input,
+            options,
+            "file",
+            (v): v is FileRef => v instanceof FileRef,
+        );
+    }
+
+    /** Parse a table value. */
+    static parseTable(input: string, options?: TextParseOptions): Table {
+        return TextParser.#expect(input, options, "table", (v): v is Table => v instanceof Table);
+    }
+
+    /** Parse a record id value. */
+    static parseRecordId(input: string, options?: TextParseOptions): RecordId {
+        return TextParser.#expect(
+            input,
+            options,
+            "record id",
+            (v): v is RecordId => v instanceof RecordId,
+        );
+    }
+
+    /** Parse a record id range value. */
+    static parseRecordIdRange(input: string, options?: TextParseOptions): RecordIdRange {
+        return TextParser.#expect(
+            input,
+            options,
+            "record id range",
+            (v): v is RecordIdRange => v instanceof RecordIdRange,
+        );
+    }
+
+    /** Parse a range value. */
+    static parseRange(input: string, options?: TextParseOptions): Range<unknown, unknown> {
+        return TextParser.#expect(
+            input,
+            options,
+            "range",
+            (v): v is Range<unknown, unknown> => v instanceof Range,
+        );
+    }
+
+    /** Parse a geometry point value. */
+    static parseGeometryPoint(input: string, options?: TextParseOptions): GeometryPoint {
+        return TextParser.#expect(
+            input,
+            options,
+            "geometry point",
+            (v): v is GeometryPoint => v instanceof GeometryPoint,
+        );
+    }
+
+    /** Parse an array value. */
+    static parseArray(input: string, options?: TextParseOptions): unknown[] {
+        return TextParser.#expect(input, options, "array", (v): v is unknown[] => Array.isArray(v));
+    }
+
+    /** Parse a set value. */
+    static parseSet(input: string, options?: TextParseOptions): Set<unknown> {
+        return TextParser.#expect(
+            input,
+            options,
+            "set",
+            (v): v is Set<unknown> => v instanceof Set,
+        );
+    }
+
+    /** Parse a plain object value. */
+    static parseObject(input: string, options?: TextParseOptions): Record<string, unknown> {
+        return TextParser.#expect(
+            input,
+            options,
+            "object",
+            (v): v is Record<string, unknown> =>
+                typeof v === "object" &&
+                v !== null &&
+                !Array.isArray(v) &&
+                Object.getPrototypeOf(v) === Object.prototype,
+        );
     }
 
     // ------------------------------------------------------------------
@@ -105,7 +286,7 @@ export class SqonParser {
     }
 
     #error(message: string): never {
-        throw new SqonParseError(message, this.#pos);
+        throw new TextParseError(message, this.#pos);
     }
 
     // ------------------------------------------------------------------
@@ -638,7 +819,7 @@ export class SqonParser {
     }
 
     #parseInnerRecordId(inner: string): RecordId | RecordIdRange {
-        const parser = new SqonParser(inner, this.#opts);
+        const parser = new TextParser(inner, this.#opts);
         parser.#skipWs();
         const { name } = parser.#parseIdentRaw();
         if (parser.#peek() !== ":") {
@@ -849,6 +1030,6 @@ export class SqonParser {
  * @param options Parser options
  * @returns The parsed value, as a native JavaScript value or SQON `Value` derivative
  */
-export function parseSqon(input: string, options?: SqonParseOptions): unknown {
-    return new SqonParser(input, options).parse();
+export function parseText(input: string, options?: TextParseOptions): unknown {
+    return new TextParser(input, options).parse();
 }

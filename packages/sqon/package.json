@@ -11,7 +11,7 @@
     },
     "scripts": {
         "build": "bun run build.ts",
-        "bench": "bun run src/codec/sqon/parser.bench.ts",
+        "bench": "bun run src/codec/text/parser.bench.ts",
         "deploy": "bun run ../../scripts/publish.ts"
     },
     "devDependencies": {

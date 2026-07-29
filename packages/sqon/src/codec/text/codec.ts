@@ -1,11 +1,11 @@
 import type { ValueCodec } from "../../types/codec.ts";
 import { toSurqlString } from "../../utils/to-surql-string.ts";
-import { type SqonParseOptions, SqonParser } from "./parser.ts";
+import { type TextParseOptions, TextParser } from "./parser.ts";
 
 /**
- * Options used to configure the {@link SqonCodec}.
+ * Options used to configure the {@link TextCodec}.
  */
-export interface SqonCodecOptions extends SqonParseOptions {}
+export interface TextCodecOptions extends TextParseOptions {}
 
 /**
  * A codec for encoding and decoding SurrealQL values using the SQON text format.
@@ -14,15 +14,15 @@ export interface SqonCodecOptions extends SqonParseOptions {}
  * SurrealQL value back into native JavaScript values and SQON `Value`
  * derivatives, matching the output of the CBOR and JSON codecs.
  */
-export class SqonCodec implements ValueCodec<string> {
+export class TextCodec implements ValueCodec<string> {
     /**
-     * The default SqonCodec instance.
+     * The default TextCodec instance.
      */
-    static readonly DEFAULT: SqonCodec = new SqonCodec({});
+    static readonly DEFAULT: TextCodec = new TextCodec({});
 
-    #options: SqonCodecOptions;
+    #options: TextCodecOptions;
 
-    constructor(options: SqonCodecOptions = {}) {
+    constructor(options: TextCodecOptions = {}) {
         this.#options = options;
     }
 
@@ -37,6 +37,6 @@ export class SqonCodec implements ValueCodec<string> {
      * Decode a SurrealQL value string into value instances.
      */
     decode<T>(data: string): T {
-        return new SqonParser(data, this.#options).parse() as T;
+        return new TextParser(data, this.#options).parse() as T;
     }
 }

@@ -49,8 +49,8 @@ export class InvalidTableError extends SqonError {
 /**
  * Thrown when a SQON text value cannot be parsed
  */
-export class SqonParseError extends SqonError {
-    override name = "SqonParseError";
+export class TextParseError extends SqonError {
+    override name = "TextParseError";
 
     /** The zero-based character offset at which parsing failed */
     readonly offset: number;
