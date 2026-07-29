@@ -11,10 +11,12 @@
     },
     "scripts": {
         "build": "bun run build.ts",
+        "bench": "bun run src/codec/sqon/parser.bench.ts",
         "deploy": "bun run ../../scripts/publish.ts"
     },
     "devDependencies": {
-        "@types/bun": "^1.2.21"
+        "@types/bun": "^1.2.21",
+        "mitata": "^1.0.34"
     },
     "peerDependencies": {
         "typescript": "^5.0.0",

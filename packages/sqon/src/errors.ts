@@ -45,3 +45,18 @@ export class InvalidDecimalError extends SqonError {
 export class InvalidTableError extends SqonError {
     override name = "InvalidTableError";
 }
+
+/**
+ * Thrown when a SQON text value cannot be parsed
+ */
+export class SqonParseError extends SqonError {
+    override name = "SqonParseError";
+
+    /** The zero-based character offset at which parsing failed */
+    readonly offset: number;
+
+    constructor(message: string, offset: number) {
+        super(`${message} (at offset ${offset})`);
+        this.offset = offset;
+    }
+}

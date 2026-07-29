@@ -39,7 +39,7 @@
     },
     "packages/node": {
       "name": "@surrealdb/node",
-      "version": "3.0.3",
+      "version": "3.0.4",
       "devDependencies": {
         "@napi-rs/cli": "^3.1.5",
         "dedent": "^1.7.0",
@@ -51,7 +51,7 @@
     },
     "packages/sdk": {
       "name": "surrealdb",
-      "version": "2.0.3",
+      "version": "2.0.8",
       "dependencies": {
         "@surrealdb/sqon": "workspace:*",
       },
@@ -67,7 +67,7 @@
     },
     "packages/spectron": {
       "name": "@surrealdb/spectron",
-      "version": "1.0.0-alpha.3",
+      "version": "1.0.0-alpha.6",
       "devDependencies": {
         "@types/bun": "^1.2.21",
         "openapi-typescript": "^7.10.0",
@@ -78,13 +78,14 @@
     },
     "packages/sqon": {
       "name": "@surrealdb/sqon",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@surrealdb/cbor": "2.0.0-alpha.4",
         "uuidv7": "^1.0.1",
       },
       "devDependencies": {
         "@types/bun": "^1.2.21",
+        "mitata": "^1.0.34",
       },
       "peerDependencies": {
         "tslib": "^2.6.3",
@@ -585,6 +586,8 @@
     "locate-path": ["locate-path@7.2.0", "", { "dependencies": { "p-locate": "^6.0.0" } }, "sha512-gvVijfZvn7R+2qyPX8mAuKcFGDf6Nc61GdvGafQsHL0sBIxfKzA+usWn4GFC/bk+QdwPUD4kWFJLhElipq+0VA=="],
 
     "minimatch": ["minimatch@5.1.9", "", { "dependencies": { "brace-expansion": "^2.0.1" } }, "sha512-7o1wEA2RyMP7Iu7GNba9vc0RWWGACJOCZBJX2GJWip0ikV+wcOsgVuY9uE8CPiyQhkGFSlhuSkZPavN7u1c2Fw=="],
+
+    "mitata": ["mitata@1.0.34", "", {}, "sha512-Mc3zrtNBKIMeHSCQ0XqRLo1vbdIx1wvFV9c8NJAiyho6AjNfMY8bVhbS12bwciUdd1t4rj8099CH3N3NFahaUA=="],
 
     "ms": ["ms@2.1.3", "", {}, "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="],
 
