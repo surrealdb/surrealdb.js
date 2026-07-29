@@ -150,3 +150,4 @@ For local development the [Bun extension](https://marketplace.visualstudio.com/i
 - `./packages/tests` - test suite (`surrealdb/` for the SDK, `spectron/` for Spectron)
 - `./demo/wasm` - WebAssembly demo
 - `./demo/node` - Node.js demo
+- `./demo/expo` - Expo / React Native demo
