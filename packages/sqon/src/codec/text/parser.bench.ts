@@ -1,9 +1,9 @@
 import { barplot, bench, do_not_optimize, group, run, summary } from "mitata";
-import { parseText } from "./parser.ts";
+import { TextCodec } from "./codec.ts";
 
 // Run with: bun run src/codec/text/parser.bench.ts
 
-const benchParse = (input: string) => () => do_not_optimize(parseText(input));
+const benchParse = (input: string) => () => do_not_optimize(TextCodec.parseValue(input));
 
 group("primitives", () => {
     summary(() => {
