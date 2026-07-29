@@ -78,7 +78,7 @@
     },
     "packages/sqon": {
       "name": "@surrealdb/sqon",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "dependencies": {
         "@surrealdb/cbor": "2.0.0-alpha.4",
         "uuidv7": "^1.0.1",
