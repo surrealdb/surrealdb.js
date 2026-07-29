@@ -245,6 +245,69 @@ jobs:
           retention-days: 30
           path: packages/node/dist/
 
+  expo:
+    name: Expo
+    needs: build-sdk
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.2.21
+
+      - name: Code Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install dependencies
+        run: bun ci
+
+      # demo/expo resolves `surrealdb` through the workspace symlink to
+      # packages/sdk/dist, so both steps below need the built SDK, not the sources.
+      - name: Download SDK build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: sdk-build
+          path: packages/sdk/dist/
+
+      # Typechecks against dist/surrealdb.d.ts, exactly as a consumer would, rather
+      # than against the sources the root tsconfig `paths` would otherwise redirect to.
+      - name: Typecheck Expo demo
+        run: bun run qts:expo
+
+      # The real guard. Bundling through Metro proves the SDK still resolves under
+      # React Native's export conditions (a `node:` import reachable from
+      # src/index.ts would leak into the primary bundle and fail here), and the
+      # Hermes bytecode compile proves hermesc accepts every construct the SDK emits.
+      #
+      # iOS only: Metro's platform choice does not change SDK resolution, Babel
+      # transforms or the hermesc pass, so a second platform would only add minutes.
+      - name: Bundle Expo demo for Hermes
+        run: bun run --cwd demo/expo bundle
+        env:
+          EXPO_NO_TELEMETRY: "1"
+
+      # `expo export` silently emits plain JavaScript if bytecode generation is
+      # skipped, which would weaken the step above without failing it. Assert the
+      # output really is Hermes bytecode by checking for its magic number.
+      - name: Verify Hermes bytecode was produced
+        run: |
+          bundle=$(ls demo/expo/dist/_expo/static/js/ios/*.hbc 2>/dev/null | head -n 1)
+
+          if [ -z "$bundle" ]; then
+            echo "::error::No .hbc bundle found - Hermes bytecode was not generated."
+            ls -R demo/expo/dist || true
+            exit 1
+          fi
+
+          magic=$(head -c 4 "$bundle" | od -An -tx1 | tr -d ' \n')
+
+          if [ "$magic" != "c61fbc03" ]; then
+            echo "::error::$bundle is not Hermes bytecode (magic: $magic)."
+            exit 1
+          fi
+
+          echo "Hermes bytecode verified: $bundle"
+
   test:
     name: Test
     needs: build-sdk

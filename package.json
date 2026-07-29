@@ -30,7 +30,9 @@
         "qts": "tsc --noEmit",
         "qtsw": "tsc --noEmit --watch",
         "demo:wasm": "bun run --cwd demo/wasm demo",
-        "demo:node": "bun run --cwd demo/node demo"
+        "demo:node": "bun run --cwd demo/node demo",
+        "demo:expo": "bun run --cwd demo/expo demo",
+        "qts:expo": "bun run --cwd demo/expo typecheck"
     },
     "devDependencies": {
         "@biomejs/biome": "2.1.2",
