@@ -9,6 +9,9 @@
         "run-tests": {
             "cache": false
         },
+        "bench": {
+            "cache": false
+        },
         "sync": {
             "cache": false
         },
