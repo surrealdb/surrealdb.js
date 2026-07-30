@@ -1,6 +1,6 @@
 {
     "name": "@surrealdb/sqon",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "type": "module",
     "license": "Apache-2.0",
     "description": "SQON value types and codecs for SurrealDB.",
@@ -11,10 +11,12 @@
     },
     "scripts": {
         "build": "bun run build.ts",
+        "bench": "bun run src/codec/text/parser.bench.ts",
         "deploy": "bun run ../../scripts/publish.ts"
     },
     "devDependencies": {
-        "@types/bun": "^1.2.21"
+        "@types/bun": "^1.2.21",
+        "mitata": "^1.0.34"
     },
     "peerDependencies": {
         "typescript": "^5.0.0",

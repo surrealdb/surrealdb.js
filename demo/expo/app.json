@@ -1,0 +1,17 @@
+{
+    "expo": {
+        "name": "SurrealDB Expo Demo",
+        "slug": "surrealdb-expo-demo",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "userInterfaceStyle": "dark",
+        "platforms": ["ios", "android"],
+        "ios": {
+            "bundleIdentifier": "com.surrealdb.expodemo",
+            "supportsTablet": true
+        },
+        "android": {
+            "package": "com.surrealdb.expodemo"
+        }
+    }
+}
