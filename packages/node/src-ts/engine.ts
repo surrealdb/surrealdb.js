@@ -18,7 +18,7 @@ import {
     UnexpectedConnectionError,
     type Uuid,
 } from "surrealdb";
-import { type ConnectionOptions, type NotificationReceiver, SurrealNodeEngine } from "../napi";
+import { type ConnectionOptions, type NotificationReceiver, SurrealNodeEngine } from "@surrealdb/node-native";
 import { wrapSqonError } from "./wrap-sqon-error";
 
 interface LivePayload {
@@ -29,8 +29,8 @@ interface LivePayload {
 }
 
 /**
- * The engine implementation responsible for communicating with an embedded
- * WebAssembly build of SurrealDB.
+ * The engine implementation responsible for communicating with a SurrealDB
+ * instance embedded in the host JavaScript runtime through a NAPI addon.
  */
 export class NodeEngine extends RpcEngine implements SurrealEngine {
     #engine: SurrealNodeEngine | undefined;
@@ -46,7 +46,10 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         this.#options = options;
     }
 
-    features = new Set([
+    // Annotated through `SurrealEngine` rather than left to inference: the
+    // SDK's `Feature` class is not exported, so a declaration naming it
+    // directly cannot be emitted.
+    features: SurrealEngine["features"] = new Set([
         Features.LiveQueries,
         Features.Sessions,
         Features.Transactions,

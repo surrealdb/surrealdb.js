@@ -1,5 +1,5 @@
 import type { Engines } from "surrealdb";
-import type { ConnectionOptions } from "../napi";
+import type { ConnectionOptions } from "@surrealdb/node-native";
 import { NodeEngine } from "./engine";
 
 /**
