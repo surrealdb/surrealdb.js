@@ -1,9 +1,20 @@
-import { ConnectionError, errorFromResponse } from "./errors.js";
+import { CancelledError, ConnectionError, errorFromResponse } from "./errors.js";
 import { idempotencyKey } from "./idempotency.js";
 import { backoffSchedule, shouldRetry } from "./retry.js";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
+
+/** Progress of a request body being sent, reported while an upload is in flight. */
+export interface UploadProgress {
+    /** Bytes handed to the network so far. */
+    loaded: number;
+    /** Total bytes to send, when the environment can determine it. */
+    total?: number;
+}
+
+/** Reports upload progress. Called repeatedly while the request body is sent. */
+export type UploadProgressListener = (progress: UploadProgress) => void;
 
 export interface TransportOptions {
     /** API endpoint origin without trailing slash. */
@@ -45,6 +56,104 @@ function decodeBody(text: string): unknown {
 
 function sleep(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Combines a caller's abort signal with an internal one.
+ *
+ * The internal signal carries the request timeout, so it cannot simply be
+ * replaced by the caller's — both have to be able to abort the request.
+ *
+ * @returns A cleanup function that detaches the forwarding listener.
+ */
+function forwardAbort(from: AbortSignal | undefined, to: AbortController): () => void {
+    if (!from) return () => {};
+
+    if (from.aborted) {
+        to.abort();
+        return () => {};
+    }
+
+    const onAbort = () => to.abort();
+    from.addEventListener("abort", onAbort, { once: true });
+
+    return () => from.removeEventListener("abort", onAbort);
+}
+
+/**
+ * Sends a multipart body with `XMLHttpRequest` so its progress can be observed.
+ *
+ * `fetch` cannot report how much of a request body has been sent in any browser,
+ * which leaves a large upload indistinguishable from a stalled one. This path is
+ * used only when a caller asks for progress; everything else stays on `fetch`.
+ */
+function sendWithProgress(options: {
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+    body: FormData;
+    signal: AbortSignal;
+    onProgress: UploadProgressListener;
+}): Promise<{ status: number; text: string; headers: Headers }> {
+    const { url, method, headers, body, signal, onProgress } = options;
+
+    return new Promise((resolve, reject) => {
+        const request = new XMLHttpRequest();
+        request.open(method, url, true);
+
+        for (const [name, value] of Object.entries(headers)) {
+            request.setRequestHeader(name, value);
+        }
+
+        request.upload.addEventListener("progress", (event) => {
+            onProgress({
+                loaded: event.loaded,
+                total: event.lengthComputable ? event.total : undefined,
+            });
+        });
+
+        request.addEventListener("load", () => {
+            resolve({
+                status: request.status,
+                text: request.responseText,
+                // `XMLHttpRequest` exposes headers as one CRLF-delimited string.
+                headers: parseRawHeaders(request.getAllResponseHeaders()),
+            });
+        });
+
+        request.addEventListener("error", () => reject(new TypeError("Network request failed")));
+
+        // Both aborts land here, so the caller's cancellation and the timeout are
+        // told apart by the caller's own signal rather than by the event.
+        request.addEventListener("abort", () => {
+            const error = new Error("Request aborted");
+            error.name = "AbortError";
+            reject(error);
+        });
+
+        const onAbort = () => request.abort();
+
+        if (signal.aborted) {
+            request.abort();
+        } else {
+            signal.addEventListener("abort", onAbort, { once: true });
+        }
+
+        request.addEventListener("loadend", () => signal.removeEventListener("abort", onAbort));
+        request.send(body);
+    });
+}
+
+function parseRawHeaders(raw: string): Headers {
+    const headers = new Headers();
+
+    for (const line of raw.trim().split(/[\r\n]+/)) {
+        const separator = line.indexOf(":");
+        if (separator === -1) continue;
+        headers.append(line.slice(0, separator).trim(), line.slice(separator + 1).trim());
+    }
+
+    return headers;
 }
 
 /**
@@ -117,6 +226,10 @@ export class Transport {
             body?: unknown;
             timeoutMs?: number;
             idempotent?: boolean;
+            /** Aborts the request. Rejects with {@link CancelledError}. */
+            signal?: AbortSignal;
+            /** Observes a multipart body being sent. Ignored for JSON bodies. */
+            onUploadProgress?: UploadProgressListener;
         },
     ): Promise<unknown | null> {
         const methodUpper = method.toUpperCase();
@@ -153,9 +266,26 @@ export class Transport {
             headerObj["Idempotency-Key"] = await idempotencyKey(methodUpper, path, serialisedBody);
         }
 
+        // Already cancelled before it began, so there is nothing worth sending.
+        if (init?.signal?.aborted) {
+            throw new CancelledError({
+                status: 0,
+                title: "Request cancelled",
+                detail: "The signal was already aborted",
+            });
+        }
+
+        // Progress can only be observed through `XMLHttpRequest`, so it is used
+        // for a multipart body when — and only when — a caller asks to observe one.
+        const withProgress =
+            isMultipart &&
+            init?.onUploadProgress !== undefined &&
+            typeof XMLHttpRequest !== "undefined";
+
         let attempt = 0;
         for (;;) {
             const controller = new AbortController();
+            const detachAbort = forwardAbort(init?.signal, controller);
             const timer =
                 timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
             const headersForFetch: HeadersInit = { ...headerObj };
@@ -165,14 +295,30 @@ export class Transport {
             }
 
             try {
-                const response = await this.fetchImpl(url, {
-                    method: methodUpper,
-                    headers: headersForFetch,
-                    body: methodUpper === "GET" || methodUpper === "HEAD" ? undefined : body,
-                    signal: controller.signal,
-                });
+                const response = withProgress
+                    ? await sendWithProgress({
+                          url,
+                          method: methodUpper,
+                          headers: headersForFetch as Record<string, string>,
+                          body: body as FormData,
+                          signal: controller.signal,
+                          // biome-ignore lint/style/noNonNullAssertion: guarded by `withProgress`.
+                          onProgress: init!.onUploadProgress!,
+                      }).then(({ status, text, headers }) => ({
+                          status,
+                          ok: status >= 200 && status < 300,
+                          headers,
+                          text: () => Promise.resolve(text),
+                      }))
+                    : await this.fetchImpl(url, {
+                          method: methodUpper,
+                          headers: headersForFetch,
+                          body: methodUpper === "GET" || methodUpper === "HEAD" ? undefined : body,
+                          signal: controller.signal,
+                      });
 
                 clearTimeout(timer);
+                detachAbort();
 
                 if (
                     response.status >= 400 &&
@@ -201,7 +347,19 @@ export class Transport {
                 return decodeBody(text);
             } catch (e) {
                 clearTimeout(timer);
+                detachAbort();
                 if (e instanceof Error && e.name === "AbortError") {
+                    // A caller's cancellation is not a failure, and must never be
+                    // retried: the request it would retry is the one being abandoned.
+                    if (init?.signal?.aborted) {
+                        throw new CancelledError({
+                            status: 0,
+                            title: "Request cancelled",
+                            detail: "The request was aborted by the caller",
+                            cause: e,
+                        });
+                    }
+
                     throw new ConnectionError({
                         status: 0,
                         title: "Request timed out",

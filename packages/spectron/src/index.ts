@@ -75,6 +75,7 @@ export {
 } from "./components/traces.js";
 export {
     AuthError,
+    CancelledError,
     ConnectionError,
     errorFromResponse,
     NotFoundError,
