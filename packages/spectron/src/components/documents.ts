@@ -1,7 +1,7 @@
 import { spectronFileInputToBlob } from "../file-body.js";
 import { encodePathSegment, getContextApiPrefix } from "../paths.js";
 import { normaliseScope, type Scope } from "../scope.js";
-import type { Transport } from "../transport.js";
+import type { Transport, UploadProgressListener } from "../transport.js";
 import type { QueryMode, SpectronFileInput } from "../types/domain.js";
 import type { components } from "../types/generated.js";
 
@@ -35,6 +35,27 @@ export interface DocumentUploadOptions {
     scopes?: Scope;
     /** Descriptive `key=value` labels stamped onto the document and its chunks. */
     labels?: string[];
+    /**
+     * Aborts the upload. Rejects with `CancelledError`, which is deliberately
+     * distinct from a timeout or a transport failure.
+     */
+    signal?: AbortSignal;
+    /**
+     * Observes the request body being sent, so a large upload can show real
+     * progress instead of an indefinite spinner.
+     *
+     * Supplying this switches the request onto `XMLHttpRequest`, the only browser
+     * API that reports request-body progress. Without it the upload takes the
+     * regular `fetch` path.
+     */
+    onUploadProgress?: UploadProgressListener;
+    /**
+     * Deadline for the upload, in milliseconds.
+     *
+     * Multipart sends have no deadline by default, because a large body can
+     * legitimately take longer than any fixed one. Pass a value to bound it.
+     */
+    timeoutMs?: number;
 }
 
 async function buildUploadForm(options: DocumentUploadOptions): Promise<FormData> {
@@ -60,6 +81,15 @@ async function buildUploadForm(options: DocumentUploadOptions): Promise<FormData
             : "upload");
     form.append("file", blob, name);
     return form;
+}
+
+/** The per-request transport options an upload forwards from its own options. */
+function sendOptions(options: DocumentUploadOptions) {
+    return {
+        signal: options.signal,
+        onUploadProgress: options.onUploadProgress,
+        timeoutMs: options.timeoutMs,
+    };
 }
 
 /** Keyword graph helpers for the document corpus. */
@@ -145,7 +175,10 @@ export class Documents {
     /** Uploads a document (multipart). Returns the ingestion handle. */
     async upload(options: DocumentUploadOptions): Promise<UploadResponse> {
         const form = await buildUploadForm(options);
-        const body = await this.transport.requestJson("POST", this.base, { body: form });
+        const body = await this.transport.requestJson("POST", this.base, {
+            body: form,
+            ...sendOptions(options),
+        });
         return body as UploadResponse;
     }
 
@@ -153,7 +186,10 @@ export class Documents {
     async reprocess(documentId: string, options: DocumentUploadOptions): Promise<UploadResponse> {
         const form = await buildUploadForm(options);
         const path = `${this.base}/${encodePathSegment(documentId)}`;
-        const body = await this.transport.requestJson("PUT", path, { body: form });
+        const body = await this.transport.requestJson("PUT", path, {
+            body: form,
+            ...sendOptions(options),
+        });
         if (body === null) {
             return { id: documentId, status: "queued", contentHash: "", deduplicated: false };
         }
@@ -170,10 +206,14 @@ export class Documents {
     }
 
     /** Raw document bytes. */
-    async raw(documentId: string): Promise<ArrayBuffer> {
+    async raw(documentId: string, options?: { timeoutMs?: number }): Promise<ArrayBuffer> {
         return this.transport.requestBytes(
             "GET",
             `${this.base}/${encodePathSegment(documentId)}/raw`,
+            // Downloading a document's bytes is bounded by its size rather than by
+            // a round trip, so a large one legitimately outlasts the default
+            // deadline. Callers that expect that can raise it.
+            options?.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : undefined,
         );
     }
 
