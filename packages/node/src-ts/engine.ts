@@ -1,24 +1,33 @@
 import {
+    type ConnectionOptions,
+    type NotificationReceiver,
+    SurrealNodeEngine,
+} from "@surrealdb/node-native";
+import {
+    type BoundQuery,
     ChannelIterator,
     type ConnectionState,
     ConnectionUnavailableError,
     type DriverContext,
     type EngineEvents,
     Features,
+    framesToChunks,
     type LiveAction,
     LiveDispatcher,
     type LiveMessage,
     Publisher,
     parseRpcError,
+    type QueryChunk,
+    type QueryStreamFrame,
     type RecordId,
     RpcEngine,
     type RpcRequest,
+    type Session,
     type SqlExportOptions,
     type SurrealEngine,
     UnexpectedConnectionError,
     type Uuid,
 } from "surrealdb";
-import { type ConnectionOptions, type NotificationReceiver, SurrealNodeEngine } from "@surrealdb/node-native";
 import { wrapSqonError } from "./wrap-sqon-error";
 
 interface LivePayload {
@@ -131,6 +140,62 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         }
 
         return decoded as Result;
+    }
+
+    /**
+     * Run a query, yielding each batch of rows as the engine produces it.
+     *
+     * The base implementation awaits the whole answer and then hands it over in
+     * one piece, which for an embedded engine means holding an entire `SELECT`
+     * in memory before JavaScript sees a single row. The addon can stream, so
+     * this drives that instead: time-to-first-row becomes the cost of one batch
+     * rather than of the whole result.
+     *
+     * Nothing runs ahead of this loop. Pulling a frame is what drives the query
+     * inside the engine, so a consumer that stops iterating stops the scan.
+     *
+     * A consumer that walks away leaves the query parked rather than cancelled:
+     * the addon abandons it when the stream object is collected, which is the one
+     * signal a NAPI object has to offer, so the release is not immediate.
+     */
+    override query<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+    ): AsyncIterable<QueryChunk<T>> {
+        return framesToChunks<T>(this.#queryFrames(query, session, txn));
+    }
+
+    async *#queryFrames(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+    ): AsyncIterable<QueryStreamFrame> {
+        if (!this.#active || !this.#engine) {
+            throw new ConnectionUnavailableError();
+        }
+
+        const id = this._context.uniqueId();
+        const payload = wrapSqonError(() =>
+            this._context.codecs.cbor.encode({
+                id,
+                method: "query_stream",
+                params: [query.query, query.bindings],
+                session,
+                txn,
+            }),
+        );
+
+        // A failure before execution begins — a denied capability, a parse
+        // error, an unknown transaction — rejects here rather than arriving as
+        // a frame, because there is no statement to attribute it to.
+        const stream = await this.#engine.queryStream(payload);
+
+        for (;;) {
+            const encoded = await stream.next();
+            if (encoded === null) break;
+            yield wrapSqonError(() => this._context.codecs.cbor.decode<QueryStreamFrame>(encoded));
+        }
     }
 
     override async importSql(data: string | Blob | ReadableStream): Promise<void> {

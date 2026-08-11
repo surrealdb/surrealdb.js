@@ -119,8 +119,7 @@ Pass optional engine configuration to `createNodeEngines`:
 ```ts
 const db = new Surreal({
     engines: createNodeEngines({
-        strict: true,
-        query_timeout: 30_000,
+        query_timeout: 30,
         capabilities: {
             scripting: true,
         },
