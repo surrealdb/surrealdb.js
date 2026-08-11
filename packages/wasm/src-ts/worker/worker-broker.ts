@@ -1,6 +1,5 @@
 import type { ConnectionOptions } from "@surrealdb/wasm-native";
 import { ConnectionUnavailableError } from "surrealdb";
-import { getIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
 import type { EngineBroker } from "../common";
 import {
     type FrameReply,
@@ -18,6 +17,15 @@ type PromiseResolver<T> = {
     resolve: (value: T) => void;
     reject: (error: Error) => void;
 };
+
+/**
+ * Correlates a reply with the request that asked for it.
+ *
+ * Only has to be unique among the requests one broker has outstanding to one
+ * worker, which is why it is a counter of its own rather than the SDK's: these
+ * ids never leave the pair.
+ */
+let nextRequestId = 0;
 
 /**
  * The frames of one query, pulled over `port` a frame at a time.
@@ -209,7 +217,7 @@ export class WorkerEngineBroker implements EngineBroker {
     ): Promise<T> {
         await this.#ready;
 
-        const id = getIncrementalID();
+        const id = String(++nextRequestId);
         const message = { id, ...request };
 
         this.#worker?.postMessage(message, transfer ? { transfer } : undefined);

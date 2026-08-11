@@ -151,12 +151,11 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
      * this drives that instead: time-to-first-row becomes the cost of one batch
      * rather than of the whole result.
      *
-     * Nothing runs ahead of this loop. Pulling a frame is what drives the query
-     * inside the engine, so a consumer that stops iterating stops the scan.
-     *
-     * A consumer that walks away leaves the query parked rather than cancelled:
-     * the addon abandons it when the stream object is collected, which is the one
-     * signal a NAPI object has to offer, so the release is not immediate.
+     * Pulling a frame is what drives the query inside the engine, so a consumer
+     * that stops iterating stops the scan, and one that abandons it releases the
+     * query outright. What the query had already done stands, though — the
+     * executor runs ahead by a bounded buffer, so abandoning is not a way to undo
+     * a statement that writes.
      */
     override query<T>(
         query: BoundQuery,
@@ -191,10 +190,19 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         // a frame, because there is no statement to attribute it to.
         const stream = await this.#engine.queryStream(payload);
 
-        for (;;) {
-            const encoded = await stream.next();
-            if (encoded === null) break;
-            yield wrapSqonError(() => this._context.codecs.cbor.decode<QueryStreamFrame>(encoded));
+        try {
+            for (;;) {
+                const encoded = await stream.next();
+                if (encoded === null) break;
+                yield wrapSqonError(() =>
+                    this._context.codecs.cbor.decode<QueryStreamFrame>(encoded),
+                );
+            }
+        } finally {
+            // Reached on an early `break` as well as on the last frame, and it is
+            // what tells the addon a consumer that walked away is gone. Without it
+            // the release waits on a collection, which JavaScript never promises.
+            await stream.close();
         }
     }
 

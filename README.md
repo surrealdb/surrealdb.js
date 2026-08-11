@@ -135,6 +135,12 @@ Both packages declare their native dependency as `link:`, which resolves to
 whatever the last `bun link` registered. Publishing replaces those two specs with
 a version range.
 
+One consequence of linking rather than installing: a linked package sits outside
+this project, and Vite's dev server refuses to serve files from there, so
+`demo:wasm` answers `403` for the WebAssembly module until the engine repository
+is added to `server.fs.allow`. A published dependency is inside `node_modules`
+and needs nothing.
+
 ### Code quality
 
 `bun run qa` - apply formatting and safe fixes
