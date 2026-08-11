@@ -19,7 +19,6 @@
         "test:spectron": "cd packages/tests/spectron && bun test",
         "bench": "turbo bench",
         "bench:sqon": "turbo bench --filter=@surrealdb/sqon",
-        "sync": "turbo sync",
         "deploy:sdk": "turbo deploy --filter surrealdb --",
         "deploy:sqon": "turbo deploy --filter @surrealdb/sqon --",
         "deploy:surreal": "turbo deploy --filter '@surrealdb/node' --filter '@surrealdb/wasm' --",

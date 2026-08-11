@@ -114,6 +114,27 @@ For Deno, no build is needed. For all other environments run:
 
 `bun run build`
 
+### The embedded engines
+
+`@surrealdb/node` and `@surrealdb/wasm` are the SDK-facing half of the embedded
+engines. The database itself is built in the
+[SurrealDB repository](https://github.com/surrealdb/surrealdb) and published as
+`@surrealdb/node-native` and `@surrealdb/wasm-native`, so nothing here needs a
+Rust toolchain.
+
+To develop against an unpublished engine, build the two packages in that
+repository and register them, then point this one at the result:
+
+```bash
+cd <surrealdb>/surrealdb/node && bun run build && bun link
+cd ../wasm && bun run build && bun link
+cd <surrealdb.js> && bun install
+```
+
+Both packages declare their native dependency as `link:`, which resolves to
+whatever the last `bun link` registered. Publishing replaces those two specs with
+a version range.
+
 ### Code quality
 
 `bun run qa` - apply formatting and safe fixes

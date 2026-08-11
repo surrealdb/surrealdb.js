@@ -1,8 +1,14 @@
+import type { ConnectionOptions } from "@surrealdb/wasm-native";
 import { ConnectionUnavailableError } from "surrealdb";
 import { getIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
-import type { ConnectionOptions } from "../../wasm/surrealdb";
 import type { EngineBroker } from "../common";
-import { RequestType, ResponseType, type WorkerMessage } from "./worker-contract";
+import {
+    type FrameReply,
+    type FrameRequest,
+    RequestType,
+    ResponseType,
+    type WorkerMessage,
+} from "./worker-contract";
 
 export interface WasmWorkerOptions extends ConnectionOptions {
     createWorker?: () => Worker;
@@ -12,6 +18,47 @@ type PromiseResolver<T> = {
     resolve: (value: T) => void;
     reject: (error: Error) => void;
 };
+
+/**
+ * The frames of one query, pulled over `port` a frame at a time.
+ *
+ * Nothing arrives on the channel until this asks for it, so the reader's pace is
+ * the query's pace rather than the worker's: the next frame is requested only
+ * once the previous one has been taken. Cancelling asks the worker to abandon the
+ * query, which is what a consumer walking away amounts to.
+ */
+function frameStream(port: MessagePort): ReadableStream<Uint8Array> {
+    return new ReadableStream<Uint8Array>({
+        pull(controller) {
+            return new Promise<void>((resolve, reject) => {
+                port.onmessage = (event: MessageEvent) => {
+                    const reply = event.data as FrameReply;
+
+                    if ("error" in reply) {
+                        port.close();
+                        reject(reply.error);
+                        return;
+                    }
+
+                    if ("done" in reply) {
+                        port.close();
+                        controller.close();
+                    } else {
+                        controller.enqueue(reply.value);
+                    }
+
+                    resolve();
+                };
+
+                port.postMessage({ pull: true } satisfies FrameRequest);
+            });
+        },
+        cancel() {
+            port.postMessage({ cancel: true } satisfies FrameRequest);
+            port.close();
+        },
+    });
+}
 
 export class WorkerEngineBroker implements EngineBroker {
     #worker: Worker | undefined;
@@ -67,6 +114,27 @@ export class WorkerEngineBroker implements EngineBroker {
             },
             [payload.buffer as ArrayBuffer],
         );
+    }
+
+    async queryStream(payload: Uint8Array): Promise<ReadableStream<Uint8Array>> {
+        if (!this.#worker) {
+            throw new ConnectionUnavailableError();
+        }
+
+        const { port1, port2 } = new MessageChannel();
+
+        // Resolves once the query has opened, so a failure from before execution
+        // began rejects here rather than arriving as a frame, and a stream is
+        // only handed out for a query that is running.
+        await this.#send<void>(
+            {
+                type: RequestType.QUERY_STREAM,
+                data: { payload, port: port2 },
+            },
+            [payload.buffer as ArrayBuffer, port2],
+        );
+
+        return frameStream(port1);
     }
 
     async importSql(data: string): Promise<void> {

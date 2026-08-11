@@ -1,5 +1,5 @@
+import type { ConnectionOptions } from "@surrealdb/wasm-native";
 import type { DriverContext, Engines } from "surrealdb";
-import type { ConnectionOptions } from "../wasm/surrealdb";
 import { WebAssemblyEngine } from "./engine";
 import { LocalEngineBroker } from "./local/local-broker";
 import { type WasmWorkerOptions, WorkerEngineBroker } from "./worker/worker-broker";
