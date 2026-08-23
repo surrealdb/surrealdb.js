@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { LiveMessage, QueryChunk, Uuid } from "surrealdb";
+import { type LiveMessage, type QueryChunk, RecordId, type Surreal, type Uuid } from "surrealdb";
 import {
     createSurreal,
     getEngines,
@@ -16,8 +16,9 @@ import {
  * test is that a streamed answer is the buffered answer, delivered piecewise.
  */
 describe.if(SURREAL_PROTOCOL === "ws")("query streaming", () => {
-    // The range is exclusive of its end, so this many records exist.
-    const RECORDS = 119;
+    // Seeded explicitly rather than with a record range, whose bounds are not the same on every
+    // server version this suite runs against.
+    const RECORDS = 120;
 
     const MULTI = `
         SELECT * FROM wide ORDER BY id;
@@ -29,9 +30,18 @@ describe.if(SURREAL_PROTOCOL === "ws")("query streaming", () => {
     async function seeded() {
         const surreal = await createSurreal();
 
-        await surreal.query("CREATE |wide:1..120| RETURN NONE").collect();
+        await seed(surreal);
 
         return surreal;
+    }
+
+    async function seed(surreal: Surreal): Promise<void> {
+        await surreal.insert(
+            Array.from({ length: RECORDS }, (_, index) => ({
+                id: new RecordId("wide", index + 1),
+                n: index + 1,
+            })),
+        );
     }
 
     test("a streamed answer is the buffered answer", async () => {
@@ -150,7 +160,7 @@ describe.if(SURREAL_PROTOCOL === "ws")("query streaming", () => {
 
         const surreal = await createSurreal({ driverOptions: { engines } });
 
-        await surreal.query("CREATE |wide:1..120| RETURN NONE").collect();
+        await seed(surreal);
 
         chunks.length = 0;
 

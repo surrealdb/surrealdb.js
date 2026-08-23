@@ -394,6 +394,36 @@ describe("websocket query streaming", () => {
         expect(second.flatMap((chunk) => chunk.result ?? [])).toEqual(["two-a", "two-b"]);
     });
 
+    test("a stream abandoned between frames lets go of its consumer at once", async () => {
+        const started = await openEngine();
+
+        // One frame and then silence: a real stream can sit for a long time between frames, or
+        // produce none at all, and leaving it must not wait for the next one.
+        MockSocket.handler = (socket, request) => {
+            if (request.method === "query_stream") {
+                respondWithFrames(socket, request, [
+                    { stream: "begin", statements: 1 },
+                    { stream: "rows", index: 0, values: [{ n: 1 }] },
+                ]);
+            }
+        };
+
+        for await (const chunk of started.query(
+            new BoundQuery("SELECT * FROM person"),
+            undefined,
+        )) {
+            expect(chunk.kind).toBe("batched");
+            break;
+        }
+
+        // Reaching here at all is the assertion: the loop would otherwise be parked on a frame
+        // the server is never going to send.
+        const [stream] = MockSocket.current.requestsFor("query_stream");
+        const [cancel] = MockSocket.current.requestsFor("query_cancel");
+
+        expect(cancel?.params).toEqual([stream?.id]);
+    });
+
     test("a stream which ran to its end is not cancelled", async () => {
         const started = await openEngine();
 
@@ -449,40 +479,44 @@ describe("websocket query streaming", () => {
         await expect(attempt).rejects.toBeInstanceOf(UnexpectedServerResponseError);
     });
 
-    test("a query which lost its socket before any frame is answered after reconnecting", async () => {
+    test("a query which lost its socket before any frame is re-sent on the next one", async () => {
         const started = await openEngine({ reconnect: true });
         const first = MockSocket.current;
 
-        // The connection controller re-sends the calls still pending once a new socket is up.
+        // The connection controller re-sends what is still pending once a new socket is up.
         const controller = started.subscribe("connected", () => started.ready());
 
         MockSocket.handler = (socket, request) => {
-            if (request.method === "query_stream") {
-                // The socket dies with the request written and nothing framed.
+            if (request.method !== "query_stream") return;
+
+            // The first socket dies with the request written and nothing framed; the second
+            // answers it.
+            if (socket === first) {
                 queueMicrotask(() => socket.close());
                 return;
             }
 
-            if (request.method === "query") {
-                queueMicrotask(() => socket.respond(bufferedResponse(request, [{ n: 1 }])));
-            }
+            respondWithFrames(socket, request, ROWS_THEN_VALUE);
         };
 
-        const reconnected = nextConnection(started);
         const chunks = await collect(
             started.query(new BoundQuery("SELECT * FROM person"), undefined),
         );
 
-        await reconnected;
-
         controller();
 
-        // The buffered call was queued while the socket was gone and re-sent on the new one.
-        expect(chunks).toHaveLength(1);
-        expect(chunks[0]?.result).toEqual([{ n: 1 }]);
+        // Nothing had been framed, so the query never ran and the same request is simply asked
+        // again - not turned into a buffered query, and not answered twice.
+        expect(chunks.map((chunk) => chunk.kind)).toEqual(["batched", "batched-final", "single"]);
         expect(MockSocket.sockets.length).toBeGreaterThan(1);
-        expect(first.requestsFor("query_stream")).toHaveLength(1);
-        expect(MockSocket.current.requestsFor("query")).toHaveLength(1);
+        expect(MockSocket.current.requestsFor("query")).toBeEmpty();
+
+        const ids = MockSocket.sockets.flatMap((socket) =>
+            socket.requestsFor("query_stream").map((request) => request.id),
+        );
+
+        expect(ids).toHaveLength(2);
+        expect(new Set(ids).size).toBe(1);
     });
 
     test("a query which lost its socket part way through is failed, never replayed", async () => {

@@ -261,7 +261,10 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
             const subscription = await surreal.live(personTable);
             const messages: LiveMessage[] = [];
 
-            (async () => {
+            // Kept so it can be awaited below: killing the subscription ends the iteration
+            // before this has finished, and work still in flight when the test returns is torn
+            // down with the connection.
+            const writes = (async () => {
                 await Bun.sleep(100);
 
                 await surreal.create(new RecordId("person", 5)).content({
@@ -283,6 +286,8 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
             for await (const message of subscription) {
                 messages.push(message);
             }
+
+            await writes;
 
             expect(messages[0].action).toEqual("CREATE");
             expect(messages[1].action).toEqual("UPDATE");
