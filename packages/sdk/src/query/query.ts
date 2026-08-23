@@ -154,9 +154,9 @@ export class Query<
      * Stream the response frames of the query as they are received as an AsyncIterable.
      *
      * Each iteration yields a **value**, **error**, or **done** frame. The provided
-     * `isValue`, `isError`, and `isDone` methods can be used to check the type of frame.
-     * You can pass a query index to these functions to check if the frame is associated with a
-     * specific query.
+     * `isValue`, `isError`, and `isDone` methods can be used to check the type of frame, and
+     * `isValueOf`, `isErrorOf`, and `isDoneOf` to check the type and that the frame belongs to
+     * a specific statement, by its index.
      *
      * Values are provisional until the **done** frame for their statement arrives: an **error**
      * frame for a statement retracts every value already yielded for it, and the stream itself
