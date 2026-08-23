@@ -9,6 +9,7 @@ import {
 } from "../errors";
 import { parseRpcError } from "../internal/parse-error";
 import {
+    type Abandonment,
     isQueryStreamFrame,
     type QueryStreamFrame,
     queryStreamChunks,
@@ -189,6 +190,10 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         this.#terminated = true;
         this.#socket?.close();
 
+        // No socket is coming now, so the streams waiting for one are settled here rather than
+        // when the reconnect cooldown they are waiting through happens to elapse.
+        this.failStreams(new CallTerminatedError());
+
         if (socketState === WebSocketImpl.OPEN || socketState === WebSocketImpl.CLOSING) {
             await this.#publisher.subscribeFirst("disconnected");
         } else {
@@ -240,7 +245,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         });
     }
 
-    override async *query<T>(
+    override query<T>(
         query: BoundQuery,
         session: Session,
         txn?: Uuid,
@@ -258,16 +263,52 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             this._context.options.streaming === false ||
             !this.#socket
         ) {
-            yield* super.query<T>(query, session, txn);
-            return;
+            return super.query<T>(query, session, txn);
         }
 
+        // The frames are kept to hand so that leaving the chunks can act on them at once. An
+        // async generator defers a `return` until its body next wakes, and this body can be
+        // parked on a frame which is not coming - a consumer racing a read against a timeout
+        // would otherwise never be let go.
+        const frames: { current?: AsyncIterableIterator<QueryStreamFrame> } = {};
+        const abandonment: Abandonment = {};
+        const chunks = this.streamChunks<T>(query, session, txn, frames, abandonment);
+
+        return {
+            [Symbol.asyncIterator]: () => ({
+                next: () => chunks.next(),
+                throw: (error?: unknown) => chunks.throw(error),
+                return: (value?: QueryChunk<T>) => {
+                    // Recorded before the frames are closed, so that running out of them is read
+                    // as the consumer leaving rather than as a truncated answer.
+                    abandonment.requested = true;
+                    frames.current?.return?.(undefined);
+                    return chunks.return(value as QueryChunk<T>);
+                },
+                [Symbol.asyncIterator]() {
+                    return this;
+                },
+            }),
+        };
+    }
+
+    /**
+     * Streams a query, falling back to the buffered method if the server refuses it.
+     */
+    private async *streamChunks<T>(
+        query: BoundQuery,
+        session: Session,
+        txn: Uuid | undefined,
+        frames: { current?: AsyncIterableIterator<QueryStreamFrame> },
+        abandonment: Abandonment,
+    ): AsyncGenerator<QueryChunk<T>> {
         const probe: StreamProbe = { framed: false };
 
+        // Opened here rather than by `query`, so nothing is sent until the caller reads.
+        frames.current = this.streamFrames(query, session, probe);
+
         try {
-            for await (const chunk of queryStreamChunks<T>(
-                this.streamFrames(query, session, probe),
-            )) {
+            for await (const chunk of queryStreamChunks<T>(frames.current, abandonment)) {
                 yield chunk;
             }
         } catch (error) {
@@ -285,7 +326,9 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 this.#streaming = false;
             }
 
-            yield* super.query<T>(query, session, txn);
+            for await (const chunk of super.query<T>(query, session, txn)) {
+                yield chunk;
+            }
         }
     }
 
@@ -641,7 +684,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
  * re-sent, because the second request would have to be started from a stream whose consumer may
  * be walking away at that very moment, leaving its rejection with nowhere to go.
  */
-function isRetriableAsBuffered(error: unknown): boolean {
+function isRetriableAsBuffered(error: unknown): error is ServerError {
     return error instanceof ServerError;
 }
 

@@ -135,13 +135,15 @@ export function isQueryStreamFrame(value: unknown): value is QueryStreamFrame {
  *   whole query, so a stream which was stopped rather than answered is never mistaken for a
  *   complete one.
  * - The stream is only complete once its `end` frame arrives. Frames running out without one means
- *   the answer was truncated, which fails the query rather than silently returning a prefix of it.
+ *   the answer was truncated, which fails the query rather than silently returning a prefix of it -
+ *   unless the consumer asked to leave, in which case there is nobody the failure belongs to.
  *
  * @param frames The frames of a single streaming query answer, in the order they arrived.
  * @returns The query chunks conveyed by those frames.
  */
 export async function* queryStreamChunks<T>(
     frames: AsyncIterable<QueryStreamFrame>,
+    abandonment: Abandonment = {},
 ): AsyncGenerator<QueryChunk<T>> {
     const batches = new Map<number, number>();
     const singles = new Map<number, unknown>();
@@ -261,9 +263,19 @@ export async function* queryStreamChunks<T>(
         }
     }
 
-    if (!ended) {
+    // Frames stopping short of the terminal one means the answer was truncated, which fails the
+    // query rather than returning a prefix of it. Unless the consumer is the reason they stopped:
+    // it has left, and there is no one to tell.
+    if (!ended && !abandonment.requested) {
         throw new CallTerminatedError();
     }
+}
+
+/**
+ * Whether the consumer of a chunk stream has asked to leave it.
+ */
+export interface Abandonment {
+    requested?: boolean;
 }
 
 /**

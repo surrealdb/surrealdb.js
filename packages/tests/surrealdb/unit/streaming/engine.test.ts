@@ -20,7 +20,10 @@ afterEach(async () => {
 
 /** Opens an engine against the mocked socket and waits until it is connected. */
 async function openEngine(
-    options: { streaming?: boolean; reconnect?: boolean } = {},
+    options: {
+        streaming?: boolean;
+        reconnect?: boolean | { retryDelay?: number; retryDelayMax?: number };
+    } = {},
 ): Promise<WebSocketEngine> {
     const opened = new WebSocketEngine(mockContext({ streaming: options.streaming }));
 
@@ -424,6 +427,38 @@ describe("websocket query streaming", () => {
         expect(cancel?.params).toEqual([stream?.id]);
     });
 
+    test("abandoning a read parked on a frame lets go of the consumer at once", async () => {
+        const started = await openEngine();
+
+        MockSocket.handler = (socket, request) => {
+            if (request.method === "query_stream") {
+                respondWithFrames(socket, request, [
+                    { stream: "begin", statements: 1 },
+                    { stream: "rows", index: 0, values: [{ n: 1 }] },
+                ]);
+            }
+        };
+
+        const iterator = started
+            .query(new BoundQuery("SELECT * FROM person"), undefined)
+            [Symbol.asyncIterator]();
+
+        await iterator.next();
+
+        // A consumer which races a read against a timeout leaves while that read is still
+        // parked on a frame the server is not going to send.
+        const parked = iterator.next();
+        const returned = iterator.return?.();
+
+        const outcome = await Promise.race([
+            Promise.all([parked, returned]).then(() => "let go"),
+            Bun.sleep(2_000).then(() => "still waiting"),
+        ]);
+
+        expect(outcome).toBe("let go");
+        expect(MockSocket.current.requestsFor("query_cancel")).toHaveLength(1);
+    });
+
     test("a stream which ran to its end is not cancelled", async () => {
         const started = await openEngine();
 
@@ -517,6 +552,34 @@ describe("websocket query streaming", () => {
 
         expect(ids).toHaveLength(2);
         expect(new Set(ids).size).toBe(1);
+    });
+
+    test("closing during a reconnect cooldown settles a stream waiting for a socket", async () => {
+        // A cooldown long enough that the close below lands inside it.
+        const started = await openEngine({
+            reconnect: { retryDelay: 5_000, retryDelayMax: 5_000 },
+        });
+
+        MockSocket.handler = (socket, request) => {
+            // The request is written and the socket dies with nothing framed, so the stream is
+            // held for the next socket - which closing means will never come.
+            if (request.method === "query_stream") {
+                queueMicrotask(() => socket.close());
+            }
+        };
+
+        const attempt = collect(started.query(new BoundQuery("SELECT * FROM person"), undefined))
+            .then(() => "resolved")
+            .catch((error: Error) => error.constructor.name);
+
+        await Bun.sleep(50);
+        await started.close();
+
+        // Raced rather than awaited: an unsettled stream would otherwise hang the run rather
+        // than fail it.
+        const outcome = await Promise.race([attempt, Bun.sleep(2_000).then(() => "still waiting")]);
+
+        expect(outcome).toBe("CallTerminatedError");
     });
 
     test("a query which lost its socket part way through is failed, never replayed", async () => {

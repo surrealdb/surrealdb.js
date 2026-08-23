@@ -139,7 +139,9 @@ export function mockContext(options: { streaming?: boolean } = {}): DriverContex
  * about what happens across sockets, as a mocked socket only ever closes
  * because a test closed it.
  */
-export function mockState(reconnect: boolean | { retryDelay?: number } = false): ConnectionState {
+export function mockState(
+    reconnect: boolean | { retryDelay?: number; retryDelayMax?: number } = false,
+): ConnectionState {
     return {
         url: new URL("ws://localhost:8000/rpc"),
         reconnect: new ReconnectContext(
