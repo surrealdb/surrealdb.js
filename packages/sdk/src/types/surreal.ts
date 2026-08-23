@@ -104,6 +104,18 @@ export interface DriverOptions {
     codecOptions?: CodecOptions;
     websocketImpl?: typeof WebSocket;
     fetchImpl?: typeof fetch;
+    /**
+     * Stream query results from the server as they are produced, instead of receiving
+     * them in a single response, on engines and servers which support it.
+     *
+     * Streaming lowers the time until the first result and avoids decoding one large
+     * response, and is transparent: results, errors, and statistics are the same either
+     * way. Queries sent inside a transaction created with `.begin()` are never streamed,
+     * and a server without support for streaming is detected and used as before.
+     *
+     * @default true
+     */
+    streaming?: boolean;
 }
 
 /**
