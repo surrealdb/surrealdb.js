@@ -1,4 +1,4 @@
-import { addPageParams, collectPages, type PageOptions } from "../pagination.js";
+import { addPageParams, type CursorOptions, collectPages } from "../pagination.js";
 import { getContextApiPrefix } from "../paths.js";
 import type { Transport } from "../transport.js";
 import type { components } from "../types/generated.js";
@@ -30,8 +30,12 @@ export class Scopes {
      * caller has no grant over, so invisible nodes consume page budget without
      * appearing. Terminate a walk on `page.nextCursor`, never on a short page —
      * or call {@link listAll}, which does it correctly.
+     *
+     * `page.totalSize` is always absent here: the endpoint takes no `count`, and
+     * a total counted before the visibility filter would not match what a walk
+     * returns anyway.
      */
-    async list(options?: PageOptions): Promise<ScopeListResponseJson> {
+    async list(options?: CursorOptions): Promise<ScopeListResponseJson> {
         const query: Record<string, unknown> = {};
         addPageParams(query, options);
         const body = await this.transport.requestJson("GET", this.base, { query });

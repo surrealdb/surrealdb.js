@@ -30,6 +30,7 @@ export {
 export {
     type ChunkJson,
     type ChunkPageJson,
+    type CursorOrOffsetOptions,
     type DocumentFilters,
     type DocumentJson,
     type DocumentKeywordJson,
@@ -109,6 +110,7 @@ export { spectronFileInputToBlob } from "./file-body.js";
 export { idempotencyKey } from "./idempotency.js";
 export {
     addPageParams,
+    type CursorOptions,
     collectPages,
     type PageMeta,
     type PageOptions,

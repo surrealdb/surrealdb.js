@@ -107,7 +107,7 @@ for await (const chunk of stream) {
 
 Every list surface pages the same way. `list` returns one page — the rows under
 their collection key, plus a `page` block — and takes `limit` (default 100, max
-500), `cursor`, and `count`:
+500) and `cursor`, plus `count` on the endpoints that offer a total:
 
 ```ts
 const first = await client.entities.list({ limit: 50 });
@@ -141,13 +141,19 @@ collection is a tree or a filter source, not a screenful. `documents.allChunks`
 takes a `max` for the bounded case.
 
 `totalSize` is opt-in (`count: true`) because it costs a full count of the
-filtered set. `/documents`, `/documents/{id}/chunks`, and `/documents/keywords`
-also still accept the pre-cursor `page`/`pageSize` parameters, for callers with
-numbered page controls; they cannot be combined with `cursor`.
+filtered set. Two endpoints do not offer it at all — `scopes.list` and
+`client.audit` take `limit` and `cursor` only, typed as `CursorOptions`, so
+asking them for a count is a type error rather than a rejected request.
+
+`/documents`, `/documents/{id}/chunks`, and `/documents/keywords` also still
+accept the pre-cursor `page`/`pageSize` parameters, for callers with numbered
+page controls that need a page index and a total. The server rejects `cursor`
+sent together with `page`, so those options are an exclusive union
+(`CursorOrOffsetOptions`): picking both fails to compile.
 
 Pagination helpers are exported for wrapping other paginated surfaces:
-`walkPages`, `collectPages`, `addPageParams`, and the `PageMeta` / `PageOptions`
-types.
+`walkPages`, `collectPages`, `addPageParams`, and the `PageMeta`, `PageOptions`
+and `CursorOptions` types.
 
 ## Delegation
 

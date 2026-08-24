@@ -9,7 +9,7 @@ import type { components } from "./types/generated.js";
  */
 export type PageMeta = components["schemas"]["PageMeta"];
 
-/** The three pagination parameters every list surface accepts. */
+/** The three pagination parameters a countable list surface accepts. */
 export interface PageOptions {
     /**
      * Page size. Omitted means the server default (100); a value above the cap
@@ -25,6 +25,15 @@ export interface PageOptions {
      */
     count?: boolean;
 }
+
+/**
+ * Pagination for a listing that offers no total.
+ *
+ * `/audit` and `/scopes` take `limit` and `cursor` only. Neither accepts
+ * `count`, so their `page.totalSize` is always absent and offering the option
+ * would only send a parameter the endpoint does not take.
+ */
+export type CursorOptions = Omit<PageOptions, "count">;
 
 /** A list response: the rows under their collection key, plus the page block. */
 type PagedResponse<K extends string, T> = { [P in K]: T[] } & { page: PageMeta };

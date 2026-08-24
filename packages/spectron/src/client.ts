@@ -6,7 +6,7 @@ import { Principals } from "./components/principals.js";
 import { Scopes } from "./components/scopes.js";
 import { Sessions } from "./components/sessions.js";
 import { Traces } from "./components/traces.js";
-import { addPageParams, collectPages, type PageOptions } from "./pagination.js";
+import { addPageParams, type CursorOptions, collectPages } from "./pagination.js";
 import { getContextApiPrefix } from "./paths.js";
 import { normaliseScope, type Scope } from "./scope.js";
 import { type ChatChunk, parseChatStream } from "./streaming.js";
@@ -138,8 +138,13 @@ export interface ChatOptions {
     labels?: string[];
 }
 
-/** Filters and pagination for {@link Spectron.audit}. */
-export interface AuditOptions extends PageOptions {
+/**
+ * Filters and pagination for {@link Spectron.audit}.
+ *
+ * Extends {@link CursorOptions} rather than {@link PageOptions}: `/audit` takes
+ * `limit` and `cursor` only, so there is no `count` to offer.
+ */
+export interface AuditOptions extends CursorOptions {
     /** Only rows attributed to this principal. */
     principal?: string;
     /** Only rows attributed to this API key. */
@@ -476,7 +481,7 @@ export class Spectron {
     }
 
     /** Every matching audit row, following cursors to exhaustion. */
-    async auditAll(options?: Omit<AuditOptions, "cursor" | "count">): Promise<AuditRowJson[]> {
+    async auditAll(options?: Omit<AuditOptions, "cursor">): Promise<AuditRowJson[]> {
         return collectPages((cursor) => this.audit({ ...options, cursor }), "rows");
     }
 
@@ -485,8 +490,13 @@ export class Spectron {
      *
      * A snapshot, not an export: this is a composite read over six tables, each
      * bounded by `limit` (default 100, max 500), and `truncated` reports which
-     * of them had more rows. To enumerate a table completely, walk its own
-     * collection endpoint instead — {@link Spectron.entities} for entities.
+     * of them had more rows.
+     *
+     * Four of those tables have their own collection endpoint to enumerate them
+     * completely — entities (see {@link Spectron.entities}), attributes,
+     * relations, and actions. The remaining two, `instructions` and `unknowns`,
+     * have no such route: when `truncated` flags either, the omitted rows cannot
+     * be recovered other than by raising `limit`.
      */
     async state(options?: { limit?: number }): Promise<StateResponseJson> {
         const query: Record<string, unknown> = {};

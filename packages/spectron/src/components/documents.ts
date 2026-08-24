@@ -46,7 +46,19 @@ export interface DocumentFilters {
     mimeType?: string;
 }
 
-export type DocumentListOptions = DocumentFilters & PageOptions & OffsetPageOptions;
+/**
+ * Cursor pagination or the deprecated offset pagination, never both.
+ *
+ * The server rejects `cursor` sent together with `page` with a `400`, so the two
+ * modes are modelled as an exclusive union: the invalid pairing fails to
+ * type-check instead of surfacing as a runtime error. `limit` and `count` stay
+ * available in both arms — only the mode selector is exclusive.
+ */
+export type CursorOrOffsetOptions =
+    | (PageOptions & { page?: never; pageSize?: never })
+    | (OffsetPageOptions & Omit<PageOptions, "cursor"> & { cursor?: never });
+
+export type DocumentListOptions = DocumentFilters & CursorOrOffsetOptions;
 
 /** The filters `/documents/keywords` accepts, beside its pagination parameters. */
 export interface KeywordFilters {
@@ -55,7 +67,7 @@ export interface KeywordFilters {
     sort?: string;
 }
 
-export type KeywordListOptions = KeywordFilters & PageOptions & OffsetPageOptions;
+export type KeywordListOptions = KeywordFilters & CursorOrOffsetOptions;
 
 /**
  * Copies the deprecated offset parameters into a query object. Kept separate
@@ -270,10 +282,7 @@ export class Documents {
     }
 
     /** Lists one page of a document's text chunks, in document order. */
-    async chunks(
-        documentId: string,
-        options?: PageOptions & OffsetPageOptions,
-    ): Promise<ChunkPageJson> {
+    async chunks(documentId: string, options?: CursorOrOffsetOptions): Promise<ChunkPageJson> {
         const query: Record<string, unknown> = {};
         addPageParams(query, options);
         addOffsetParams(query, options);
