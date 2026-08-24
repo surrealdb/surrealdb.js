@@ -208,22 +208,11 @@ jobs:
       - name: Code Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
-        with:
-          toolchain: stable
-
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-        with:
-          shared-key: node
-          workspaces: packages/node
-
       - name: Cache turbo
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .turbo/cache
-          key: turbo-node-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/node/src-rust/**', 'packages/node/src-ts/**', 'packages/node/Cargo.toml') }}
+          key: turbo-node-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/node/src-ts/**') }}
           restore-keys: turbo-node-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
 
       - name: Install dependencies
