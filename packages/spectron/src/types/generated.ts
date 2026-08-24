@@ -20,6 +20,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/{context_id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List live actions (dated events), newest first by write time. `since`/`until` bound the event time. Paginated: follow `page.nextCursor`. Ordered on write time rather than event time because event time is revisable, and a revision under an event-time ordering would move a row across page boundaries mid-walk. */
+        get: operations["list_actions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/attributes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List live attributes, newest first. Live means not superseded and inside its validity window; superseded values are reachable through the entity history endpoint. Paginated: follow `page.nextCursor`. */
+        get: operations["list_attributes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/{context_id}/audit": {
         parameters: {
             query?: never;
@@ -46,7 +80,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Phase 7.5 — Spectron-as-agent chat endpoint. Stores the user message via /facts, retrieves context via the unified /query router, calls the configured LLM provider, stores the assistant response via /facts, and emits a response_trace. Set `stream=true` for SSE. */
+        /** @description Phase 7.5 — Spectron-as-agent chat endpoint. Resolves the session, retrieves context via the unified /query router, and calls the configured LLM provider; then, only after a successful synthesis (or a tier-2 cache hit), stores the user message and the assistant response via /facts and emits a response_trace. A failed synthesis writes no turn, fact, or response_trace (a retrieval_trace recording the query may still be written). Set `stream=true` for SSE. */
         post: operations["chat"];
         delete?: never;
         options?: never;
@@ -63,7 +97,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Phase 11b: pool recent facts and consolidate into observations */
+        /** @description Phase 11b: pool recent facts and consolidate into observations. Scope-gated: only facts in the caller's `memory:read` region are pooled, and only groups in the caller's `memory:write` region are persisted (others are returned as dry-run previews). */
         post: operations["consolidate"];
         delete?: never;
         options?: never;
@@ -285,7 +319,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List entities (optionally filtered by type), ordered by type then name. Unpaginated by default; pass `limit` (capped at 500) and `offset` to page. */
+        /** @description List entities (optionally filtered by type), ordered by type then name. Paginated: `limit` defaults to 100 and is capped at 500; follow `page.nextCursor` to walk the Context. */
         get: operations["list_entities"];
         put?: never;
         post?: never;
@@ -422,7 +456,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List the caller's own data-plane keys (id, name, timestamps, attenuating grants). Never returns the secret. Gated by the Context's `allow_self_service_keys` flag. */
+        /** @description List the key the caller authenticated with (id, name, timestamps, attenuating grants); a context administrator (`grant:manage` over `/`) lists every key in the Context. Never returns the secret. Gated by the Context's `allow_self_service_keys` flag. Paginated: follow `page.nextCursor`. */
         get: operations["list_self_keys"];
         put?: never;
         /** @description Mint a new data-plane API key bound to the caller's own principal. The optional `grants` body only attenuates (never widens) the caller's effective grants. Gated by the Context's `allow_self_service_keys` flag; rejects legacy / delegated callers. */
@@ -443,7 +477,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description Delete one of the caller's own keys by name. A name that does not belong to the caller surfaces as 404 (no cross-principal leakage). Gated by `allow_self_service_keys`; rejects legacy / delegated callers. */
+        /** @description Delete the caller's own key by name (or, for a context administrator holding `grant:manage` over `/`, any key). A key that is not the caller's own and that it may not manage surfaces as 404 (no cross-key leakage). Gated by `allow_self_service_keys`; rejects legacy / delegated callers. */
         delete: operations["delete_self_key"];
         options?: never;
         head?: never;
@@ -459,7 +493,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Rotate the secret on one of the caller's own keys. The id stays stable (preserving the principal binding and attenuating grants); the previous secret stops validating immediately. `ttlSeconds` is reset-or-inherit, matching the management rotate path. */
+        /** @description Rotate the secret on the caller's own key (or, for a context administrator holding `grant:manage` over `/`, any key). The id stays stable (preserving the principal binding and attenuating grants); the previous secret stops validating immediately. A key the caller may not manage surfaces as 404. `ttlSeconds` is reset-or-inherit, matching the management rotate path. */
         post: operations["rotate_self_key"];
         delete?: never;
         options?: never;
@@ -525,7 +559,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List the Context's principals (requires the `grant:manage` grant) */
+        /** @description List the Context's principals (requires the `grant:manage` grant). Paginated: follow `page.nextCursor`. */
         get: operations["list_principals"];
         put?: never;
         post?: never;
@@ -638,6 +672,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/{context_id}/relations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List live relation edges, newest first. Paginated: follow `page.nextCursor`. */
+        get: operations["list_relations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/{context_id}/scope-grants": {
         parameters: {
             query?: never;
@@ -662,12 +713,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List the Context's registered scope nodes (live and tombstoned). Only nodes the caller has a grant over are returned (`scope:read`, or any other verb in the region); a `grant:manage` holder over `/` sees the whole tree. */
+        /** @description List the Context's registered scope nodes (live and tombstoned). Only nodes the caller has a grant over are returned (`scope:read`, or any other verb in the region); a `grant:manage` holder over `/` sees the whole tree. Paginated: follow `page.nextCursor`. Visibility filtering happens after the page bound, so a page can be short while `page.hasMore` is still true. */
         get: operations["list_scopes"];
         put?: never;
         /** @description Register a scope node (auto-vivifies missing ancestors; enforces scope:create, depth, node-budget, and per-node policy). */
         post: operations["register_scope"];
-        /** @description Tombstone a scope node (soft-delete: sets tombstoned_at = time::now()) */
+        /** @description Tombstone a scope node (soft-delete: sets tombstoned_at = time::now()). The root scope `/` is reserved and cannot be tombstoned. */
         delete: operations["delete_scope"];
         options?: never;
         head?: never;
@@ -749,7 +800,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List turns in a session, oldest first. Paginated: `limit` defaults to 100 and is capped at 500; use `offset` to page. */
+        /** @description List turns in a session, oldest first. Paginated: `limit` defaults to 100 and is capped at 500; follow `page.nextCursor` to walk the session. */
         get: operations["list_turns"];
         put?: never;
         post?: never;
@@ -766,7 +817,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Get the full structured memory state grouped by category */
+        /** @description Get the structured memory state grouped by category. This is a composite read over six tables, each bounded by `limit` (default 100, max 500); `truncated` reports which tables had more rows. It is a snapshot, not an export: to enumerate a table completely, walk `/entities`, `/attributes`, `/relations`, or `/actions` instead. */
         get: operations["get_state"];
         put?: never;
         post?: never;
@@ -831,12 +882,62 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ActionDetailJson: {
+            /** @description Navigable ref of the acting entity, `entity:<type>/<name>`. */
+            actor: string;
+            /** Format: double */
+            confidence: number;
+            createdAt: string;
+            id: string;
+            memoryCategory: components["schemas"]["MemoryCategory"];
+            /**
+             * @description Navigable ref (`entity:<type>/<name>`) of the acted-on entity, when
+             *     the object resolved to a graph entity.
+             */
+            object?: string | null;
+            /**
+             * @description The acted-on thing's verbatim name, when it did not resolve to an
+             *     entity. At most one of `object` / `objectText` is set.
+             */
+            objectText?: string | null;
+            /**
+             * @description Event time, distinct from assertion validity and learn time. Absent
+             *     when the source stated no resolvable time.
+             */
+            occurredAt?: string | null;
+            source?: null | components["schemas"]["SourceRefJson"];
+            summary: string;
+            validFrom?: string | null;
+            validUntil?: string | null;
+            verb: string;
+        };
+        ActionListResponseJson: {
+            actions: components["schemas"]["ActionDetailJson"][];
+            /** @description Where this page sits in the walk. Follow `nextCursor` for the next. */
+            page: components["schemas"]["PageMeta"];
+        };
+        ActionSummaryJson: {
+            actor: string;
+            memoryCategory: components["schemas"]["MemoryCategory"];
+            /**
+             * @description The acted-on thing as the extraction named it, whether or not it
+             *     resolved to a graph entity.
+             */
+            object?: string | null;
+            occurredAt?: string | null;
+            summary: string;
+            verb: string;
+        };
         /** @description Unified error response type for all REST endpoints. */
         ApiErrorResponse: {
             message: string;
         };
         AttributeDetailJson: {
             createdAt: string;
+            /**
+             * @description Navigable ref of the owning entity, `entity:<type>/<name>` — resolvable
+             *     via `GET /entities/{type}/{name}` or the `inspect` ref grammar.
+             */
             entity: string;
             id: string;
             /** Format: double */
@@ -850,6 +951,11 @@ export interface components {
             validUntil?: string | null;
             value: string;
         };
+        AttributeListResponseJson: {
+            attributes: components["schemas"]["AttributeDetailJson"][];
+            /** @description Where this page sits in the walk. Follow `nextCursor` for the next. */
+            page: components["schemas"]["PageMeta"];
+        };
         AttributeSummaryJson: {
             entityId: string;
             id: string;
@@ -858,6 +964,8 @@ export interface components {
             value: string;
         };
         AuditResponseJson: {
+            /** @description Where this page sits in the walk. Follow `nextCursor` for the next. */
+            page: components["schemas"]["PageMeta"];
             rows: components["schemas"]["AuditRowJson"][];
         };
         AuditRowJson: {
@@ -880,12 +988,31 @@ export interface components {
         BatchExtractionMode: "per_message" | "whole_conversation";
         /** @description One message in a `/facts/batch` payload. */
         BatchMessage: {
+            /**
+             * @description Who this message is addressed to, as entity-surface names, when the
+             *     caller knows. Grounds the second person at extraction: one addressee
+             *     resolves "you"/"your" (and the ownership of reacted-to events), several
+             *     ground only "we"/"us". Empty keeps extraction byte-identical to the
+             *     addressee-less form. Declared by the caller, never inferred. Only the
+             *     `per_message` extraction mode reads this; `whole_conversation` runs one
+             *     extraction over the transcript, where per-message addressees vary line
+             *     by line, so it ignores the field. Names are Unicode-normalized (NFC)
+             *     on receipt. When consumed, each name must be name-like: at most 8
+             *     names of at most 128 characters and 8 words each, letters/digits in
+             *     any script (with the combining marks scripts build names from) plus
+             *     spaces and ' - . _, at least one alphanumeric
+             *     character, and never the reserved alias `self`; requests outside
+             *     these rules are rejected. Modes that ignore the field do not check
+             *     it.
+             */
+            addressees?: string[];
             content: string;
             role: components["schemas"]["TurnRole"];
             /** Format: date-time */
             ts?: string | null;
         };
         CategoryStateJson: {
+            actions: components["schemas"]["ActionDetailJson"][];
             attributes: components["schemas"]["AttributeDetailJson"][];
             entities: components["schemas"]["EntityDetailJson"][];
             relations: components["schemas"]["RelationDetailJson"][];
@@ -907,8 +1034,17 @@ export interface components {
             scopes?: components["schemas"]["ScopeSets"];
             sessionId?: string | null;
             stream?: boolean;
+            /**
+             * @description When `true`, the reply text carries no inline citation marker in
+             *     either form (`[S1]` or bare `S1`); `citations` still names every
+             *     source the reply cited before the markers were removed. Defaults to
+             *     `false`.
+             */
+            suppressMarkers?: boolean;
         };
         ChatResponseJson: {
+            /** @description Sources the reply cited, one per `[S1]`-style marker. */
+            citations: components["schemas"]["CitationJson"][];
             memoryUpdates: components["schemas"]["ExtractionResultJson"];
             reply: string;
             sessionId: string;
@@ -930,18 +1066,45 @@ export interface components {
         };
         ChunkPageJson: {
             chunks: components["schemas"]["ChunkJson"][];
+            /** @description Where this page sits in the walk. Follow `nextCursor` for the next. */
+            page: components["schemas"]["PageMeta"];
+        };
+        /**
+         * @description A source the reply cited, resolving an inline `[S1]` marker to the
+         *     underlying row plus a human-friendly locator (document title + approximate
+         *     percentage through the document, when it's a document passage).
+         */
+        CitationJson: {
+            documentTitle?: string | null;
+            id: string;
+            kind: string;
+            marker: string;
+            occurredAt?: string | null;
             /** Format: int32 */
-            page: number;
-            /** Format: int32 */
-            pageSize: number;
-            /** Format: int64 */
-            total: number;
+            positionPercent?: number | null;
+            /**
+             * @description Conversational role of a cited conversational row (`user` / `assistant` /
+             *     `system` / `tool`), so callers can tell a cited assistant reply (derived
+             *     text) from a user-asserted turn. Carried by `memory_chunk` and `turn`
+             *     citations; absent for non-conversational rows and legacy rows with no
+             *     recorded role.
+             */
+            role?: string | null;
+            /** Format: float */
+            score: number;
+            snippet: string;
         };
         ConsolidateOutcomeJson: {
             entityName: string;
             key: string;
             kind: components["schemas"]["DecisionKind"];
             observationId?: string | null;
+            /**
+             * @description `false` marks a preview that was not committed: a dry-run request, or a
+             *     scope group the caller can read but not write. Committed observations are
+             *     `true`.
+             */
+            persisted: boolean;
             /** Format: int32 */
             proofCount: number;
             rationale?: string | null;
@@ -1051,6 +1214,12 @@ export interface components {
             error?: string | null;
             id: string;
             mimeType: string;
+            /**
+             * Format: date-time
+             * @description Known/observed time of the content (explicit or front-matter-detected at
+             *     upload); facts extracted from the document carry it as their known-time.
+             */
+            observedAt?: string | null;
             /** Format: date-time */
             processingCompletedAt?: string | null;
             /** Format: date-time */
@@ -1077,12 +1246,12 @@ export interface components {
         };
         DocumentPageJson: {
             documents: components["schemas"]["DocumentJson"][];
-            /** Format: int32 */
-            page: number;
-            /** Format: int32 */
-            pageSize: number;
-            /** Format: int64 */
-            total: number;
+            /**
+             * @description Where this page sits in the walk. Follow `nextCursor` for the next.
+             *     `totalSize` is present only when the request passed `count=true`, which
+             *     scans the whole filtered set.
+             */
+            page: components["schemas"]["PageMeta"];
         };
         /**
          * @description Lifecycle state of a [`Document`] in the ingestion pipeline.
@@ -1168,6 +1337,8 @@ export interface components {
         };
         EntityListResponseJson: {
             entities: components["schemas"]["EntityDetailJson"][];
+            /** @description Where this page sits in the walk. Follow `nextCursor` for the next. */
+            page: components["schemas"]["PageMeta"];
         };
         EntityResponseJson: {
             attributes: components["schemas"]["AttributeDetailJson"][];
@@ -1182,6 +1353,7 @@ export interface components {
             name: string;
         };
         ExtractionResultJson: {
+            actions: components["schemas"]["ActionSummaryJson"][];
             attributes: components["schemas"]["AttributeSummaryJson"][];
             corrections: components["schemas"]["CorrectionSummaryJson"][];
             entities: components["schemas"]["EntitySummaryJson"][];
@@ -1192,6 +1364,15 @@ export interface components {
         };
         /** @description Request body for `POST /api/v1/{ctx}/facts/batch`. */
         FactsBatchRequest: {
+            /**
+             * @description Bulk extraction strategy. `per_message` runs one extraction per
+             *     message, role-gating the caller's first person and reading each
+             *     message's `addressees`. `whole_conversation` (default) runs one
+             *     extraction over the full transcript, ignores per-message addressees,
+             *     and binds the caller's first person only when every message is
+             *     user-role - a single grounding line cannot be true for a transcript
+             *     with lines the caller did not speak.
+             */
             extract?: components["schemas"]["BatchExtractionMode"];
             infer?: components["schemas"]["InferMode"];
             /**
@@ -1211,6 +1392,21 @@ export interface components {
         };
         /** @description Request body for `POST /api/v1/{ctx}/facts`. */
         FactsRequest: {
+            /**
+             * @description Who the turn is addressed to, as entity-surface names, when the
+             *     caller knows. Grounds the second person at extraction: one addressee
+             *     resolves "you"/"your" (and the ownership of reacted-to events), several
+             *     ground only "we"/"us". Empty keeps extraction byte-identical to the
+             *     addressee-less form. Declared by the caller, never inferred. Names are
+             *     Unicode-normalized (NFC) on receipt. When consumed (the `full` and
+             *     `preview` infer modes; `none` and `triples` ignore the field), each
+             *     name must be name-like: at most 8 names of at most 128 characters and
+             *     8 words each, letters/digits in any script (with the combining marks
+             *     scripts build names from) plus spaces and ' - . _, at least one
+             *     alphanumeric character, and never the reserved alias
+             *     `self`; requests outside these rules are rejected.
+             */
+            addressees?: string[];
             /** @description Inference mode (`full` is the default). */
             infer?: components["schemas"]["InferMode"];
             /**
@@ -1427,6 +1623,17 @@ export interface components {
              */
             validUntil?: string | null;
         };
+        /**
+         * @description The `GET /{ctx}/keys` response.
+         *
+         *     An envelope rather than a bare array: a top-level JSON array has nowhere to
+         *     carry the pagination block, and every list surface returns the same shape.
+         */
+        KeyListResponseJson: {
+            keys: components["schemas"]["KeyDetailJson"][];
+            /** @description Where this page sits in the walk. Follow `nextCursor` for the next. */
+            page: components["schemas"]["PageMeta"];
+        };
         KeywordDetailJson: {
             /** Format: int64 */
             documentCount: number;
@@ -1450,12 +1657,8 @@ export interface components {
         };
         KeywordPageJson: {
             keywords: components["schemas"]["KeywordJson"][];
-            /** Format: int32 */
-            page: number;
-            /** Format: int32 */
-            pageSize: number;
-            /** Format: int64 */
-            total: number;
+            /** @description Where this page sits in the walk. Follow `nextCursor` for the next. */
+            page: components["schemas"]["PageMeta"];
         };
         KeywordSearchHitJson: {
             /** Format: int64 */
@@ -1493,7 +1696,21 @@ export interface components {
          */
         MemoryCategory: "identity" | "knowledge" | "context";
         MemoryHitJson: {
+            /**
+             * @description Day-precise relative-date notes stored beside a memory chunk at write
+             *     time ("last friday = Friday 2023-05-19"): deterministic resolutions of
+             *     the chunk text's own relative expressions against its source timestamp.
+             *     Absent for non-chunk rows and text with no day-precise mentions.
+             */
+            dateNotes?: string | null;
             id: string;
+            /**
+             * @description Known-time the hit's fact/turn carries (ISO string), so a caller can date
+             *     the evidence and resolve relative time in the source text. Absent when the
+             *     row carries no resolvable date.
+             */
+            occurredAt?: string | null;
+            resource?: null | components["schemas"]["ResourceRef"];
             /** Format: float */
             score: number;
             source: components["schemas"]["ResultKind"];
@@ -1544,6 +1761,19 @@ export interface components {
              */
             validUntil?: string | null;
         };
+        /** @description The pagination block returned beside a page's rows. */
+        PageMeta: {
+            /** @description Whether a further page exists. */
+            hasMore: boolean;
+            /** @description Token for the next page; absent on the last page. */
+            nextCursor?: string | null;
+            /**
+             * Format: int64
+             * @description Total rows matching the filters, present only when the request asked for
+             *     it with `count=true`.
+             */
+            totalSize?: number | null;
+        };
         /** @description A principal in the `GET /{ctx}/principals` / `…/{id}` responses. */
         PrincipalJson: {
             /** @description Human-readable display name. */
@@ -1555,7 +1785,20 @@ export interface components {
             /** @description Identity kind: `human` / `agent` / `service` / `unknown`. */
             kind: string;
         };
+        /**
+         * @description The `GET /{ctx}/principals` response.
+         *
+         *     An envelope rather than a bare array: a top-level JSON array has nowhere to
+         *     carry the pagination block, and every list surface returns the same shape.
+         */
+        PrincipalListResponseJson: {
+            /** @description Where this page sits in the walk. Follow `nextCursor` for the next. */
+            page: components["schemas"]["PageMeta"];
+            principals: components["schemas"]["PrincipalJson"][];
+        };
         ProfileEntryJson: {
+            entity?: string | null;
+            entityType?: string | null;
             key: string;
             value: string;
         };
@@ -1563,6 +1806,7 @@ export interface components {
             dynamic: components["schemas"]["ProfileEntryJson"][];
             instructions: components["schemas"]["InstructionSummaryJson"][];
             preferences: components["schemas"]["ProfileEntryJson"][];
+            selfFacts: components["schemas"]["ProfileEntryJson"][];
             static: components["schemas"]["ProfileEntryJson"][];
         };
         QueryFilter: {
@@ -1619,10 +1863,10 @@ export interface components {
              */
             include?: string[] | null;
             /**
-             * @description When `false` (the default), chunks flagged as near-duplicates of an older
-             *     chunk are excluded from the fused ranker's chunk recall so the same text
-             *     does not occupy several ranks. Set `true` to include them (parity with the
-             *     documents `/query` opt-in).
+             * @description When `false` (the default), document chunks and memory turns flagged as
+             *     near-duplicates of an older row are excluded from the fused ranker's
+             *     recall so the same text does not occupy several ranks. Set `true` to
+             *     include them (parity with the documents `/query` opt-in).
              */
             includeDuplicates?: boolean | null;
             /**
@@ -1680,9 +1924,25 @@ export interface components {
              *     from the query.
              */
             classificationKind: components["schemas"]["QueryKind"];
+            /**
+             * @description Synthesis-context rows, **separate from `hits`** and **not** counted
+             *     against `k`: `hits` is the ranked answer set, these are the extra rows
+             *     the synthesis layer reads alongside it. Sources: same-section sibling
+             *     chunks from section expansion, the neighbouring conversation chunks of
+             *     ranked memory hits from turn expansion, structured attribute/relation
+             *     rows gathered by the tier-1 seed reads for direct-lookup queries, and
+             *     (opt-in) entity fact cards summarising a ranked entity's attributes and
+             *     relationships, and - when the ranked-overflow depth is configured - the
+             *     fused candidates at ranks `k+1..k+N` that the answer truncation would
+             *     otherwise discard. Each row's `source` names its family. Empty when no
+             *     expansion contributed. A UI can render them as an "expanded context"
+             *     group distinct from the ranked hits.
+             */
+            contextHits?: components["schemas"]["MemoryHitJson"][];
             hits: components["schemas"]["MemoryHitJson"][];
             /** Format: int64 */
             queryMs: number;
+            queryWindow?: null | components["schemas"]["QueryWindowJson"];
             seedEntities: string[];
             tier: components["schemas"]["Tier"];
             /** @description Phase 7 — short trace summary returned inline. */
@@ -1751,6 +2011,17 @@ export interface components {
             topScores: number[];
             traceId: string;
         };
+        /**
+         * @description Wire echo of the derived query window: RFC3339 bounds, the resolver's
+         *     precision label (`day`/`week`/`month`/`season`/`year`), and the phrase it
+         *     matched.
+         */
+        QueryWindowJson: {
+            end: string;
+            phrase: string;
+            precision: string;
+            start: string;
+        };
         /** @description Phase 6c: doc-to-doc semantic link recomputation. */
         RecomputeLinksResponse: {
             /** Format: int64 */
@@ -1791,17 +2062,75 @@ export interface components {
             id: string;
             label: string;
             memoryCategory: components["schemas"]["MemoryCategory"];
+            /** @description Navigable ref of the object entity, `entity:<type>/<name>`. */
             object: string;
             source?: null | components["schemas"]["SourceRefJson"];
+            /**
+             * @description Navigable ref of the subject entity, `entity:<type>/<name>` —
+             *     resolvable via `GET /entities/{type}/{name}` or the `inspect` ref
+             *     grammar.
+             */
             subject: string;
             validFrom?: string | null;
             validUntil?: string | null;
+        };
+        RelationListResponseJson: {
+            /** @description Where this page sits in the walk. Follow `nextCursor` for the next. */
+            page: components["schemas"]["PageMeta"];
+            relations: components["schemas"]["RelationDetailJson"][];
         };
         RelationSummaryJson: {
             label: string;
             memoryCategory: components["schemas"]["MemoryCategory"];
             object: string;
             subject: string;
+        };
+        /**
+         * @description Typed pointer to the row behind a hit's [`ResultHit::id`], so a caller can
+         *     resolve the underlying document, entity, or session without parsing raw
+         *     record-id strings. The `kind` tag names the payload family; entity halves
+         *     carry the normalised name, which the entity read endpoints re-normalise,
+         *     so every ref resolves via the corresponding read surface.
+         */
+        ResourceRef: {
+            entityType: string;
+            /** @enum {string} */
+            kind: "entity";
+            name: string;
+        } | {
+            entityType: string;
+            key: string;
+            /** @enum {string} */
+            kind: "attribute";
+            name: string;
+        } | {
+            /** @enum {string} */
+            kind: "relation";
+            label: string;
+            objectName: string;
+            objectType: string;
+            subjectName: string;
+            subjectType: string;
+        } | {
+            actorName: string;
+            actorType: string;
+            /** @enum {string} */
+            kind: "action";
+            objectName?: string | null;
+            objectType?: string | null;
+        } | {
+            documentId: string;
+            /** @enum {string} */
+            kind: "document";
+            /** Format: int64 */
+            position?: number | null;
+        } | {
+            /** @enum {string} */
+            kind: "session";
+            /** Format: int64 */
+            position?: number | null;
+            sessionId: string;
+            turnId?: string | null;
         };
         /** @description Summary of the response trace that owns a decision trace. */
         ResponseTraceSummaryJson: {
@@ -1821,7 +2150,7 @@ export interface components {
          *     in.
          * @enum {string}
          */
-        ResultKind: "attribute" | "entity" | "chunk" | "memory_chunk" | "section";
+        ResultKind: "attribute" | "entity" | "action" | "chunk" | "memory_chunk" | "turn" | "section";
         /** @description §15 operational signal (#174): retrieval candidate-set breadth. */
         RetrievalStatsJson: {
             /** Format: double */
@@ -1886,6 +2215,24 @@ export interface components {
             /** @description Principal the grant applies to. */
             subject?: string | null;
         };
+        /**
+         * @description The `GET /{ctx}/scopes` response.
+         *
+         *     An envelope rather than a bare array: a top-level JSON array has nowhere to
+         *     carry the pagination block, and every list surface returns the same shape.
+         */
+        ScopeListResponseJson: {
+            /**
+             * @description Where this page sits in the walk. Follow `nextCursor` for the next.
+             *
+             *     `scopes` may hold fewer than `limit` entries while `hasMore` is still
+             *     true: the page is bounded in the database and then filtered for
+             *     visibility, so invisible nodes consume page budget without appearing.
+             *     Terminate a walk on `hasMore`, never on a short page.
+             */
+            page: components["schemas"]["PageMeta"];
+            scopes: components["schemas"]["ScopeNodeJson"][];
+        };
         /** @description One scope node in the `GET /{context}/scopes` response. */
         ScopeNodeJson: {
             /**
@@ -1901,9 +2248,9 @@ export interface components {
              */
             tombstonedAt?: string | null;
         };
-        /** @description A validated, canonical scope path in slash form, e.g. `org/apple/product/ipad/`. Root is `/`. */
+        /** @description A validated, canonical scope path in slash form, e.g. `org/apple/product/ipad/`. Root is `/`. A leading and a trailing `/` are both optional on input (`/org/apple`, `org/apple/` and `org/apple` all denote the same node); the canonical form returned carries the trailing `/` and no leading one. */
         ScopePath: string;
-        /** @description A scope pattern: an exact node (`org/apple/product/ipad`) or a subtree (`org/apple/*` / `/*`). */
+        /** @description A scope pattern: an exact node (`org/apple/product/ipad`) or a subtree (`org/apple/*` / `/*`). A leading `/` is optional (`/org/apple` denotes the same node as `org/apple`); patterns are returned in the canonical form, without it. */
         ScopePattern: string;
         /** @description A DNF scope selector: an OR of conjunctive clauses. Each clause is an array of scope paths, ALL of which a reader must cover (AND); the outer array is the OR. E.g. [["team/a"],["team/b","clearance/secret"]] means team/a OR (team/b AND clearance/secret). Empty means unscoped (the caller's default region). A bare string is also accepted as a singleton clause. */
         ScopeSets: string[][];
@@ -1945,7 +2292,22 @@ export interface components {
             identity: components["schemas"]["CategoryStateJson"];
             instructions: components["schemas"]["InstructionSummaryJson"][];
             knowledge: components["schemas"]["CategoryStateJson"];
+            /**
+             * @description Per-table truncation. A `true` flag means that table has more rows
+             *     than this response carries, and the complete set must be walked
+             *     through that table's own collection endpoint.
+             */
+            truncated: components["schemas"]["StateTruncationJson"];
             unknowns: components["schemas"]["UncertaintySummaryJson"][];
+        };
+        /** @description Which of the state read's underlying tables were bounded short. */
+        StateTruncationJson: {
+            actions: boolean;
+            attributes: boolean;
+            entities: boolean;
+            instructions: boolean;
+            relations: boolean;
+            unknowns: boolean;
         };
         /** @description §15 operational signal (#174): supersession churn. */
         SupersessionStatsJson: {
@@ -1962,12 +2324,12 @@ export interface components {
          *     query went all the way to tier 4.
          * @enum {string}
          */
-        Tier: "direct" | "cache" | "hybrid" | "full_context";
+        Tier: "direct" | "cache" | "hybrid" | "escalated";
         TierCountsJson: {
             /** Format: int64 */
             direct: number;
             /** Format: int64 */
-            fullContext: number;
+            escalated: number;
             /** Format: int64 */
             hybrid: number;
         };
@@ -1981,6 +2343,8 @@ export interface components {
          */
         TraceKind: "decision" | "retrieval" | "response";
         TraceListResponseJson: {
+            /** @description Where this page sits in the walk. Follow `nextCursor` for the next. */
+            page: components["schemas"]["PageMeta"];
             traces: components["schemas"]["TraceRecordJson"][];
         };
         TraceRecordJson: {
@@ -2062,6 +2426,8 @@ export interface components {
             type: string;
         };
         TurnListResponseJson: {
+            /** @description Where this page sits in the walk. Follow `nextCursor` for the next. */
+            page: components["schemas"]["PageMeta"];
             turns: components["schemas"]["TurnResponseJson"][];
         };
         TurnResponseJson: {
@@ -2103,6 +2469,14 @@ export interface components {
              */
             observedAt?: string | null;
             /**
+             * @description Optional opt-in to detect the observed time from the document itself: the name
+             *     of a field inside a leading `---`-fenced front-matter block whose value (RFC3339
+             *     or `YYYY-MM-DD`) is read as `observedAt`. Ignored when `observedAt` is supplied
+             *     explicitly; a missing or unparseable field is non-fatal (facts date to ingest
+             *     time). The effective value is echoed in the upload response.
+             */
+            observedAtHeader?: string | null;
+            /**
              * @description Optional DNF scope selector tagging the document, e.g.
              *     `[["org/apple/product/macbook"]]` (or co-owned `["team/a","team/b"]`). Each
              *     clause's nodes must lie within the caller's `memory:write` region (a request
@@ -2118,6 +2492,15 @@ export interface components {
             contentHash: string;
             deduplicated: boolean;
             id: string;
+            /**
+             * Format: date-time
+             * @description The known/observed time stamped onto the document: the request's explicit
+             *     `observedAt` or the value detected via `observedAtHeader`. Absent when
+             *     neither applied, so facts will date to ingest time. On a dedup hit this is
+             *     the matched document's known-time, which this upload fills only when that
+             *     row has none and its first ingest has not published.
+             */
+            observedAt?: string | null;
             status: components["schemas"]["DocumentStatus"];
         };
         /** @description A grant verb in `<noun>:<verb>` form: one of `memory:read`, `memory:write`, `memory:forget`, `scope:read`, `scope:create`, `scope:delete`, `grant:manage`. */
@@ -2182,6 +2565,152 @@ export interface operations {
             };
         };
     };
+    list_actions: {
+        parameters: {
+            query?: {
+                /** @description Filter by acting entity, as `<type>/<name>` (e.g. `person/alice`) */
+                actor?: string;
+                /** @description Filter by action verb */
+                verb?: string;
+                /** @description Inclusive lower bound on occurred_at (RFC 3339) */
+                since?: string;
+                /** @description Inclusive upper bound on occurred_at (RFC 3339) */
+                until?: string;
+                /** @description Max rows to return (default 100, max 500) */
+                limit?: number;
+                /** @description Continuation token from the previous page's `page.nextCursor` */
+                cursor?: string;
+                /** @description Also return `page.totalSize` (costs a full count of the filtered set) */
+                count?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionListResponseJson"];
+                };
+            };
+            /** @description Invalid pagination parameter, entity ref, or time bound */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_attributes: {
+        parameters: {
+            query?: {
+                /** @description Filter to one entity's attributes, as `<type>/<name>` (e.g. `person/alice`) */
+                entity?: string;
+                /** @description Filter by attribute key */
+                key?: string;
+                /** @description Max rows to return (default 100, max 500) */
+                limit?: number;
+                /** @description Continuation token from the previous page's `page.nextCursor` */
+                cursor?: string;
+                /** @description Also return `page.totalSize` (costs a full count of the filtered set) */
+                count?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttributeListResponseJson"];
+                };
+            };
+            /** @description Invalid pagination parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     list_audit: {
         parameters: {
             query?: {
@@ -2195,8 +2724,10 @@ export interface operations {
                 since?: string;
                 /** @description Inclusive upper bound on created_at (RFC 3339) */
                 until?: string;
-                /** @description Max rows to return (default 50, max 500) */
+                /** @description Max rows to return (default 100, max 500) */
                 limit?: number;
+                /** @description Continuation token from the previous page's `page.nextCursor` */
+                cursor?: string;
             };
             header?: never;
             path: {
@@ -2236,6 +2767,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2295,6 +2837,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     consolidate: {
@@ -2333,6 +2886,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2392,6 +2956,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     list_documents: {
@@ -2401,9 +2976,15 @@ export interface operations {
                 status?: string;
                 /** @description Filter by mime type */
                 mimeType?: string;
-                /** @description Page number (0-indexed) */
+                /** @description Max documents to return (default 100, max 500) */
+                limit?: number;
+                /** @description Continuation token from the previous page's `page.nextCursor` */
+                cursor?: string;
+                /** @description Also return `page.totalSize` (costs a full count of the filtered set) */
+                count?: boolean;
+                /** @description Deprecated: zero-based page index. Use `cursor`. */
                 page?: number;
-                /** @description Page size, max 100 */
+                /** @description Deprecated: page size. Use `limit`. */
                 pageSize?: number;
             };
             header?: never;
@@ -2445,6 +3026,17 @@ export interface operations {
             /** @description Unexpected error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2541,6 +3133,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     list_keywords: {
@@ -2552,9 +3155,15 @@ export interface operations {
                 minDocumentCount?: number;
                 /** @description Sort key */
                 sort?: string;
-                /** @description Page number (0-indexed) */
+                /** @description Max keywords to return (default 100, max 500) */
+                limit?: number;
+                /** @description Continuation token from the previous page's `page.nextCursor`. Only valid for the `sort` it was minted under. */
+                cursor?: string;
+                /** @description Also return `page.totalSize` (costs a full count of the filtered set) */
+                count?: boolean;
+                /** @description Deprecated: zero-based page index. Use `cursor`. */
                 page?: number;
-                /** @description Page size, max 100 */
+                /** @description Deprecated: page size. Use `limit`. */
                 pageSize?: number;
             };
             header?: never;
@@ -2586,6 +3195,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2645,6 +3265,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     get_keyword: {
@@ -2690,6 +3321,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2758,6 +3400,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     recompute_document_links: {
@@ -2801,6 +3454,17 @@ export interface operations {
             /** @description Unexpected error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2862,6 +3526,17 @@ export interface operations {
             /** @description Unexpected error */
             500: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2951,6 +3626,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     delete_document: {
@@ -3010,14 +3696,31 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     list_chunks: {
         parameters: {
             query?: {
-                /** @description Page number (0-indexed) */
+                /** @description Max chunks to return (default 100, max 500) */
+                limit?: number;
+                /** @description Continuation token from the previous page's `page.nextCursor` */
+                cursor?: string;
+                /** @description Also return `page.totalSize` (costs a full count of the document's chunks) */
+                count?: boolean;
+                /** @description Deprecated: zero-based page index. Use `cursor`. */
                 page?: number;
-                /** @description Page size, max 100 */
+                /** @description Deprecated: page size. Use `limit`. */
                 pageSize?: number;
             };
             header?: never;
@@ -3075,6 +3778,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     list_document_keywords: {
@@ -3120,6 +3834,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3185,6 +3910,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     elaborate: {
@@ -3238,6 +3974,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     list_entities: {
@@ -3245,9 +3992,13 @@ export interface operations {
             query?: {
                 /** @description Filter by entity type */
                 type?: string;
-                /** @description Max entities to return (default: all, capped at 500) */
+                /** @description Max entities to return (default 100, max 500) */
                 limit?: number;
-                /** @description Number of entities to skip (default 0) */
+                /** @description Continuation token from the previous page's `page.nextCursor` */
+                cursor?: string;
+                /** @description Also return `page.totalSize` (costs a full count of the filtered set) */
+                count?: boolean;
+                /** @description Deprecated: rows to skip. Use `cursor`. */
                 offset?: number;
             };
             header?: never;
@@ -3267,6 +4018,15 @@ export interface operations {
                     "application/json": components["schemas"]["EntityListResponseJson"];
                 };
             };
+            /** @description Invalid pagination parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -3279,6 +4039,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3338,6 +4109,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     delete_entity: {
@@ -3381,6 +4163,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     get_entity_history: {
@@ -3418,9 +4211,29 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Entity not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3489,6 +4302,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     create_facts_batch: {
@@ -3551,6 +4375,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     forget: {
@@ -3604,6 +4439,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     fsck: {
@@ -3651,6 +4497,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3735,11 +4592,29 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     list_self_keys: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Max keys to return (default 100, max 500) */
+                limit?: number;
+                /** @description Continuation token from the previous page's `page.nextCursor` */
+                cursor?: string;
+                /** @description Also return `page.totalSize` */
+                count?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Spectron context id */
@@ -3754,7 +4629,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["KeyDetailJson"][];
+                    "application/json": components["schemas"]["KeyListResponseJson"];
+                };
+            };
+            /** @description Invalid pagination parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -3778,6 +4662,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3863,6 +4758,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     delete_self_key: {
@@ -3916,6 +4822,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3990,6 +4907,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     decay_importance: {
@@ -4024,6 +4952,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4070,6 +5009,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     whoami: {
@@ -4110,11 +5060,29 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     list_principals: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Max principals to return (default 100, max 500) */
+                limit?: number;
+                /** @description Continuation token from the previous page's `page.nextCursor` */
+                cursor?: string;
+                /** @description Also return `page.totalSize` */
+                count?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Spectron context id */
@@ -4129,7 +5097,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PrincipalJson"][];
+                    "application/json": components["schemas"]["PrincipalListResponseJson"];
+                };
+            };
+            /** @description Invalid pagination parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -4153,6 +5130,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4213,6 +5201,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4293,6 +5292,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     grant_principal: {
@@ -4361,6 +5371,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4441,6 +5462,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     get_profile: {
@@ -4475,6 +5507,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4534,6 +5577,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     reflect: {
@@ -4587,6 +5641,90 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_relations: {
+        parameters: {
+            query?: {
+                /** @description Filter by subject entity, as `<type>/<name>` (e.g. `person/alice`) */
+                src?: string;
+                /** @description Filter by object entity, as `<type>/<name>` (e.g. `company/techco`) */
+                dst?: string;
+                /** @description Filter by relation label */
+                label?: string;
+                /** @description Max rows to return (default 100, max 500) */
+                limit?: number;
+                /** @description Continuation token from the previous page's `page.nextCursor` */
+                cursor?: string;
+                /** @description Also return `page.totalSize` (costs a full count of the filtered set) */
+                count?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Spectron context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationListResponseJson"];
+                };
+            };
+            /** @description Invalid pagination parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     scope_grants_stub: {
@@ -4632,11 +5770,27 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     list_scopes: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Max nodes to scan per page (default 100, max 500) */
+                limit?: number;
+                /** @description Continuation token from the previous page's `page.nextCursor` */
+                cursor?: string;
+            };
             header?: never;
             path: {
                 /** @description Spectron context id */
@@ -4651,7 +5805,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScopeNodeJson"][];
+                    "application/json": components["schemas"]["ScopeListResponseJson"];
+                };
+            };
+            /** @description Invalid pagination parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -4666,6 +5829,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4725,6 +5899,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     delete_scope: {
@@ -4767,9 +5952,29 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Caller lacks the `scope:delete` grant over the region, or the target is the reserved root scope `/` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4838,6 +6043,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     create_session: {
@@ -4876,6 +6092,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4926,6 +6153,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4987,6 +6225,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     list_turns: {
@@ -4994,7 +6243,11 @@ export interface operations {
             query?: {
                 /** @description Max turns to return (default 100, max 500) */
                 limit?: number;
-                /** @description Number of turns to skip (default 0) */
+                /** @description Continuation token from the previous page's `page.nextCursor` */
+                cursor?: string;
+                /** @description Also return `page.totalSize` (costs a full count of the session's turns) */
+                count?: boolean;
+                /** @description Deprecated: rows to skip. Use `cursor`. */
                 offset?: number;
             };
             header?: never;
@@ -5014,6 +6267,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TurnListResponseJson"];
+                };
+            };
+            /** @description Invalid pagination parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -5043,11 +6305,25 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     get_state: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Max rows per table (default 100, max 500) */
+                limit?: number;
+            };
             header?: never;
             path: {
                 /** @description Spectron context id */
@@ -5083,13 +6359,28 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     list_traces: {
         parameters: {
             query?: {
-                /** @description Max traces to return (default 50, max 500) */
+                /** @description Max traces to return (default 100, max 500) */
                 limit?: number;
+                /** @description Continuation token from the previous page's `page.nextCursor` */
+                cursor?: string;
+                /** @description Also return `page.totalSize` (costs a full count of the visible traces) */
+                count?: boolean;
             };
             header?: never;
             path: {
@@ -5120,6 +6411,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -5160,6 +6462,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -5211,6 +6524,17 @@ export interface operations {
             /** @description Invalid context id */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

@@ -1,9 +1,11 @@
+import { addPageParams, collectPages, type PageOptions } from "../pagination.js";
 import { encodePathSegment, getContextApiPrefix } from "../paths.js";
 import type { Transport } from "../transport.js";
 import type { Verb } from "../types/domain.js";
 import type { components } from "../types/generated.js";
 
 export type PrincipalJson = components["schemas"]["PrincipalJson"];
+export type PrincipalListResponseJson = components["schemas"]["PrincipalListResponseJson"];
 export type EffectiveGrantsJson = components["schemas"]["EffectiveGrantsJson"];
 
 /** Principals and their scope grants (requires the `manage` grant). */
@@ -21,10 +23,17 @@ export class Principals {
         return `${getContextApiPrefix(this.contextId)}/principals`;
     }
 
-    /** Lists all principals in the context. */
-    async list(): Promise<PrincipalJson[]> {
-        const body = await this.transport.requestJson("GET", this.base);
-        return body as PrincipalJson[];
+    /** Lists one page of the context's principals. */
+    async list(options?: PageOptions): Promise<PrincipalListResponseJson> {
+        const query: Record<string, unknown> = {};
+        addPageParams(query, options);
+        const body = await this.transport.requestJson("GET", this.base, { query });
+        return body as PrincipalListResponseJson;
+    }
+
+    /** Every principal in the context, following cursors to exhaustion. */
+    async listAll(options?: { limit?: number }): Promise<PrincipalJson[]> {
+        return collectPages((cursor) => this.list({ limit: options?.limit, cursor }), "principals");
     }
 
     /** Fetches a single principal and its declared grants. */

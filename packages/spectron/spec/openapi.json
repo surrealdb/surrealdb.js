@@ -7,7 +7,7 @@
             "name": "BUSL-1.1",
             "identifier": "BUSL-1.1"
         },
-        "version": "0.0.0"
+        "version": "0.2.1"
     },
     "paths": {
         "/api/v1/health": {
@@ -21,6 +21,282 @@
                         "description": ""
                     }
                 }
+            }
+        },
+        "/api/v1/{context_id}/actions": {
+            "get": {
+                "description": "List live actions (dated events), newest first by write time. `since`/`until` bound the event time. Paginated: follow `page.nextCursor`. Ordered on write time rather than event time because event time is revisable, and a revision under an event-time ordering would move a row across page boundaries mid-walk.",
+                "operationId": "list_actions",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "actor",
+                        "in": "query",
+                        "description": "Filter by acting entity, as `<type>/<name>` (e.g. `person/alice`)",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "verb",
+                        "in": "query",
+                        "description": "Filter by action verb",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "since",
+                        "in": "query",
+                        "description": "Inclusive lower bound on occurred_at (RFC 3339)",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "until",
+                        "in": "query",
+                        "description": "Inclusive upper bound on occurred_at (RFC 3339)",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Max rows to return (default 100, max 500)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Continuation token from the previous page's `page.nextCursor`",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "count",
+                        "in": "query",
+                        "description": "Also return `page.totalSize` (costs a full count of the filtered set)",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionListResponseJson"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid pagination parameter, entity ref, or time bound",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/attributes": {
+            "get": {
+                "description": "List live attributes, newest first. Live means not superseded and inside its validity window; superseded values are reachable through the entity history endpoint. Paginated: follow `page.nextCursor`.",
+                "operationId": "list_attributes",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "entity",
+                        "in": "query",
+                        "description": "Filter to one entity's attributes, as `<type>/<name>` (e.g. `person/alice`)",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "key",
+                        "in": "query",
+                        "description": "Filter by attribute key",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Max rows to return (default 100, max 500)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Continuation token from the previous page's `page.nextCursor`",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "count",
+                        "in": "query",
+                        "description": "Also return `page.totalSize` (costs a full count of the filtered set)",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AttributeListResponseJson"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid pagination parameter",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
             }
         },
         "/api/v1/{context_id}/audit": {
@@ -85,12 +361,21 @@
                     {
                         "name": "limit",
                         "in": "query",
-                        "description": "Max rows to return (default 50, max 500)",
+                        "description": "Max rows to return (default 100, max 500)",
                         "required": false,
                         "schema": {
                             "type": "integer",
                             "format": "int32",
                             "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Continuation token from the previous page's `page.nextCursor`",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 ],
@@ -134,6 +419,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -145,7 +448,7 @@
         },
         "/api/v1/{context_id}/chat": {
             "post": {
-                "description": "Phase 7.5 — Spectron-as-agent chat endpoint. Stores the user message via /facts, retrieves context via the unified /query router, calls the configured LLM provider, stores the assistant response via /facts, and emits a response_trace. Set `stream=true` for SSE.",
+                "description": "Phase 7.5 — Spectron-as-agent chat endpoint. Resolves the session, retrieves context via the unified /query router, and calls the configured LLM provider; then, only after a successful synthesis (or a tier-2 cache hit), stores the user message and the assistant response via /facts and emits a response_trace. A failed synthesis writes no turn, fact, or response_trace (a retrieval_trace recording the query may still be written). Set `stream=true` for SSE.",
                 "operationId": "chat",
                 "parameters": [
                     {
@@ -208,6 +511,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -219,7 +540,7 @@
         },
         "/api/v1/{context_id}/consolidate": {
             "post": {
-                "description": "Phase 11b: pool recent facts and consolidate into observations",
+                "description": "Phase 11b: pool recent facts and consolidate into observations. Scope-gated: only facts in the caller's `memory:read` region are pooled, and only groups in the caller's `memory:write` region are persisted (others are returned as dry-run previews).",
                 "operationId": "consolidate",
                 "parameters": [
                     {
@@ -265,6 +586,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -346,6 +685,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -388,9 +745,38 @@
                         }
                     },
                     {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Max documents to return (default 100, max 500)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Continuation token from the previous page's `page.nextCursor`",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "count",
+                        "in": "query",
+                        "description": "Also return `page.totalSize` (costs a full count of the filtered set)",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
                         "name": "page",
                         "in": "query",
-                        "description": "Page number (0-indexed)",
+                        "description": "Deprecated: zero-based page index. Use `cursor`.",
                         "required": false,
                         "schema": {
                             "type": "integer",
@@ -401,7 +787,7 @@
                     {
                         "name": "pageSize",
                         "in": "query",
-                        "description": "Page size, max 100",
+                        "description": "Deprecated: page size. Use `limit`.",
                         "required": false,
                         "schema": {
                             "type": "integer",
@@ -443,6 +829,24 @@
                     },
                     "500": {
                         "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -562,6 +966,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -614,9 +1036,38 @@
                         }
                     },
                     {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Max keywords to return (default 100, max 500)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Continuation token from the previous page's `page.nextCursor`. Only valid for the `sort` it was minted under.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "count",
+                        "in": "query",
+                        "description": "Also return `page.totalSize` (costs a full count of the filtered set)",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
                         "name": "page",
                         "in": "query",
-                        "description": "Page number (0-indexed)",
+                        "description": "Deprecated: zero-based page index. Use `cursor`.",
                         "required": false,
                         "schema": {
                             "type": "integer",
@@ -627,7 +1078,7 @@
                     {
                         "name": "pageSize",
                         "in": "query",
-                        "description": "Page size, max 100",
+                        "description": "Deprecated: page size. Use `limit`.",
                         "required": false,
                         "schema": {
                             "type": "integer",
@@ -659,6 +1110,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -740,6 +1209,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -806,6 +1293,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -897,6 +1402,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -954,6 +1477,24 @@
                     },
                     "500": {
                         "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1037,6 +1578,24 @@
                     },
                     "500": {
                         "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1155,6 +1714,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -1229,6 +1806,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -1262,9 +1857,38 @@
                         }
                     },
                     {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Max chunks to return (default 100, max 500)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Continuation token from the previous page's `page.nextCursor`",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "count",
+                        "in": "query",
+                        "description": "Also return `page.totalSize` (costs a full count of the document's chunks)",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
                         "name": "page",
                         "in": "query",
-                        "description": "Page number (0-indexed)",
+                        "description": "Deprecated: zero-based page index. Use `cursor`.",
                         "required": false,
                         "schema": {
                             "type": "integer",
@@ -1275,7 +1899,7 @@
                     {
                         "name": "pageSize",
                         "in": "query",
-                        "description": "Page size, max 100",
+                        "description": "Deprecated: page size. Use `limit`.",
                         "required": false,
                         "schema": {
                             "type": "integer",
@@ -1327,6 +1951,24 @@
                     },
                     "500": {
                         "description": "Unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1400,6 +2042,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1483,6 +2143,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -1557,6 +2235,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -1568,7 +2264,7 @@
         },
         "/api/v1/{context_id}/entities": {
             "get": {
-                "description": "List entities (optionally filtered by type), ordered by type then name. Unpaginated by default; pass `limit` (capped at 500) and `offset` to page.",
+                "description": "List entities (optionally filtered by type), ordered by type then name. Paginated: `limit` defaults to 100 and is capped at 500; follow `page.nextCursor` to walk the Context.",
                 "operationId": "list_entities",
                 "parameters": [
                     {
@@ -1592,7 +2288,7 @@
                     {
                         "name": "limit",
                         "in": "query",
-                        "description": "Max entities to return (default: all, capped at 500)",
+                        "description": "Max entities to return (default 100, max 500)",
                         "required": false,
                         "schema": {
                             "type": "integer",
@@ -1601,9 +2297,27 @@
                         }
                     },
                     {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Continuation token from the previous page's `page.nextCursor`",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "count",
+                        "in": "query",
+                        "description": "Also return `page.totalSize` (costs a full count of the filtered set)",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
                         "name": "offset",
                         "in": "query",
-                        "description": "Number of entities to skip (default 0)",
+                        "description": "Deprecated: rows to skip. Use `cursor`.",
                         "required": false,
                         "schema": {
                             "type": "integer",
@@ -1623,6 +2337,16 @@
                             }
                         }
                     },
+                    "400": {
+                        "description": "Invalid pagination parameter",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "401": {
                         "description": "Unauthorized",
                         "content": {
@@ -1635,6 +2359,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1724,6 +2466,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -1780,6 +2540,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1859,8 +2637,36 @@
                             }
                         }
                     },
+                    "404": {
+                        "description": "Entity not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1952,6 +2758,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -2036,6 +2860,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -2110,6 +2952,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -2177,6 +3037,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2313,6 +3191,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -2324,7 +3220,7 @@
         },
         "/api/v1/{context_id}/keys": {
             "get": {
-                "description": "List the caller's own data-plane keys (id, name, timestamps, attenuating grants). Never returns the secret. Gated by the Context's `allow_self_service_keys` flag.",
+                "description": "List the key the caller authenticated with (id, name, timestamps, attenuating grants); a context administrator (`grant:manage` over `/`) lists every key in the Context. Never returns the secret. Gated by the Context's `allow_self_service_keys` flag. Paginated: follow `page.nextCursor`.",
                 "operationId": "list_self_keys",
                 "parameters": [
                     {
@@ -2335,6 +3231,35 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Max keys to return (default 100, max 500)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Continuation token from the previous page's `page.nextCursor`",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "count",
+                        "in": "query",
+                        "description": "Also return `page.totalSize`",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
                     }
                 ],
                 "responses": {
@@ -2343,10 +3268,17 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/KeyDetailJson"
-                                    }
+                                    "$ref": "#/components/schemas/KeyListResponseJson"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid pagination parameter",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
                                 }
                             }
                         }
@@ -2373,6 +3305,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2489,6 +3439,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -2500,7 +3468,7 @@
         },
         "/api/v1/{context_id}/keys/{key_name}": {
             "delete": {
-                "description": "Delete one of the caller's own keys by name. A name that does not belong to the caller surfaces as 404 (no cross-principal leakage). Gated by `allow_self_service_keys`; rejects legacy / delegated callers.",
+                "description": "Delete the caller's own key by name (or, for a context administrator holding `grant:manage` over `/`, any key). A key that is not the caller's own and that it may not manage surfaces as 404 (no cross-key leakage). Gated by `allow_self_service_keys`; rejects legacy / delegated callers.",
                 "operationId": "delete_self_key",
                 "parameters": [
                     {
@@ -2565,6 +3533,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -2576,7 +3562,7 @@
         },
         "/api/v1/{context_id}/keys/{key_name}/rotate": {
             "post": {
-                "description": "Rotate the secret on one of the caller's own keys. The id stays stable (preserving the principal binding and attenuating grants); the previous secret stops validating immediately. `ttlSeconds` is reset-or-inherit, matching the management rotate path.",
+                "description": "Rotate the secret on the caller's own key (or, for a context administrator holding `grant:manage` over `/`, any key). The id stays stable (preserving the principal binding and attenuating grants); the previous secret stops validating immediately. A key the caller may not manage surfaces as 404. `ttlSeconds` is reset-or-inherit, matching the management rotate path.",
                 "operationId": "rotate_self_key",
                 "parameters": [
                     {
@@ -2659,6 +3645,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -2706,6 +3710,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2767,6 +3789,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -2821,6 +3861,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -2832,7 +3890,7 @@
         },
         "/api/v1/{context_id}/principals": {
             "get": {
-                "description": "List the Context's principals (requires the `grant:manage` grant)",
+                "description": "List the Context's principals (requires the `grant:manage` grant). Paginated: follow `page.nextCursor`.",
                 "operationId": "list_principals",
                 "parameters": [
                     {
@@ -2843,6 +3901,35 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Max principals to return (default 100, max 500)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Continuation token from the previous page's `page.nextCursor`",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "count",
+                        "in": "query",
+                        "description": "Also return `page.totalSize`",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
                     }
                 ],
                 "responses": {
@@ -2851,10 +3938,17 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/PrincipalJson"
-                                    }
+                                    "$ref": "#/components/schemas/PrincipalListResponseJson"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid pagination parameter",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
                                 }
                             }
                         }
@@ -2881,6 +3975,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2964,6 +4076,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3082,6 +4212,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -3178,6 +4326,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3286,6 +4452,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -3333,6 +4517,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3414,6 +4616,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -3488,6 +4708,162 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "api_key": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/{context_id}/relations": {
+            "get": {
+                "description": "List live relation edges, newest first. Paginated: follow `page.nextCursor`.",
+                "operationId": "list_relations",
+                "parameters": [
+                    {
+                        "name": "context_id",
+                        "in": "path",
+                        "description": "Spectron context id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "src",
+                        "in": "query",
+                        "description": "Filter by subject entity, as `<type>/<name>` (e.g. `person/alice`)",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "dst",
+                        "in": "query",
+                        "description": "Filter by object entity, as `<type>/<name>` (e.g. `company/techco`)",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "label",
+                        "in": "query",
+                        "description": "Filter by relation label",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Max rows to return (default 100, max 500)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Continuation token from the previous page's `page.nextCursor`",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "count",
+                        "in": "query",
+                        "description": "Also return `page.totalSize` (costs a full count of the filtered set)",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RelationListResponseJson"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid pagination parameter",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -3552,6 +4928,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -3563,7 +4957,7 @@
         },
         "/api/v1/{context_id}/scopes": {
             "get": {
-                "description": "List the Context's registered scope nodes (live and tombstoned). Only nodes the caller has a grant over are returned (`scope:read`, or any other verb in the region); a `grant:manage` holder over `/` sees the whole tree.",
+                "description": "List the Context's registered scope nodes (live and tombstoned). Only nodes the caller has a grant over are returned (`scope:read`, or any other verb in the region); a `grant:manage` holder over `/` sees the whole tree. Paginated: follow `page.nextCursor`. Visibility filtering happens after the page bound, so a page can be short while `page.hasMore` is still true.",
                 "operationId": "list_scopes",
                 "parameters": [
                     {
@@ -3571,6 +4965,26 @@
                         "in": "path",
                         "description": "Spectron context id",
                         "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Max nodes to scan per page (default 100, max 500)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Continuation token from the previous page's `page.nextCursor`",
+                        "required": false,
                         "schema": {
                             "type": "string"
                         }
@@ -3582,10 +4996,17 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/ScopeNodeJson"
-                                    }
+                                    "$ref": "#/components/schemas/ScopeListResponseJson"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid pagination parameter",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
                                 }
                             }
                         }
@@ -3602,6 +5023,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3681,6 +5120,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -3690,7 +5147,7 @@
                 ]
             },
             "delete": {
-                "description": "Tombstone a scope node (soft-delete: sets tombstoned_at = time::now())",
+                "description": "Tombstone a scope node (soft-delete: sets tombstoned_at = time::now()). The root scope `/` is reserved and cannot be tombstoned.",
                 "operationId": "delete_scope",
                 "parameters": [
                     {
@@ -3736,8 +5193,36 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Caller lacks the `scope:delete` grant over the region, or the target is the reserved root scope `/`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3829,6 +5314,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -3886,6 +5389,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3952,6 +5473,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4042,6 +5581,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -4053,7 +5610,7 @@
         },
         "/api/v1/{context_id}/sessions/{session_id}/turns": {
             "get": {
-                "description": "List turns in a session, oldest first. Paginated: `limit` defaults to 100 and is capped at 500; use `offset` to page.",
+                "description": "List turns in a session, oldest first. Paginated: `limit` defaults to 100 and is capped at 500; follow `page.nextCursor` to walk the session.",
                 "operationId": "list_turns",
                 "parameters": [
                     {
@@ -4086,9 +5643,27 @@
                         }
                     },
                     {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Continuation token from the previous page's `page.nextCursor`",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "count",
+                        "in": "query",
+                        "description": "Also return `page.totalSize` (costs a full count of the session's turns)",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
                         "name": "offset",
                         "in": "query",
-                        "description": "Number of turns to skip (default 0)",
+                        "description": "Deprecated: rows to skip. Use `cursor`.",
                         "required": false,
                         "schema": {
                             "type": "integer",
@@ -4104,6 +5679,16 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/TurnListResponseJson"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid pagination parameter",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
                                 }
                             }
                         }
@@ -4137,6 +5722,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -4148,7 +5751,7 @@
         },
         "/api/v1/{context_id}/state": {
             "get": {
-                "description": "Get the full structured memory state grouped by category",
+                "description": "Get the structured memory state grouped by category. This is a composite read over six tables, each bounded by `limit` (default 100, max 500); `truncated` reports which tables had more rows. It is a snapshot, not an export: to enumerate a table completely, walk `/entities`, `/attributes`, `/relations`, or `/actions` instead.",
                 "operationId": "get_state",
                 "parameters": [
                     {
@@ -4158,6 +5761,17 @@
                         "required": true,
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Max rows per table (default 100, max 500)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "minimum": 0
                         }
                     }
                 ],
@@ -4191,6 +5805,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -4217,12 +5849,30 @@
                     {
                         "name": "limit",
                         "in": "query",
-                        "description": "Max traces to return (default 50, max 500)",
+                        "description": "Max traces to return (default 100, max 500)",
                         "required": false,
                         "schema": {
                             "type": "integer",
                             "format": "int32",
                             "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Continuation token from the previous page's `page.nextCursor`",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "count",
+                        "in": "query",
+                        "description": "Also return `page.totalSize` (costs a full count of the visible traces)",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
                         }
                     }
                 ],
@@ -4249,6 +5899,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4303,6 +5971,24 @@
                     },
                     "422": {
                         "description": "Invalid context id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4383,6 +6069,24 @@
                                 }
                             }
                         }
+                    },
+                    "503": {
+                        "description": "Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header.",
+                        "headers": {
+                            "Retry-After": {
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "description": "Seconds to wait before retrying."
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -4395,6 +6099,112 @@
     },
     "components": {
         "schemas": {
+            "ActionDetailJson": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "actor",
+                    "verb",
+                    "summary",
+                    "memoryCategory",
+                    "confidence",
+                    "createdAt"
+                ],
+                "properties": {
+                    "actor": {
+                        "type": "string",
+                        "description": "Navigable ref of the acting entity, `entity:<type>/<name>`."
+                    },
+                    "confidence": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "createdAt": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "memoryCategory": {
+                        "$ref": "#/components/schemas/MemoryCategory"
+                    },
+                    "object": {
+                        "type": ["string", "null"],
+                        "description": "Navigable ref (`entity:<type>/<name>`) of the acted-on entity, when\nthe object resolved to a graph entity."
+                    },
+                    "objectText": {
+                        "type": ["string", "null"],
+                        "description": "The acted-on thing's verbatim name, when it did not resolve to an\nentity. At most one of `object` / `objectText` is set."
+                    },
+                    "occurredAt": {
+                        "type": ["string", "null"],
+                        "description": "Event time, distinct from assertion validity and learn time. Absent\nwhen the source stated no resolvable time."
+                    },
+                    "source": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/SourceRefJson"
+                            }
+                        ]
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "validFrom": {
+                        "type": ["string", "null"]
+                    },
+                    "validUntil": {
+                        "type": ["string", "null"]
+                    },
+                    "verb": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ActionListResponseJson": {
+                "type": "object",
+                "required": ["actions", "page"],
+                "properties": {
+                    "actions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ActionDetailJson"
+                        }
+                    },
+                    "page": {
+                        "$ref": "#/components/schemas/PageMeta",
+                        "description": "Where this page sits in the walk. Follow `nextCursor` for the next."
+                    }
+                }
+            },
+            "ActionSummaryJson": {
+                "type": "object",
+                "required": ["actor", "verb", "summary", "memoryCategory"],
+                "properties": {
+                    "actor": {
+                        "type": "string"
+                    },
+                    "memoryCategory": {
+                        "$ref": "#/components/schemas/MemoryCategory"
+                    },
+                    "object": {
+                        "type": ["string", "null"],
+                        "description": "The acted-on thing as the extraction named it, whether or not it\nresolved to a graph entity."
+                    },
+                    "occurredAt": {
+                        "type": ["string", "null"]
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "verb": {
+                        "type": "string"
+                    }
+                }
+            },
             "ApiErrorResponse": {
                 "type": "object",
                 "description": "Unified error response type for all REST endpoints.",
@@ -4421,7 +6231,8 @@
                         "type": "string"
                     },
                     "entity": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Navigable ref of the owning entity, `entity:<type>/<name>` — resolvable\nvia `GET /entities/{type}/{name}` or the `inspect` ref grammar."
                     },
                     "id": {
                         "type": "string"
@@ -4463,6 +6274,22 @@
                     }
                 }
             },
+            "AttributeListResponseJson": {
+                "type": "object",
+                "required": ["attributes", "page"],
+                "properties": {
+                    "attributes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttributeDetailJson"
+                        }
+                    },
+                    "page": {
+                        "$ref": "#/components/schemas/PageMeta",
+                        "description": "Where this page sits in the walk. Follow `nextCursor` for the next."
+                    }
+                }
+            },
             "AttributeSummaryJson": {
                 "type": "object",
                 "required": ["id", "entityId", "key", "value", "memoryCategory"],
@@ -4486,8 +6313,12 @@
             },
             "AuditResponseJson": {
                 "type": "object",
-                "required": ["rows"],
+                "required": ["rows", "page"],
                 "properties": {
+                    "page": {
+                        "$ref": "#/components/schemas/PageMeta",
+                        "description": "Where this page sits in the walk. Follow `nextCursor` for the next."
+                    },
                     "rows": {
                         "type": "array",
                         "items": {
@@ -4539,6 +6370,14 @@
                 "description": "One message in a `/facts/batch` payload.",
                 "required": ["role", "content"],
                 "properties": {
+                    "addressees": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Who this message is addressed to, as entity-surface names, when the\ncaller knows. Grounds the second person at extraction: one addressee\nresolves \"you\"/\"your\" (and the ownership of reacted-to events), several\nground only \"we\"/\"us\". Empty keeps extraction byte-identical to the\naddressee-less form. Declared by the caller, never inferred. Only the\n`per_message` extraction mode reads this; `whole_conversation` runs one\nextraction over the transcript, where per-message addressees vary line\nby line, so it ignores the field. Names are Unicode-normalized (NFC)\non receipt. When consumed, each name must be name-like: at most 8\nnames of at most 128 characters and 8 words each, letters/digits in\nany script (with the combining marks scripts build names from) plus\nspaces and ' - . _, at least one alphanumeric\ncharacter, and never the reserved alias `self`; requests outside\nthese rules are rejected. Modes that ignore the field do not check\nit.",
+                        "maxItems": 8
+                    },
                     "content": {
                         "type": "string"
                     },
@@ -4553,8 +6392,14 @@
             },
             "CategoryStateJson": {
                 "type": "object",
-                "required": ["entities", "attributes", "relations"],
+                "required": ["entities", "attributes", "relations", "actions"],
                 "properties": {
+                    "actions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ActionDetailJson"
+                        }
+                    },
                     "attributes": {
                         "type": "array",
                         "items": {
@@ -4605,13 +6450,24 @@
                     },
                     "stream": {
                         "type": "boolean"
+                    },
+                    "suppressMarkers": {
+                        "type": "boolean",
+                        "description": "When `true`, the reply text carries no inline citation marker in\neither form (`[S1]` or bare `S1`); `citations` still names every\nsource the reply cited before the markers were removed. Defaults to\n`false`."
                     }
                 }
             },
             "ChatResponseJson": {
                 "type": "object",
-                "required": ["reply", "memoryUpdates", "traceId", "sessionId"],
+                "required": ["reply", "memoryUpdates", "traceId", "sessionId", "citations"],
                 "properties": {
+                    "citations": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CitationJson"
+                        },
+                        "description": "Sources the reply cited, one per `[S1]`-style marker."
+                    },
                     "memoryUpdates": {
                         "$ref": "#/components/schemas/ExtractionResultJson"
                     },
@@ -4662,7 +6518,7 @@
             },
             "ChunkPageJson": {
                 "type": "object",
-                "required": ["chunks", "total", "page", "pageSize"],
+                "required": ["chunks", "page"],
                 "properties": {
                     "chunks": {
                         "type": "array",
@@ -4671,25 +6527,52 @@
                         }
                     },
                     "page": {
-                        "type": "integer",
+                        "$ref": "#/components/schemas/PageMeta",
+                        "description": "Where this page sits in the walk. Follow `nextCursor` for the next."
+                    }
+                }
+            },
+            "CitationJson": {
+                "type": "object",
+                "description": "A source the reply cited, resolving an inline `[S1]` marker to the\nunderlying row plus a human-friendly locator (document title + approximate\npercentage through the document, when it's a document passage).",
+                "required": ["marker", "id", "kind", "snippet", "score"],
+                "properties": {
+                    "documentTitle": {
+                        "type": ["string", "null"]
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "marker": {
+                        "type": "string"
+                    },
+                    "occurredAt": {
+                        "type": ["string", "null"]
+                    },
+                    "positionPercent": {
+                        "type": ["integer", "null"],
                         "format": "int32",
                         "minimum": 0
                     },
-                    "pageSize": {
-                        "type": "integer",
-                        "format": "int32",
-                        "minimum": 0
+                    "role": {
+                        "type": ["string", "null"],
+                        "description": "Conversational role of a cited conversational row (`user` / `assistant` /\n`system` / `tool`), so callers can tell a cited assistant reply (derived\ntext) from a user-asserted turn. Carried by `memory_chunk` and `turn`\ncitations; absent for non-conversational rows and legacy rows with no\nrecorded role."
                     },
-                    "total": {
-                        "type": "integer",
-                        "format": "int64",
-                        "minimum": 0
+                    "score": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "snippet": {
+                        "type": "string"
                     }
                 }
             },
             "ConsolidateOutcomeJson": {
                 "type": "object",
-                "required": ["kind", "entityName", "key", "value", "proofCount"],
+                "required": ["kind", "entityName", "key", "value", "proofCount", "persisted"],
                 "properties": {
                     "entityName": {
                         "type": "string"
@@ -4702,6 +6585,10 @@
                     },
                     "observationId": {
                         "type": ["string", "null"]
+                    },
+                    "persisted": {
+                        "type": "boolean",
+                        "description": "`false` marks a preview that was not committed: a dry-run request, or a\nscope group the caller can read but not write. Committed observations are\n`true`."
                     },
                     "proofCount": {
                         "type": "integer",
@@ -4954,6 +6841,11 @@
                     "mimeType": {
                         "type": "string"
                     },
+                    "observedAt": {
+                        "type": ["string", "null"],
+                        "format": "date-time",
+                        "description": "Known/observed time of the content (explicit or front-matter-detected at\nupload); facts extracted from the document carry it as their known-time."
+                    },
                     "processingCompletedAt": {
                         "type": ["string", "null"],
                         "format": "date-time"
@@ -5018,7 +6910,7 @@
             },
             "DocumentPageJson": {
                 "type": "object",
-                "required": ["documents", "total", "page", "pageSize"],
+                "required": ["documents", "page"],
                 "properties": {
                     "documents": {
                         "type": "array",
@@ -5027,19 +6919,8 @@
                         }
                     },
                     "page": {
-                        "type": "integer",
-                        "format": "int32",
-                        "minimum": 0
-                    },
-                    "pageSize": {
-                        "type": "integer",
-                        "format": "int32",
-                        "minimum": 0
-                    },
-                    "total": {
-                        "type": "integer",
-                        "format": "int64",
-                        "minimum": 0
+                        "$ref": "#/components/schemas/PageMeta",
+                        "description": "Where this page sits in the walk. Follow `nextCursor` for the next.\n`totalSize` is present only when the request passed `count=true`, which\nscans the whole filtered set."
                     }
                 }
             },
@@ -5247,13 +7128,17 @@
             },
             "EntityListResponseJson": {
                 "type": "object",
-                "required": ["entities"],
+                "required": ["entities", "page"],
                 "properties": {
                     "entities": {
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/EntityDetailJson"
                         }
+                    },
+                    "page": {
+                        "$ref": "#/components/schemas/PageMeta",
+                        "description": "Where this page sits in the walk. Follow `nextCursor` for the next."
                     }
                 }
             },
@@ -5306,11 +7191,18 @@
                     "entities",
                     "attributes",
                     "relations",
+                    "actions",
                     "instructions",
                     "uncertainties",
                     "corrections"
                 ],
                 "properties": {
+                    "actions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ActionSummaryJson"
+                        }
+                    },
                     "attributes": {
                         "type": "array",
                         "items": {
@@ -5358,7 +7250,8 @@
                 "required": ["messages"],
                 "properties": {
                     "extract": {
-                        "$ref": "#/components/schemas/BatchExtractionMode"
+                        "$ref": "#/components/schemas/BatchExtractionMode",
+                        "description": "Bulk extraction strategy. `per_message` runs one extraction per\nmessage, role-gating the caller's first person and reading each\nmessage's `addressees`. `whole_conversation` (default) runs one\nextraction over the full transcript, ignores per-message addressees,\nand binds the caller's first person only when every message is\nuser-role - a single grounding line cannot be true for a transcript\nwith lines the caller did not speak."
                     },
                     "infer": {
                         "$ref": "#/components/schemas/InferMode"
@@ -5410,6 +7303,14 @@
                 "type": "object",
                 "description": "Request body for `POST /api/v1/{ctx}/facts`.",
                 "properties": {
+                    "addressees": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Who the turn is addressed to, as entity-surface names, when the\ncaller knows. Grounds the second person at extraction: one addressee\nresolves \"you\"/\"your\" (and the ownership of reacted-to events), several\nground only \"we\"/\"us\". Empty keeps extraction byte-identical to the\naddressee-less form. Declared by the caller, never inferred. Names are\nUnicode-normalized (NFC) on receipt. When consumed (the `full` and\n`preview` infer modes; `none` and `triples` ignore the field), each\nname must be name-like: at most 8 names of at most 128 characters and\n8 words each, letters/digits in any script (with the combining marks\nscripts build names from) plus spaces and ' - . _, at least one\nalphanumeric character, and never the reserved alias\n`self`; requests outside these rules are rejected.",
+                        "maxItems": 8
+                    },
                     "infer": {
                         "$ref": "#/components/schemas/InferMode",
                         "description": "Inference mode (`full` is the default)."
@@ -5866,6 +7767,23 @@
                     }
                 }
             },
+            "KeyListResponseJson": {
+                "type": "object",
+                "description": "The `GET /{ctx}/keys` response.\n\nAn envelope rather than a bare array: a top-level JSON array has nowhere to\ncarry the pagination block, and every list surface returns the same shape.",
+                "required": ["keys", "page"],
+                "properties": {
+                    "keys": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KeyDetailJson"
+                        }
+                    },
+                    "page": {
+                        "$ref": "#/components/schemas/PageMeta",
+                        "description": "Where this page sits in the walk. Follow `nextCursor` for the next."
+                    }
+                }
+            },
             "KeywordDetailJson": {
                 "type": "object",
                 "required": ["id", "text", "normalised", "documentCount", "documents"],
@@ -5928,7 +7846,7 @@
             },
             "KeywordPageJson": {
                 "type": "object",
-                "required": ["keywords", "total", "page", "pageSize"],
+                "required": ["keywords", "page"],
                 "properties": {
                     "keywords": {
                         "type": "array",
@@ -5937,19 +7855,8 @@
                         }
                     },
                     "page": {
-                        "type": "integer",
-                        "format": "int32",
-                        "minimum": 0
-                    },
-                    "pageSize": {
-                        "type": "integer",
-                        "format": "int32",
-                        "minimum": 0
-                    },
-                    "total": {
-                        "type": "integer",
-                        "format": "int64",
-                        "minimum": 0
+                        "$ref": "#/components/schemas/PageMeta",
+                        "description": "Where this page sits in the walk. Follow `nextCursor` for the next."
                     }
                 }
             },
@@ -6036,8 +7943,27 @@
                 "type": "object",
                 "required": ["id", "text", "source", "score"],
                 "properties": {
+                    "dateNotes": {
+                        "type": ["string", "null"],
+                        "description": "Day-precise relative-date notes stored beside a memory chunk at write\ntime (\"last friday = Friday 2023-05-19\"): deterministic resolutions of\nthe chunk text's own relative expressions against its source timestamp.\nAbsent for non-chunk rows and text with no day-precise mentions."
+                    },
                     "id": {
                         "type": "string"
+                    },
+                    "occurredAt": {
+                        "type": ["string", "null"],
+                        "description": "Known-time the hit's fact/turn carries (ISO string), so a caller can date\nthe evidence and resolve relative time in the source text. Absent when the\nrow carries no resolvable date."
+                    },
+                    "resource": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/ResourceRef",
+                                "description": "Typed reference to the row behind the hit, tagged by `kind`: the owning\ndocument + position for a passage, the entity `{type, name}` (+ `key`)\nfor graph facts, or the session/turn for a conversational chunk — so a\ncaller can navigate to the source without parsing the raw `id`. Absent\nwhen the row could not be resolved."
+                            }
+                        ]
                     },
                     "score": {
                         "type": "number",
@@ -6099,6 +8025,27 @@
                     }
                 }
             },
+            "PageMeta": {
+                "type": "object",
+                "description": "The pagination block returned beside a page's rows.",
+                "required": ["hasMore"],
+                "properties": {
+                    "hasMore": {
+                        "type": "boolean",
+                        "description": "Whether a further page exists."
+                    },
+                    "nextCursor": {
+                        "type": ["string", "null"],
+                        "description": "Token for the next page; absent on the last page."
+                    },
+                    "totalSize": {
+                        "type": ["integer", "null"],
+                        "format": "int64",
+                        "description": "Total rows matching the filters, present only when the request asked for\nit with `count=true`.",
+                        "minimum": 0
+                    }
+                }
+            },
             "PrincipalJson": {
                 "type": "object",
                 "description": "A principal in the `GET /{ctx}/principals` / `…/{id}` responses.",
@@ -6122,10 +8069,33 @@
                     }
                 }
             },
+            "PrincipalListResponseJson": {
+                "type": "object",
+                "description": "The `GET /{ctx}/principals` response.\n\nAn envelope rather than a bare array: a top-level JSON array has nowhere to\ncarry the pagination block, and every list surface returns the same shape.",
+                "required": ["principals", "page"],
+                "properties": {
+                    "page": {
+                        "$ref": "#/components/schemas/PageMeta",
+                        "description": "Where this page sits in the walk. Follow `nextCursor` for the next."
+                    },
+                    "principals": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PrincipalJson"
+                        }
+                    }
+                }
+            },
             "ProfileEntryJson": {
                 "type": "object",
                 "required": ["key", "value"],
                 "properties": {
+                    "entity": {
+                        "type": ["string", "null"]
+                    },
+                    "entityType": {
+                        "type": ["string", "null"]
+                    },
                     "key": {
                         "type": "string"
                     },
@@ -6136,7 +8106,7 @@
             },
             "ProfileResponseJson": {
                 "type": "object",
-                "required": ["static", "dynamic", "preferences", "instructions"],
+                "required": ["selfFacts", "static", "dynamic", "preferences", "instructions"],
                 "properties": {
                     "dynamic": {
                         "type": "array",
@@ -6151,6 +8121,12 @@
                         }
                     },
                     "preferences": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProfileEntryJson"
+                        }
+                    },
+                    "selfFacts": {
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/ProfileEntryJson"
@@ -6275,7 +8251,7 @@
                     },
                     "includeDuplicates": {
                         "type": ["boolean", "null"],
-                        "description": "When `false` (the default), chunks flagged as near-duplicates of an older\nchunk are excluded from the fused ranker's chunk recall so the same text\ndoes not occupy several ranks. Set `true` to include them (parity with the\ndocuments `/query` opt-in)."
+                        "description": "When `false` (the default), document chunks and memory turns flagged as\nnear-duplicates of an older row are excluded from the fused ranker's\nrecall so the same text does not occupy several ranks. Set `true` to\ninclude them (parity with the documents `/query` opt-in)."
                     },
                     "k": {
                         "type": "integer",
@@ -6355,6 +8331,13 @@
                         "$ref": "#/components/schemas/QueryKind",
                         "description": "Phase 7 — query-understanding output. `kind` is one of\n`direct_lookup` / `hybrid` / `full_context`; `seed_entities`\nis the (possibly empty) set of entity surface forms extracted\nfrom the query."
                     },
+                    "contextHits": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/MemoryHitJson"
+                        },
+                        "description": "Synthesis-context rows, **separate from `hits`** and **not** counted\nagainst `k`: `hits` is the ranked answer set, these are the extra rows\nthe synthesis layer reads alongside it. Sources: same-section sibling\nchunks from section expansion, the neighbouring conversation chunks of\nranked memory hits from turn expansion, structured attribute/relation\nrows gathered by the tier-1 seed reads for direct-lookup queries, and\n(opt-in) entity fact cards summarising a ranked entity's attributes and\nrelationships, and - when the ranked-overflow depth is configured - the\nfused candidates at ranks `k+1..k+N` that the answer truncation would\notherwise discard. Each row's `source` names its family. Empty when no\nexpansion contributed. A UI can render them as an \"expanded context\"\ngroup distinct from the ranked hits."
+                    },
                     "hits": {
                         "type": "array",
                         "items": {
@@ -6365,6 +8348,17 @@
                         "type": "integer",
                         "format": "int64",
                         "minimum": 0
+                    },
+                    "queryWindow": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/QueryWindowJson",
+                                "description": "The time window the router derived from a time reference in the query\ntext (\"last week\", \"in March 2023\") and applied as a bounded ranking\nre-weight. Observability only, never a filter the caller must honour;\nabsent for queries with no derived window."
+                            }
+                        ]
                     },
                     "seedEntities": {
                         "type": "array",
@@ -6522,6 +8516,25 @@
                     }
                 }
             },
+            "QueryWindowJson": {
+                "type": "object",
+                "description": "Wire echo of the derived query window: RFC3339 bounds, the resolver's\nprecision label (`day`/`week`/`month`/`season`/`year`), and the phrase it\nmatched.",
+                "required": ["start", "end", "precision", "phrase"],
+                "properties": {
+                    "end": {
+                        "type": "string"
+                    },
+                    "phrase": {
+                        "type": "string"
+                    },
+                    "precision": {
+                        "type": "string"
+                    },
+                    "start": {
+                        "type": "string"
+                    }
+                }
+            },
             "RecomputeLinksResponse": {
                 "type": "object",
                 "description": "Phase 6c: doc-to-doc semantic link recomputation.",
@@ -6607,7 +8620,8 @@
                         "$ref": "#/components/schemas/MemoryCategory"
                     },
                     "object": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Navigable ref of the object entity, `entity:<type>/<name>`."
                     },
                     "source": {
                         "oneOf": [
@@ -6620,13 +8634,30 @@
                         ]
                     },
                     "subject": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Navigable ref of the subject entity, `entity:<type>/<name>` —\nresolvable via `GET /entities/{type}/{name}` or the `inspect` ref\ngrammar."
                     },
                     "validFrom": {
                         "type": ["string", "null"]
                     },
                     "validUntil": {
                         "type": ["string", "null"]
+                    }
+                }
+            },
+            "RelationListResponseJson": {
+                "type": "object",
+                "required": ["relations", "page"],
+                "properties": {
+                    "page": {
+                        "$ref": "#/components/schemas/PageMeta",
+                        "description": "Where this page sits in the walk. Follow `nextCursor` for the next."
+                    },
+                    "relations": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RelationDetailJson"
+                        }
                     }
                 }
             },
@@ -6647,6 +8678,143 @@
                         "type": "string"
                     }
                 }
+            },
+            "ResourceRef": {
+                "oneOf": [
+                    {
+                        "type": "object",
+                        "description": "A graph entity: resolve via `GET /entities/{type}/{name}`.",
+                        "required": ["entityType", "name", "kind"],
+                        "properties": {
+                            "entityType": {
+                                "type": "string"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "enum": ["entity"]
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    {
+                        "type": "object",
+                        "description": "One attribute of an entity: resolve the chain via\n`GET /entities/{type}/{name}/history/{key}`.",
+                        "required": ["entityType", "name", "key", "kind"],
+                        "properties": {
+                            "entityType": {
+                                "type": "string"
+                            },
+                            "key": {
+                                "type": "string"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "enum": ["attribute"]
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    {
+                        "type": "object",
+                        "description": "A `relates_to` edge between two entities; either endpoint resolves via\n`GET /entities/{type}/{name}`.",
+                        "required": [
+                            "subjectType",
+                            "subjectName",
+                            "label",
+                            "objectType",
+                            "objectName",
+                            "kind"
+                        ],
+                        "properties": {
+                            "kind": {
+                                "type": "string",
+                                "enum": ["relation"]
+                            },
+                            "label": {
+                                "type": "string"
+                            },
+                            "objectName": {
+                                "type": "string"
+                            },
+                            "objectType": {
+                                "type": "string"
+                            },
+                            "subjectName": {
+                                "type": "string"
+                            },
+                            "subjectType": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    {
+                        "type": "object",
+                        "description": "A dated `action` row; the actor (and the object, when it resolved to a\ngraph entity) resolve via `GET /entities/{type}/{name}`.",
+                        "required": ["actorType", "actorName", "kind"],
+                        "properties": {
+                            "actorName": {
+                                "type": "string"
+                            },
+                            "actorType": {
+                                "type": "string"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "enum": ["action"]
+                            },
+                            "objectName": {
+                                "type": ["string", "null"]
+                            },
+                            "objectType": {
+                                "type": ["string", "null"]
+                            }
+                        }
+                    },
+                    {
+                        "type": "object",
+                        "description": "A document passage (`chunk`, `knowledge_section`, or a multimodal\nchunk): `document_id` resolves via `GET /documents/{id}`; `position`\nis the row's ordering within the document.",
+                        "required": ["documentId", "kind"],
+                        "properties": {
+                            "documentId": {
+                                "type": "string"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "enum": ["document"]
+                            },
+                            "position": {
+                                "type": ["integer", "null"],
+                                "format": "int64"
+                            }
+                        }
+                    },
+                    {
+                        "type": "object",
+                        "description": "A conversational memory chunk: `session_id` resolves via\n`GET /sessions/{id}/turns`; `turn_id` / `position` locate the chunk\nwithin the session when the row carries the link.",
+                        "required": ["sessionId", "kind"],
+                        "properties": {
+                            "kind": {
+                                "type": "string",
+                                "enum": ["session"]
+                            },
+                            "position": {
+                                "type": ["integer", "null"],
+                                "format": "int64"
+                            },
+                            "sessionId": {
+                                "type": "string"
+                            },
+                            "turnId": {
+                                "type": ["string", "null"]
+                            }
+                        }
+                    }
+                ],
+                "description": "Typed pointer to the row behind a hit's [`ResultHit::id`], so a caller can\nresolve the underlying document, entity, or session without parsing raw\nrecord-id strings. The `kind` tag names the payload family; entity halves\ncarry the normalised name, which the entity read endpoints re-normalise,\nso every ref resolves via the corresponding read surface."
             },
             "ResponseTraceSummaryJson": {
                 "type": "object",
@@ -6694,7 +8862,15 @@
             "ResultKind": {
                 "type": "string",
                 "description": "Coarse-grained result type. Mirrors the row table the hit lives\nin.",
-                "enum": ["attribute", "entity", "chunk", "memory_chunk", "section"]
+                "enum": [
+                    "attribute",
+                    "entity",
+                    "action",
+                    "chunk",
+                    "memory_chunk",
+                    "turn",
+                    "section"
+                ]
             },
             "RetrievalStatsJson": {
                 "type": "object",
@@ -6838,6 +9014,23 @@
                     }
                 }
             },
+            "ScopeListResponseJson": {
+                "type": "object",
+                "description": "The `GET /{ctx}/scopes` response.\n\nAn envelope rather than a bare array: a top-level JSON array has nowhere to\ncarry the pagination block, and every list surface returns the same shape.",
+                "required": ["scopes", "page"],
+                "properties": {
+                    "page": {
+                        "$ref": "#/components/schemas/PageMeta",
+                        "description": "Where this page sits in the walk. Follow `nextCursor` for the next.\n\n`scopes` may hold fewer than `limit` entries while `hasMore` is still\ntrue: the page is bounded in the database and then filtered for\nvisibility, so invisible nodes consume page budget without appearing.\nTerminate a walk on `hasMore`, never on a short page."
+                    },
+                    "scopes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ScopeNodeJson"
+                        }
+                    }
+                }
+            },
             "ScopeNodeJson": {
                 "type": "object",
                 "description": "One scope node in the `GET /{context}/scopes` response.",
@@ -6861,11 +9054,11 @@
             },
             "ScopePath": {
                 "type": "string",
-                "description": "A validated, canonical scope path in slash form, e.g. `org/apple/product/ipad/`. Root is `/`."
+                "description": "A validated, canonical scope path in slash form, e.g. `org/apple/product/ipad/`. Root is `/`. A leading and a trailing `/` are both optional on input (`/org/apple`, `org/apple/` and `org/apple` all denote the same node); the canonical form returned carries the trailing `/` and no leading one."
             },
             "ScopePattern": {
                 "type": "string",
-                "description": "A scope pattern: an exact node (`org/apple/product/ipad`) or a subtree (`org/apple/*` / `/*`)."
+                "description": "A scope pattern: an exact node (`org/apple/product/ipad`) or a subtree (`org/apple/*` / `/*`). A leading `/` is optional (`/org/apple` denotes the same node as `org/apple`); patterns are returned in the canonical form, without it."
             },
             "ScopeSets": {
                 "type": "array",
@@ -6946,7 +9139,14 @@
             },
             "StateResponseJson": {
                 "type": "object",
-                "required": ["identity", "knowledge", "context", "instructions", "unknowns"],
+                "required": [
+                    "identity",
+                    "knowledge",
+                    "context",
+                    "instructions",
+                    "unknowns",
+                    "truncated"
+                ],
                 "properties": {
                     "context": {
                         "$ref": "#/components/schemas/CategoryStateJson"
@@ -6963,11 +9163,47 @@
                     "knowledge": {
                         "$ref": "#/components/schemas/CategoryStateJson"
                     },
+                    "truncated": {
+                        "$ref": "#/components/schemas/StateTruncationJson",
+                        "description": "Per-table truncation. A `true` flag means that table has more rows\nthan this response carries, and the complete set must be walked\nthrough that table's own collection endpoint."
+                    },
                     "unknowns": {
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/UncertaintySummaryJson"
                         }
+                    }
+                }
+            },
+            "StateTruncationJson": {
+                "type": "object",
+                "description": "Which of the state read's underlying tables were bounded short.",
+                "required": [
+                    "entities",
+                    "attributes",
+                    "relations",
+                    "actions",
+                    "instructions",
+                    "unknowns"
+                ],
+                "properties": {
+                    "actions": {
+                        "type": "boolean"
+                    },
+                    "attributes": {
+                        "type": "boolean"
+                    },
+                    "entities": {
+                        "type": "boolean"
+                    },
+                    "instructions": {
+                        "type": "boolean"
+                    },
+                    "relations": {
+                        "type": "boolean"
+                    },
+                    "unknowns": {
+                        "type": "boolean"
                     }
                 }
             },
@@ -6995,18 +9231,18 @@
             "Tier": {
                 "type": "string",
                 "description": "Which tier resolved the query. Exposed on the response for the\nCLI's `--tier` flag (Phase 8) and so callers can tell when their\nquery went all the way to tier 4.",
-                "enum": ["direct", "cache", "hybrid", "full_context"]
+                "enum": ["direct", "cache", "hybrid", "escalated"]
             },
             "TierCountsJson": {
                 "type": "object",
-                "required": ["direct", "hybrid", "fullContext"],
+                "required": ["direct", "hybrid", "escalated"],
                 "properties": {
                     "direct": {
                         "type": "integer",
                         "format": "int64",
                         "minimum": 0
                     },
-                    "fullContext": {
+                    "escalated": {
                         "type": "integer",
                         "format": "int64",
                         "minimum": 0
@@ -7025,8 +9261,12 @@
             },
             "TraceListResponseJson": {
                 "type": "object",
-                "required": ["traces"],
+                "required": ["traces", "page"],
                 "properties": {
+                    "page": {
+                        "$ref": "#/components/schemas/PageMeta",
+                        "description": "Where this page sits in the walk. Follow `nextCursor` for the next."
+                    },
                     "traces": {
                         "type": "array",
                         "items": {
@@ -7218,8 +9458,12 @@
             },
             "TurnListResponseJson": {
                 "type": "object",
-                "required": ["turns"],
+                "required": ["turns", "page"],
                 "properties": {
+                    "page": {
+                        "$ref": "#/components/schemas/PageMeta",
+                        "description": "Where this page sits in the walk. Follow `nextCursor` for the next."
+                    },
                     "turns": {
                         "type": "array",
                         "items": {
@@ -7307,6 +9551,10 @@
                         "type": ["string", "null"],
                         "description": "Optional RFC3339 known/observed time for the content (backfill). Stamped as the\nknown-time of facts derived from this document, so `as_of` queries see them\ndated to when the content was observed. Omitted means facts date to ingest time."
                     },
+                    "observedAtHeader": {
+                        "type": ["string", "null"],
+                        "description": "Optional opt-in to detect the observed time from the document itself: the name\nof a field inside a leading `---`-fenced front-matter block whose value (RFC3339\nor `YYYY-MM-DD`) is read as `observedAt`. Ignored when `observedAt` is supplied\nexplicitly; a missing or unparseable field is non-fatal (facts date to ingest\ntime). The effective value is echoed in the upload response."
+                    },
                     "scopes": {
                         "$ref": "#/components/schemas/ScopeSets",
                         "description": "Optional DNF scope selector tagging the document, e.g.\n`[[\"org/apple/product/macbook\"]]` (or co-owned `[\"team/a\",\"team/b\"]`). Each\nclause's nodes must lie within the caller's `memory:write` region (a request\noutside it is a 403). Omitted ⇒ the document inherits the caller's whole\nwrite region (unchanged behaviour). Clients must send the `metadata` part\nbefore the `file` part for it to apply."
@@ -7331,6 +9579,11 @@
                     },
                     "id": {
                         "type": "string"
+                    },
+                    "observedAt": {
+                        "type": ["string", "null"],
+                        "format": "date-time",
+                        "description": "The known/observed time stamped onto the document: the request's explicit\n`observedAt` or the value detected via `observedAtHeader`. Absent when\nneither applied, so facts will date to ingest time. On a dedup hit this is\nthe matched document's known-time, which this upload fills only when that\nrow has none and its first ingest has not published."
                     },
                     "status": {
                         "$ref": "#/components/schemas/DocumentStatus"
