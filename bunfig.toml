@@ -9,6 +9,20 @@ minimumReleaseAgeExcludes = [
 	"surrealdb",
 	"@surrealdb/sqon",
 	"@surrealdb/wasm",
+	"@surrealdb/wasm-native",
+	"@surrealdb/node-native",
+	# The addon resolves one of these at runtime. They are optional
+	# dependencies, so a version held back here is dropped silently and only
+	# surfaces as a load failure — each platform needs listing by name,
+	# because this list does not match patterns.
+	"@surrealdb/node-native-darwin-arm64",
+	"@surrealdb/node-native-darwin-x64",
+	"@surrealdb/node-native-linux-arm64-gnu",
+	"@surrealdb/node-native-linux-arm64-musl",
+	"@surrealdb/node-native-linux-x64-gnu",
+	"@surrealdb/node-native-linux-x64-musl",
+	"@surrealdb/node-native-win32-arm64-msvc",
+	"@surrealdb/node-native-win32-x64-msvc",
 	"@surrealdb/lezer",
 	"@surrealdb/codemirror",
 	"@surrealdb/surql-fmt",

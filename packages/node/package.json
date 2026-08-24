@@ -39,6 +39,6 @@
     },
     "type": "module",
     "dependencies": {
-        "@surrealdb/node-native": "link:@surrealdb/node-native"
+        "@surrealdb/node-native": "3.3.0-beta.3"
     }
 }
