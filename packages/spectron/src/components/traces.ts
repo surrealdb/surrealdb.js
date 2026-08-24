@@ -1,3 +1,4 @@
+import { addPageParams, collectPages, type PageOptions } from "../pagination.js";
 import { encodePathSegment, getContextApiPrefix } from "../paths.js";
 import type { Transport } from "../transport.js";
 import type { components } from "../types/generated.js";
@@ -21,12 +22,17 @@ export class Traces {
         return `${getContextApiPrefix(this.contextId)}/traces`;
     }
 
-    /** Lists recent trace records. */
-    async list(options?: { limit?: number }): Promise<TraceRecordJson[]> {
-        const body = await this.transport.requestJson("GET", this.base, {
-            query: options?.limit !== undefined ? { limit: options.limit } : undefined,
-        });
-        return (body as TraceListResponseJson).traces;
+    /** Lists one page of trace records, newest first. */
+    async list(options?: PageOptions): Promise<TraceListResponseJson> {
+        const query: Record<string, unknown> = {};
+        addPageParams(query, options);
+        const body = await this.transport.requestJson("GET", this.base, { query });
+        return body as TraceListResponseJson;
+    }
+
+    /** Every trace record, following cursors to exhaustion. */
+    async listAll(options?: { limit?: number }): Promise<TraceRecordJson[]> {
+        return collectPages((cursor) => this.list({ limit: options?.limit, cursor }), "traces");
     }
 
     /** Fetches one trace by id. */

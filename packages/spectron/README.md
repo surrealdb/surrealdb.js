@@ -65,7 +65,7 @@ await client.reflect("What changed this week?", { persist: true });
 await client.forget("Remove old project notes", { purge: true });
 
 // Snapshots and maintenance.
-await client.state();
+await client.state({ limit: 500 }); // bounded per table; check `truncated`
 await client.profile();
 await client.whoami();
 await client.consolidate({ dryRun: true });
@@ -76,7 +76,7 @@ await client.audit({ limit: 50 });
 
 // Self-service API keys.
 const minted = await client.keys.create({ name: "ci", ttlSeconds: 3600 });
-await client.keys.list();
+await client.keys.list(); // one page; `keys.listAll()` walks them all
 await client.keys.rotate("ci");
 await client.keys.delete("ci");
 ```
@@ -94,14 +94,60 @@ for await (const chunk of stream) {
 
 | Namespace | Highlights |
 | --- | --- |
-| `client.documents` | `upload`, `reprocess`, `get`, `raw`, `chunks`, `list`, `delete`, `query`, `recomputeLinks`, `keywords.*` |
-| `client.entities` | `list`, `get`, `history`, `delete` |
-| `client.sessions` | `create` → `Session` (`turns`, `context`, `close`) |
+| `client.documents` | `upload`, `reprocess`, `get`, `raw`, `chunks`, `allChunks`, `list`, `listAll`, `count`, `delete`, `query`, `recomputeLinks`, `keywords.*` |
+| `client.entities` | `list`, `listAll`, `count`, `get`, `history`, `delete` |
+| `client.sessions` | `create` → `Session` (`turns`, `allTurns`, `context`, `close`) |
 | `client.lifecycle` | `expire`, `decay` |
-| `client.traces` | `list`, `get`, `stats` |
-| `client.principals` | `list`, `get`, `effective`, `grant`, `revoke` |
-| `client.scopes` | `list`, `register`, `delete`, `forget` |
-| `client.keys` | `create`, `list`, `delete`, `rotate` |
+| `client.traces` | `list`, `listAll`, `get`, `stats` |
+| `client.principals` | `list`, `listAll`, `get`, `effective`, `grant`, `revoke` |
+| `client.scopes` | `list`, `listAll`, `register`, `delete`, `forget` |
+| `client.keys` | `create`, `list`, `listAll`, `delete`, `rotate` |
+
+## Pagination
+
+Every list surface pages the same way. `list` returns one page — the rows under
+their collection key, plus a `page` block — and takes `limit` (default 100, max
+500), `cursor`, and `count`:
+
+```ts
+const first = await client.entities.list({ limit: 50 });
+first.entities; // the rows
+first.page; // { hasMore, nextCursor?, totalSize? }
+
+// Walk by hand: follow `nextCursor` until it is absent.
+let cursor: string | undefined;
+do {
+  const page = await client.entities.list({ limit: 50, cursor });
+  handle(page.entities);
+  cursor = page.page.nextCursor ?? undefined;
+} while (cursor);
+```
+
+Terminate on the cursor, never on a short page. A page is bounded in the
+database and then filtered for visibility, so `/scopes` and `/keys` can return
+fewer rows than `limit` while more pages remain.
+
+Every listing also has a `listAll` that does the walk for you, and the ones
+worth counting have a `count` that reads `page.totalSize` from a single
+one-row request:
+
+```ts
+await client.scopes.listAll(); // ScopeNodeJson[], cursors followed to exhaustion
+await client.documents.count(); // number, without fetching the documents
+```
+
+`listAll` is an unbounded read by construction — reach for it when the
+collection is a tree or a filter source, not a screenful. `documents.allChunks`
+takes a `max` for the bounded case.
+
+`totalSize` is opt-in (`count: true`) because it costs a full count of the
+filtered set. `/documents`, `/documents/{id}/chunks`, and `/documents/keywords`
+also still accept the pre-cursor `page`/`pageSize` parameters, for callers with
+numbered page controls; they cannot be combined with `cursor`.
+
+Pagination helpers are exported for wrapping other paginated surfaces:
+`walkPages`, `collectPages`, `addPageParams`, and the `PageMeta` / `PageOptions`
+types.
 
 ## Delegation
 

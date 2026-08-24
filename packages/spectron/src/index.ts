@@ -1,5 +1,7 @@
 export {
+    type AuditOptions,
     type AuditResponseJson,
+    type AuditRowJson,
     type BatchMessage,
     type ChatOptions,
     type ChatResponseJson,
@@ -26,18 +28,25 @@ export {
     type WhoamiResponseJson,
 } from "./client.js";
 export {
+    type ChunkJson,
     type ChunkPageJson,
+    type DocumentFilters,
     type DocumentJson,
     type DocumentKeywordJson,
     DocumentKeywords,
     type DocumentKeywordsResponse,
+    type DocumentListOptions,
     type DocumentPageJson,
     Documents,
     type DocumentUploadOptions,
     type KeywordDetailJson,
+    type KeywordFilters,
+    type KeywordJson,
+    type KeywordListOptions,
     type KeywordPageJson,
     type KeywordSearchRequestJson,
     type KeywordSearchResponseJson,
+    type OffsetPageOptions,
     type QueryRequestJson,
     type QueryResponseJson,
     type RecomputeLinksResponse,
@@ -51,14 +60,25 @@ export {
     type EntityListResponseJson,
     type EntityResponseJson,
 } from "./components/entities.js";
-export { type KeyDetailJson, Keys, type MintedKeyJson } from "./components/keys.js";
+export {
+    type KeyDetailJson,
+    type KeyListResponseJson,
+    Keys,
+    type MintedKeyJson,
+} from "./components/keys.js";
 export { Lifecycle, type LifecycleResponseJson } from "./components/lifecycle.js";
 export {
     type EffectiveGrantsJson,
     type PrincipalJson,
+    type PrincipalListResponseJson,
     Principals,
 } from "./components/principals.js";
-export { type ForgetScopeResponseJson, type ScopeNodeJson, Scopes } from "./components/scopes.js";
+export {
+    type ForgetScopeResponseJson,
+    type ScopeListResponseJson,
+    type ScopeNodeJson,
+    Scopes,
+} from "./components/scopes.js";
 export {
     Session,
     type SessionContextResponseJson,
@@ -87,6 +107,13 @@ export {
 } from "./errors.js";
 export { spectronFileInputToBlob } from "./file-body.js";
 export { idempotencyKey } from "./idempotency.js";
+export {
+    addPageParams,
+    collectPages,
+    type PageMeta,
+    type PageOptions,
+    walkPages,
+} from "./pagination.js";
 export { encodePathSegment, getContextApiPrefix } from "./paths.js";
 export { backoffSchedule, shouldRetry } from "./retry.js";
 export { normaliseScope, type Scope } from "./scope.js";

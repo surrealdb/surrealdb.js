@@ -6,6 +6,7 @@ import { Principals } from "./components/principals.js";
 import { Scopes } from "./components/scopes.js";
 import { Sessions } from "./components/sessions.js";
 import { Traces } from "./components/traces.js";
+import { addPageParams, collectPages, type PageOptions } from "./pagination.js";
 import { getContextApiPrefix } from "./paths.js";
 import { normaliseScope, type Scope } from "./scope.js";
 import { type ChatChunk, parseChatStream } from "./streaming.js";
@@ -32,6 +33,7 @@ export type ElaborateResponseJson = components["schemas"]["ElaborateResponseJson
 export type FsckReportJson = components["schemas"]["FsckReportJson"];
 export type InspectResponseJson = components["schemas"]["InspectResponseJson"];
 export type AuditResponseJson = components["schemas"]["AuditResponseJson"];
+export type AuditRowJson = components["schemas"]["AuditRowJson"];
 export type StateResponseJson = components["schemas"]["StateResponseJson"];
 export type ProfileResponseJson = components["schemas"]["ProfileResponseJson"];
 
@@ -134,6 +136,20 @@ export interface ChatOptions {
     bypassCache?: boolean;
     /** Descriptive `key=value` labels for rows the chat persists. */
     labels?: string[];
+}
+
+/** Filters and pagination for {@link Spectron.audit}. */
+export interface AuditOptions extends PageOptions {
+    /** Only rows attributed to this principal. */
+    principal?: string;
+    /** Only rows attributed to this API key. */
+    key?: string;
+    /** Only rows of this trace kind. */
+    kind?: string;
+    /** Lower bound on `createdAt`, as an RFC 3339 timestamp. */
+    since?: string;
+    /** Upper bound on `createdAt`, as an RFC 3339 timestamp. */
+    until?: string;
 }
 
 function addDefined(target: Record<string, unknown>, key: string, value: unknown): void {
@@ -446,29 +462,36 @@ export class Spectron {
         return body as InspectResponseJson;
     }
 
-    /** Lists audit rows for write/recall activity (`GET /audit`). */
-    async audit(options?: {
-        principal?: string;
-        key?: string;
-        kind?: string;
-        since?: string;
-        until?: string;
-        limit?: number;
-    }): Promise<AuditResponseJson> {
+    /** Lists one page of audit rows for write/recall activity (`GET /audit`). */
+    async audit(options?: AuditOptions): Promise<AuditResponseJson> {
         const query: Record<string, unknown> = {};
         addDefined(query, "principal", options?.principal);
         addDefined(query, "key", options?.key);
         addDefined(query, "kind", options?.kind);
         addDefined(query, "since", options?.since);
         addDefined(query, "until", options?.until);
-        addDefined(query, "limit", options?.limit);
+        addPageParams(query, options);
         const body = await this.transport.requestJson("GET", `${this.base}/audit`, { query });
         return body as AuditResponseJson;
     }
 
-    /** Structured memory state snapshot (`GET /state`). */
-    async state(): Promise<StateResponseJson> {
-        const body = await this.transport.requestJson("GET", `${this.base}/state`);
+    /** Every matching audit row, following cursors to exhaustion. */
+    async auditAll(options?: Omit<AuditOptions, "cursor" | "count">): Promise<AuditRowJson[]> {
+        return collectPages((cursor) => this.audit({ ...options, cursor }), "rows");
+    }
+
+    /**
+     * Structured memory state snapshot (`GET /state`).
+     *
+     * A snapshot, not an export: this is a composite read over six tables, each
+     * bounded by `limit` (default 100, max 500), and `truncated` reports which
+     * of them had more rows. To enumerate a table completely, walk its own
+     * collection endpoint instead — {@link Spectron.entities} for entities.
+     */
+    async state(options?: { limit?: number }): Promise<StateResponseJson> {
+        const query: Record<string, unknown> = {};
+        addDefined(query, "limit", options?.limit);
+        const body = await this.transport.requestJson("GET", `${this.base}/state`, { query });
         return body as StateResponseJson;
     }
 
