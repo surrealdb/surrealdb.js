@@ -1,3 +1,4 @@
+import { addPageParams, collectPages, type PageOptions } from "../pagination.js";
 import { encodePathSegment, getContextApiPrefix } from "../paths.js";
 import { normaliseScope, type Scope } from "../scope.js";
 import type { Transport } from "../transport.js";
@@ -40,10 +41,21 @@ export class Session {
         await this.transport.requestJson("DELETE", this.base);
     }
 
-    /** Lists turns recorded against this session. */
-    async turns(): Promise<TurnResponseJson[]> {
-        const body = await this.transport.requestJson("GET", `${this.base}/turns`);
-        return (body as TurnListResponseJson).turns;
+    /** Lists one page of turns recorded against this session, oldest first. */
+    async turns(options?: PageOptions): Promise<TurnListResponseJson> {
+        const query: Record<string, unknown> = {};
+        addPageParams(query, options);
+        const body = await this.transport.requestJson("GET", `${this.base}/turns`, { query });
+        return body as TurnListResponseJson;
+    }
+
+    /**
+     * Every turn in this session, following cursors to exhaustion.
+     *
+     * A transcript is read whole, so this is usually what a caller wants.
+     */
+    async allTurns(options?: { limit?: number }): Promise<TurnResponseJson[]> {
+        return collectPages((cursor) => this.turns({ limit: options?.limit, cursor }), "turns");
     }
 
     /** Retrieves session-scoped LLM context text for a query. */

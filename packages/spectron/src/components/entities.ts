@@ -1,3 +1,4 @@
+import { addPageParams, collectPages, type PageOptions } from "../pagination.js";
 import { encodePathSegment, getContextApiPrefix } from "../paths.js";
 import type { Transport } from "../transport.js";
 import type { components } from "../types/generated.js";
@@ -23,12 +24,32 @@ export class Entities {
         return `${getContextApiPrefix(this.contextId)}/entities`;
     }
 
-    /** Lists entities, optionally filtered by type. */
-    async list(options?: { type?: string }): Promise<EntityDetailJson[]> {
-        const body = await this.transport.requestJson("GET", this.base, {
-            query: options?.type !== undefined ? { type: options.type } : undefined,
-        });
-        return (body as EntityListResponseJson).entities;
+    /** Lists one page of entities, optionally filtered by type. */
+    async list(options?: PageOptions & { type?: string }): Promise<EntityListResponseJson> {
+        const query: Record<string, unknown> = {};
+        if (options?.type !== undefined) query.type = options.type;
+        addPageParams(query, options);
+        const body = await this.transport.requestJson("GET", this.base, { query });
+        return body as EntityListResponseJson;
+    }
+
+    /** Every matching entity, following cursors to exhaustion. */
+    async listAll(options?: { type?: string; limit?: number }): Promise<EntityDetailJson[]> {
+        return collectPages(
+            (cursor) => this.list({ type: options?.type, limit: options?.limit, cursor }),
+            "entities",
+        );
+    }
+
+    /**
+     * How many entities match, without fetching them.
+     *
+     * Asks for a single row with `count: true`, so the total is the only thing
+     * paid for beyond one page bound.
+     */
+    async count(options?: { type?: string }): Promise<number> {
+        const page = await this.list({ type: options?.type, limit: 1, count: true });
+        return page.page.totalSize ?? page.entities.length;
     }
 
     /** Fetches a single entity by type and name, with its attributes and relations. */

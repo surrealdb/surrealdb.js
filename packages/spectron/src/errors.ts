@@ -87,6 +87,17 @@ export class ConnectionError extends SpectronError {
     override readonly name: string = "ConnectionError";
 }
 
+/**
+ * The caller aborted the request through the `signal` they supplied (status 0).
+ *
+ * Distinct from {@link ConnectionError} so a deliberate cancellation can be told
+ * apart from a timeout or a network failure: only the latter two describe
+ * something that went wrong, and only they are worth reporting to a user.
+ */
+export class CancelledError extends SpectronError {
+    override readonly name: string = "CancelledError";
+}
+
 type ErrorCtor = new (
     args: ConstructorParameters<typeof SpectronError>[0],
 ) => InstanceType<typeof SpectronError>;

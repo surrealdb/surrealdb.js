@@ -54,16 +54,56 @@ describe("client.keys", () => {
         expect(init?.body).toBeUndefined();
     });
 
-    test("list GETs /keys and defaults to an empty array", async () => {
+    test("list GETs /keys and forwards the pagination parameters", async () => {
         let url = "";
         const fetchImpl = mock((u: string | URL) => {
             url = String(u);
-            return Promise.resolve(new Response("", { status: 204 }));
+            return Promise.resolve(
+                new Response(JSON.stringify({ keys: [], page: { hasMore: false } }), {
+                    status: 200,
+                    headers: { "content-type": "application/json" },
+                }),
+            );
         });
         const s = client(fetchImpl);
-        const keys = await s.keys.list();
-        expect(keys).toEqual([]);
-        expect(url.endsWith("/api/v1/ctx-1/keys")).toBe(true);
+        const page = await s.keys.list({ limit: 25, count: true });
+        expect(page.keys).toEqual([]);
+        expect(page.page.hasMore).toBe(false);
+        expect(url).toContain("/api/v1/ctx-1/keys");
+        expect(url).toContain("limit=25");
+        expect(url).toContain("count=true");
+    });
+
+    test("listAll follows nextCursor to exhaustion", async () => {
+        const urls: string[] = [];
+        const pages = [
+            {
+                keys: [{ id: "a", name: "a", createdAt: "t" }],
+                page: { hasMore: true, nextCursor: "c1" },
+            },
+            { keys: [{ id: "b", name: "b", createdAt: "t" }], page: { hasMore: false } },
+        ];
+        const fetchImpl = mock((u: string | URL) => {
+            urls.push(String(u));
+            return Promise.resolve(
+                new Response(JSON.stringify(pages[urls.length - 1]), {
+                    status: 200,
+                    headers: { "content-type": "application/json" },
+                }),
+            );
+        });
+        const s = client(fetchImpl);
+        const keys = await s.keys.listAll();
+        expect(keys.map((k) => k.id)).toEqual(["a", "b"]);
+        expect(urls).toHaveLength(2);
+        expect(urls[0]).not.toContain("cursor=");
+        expect(urls[1]).toContain("cursor=c1");
+    });
+
+    test("listAll degrades to an empty array on an empty body", async () => {
+        const fetchImpl = mock(() => Promise.resolve(new Response("", { status: 204 })));
+        const s = client(fetchImpl);
+        expect(await s.keys.listAll()).toEqual([]);
     });
 
     test("delete DELETEs /keys/{name} (path-encoded)", async () => {
