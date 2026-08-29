@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { ConnectionError, ServerError, Transport } from "@surrealdb/spectron";
+import { CancelledError, ConnectionError, ServerError, Transport } from "@surrealdb/spectron";
 
 describe("Transport", () => {
     test("sends Authorization bearer and user-agent on JSON POST", async () => {
@@ -145,5 +145,107 @@ describe("Transport", () => {
         await expect(t.requestJson("POST", "/x", { body: { a: 1 } })).rejects.toBeInstanceOf(
             ConnectionError,
         );
+    });
+
+    test("a caller's signal cancels a multipart send", async () => {
+        const t = new Transport({
+            apiKey: "k",
+            endpoint: "https://example.test",
+            maxRetries: 0,
+            fetchImpl: slowFetch(100) as unknown as typeof fetch,
+        });
+        const controller = new AbortController();
+        const form = new FormData();
+        form.append("file", new Blob(["data"]), "f.bin");
+
+        const pending = t.requestJson("POST", "/documents", {
+            body: form,
+            signal: controller.signal,
+        });
+        controller.abort();
+
+        await expect(pending).rejects.toBeInstanceOf(CancelledError);
+    });
+
+    test("cancellation is reported apart from a timeout", async () => {
+        // Both arrive as an AbortError, so they can only be told apart by whose
+        // signal fired. Only a timeout describes something that went wrong.
+        const t = new Transport({
+            apiKey: "k",
+            endpoint: "https://example.test",
+            timeoutMs: 5,
+            maxRetries: 0,
+            fetchImpl: slowFetch(50) as unknown as typeof fetch,
+        });
+
+        const error = await t.requestJson("POST", "/x", { body: { a: 1 } }).catch((e) => e);
+
+        expect(error).toBeInstanceOf(ConnectionError);
+        expect(error).not.toBeInstanceOf(CancelledError);
+    });
+
+    test("an already-aborted signal cancels before the request is sent", async () => {
+        const fetchImpl = mock(() => Promise.resolve(new Response("{}", { status: 200 })));
+        const t = new Transport({
+            apiKey: "k",
+            endpoint: "https://example.test",
+            maxRetries: 0,
+            fetchImpl: fetchImpl as unknown as typeof fetch,
+        });
+
+        await expect(
+            t.requestJson("GET", "/x", { signal: AbortSignal.abort() }),
+        ).rejects.toBeInstanceOf(CancelledError);
+    });
+
+    test("a cancelled request is not retried", async () => {
+        // `shouldRetry` treats a null status as a transport failure worth retrying,
+        // so without the cancellation branch an aborted GET would be re-sent.
+        let calls = 0;
+        const fetchImpl = mock((_url: string | URL, init?: RequestInit) => {
+            calls += 1;
+            return new Promise<Response>((_resolve, reject) => {
+                init?.signal?.addEventListener("abort", () =>
+                    reject(Object.assign(new Error("aborted"), { name: "AbortError" })),
+                );
+            });
+        });
+        const t = new Transport({
+            apiKey: "k",
+            endpoint: "https://example.test",
+            maxRetries: 3,
+            fetchImpl: fetchImpl as unknown as typeof fetch,
+        });
+        const controller = new AbortController();
+
+        const pending = t.requestJson("GET", "/x", { signal: controller.signal });
+        controller.abort();
+
+        await expect(pending).rejects.toBeInstanceOf(CancelledError);
+        expect(calls).toBe(1);
+    });
+
+    test("a multipart send without a progress listener stays on fetch", async () => {
+        // The `XMLHttpRequest` path exists only to report progress; every other
+        // request keeps the transport's regular behaviour.
+        const fetchImpl = mock(() =>
+            Promise.resolve(
+                new Response(JSON.stringify({ id: "d1" }), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            ),
+        );
+        const t = new Transport({
+            apiKey: "k",
+            endpoint: "https://example.test",
+            fetchImpl: fetchImpl as unknown as typeof fetch,
+        });
+        const form = new FormData();
+        form.append("file", new Blob(["data"]), "f.bin");
+
+        await t.requestJson("POST", "/documents", { body: form });
+
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
     });
 });

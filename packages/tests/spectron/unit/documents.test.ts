@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { Spectron } from "@surrealdb/spectron";
+import { CancelledError, ConnectionError, Spectron } from "@surrealdb/spectron";
 
 function client(fetchImpl: unknown): Spectron {
     return new Spectron({
@@ -72,6 +72,42 @@ describe("documents.upload", () => {
         await s.documents.upload({ file: new Uint8Array([9]) });
         expect(body?.get("metadata")).toBeNull();
         expect(body?.get("file")).toBeInstanceOf(Blob);
+    });
+
+    // A fetch impl that never settles until its signal fires.
+    const stalledFetch = () =>
+        mock((_u: string | URL, init?: RequestInit) => {
+            return new Promise<Response>((_resolve, reject) => {
+                init?.signal?.addEventListener("abort", () =>
+                    reject(Object.assign(new Error("aborted"), { name: "AbortError" })),
+                );
+            });
+        });
+
+    test("forwards a caller's abort signal", async () => {
+        // A large upload is otherwise unstoppable: multipart sends carry no
+        // deadline, so without this the request runs until the network gives up.
+        const s = client(stalledFetch());
+        const controller = new AbortController();
+
+        const pending = s.documents.upload({
+            file: new Uint8Array([9]),
+            signal: controller.signal,
+        });
+        controller.abort();
+
+        await expect(pending).rejects.toBeInstanceOf(CancelledError);
+    });
+
+    test("bounds an upload when given an explicit timeout", async () => {
+        const s = client(stalledFetch());
+
+        const error = await s.documents
+            .upload({ file: new Uint8Array([9]), timeoutMs: 5 })
+            .catch((e) => e);
+
+        expect(error).toBeInstanceOf(ConnectionError);
+        expect(error).not.toBeInstanceOf(CancelledError);
     });
 });
 

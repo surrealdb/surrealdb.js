@@ -82,7 +82,7 @@
     },
     "packages/spectron": {
       "name": "@surrealdb/spectron",
-      "version": "1.0.0-alpha.6",
+      "version": "1.0.0-alpha.8",
       "devDependencies": {
         "@types/bun": "^1.2.21",
         "openapi-typescript": "^7.10.0",
