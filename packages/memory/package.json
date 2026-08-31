@@ -1,6 +1,6 @@
 {
     "name": "@surrealdb/memory",
-    "version": "1.0.0-alpha.8",
+    "version": "1.0.0-alpha.9",
     "type": "module",
     "license": "Apache-2.0",
     "description": "The official Agent Memory client for JavaScript.",
