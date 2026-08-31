@@ -94,7 +94,8 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         }
 
         switch (request.method) {
-            case "query": {
+            case "query":
+            case "gql": {
                 request.params = [
                     request.params?.[0],
                     {

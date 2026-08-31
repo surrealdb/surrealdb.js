@@ -3,7 +3,7 @@ import type { ConnectionController } from "../controller";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
 import { RetryContext } from "../internal/retry";
-import type { QueryResponse, RetryValue, Session } from "../types";
+import type { QueryChunk, QueryResponse, RetryValue, Session } from "../types";
 import type { BoundQuery } from "../utils";
 import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../utils/frame";
 
@@ -13,6 +13,11 @@ interface QueryOptions {
     session: Session;
     json: boolean;
     retry?: RetryValue;
+    /**
+     * The query dialect to execute the query as. Defaults to `"sql"` (SurrealQL);
+     * `"gql"` routes the query through the ISO GQL (ISO/IEC 39075) endpoint.
+     */
+    dialect?: "sql" | "gql";
 }
 
 type Collect<T extends unknown[], J extends boolean> = T extends []
@@ -44,6 +49,18 @@ export class Query<
      */
     get inner(): BoundQuery {
         return this.#options.query;
+    }
+
+    /**
+     * Obtain the stream of response chunks for this query, routing to the
+     * transport that matches the configured dialect.
+     */
+    #chunks<T = unknown>(): AsyncIterable<QueryChunk<T>> {
+        const { query, transaction, session, dialect } = this.#options;
+
+        return dialect === "gql"
+            ? this.#connection.gql<T>(query, session, transaction)
+            : this.#connection.query<T>(query, session, transaction);
     }
 
     /**
@@ -110,8 +127,8 @@ export class Query<
         const context = new RetryContext(options);
 
         return context.run(async () => {
-            const { query, transaction, session, json } = this.#options;
-            const chunks = this.#connection.query(query, session, transaction);
+            const { json } = this.#options;
+            const chunks = this.#chunks();
             const responses: unknown[] = [];
             const queryIndexes =
                 queries.length > 0 ? new Map(queries.map((idx, i) => [idx, i])) : undefined;
@@ -171,8 +188,8 @@ export class Query<
     async *stream<T = unknown>(): AsyncIterable<Frame<T, J>> {
         await this.#connection.ready();
 
-        const { query, transaction, session, json } = this.#options;
-        const chunks = this.#connection.query(query, session, transaction);
+        const { json } = this.#options;
+        const chunks = this.#chunks<T>();
 
         for await (const chunk of chunks) {
             if (chunk.error) {
@@ -223,8 +240,8 @@ export class Query<
     async responses<T extends unknown[] = R>(...queries: number[]): Promise<Responses<T, J>> {
         await this.#connection.ready();
 
-        const { query, transaction, session, json } = this.#options;
-        const chunks = this.#connection.query(query, session, transaction);
+        const { json } = this.#options;
+        const chunks = this.#chunks();
         const collections: unknown[] = [];
         const responses: QueryResponse[] = [];
         const queryIndexes =
