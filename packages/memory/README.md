@@ -1,6 +1,6 @@
 # @surrealdb/memory
 
-Typed REST client for the [Agent Memory](https://surrealdb.com/platform/memory) API. It is lightweight, uses your platform `fetch`, and ships no runtime dependencies.
+Typed REST client for the [Agent Memory](https://surrealdb.com/agent-memory) API. It is lightweight, uses your platform `fetch`, and ships no runtime dependencies.
 
 ## Install
 

@@ -1,7 +1,7 @@
 /**
  * Scope input accepted by write/session calls and read lenses.
  *
- * The API wire format is a {@link https://surrealdb.com/platform/memory | ScopeSets}:
+ * The API wire format is a {@link https://surrealdb.com/agent-memory | ScopeSets}:
  * a DNF (disjunctive-normal-form) selector shaped as `string[][]`. The outer array
  * is an OR of clauses; each inner array is an AND of hierarchical `key/value`
  * slash-path strings, so `[["team/a"], ["team/b", "clearance/secret"]]` means
