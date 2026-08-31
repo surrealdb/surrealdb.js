@@ -136,7 +136,10 @@ export class Query<
                 let records = responses[index] as unknown[];
 
                 if (!records) {
-                    records = additions;
+                    // Copied rather than adopted: a statement streamed in batches would otherwise
+                    // have the rows of every later batch pushed into the first chunk's own array,
+                    // which its emitter still holds.
+                    records = [...additions];
                     responses[index] = records;
                 } else {
                     records.push(...additions);
@@ -151,9 +154,17 @@ export class Query<
      * Stream the response frames of the query as they are received as an AsyncIterable.
      *
      * Each iteration yields a **value**, **error**, or **done** frame. The provided
-     * `isValue`, `isError`, and `isDone` methods can be used to check the type of frame.
-     * You can pass a query index to these functions to check if the frame is associated with a
-     * specific query.
+     * `isValue`, `isError`, and `isDone` methods can be used to check the type of frame, and
+     * `isValueOf`, `isErrorOf`, and `isDoneOf` to check the type and that the frame belongs to
+     * a specific statement, by its index.
+     *
+     * Values are provisional until the **done** frame for their statement arrives: an **error**
+     * frame for a statement retracts every value already yielded for it, and the stream itself
+     * throws when the query as a whole could not be completed. Statements are therefore counted
+     * by their **done** frames.
+     *
+     * Abandoning the stream, such as by breaking out of the loop, stops the query on servers
+     * which support it, so results which are no longer wanted are no longer produced.
      *
      * @example
      * ```ts
@@ -264,7 +275,8 @@ export class Query<
             let records = collections[index] as unknown[];
 
             if (!records) {
-                records = additions;
+                // Copied rather than adopted, for the reason given in `collect`.
+                records = [...additions];
                 collections[index] = records;
             } else {
                 records.push(...additions);
