@@ -1,4 +1,5 @@
 import type { ConnectionController } from "../controller";
+import { UnsupportedProtocolFeatureError } from "../errors";
 import type {
     AccessRecordAuth,
     AnyAuth,
@@ -8,7 +9,7 @@ import type {
     Token,
     Tokens,
 } from "../types";
-import { Publisher } from "../utils";
+import { Features, Publisher } from "../utils";
 import { SurrealQueryable } from "./queryable";
 import { SurrealTransaction } from "./transaction";
 
@@ -123,9 +124,15 @@ export class SurrealSession extends SurrealQueryable {
      * - variables
      * - authentication state
      *
+     * Note: Sessions require a WebSocket connection (ws:// or wss://). HTTP(S) connections are not supported.
+     *
      * @returns The new session
      */
     async forkSession(): Promise<SurrealSession> {
+        const protocol = this.#connection.state?.url.protocol;
+        if (protocol === "http:" || protocol === "https:") {
+            throw new UnsupportedProtocolFeatureError(Features.Sessions);
+        }
         const created = await this.#connection.createSession(this.#session);
 
         return SurrealSession.of(this, created);
@@ -157,9 +164,15 @@ export class SurrealSession extends SurrealQueryable {
      * multiple queries atomically. When the desired queries have been executed, call `commit()` to apply the changes to the database.
      * If the transaction is no longer needed, call `cancel()` to discard the changes.
      *
+     * Note: Transactions require a WebSocket connection (ws:// or wss://). HTTP(S) connections are not supported.
+     *
      * @returns A new transaction instance
      */
     async beginTransaction(): Promise<SurrealTransaction> {
+        const protocol = this.#connection.state?.url.protocol;
+        if (protocol === "http:" || protocol === "https:") {
+            throw new UnsupportedProtocolFeatureError(Features.Transactions);
+        }
         const transactionId = await this.#connection.begin(this.#session);
         return new SurrealTransaction(this.#connection, this.#session, transactionId);
     }
