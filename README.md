@@ -61,7 +61,7 @@ This monorepo publishes several npm packages. Most applications only need **`sur
 | **`@surrealdb/sqon`** | [`@surrealdb/sqon`](https://www.npmjs.com/package/@surrealdb/sqon) | Value types, CBOR/JSON codecs, and core utilities (re-exported by `surrealdb`) | [Read more](./packages/sqon/README.md) |
 | **`@surrealdb/wasm`** | [`@surrealdb/wasm`](https://www.npmjs.com/package/@surrealdb/wasm) | Embedded SurrealDB engine for browsers (`mem://`, `indxdb://`) | [Read more](./packages/wasm/README.md) |
 | **`@surrealdb/node`** | [`@surrealdb/node`](https://www.npmjs.com/package/@surrealdb/node) | Embedded SurrealDB engine for Node.js, Bun, and Deno | [Read more](./packages/node/README.md) |
-| **`@surrealdb/spectron`** | [`@surrealdb/spectron`](https://www.npmjs.com/package/@surrealdb/spectron) | Typed HTTP client for the Spectron AI memory API | [Read more](./packages/spectron/README.md) |
+| **`@surrealdb/memory`** | [`@surrealdb/memory`](https://www.npmjs.com/package/@surrealdb/memory) | Typed HTTP client for the Agent Memory API | [Read more](./packages/memory/README.md) |
 
 ### Quick start
 
@@ -146,8 +146,8 @@ For local development the [Bun extension](https://marketplace.visualstudio.com/i
 - `./packages/sqon` - SQON value types and codecs
 - `./packages/node` - embedded Node.js engine
 - `./packages/wasm` - embedded WebAssembly engine
-- `./packages/spectron` - Spectron HTTP client
-- `./packages/tests` - test suite (`surrealdb/` for the SDK, `spectron/` for Spectron)
+- `./packages/memory` - Agent Memory HTTP client
+- `./packages/tests` - test suite (`surrealdb/` for the SDK, `memory/` for Agent Memory)
 - `./demo/wasm` - WebAssembly demo
 - `./demo/node` - Node.js demo
 - `./demo/expo` - Expo / React Native demo

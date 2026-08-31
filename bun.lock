@@ -52,6 +52,17 @@
         "vite": "^7.1.2",
       },
     },
+    "packages/memory": {
+      "name": "@surrealdb/memory",
+      "version": "1.0.0-alpha.8",
+      "devDependencies": {
+        "@types/bun": "^1.2.21",
+        "openapi-typescript": "^7.10.0",
+      },
+      "peerDependencies": {
+        "typescript": "^5.0.0 || ^6.0.0",
+      },
+    },
     "packages/node": {
       "name": "@surrealdb/node",
       "version": "3.0.4",
@@ -80,17 +91,6 @@
         "typescript": "^5.0.0 || ^6.0.0",
       },
     },
-    "packages/spectron": {
-      "name": "@surrealdb/spectron",
-      "version": "1.0.0-alpha.8",
-      "devDependencies": {
-        "@types/bun": "^1.2.21",
-        "openapi-typescript": "^7.10.0",
-      },
-      "peerDependencies": {
-        "typescript": "^5.0.0 || ^6.0.0",
-      },
-    },
     "packages/sqon": {
       "name": "@surrealdb/sqon",
       "version": "0.1.3",
@@ -111,8 +111,8 @@
       "name": "@surrealdb/tests",
       "dependencies": {
         "@surrealdb/cbor": "2.0.0-alpha.4",
+        "@surrealdb/memory": "workspace:*",
         "@surrealdb/node": "workspace:*",
-        "@surrealdb/spectron": "workspace:*",
         "@surrealdb/wasm": "workspace:*",
         "get-port": "^7.1.0",
         "surrealdb": "workspace:*",
@@ -694,11 +694,11 @@
 
     "@surrealdb/expo-demo": ["@surrealdb/expo-demo@workspace:demo/expo"],
 
+    "@surrealdb/memory": ["@surrealdb/memory@workspace:packages/memory"],
+
     "@surrealdb/node": ["@surrealdb/node@workspace:packages/node"],
 
     "@surrealdb/node-demo": ["@surrealdb/node-demo@workspace:demo/node"],
-
-    "@surrealdb/spectron": ["@surrealdb/spectron@workspace:packages/spectron"],
 
     "@surrealdb/sqon": ["@surrealdb/sqon@workspace:packages/sqon"],
 
