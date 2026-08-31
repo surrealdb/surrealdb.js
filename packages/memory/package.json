@@ -1,0 +1,46 @@
+{
+    "name": "@surrealdb/memory",
+    "version": "1.0.0-alpha.8",
+    "type": "module",
+    "license": "Apache-2.0",
+    "description": "The official Agent Memory client for JavaScript.",
+    "homepage": "https://surrealdb.com/agent-memory",
+    "keywords": [
+        "agent-memory",
+        "surrealdb",
+        "memory",
+        "knowledge",
+        "rag"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/surrealdb/surrealdb.js.git"
+    },
+    "scripts": {
+        "build": "bun run build.ts",
+        "generate": "bun run generate.ts",
+        "deploy": "bun run ../../scripts/publish.ts"
+    },
+    "devDependencies": {
+        "@types/bun": "^1.2.21",
+        "openapi-typescript": "^7.10.0"
+    },
+    "peerDependencies": {
+        "typescript": "^5.0.0 || ^6.0.0"
+    },
+    "types": "./dist/memory.d.ts",
+    "main": "./dist/memory.mjs",
+    "exports": {
+        ".": {
+            "types": "./dist/memory.d.ts",
+            "import": "./dist/memory.mjs",
+            "require": "./dist/memory.cjs"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE",
+        "SECURITY.md"
+    ]
+}
