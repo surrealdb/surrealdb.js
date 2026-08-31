@@ -4,6 +4,12 @@ import { isSharedArrayBuffer } from "../internal/shared-array-buffer.ts";
 import { hasSymbol, markSymbol, UUID_SYMBOL } from "../utils/symbols.ts";
 import { Value } from "./value.ts";
 
+// SharedArrayBuffer is only exposed on cross-origin-isolated pages, so
+// referencing it directly throws a ReferenceError everywhere else.
+function isSharedArrayBuffer(value: unknown): value is SharedArrayBuffer {
+    return typeof SharedArrayBuffer !== "undefined" && value instanceof SharedArrayBuffer;
+}
+
 /**
  * A SurrealQL UUID value.
  */
