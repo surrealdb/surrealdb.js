@@ -22,7 +22,7 @@ function client(fetchImpl: unknown): AgentMemory {
 }
 
 describe("client.onBehalfOf", () => {
-    test("adds the X-Agent-Memory-On-Behalf-Of header on delegated requests", async () => {
+    test("adds the X-Spectron-On-Behalf-Of header on delegated requests", async () => {
         let init: RequestInit | undefined;
         const fetchImpl = mock((_u: string | URL, i?: RequestInit) => {
             init = i;
@@ -30,7 +30,7 @@ describe("client.onBehalfOf", () => {
         });
         const s = client(fetchImpl).onBehalfOf("principal:alex");
         await s.recall("hi");
-        expect(headerOf(init, "X-Agent-Memory-On-Behalf-Of")).toBe("principal:alex");
+        expect(headerOf(init, "X-Spectron-On-Behalf-Of")).toBe("principal:alex");
     });
 
     test("propagates the header through sub-namespaces", async () => {
@@ -41,7 +41,7 @@ describe("client.onBehalfOf", () => {
         });
         const s = client(fetchImpl).onBehalfOf("principal:alex");
         await s.keys.list();
-        expect(headerOf(init, "X-Agent-Memory-On-Behalf-Of")).toBe("principal:alex");
+        expect(headerOf(init, "X-Spectron-On-Behalf-Of")).toBe("principal:alex");
     });
 
     test("leaves the original client unchanged", async () => {
@@ -53,7 +53,7 @@ describe("client.onBehalfOf", () => {
         const base = client(fetchImpl);
         base.onBehalfOf("principal:alex");
         await base.recall("hi");
-        expect(headerOf(init, "X-Agent-Memory-On-Behalf-Of")).toBeNull();
+        expect(headerOf(init, "X-Spectron-On-Behalf-Of")).toBeNull();
     });
 
     test("rejects an empty principal id", () => {

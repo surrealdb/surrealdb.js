@@ -240,7 +240,7 @@ export class AgentMemory {
 
     /**
      * Returns a client that issues every request on behalf of `principalId`,
-     * sending the `X-Agent-Memory-On-Behalf-Of` delegation header. Requires the
+     * sending the `X-Spectron-On-Behalf-Of` delegation header. Requires the
      * `manage` grant. The original client is left unchanged.
      */
     onBehalfOf(principalId: string): AgentMemory {

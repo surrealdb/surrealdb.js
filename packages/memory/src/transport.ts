@@ -27,7 +27,7 @@ export interface TransportOptions {
     maxRetries?: number;
     /** Override `fetch` (testing). */
     fetchImpl?: typeof fetch;
-    /** Principal id to act on behalf of, sent as `X-Agent-Memory-On-Behalf-Of`. */
+    /** Principal id to act on behalf of, sent as `X-Spectron-On-Behalf-Of`. */
     onBehalfOf?: string;
 }
 
@@ -190,7 +190,7 @@ export class Transport {
 
     /**
      * Returns a copy of this transport that issues every request on behalf of
-     * `principalId` (adds the `X-Agent-Memory-On-Behalf-Of` header).
+     * `principalId` (adds the `X-Spectron-On-Behalf-Of` header).
      */
     withOnBehalfOf(principalId: string): Transport {
         return new Transport({
@@ -210,7 +210,9 @@ export class Transport {
             Authorization: `Bearer ${this.apiKey}`,
             "User-Agent": `surrealdb-memory-js/${import.meta.env.VERSION}`,
         };
-        if (this.onBehalfOf) headers["X-Agent-Memory-On-Behalf-Of"] = this.onBehalfOf;
+        // Wire constant, not branding: the service matches this header name exactly and
+        // its CORS allowlist carries only this spelling. It stays until the service renames it.
+        if (this.onBehalfOf) headers["X-Spectron-On-Behalf-Of"] = this.onBehalfOf;
         return headers;
     }
 

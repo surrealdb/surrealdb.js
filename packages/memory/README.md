@@ -157,7 +157,7 @@ and `CursorOptions` types.
 
 ## Delegation
 
-`client.onBehalfOf(principalId)` returns a new client whose every request carries the `X-Agent-Memory-On-Behalf-Of` header, so calls run with that principal's authorisation. This requires the `manage` grant. The original client is left unchanged.
+`client.onBehalfOf(principalId)` returns a new client whose every request carries the `X-Spectron-On-Behalf-Of` header, so calls run with that principal's authorisation. This requires the `manage` grant. The original client is left unchanged.
 
 ```ts
 const asAlex = client.onBehalfOf("principal:alex");

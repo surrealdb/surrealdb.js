@@ -9601,7 +9601,7 @@
                 "properties": {
                     "delegatedPrincipalId": {
                         "type": ["string", "null"],
-                        "description": "When the token is delegating (`X-Agent-Memory-On-Behalf-Of`), the target\nprincipal id; absent for non-delegated calls."
+                        "description": "When the token is delegating (`X-Spectron-On-Behalf-Of`), the target\nprincipal id; absent for non-delegated calls."
                     },
                     "displayName": {
                         "type": "string",

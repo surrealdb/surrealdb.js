@@ -2511,7 +2511,7 @@ export interface components {
          */
         WhoamiJson: {
             /**
-             * @description When the token is delegating (`X-Agent-Memory-On-Behalf-Of`), the target
+             * @description When the token is delegating (`X-Spectron-On-Behalf-Of`), the target
              *     principal id; absent for non-delegated calls.
              */
             delegatedPrincipalId?: string | null;
