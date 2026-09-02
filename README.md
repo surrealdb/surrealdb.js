@@ -123,17 +123,21 @@ engines. The database itself is built in the
 Rust toolchain.
 
 To develop against an unpublished engine, build the two packages in that
-repository and register them, then point this one at the result:
+repository and register them, then link each into the package that consumes it:
 
 ```bash
 cd <surrealdb>/surrealdb/node && bun run build && bun link
 cd ../wasm && bun run build && bun link
-cd <surrealdb.js> && bun install
+cd <surrealdb.js>/packages/node && bun link --no-save @surrealdb/node-native
+cd ../wasm && bun link --no-save @surrealdb/wasm-native
 ```
 
-Both packages declare their native dependency as `link:`, which resolves to
-whatever the last `bun link` registered. Publishing replaces those two specs with
-a version range.
+The committed manifests pin a published version, so `bun install` on its own
+installs from the registry; the `bun link` in the consuming package is what
+overrides it. Keep `--no-save` — without it `bun link` rewrites the manifest to a
+`link:` specifier, which resolves to nothing on a clean checkout and takes every
+CI job down at `bun install`. To go back to the published engine, reinstall the
+consuming package with `bun install --force`.
 
 One consequence of linking rather than installing: a linked package sits outside
 this project, and Vite's dev server refuses to serve files from there, so
