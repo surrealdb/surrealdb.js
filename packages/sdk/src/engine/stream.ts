@@ -1,5 +1,5 @@
-import { Duration } from "@surrealdb/sqon";
 import { parseQueryError, parseRpcError, type RpcErrorObject } from "../internal/parse-error";
+import { statsFromTime } from "../internal/query-stats";
 import type { QueryChunk, QueryType } from "../types/surreal";
 
 /**
@@ -88,20 +88,17 @@ export async function* framesToChunks<T>(
                 break;
 
             case "finished": {
-                const entry = state(frame.index);
+                // Read without inserting: a statement that emitted neither rows
+                // nor a value has no entry, and closing it does not need one.
+                const entry = open.get(frame.index);
                 open.delete(frame.index);
-                const stats = {
-                    bytesReceived: -1,
-                    bytesScanned: -1,
-                    recordsReceived: -1,
-                    recordsScanned: -1,
-                    duration: Duration.parseFloat(frame.time),
-                };
+                const batch = entry?.batch ?? 0;
+                const stats = statsFromTime(frame.time);
 
                 if (frame.error) {
                     yield {
                         query: frame.index,
-                        batch: entry.batch,
+                        batch,
                         kind: "batched-final",
                         stats,
                         // A statement's failure is a query result error, not a
@@ -125,17 +122,17 @@ export async function* framesToChunks<T>(
                 yield frame.single
                     ? {
                           query: frame.index,
-                          batch: entry.batch,
+                          batch,
                           kind: "single",
                           stats,
                           type: frame.type,
-                          result: [entry.value] as T[],
+                          result: [entry?.value] as T[],
                       }
                     : {
                           // Closes the statement without carrying rows: every
                           // row it produced has already been delivered.
                           query: frame.index,
-                          batch: entry.batch,
+                          batch,
                           kind: "batched-final",
                           stats,
                           type: frame.type,

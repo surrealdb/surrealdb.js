@@ -1,9 +1,10 @@
-import { Duration, type Uuid } from "@surrealdb/sqon";
+import type { Uuid } from "@surrealdb/sqon";
 import { ConnectionUnavailableError, UnexpectedServerResponseError } from "../errors";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
 import { parseQueryError } from "../internal/parse-error";
+import { statsFromTime } from "../internal/query-stats";
 import type {
     AccessRecordAuth,
     AnyAuth,
@@ -260,13 +261,7 @@ export abstract class RpcEngine implements SurrealProtocol {
                 query: index++,
                 batch: 0,
                 kind: "single",
-                stats: {
-                    bytesReceived: -1,
-                    bytesScanned: -1,
-                    recordsReceived: -1,
-                    recordsScanned: -1,
-                    duration: Duration.parseFloat(response.time),
-                },
+                stats: statsFromTime(response.time),
             };
 
             if (response.status === "OK") {
