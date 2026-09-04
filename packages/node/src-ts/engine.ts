@@ -202,7 +202,11 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
             // Reached on an early `break` as well as on the last frame, and it is
             // what tells the addon a consumer that walked away is gone. Without it
             // the release waits on a collection, which JavaScript never promises.
-            await stream.close();
+            //
+            // Swallowed because this runs while another error may be propagating:
+            // closing an engine that is already gone reports that rather than
+            // panicking, and that report must not replace the real failure.
+            await stream.close().catch(() => {});
         }
     }
 
