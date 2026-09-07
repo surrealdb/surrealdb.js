@@ -23,7 +23,7 @@ interface ManagedLiveOptions {
 /**
  * A promise representing a managed `live` RPC call to the server.
  */
-export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
+export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription<T>> {
     #connection: ConnectionController;
     #options: ManagedLiveOptions;
 
@@ -99,12 +99,12 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
         return this.#build().inner;
     }
 
-    protected async dispatch(): Promise<LiveSubscription> {
+    protected async dispatch(): Promise<LiveSubscription<T>> {
         await this.#connection.ready();
 
         this.#connection.assertFeature(Features.LiveQueries);
 
-        const subscription = new ManagedLiveSubscription(
+        const subscription = new ManagedLiveSubscription<T>(
             this.#connection,
             this.#options.what,
             this.#options.session,
