@@ -114,6 +114,37 @@ For Deno, no build is needed. For all other environments run:
 
 `bun run build`
 
+### The embedded engines
+
+`@surrealdb/node` and `@surrealdb/wasm` are the SDK-facing half of the embedded
+engines. The database itself is built in the
+[SurrealDB repository](https://github.com/surrealdb/surrealdb) and published as
+`@surrealdb/node-native` and `@surrealdb/wasm-native`, so nothing here needs a
+Rust toolchain.
+
+To develop against an unpublished engine, build the two packages in that
+repository and register them, then link each into the package that consumes it:
+
+```bash
+cd <surrealdb>/surrealdb/node && bun run build && bun link
+cd ../wasm && bun run build && bun link
+cd <surrealdb.js>/packages/node && bun link --no-save @surrealdb/node-native
+cd ../wasm && bun link --no-save @surrealdb/wasm-native
+```
+
+The committed manifests pin a published version, so `bun install` on its own
+installs from the registry; the `bun link` in the consuming package is what
+overrides it. Keep `--no-save` — without it `bun link` rewrites the manifest to a
+`link:` specifier, which resolves to nothing on a clean checkout and takes every
+CI job down at `bun install`. To go back to the published engine, reinstall the
+consuming package with `bun install --force`.
+
+One consequence of linking rather than installing: a linked package sits outside
+this project, and Vite's dev server refuses to serve files from there, so
+`demo:wasm` answers `403` for the WebAssembly module until the engine repository
+is added to `server.fs.allow`. A published dependency is inside `node_modules`
+and needs nothing.
+
 ### Code quality
 
 `bun run qa` - apply formatting and safe fixes

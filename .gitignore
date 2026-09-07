@@ -29,10 +29,6 @@ Temporary Items
 npm
 node_modules
 dist
-packages/wasm/wasm
-packages/wasm/target
-packages/node/target
-packages/node/napi
 
 # Expo demo. `expo-env.d.ts` is deliberately NOT ignored (unlike the Expo template) so
 # that `bun run qts:expo` is hermetic; it is excluded from Biome instead.

@@ -1,5 +1,5 @@
+import { type ConnectionOptions, SurrealWasmEngine } from "@surrealdb/wasm-native";
 import { ConnectionUnavailableError } from "surrealdb";
-import { type ConnectionOptions, SurrealWasmEngine } from "../../wasm/surrealdb";
 import { type EngineBroker, initializeLibrary, readNotifications } from "../common";
 
 export class LocalEngineBroker implements EngineBroker {
@@ -40,6 +40,14 @@ export class LocalEngineBroker implements EngineBroker {
         }
 
         return this.#engine.execute(payload);
+    }
+
+    async queryStream(payload: Uint8Array): Promise<ReadableStream<Uint8Array>> {
+        if (!this.#active || !this.#engine) {
+            throw new ConnectionUnavailableError();
+        }
+
+        return this.#engine.query_stream(payload);
     }
 
     async importSql(data: string): Promise<void> {

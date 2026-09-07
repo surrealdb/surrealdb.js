@@ -132,8 +132,10 @@ Pass optional engine configuration to `createWasmEngines` or `createWasmWorkerEn
 ```ts
 const db = new Surreal({
     engines: createWasmEngines({
-        strict: true,
-        query_timeout: 30_000,
+        query_timeout: 30,
+        capabilities: {
+            live_query_notifications: true,
+        },
     }),
 });
 ```
