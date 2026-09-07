@@ -111,22 +111,82 @@ describe("documents.upload", () => {
     });
 });
 
+// Captures the URL and parsed JSON body of a single POST, answering `result`.
+function capturePost(result: unknown) {
+    const captured: { url: string; body: unknown } = { url: "", body: undefined };
+    const fetchImpl = mock((u: string | URL, init?: RequestInit) => {
+        captured.url = String(u);
+        captured.body = JSON.parse(String(init?.body));
+        expect(init?.method).toBe("POST");
+        return Promise.resolve(
+            new Response(JSON.stringify(result), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            }),
+        );
+    });
+    return { fetchImpl, captured };
+}
+
 describe("documents.query", () => {
     test("posts to /documents/query", async () => {
-        let url = "";
-        const fetchImpl = mock((u: string | URL, init?: RequestInit) => {
-            url = String(u);
-            expect(init?.method).toBe("POST");
-            return Promise.resolve(
-                new Response(JSON.stringify({ queryMs: 1, results: [] }), {
-                    status: 200,
-                    headers: { "Content-Type": "application/json" },
-                }),
-            );
-        });
+        const { fetchImpl, captured } = capturePost({ queryMs: 1, results: [] });
         const s = client(fetchImpl);
         const res = await s.documents.query({ query: "hi", k: 5 });
         expect(res.results).toEqual([]);
-        expect(url.endsWith("/api/v1/c/documents/query")).toBe(true);
+        expect(captured.url.endsWith("/api/v1/c/documents/query")).toBe(true);
+        // No lens given, so none is sent: the server then reads the whole granted region.
+        expect(captured.body).toEqual({ query: "hi", k: 5 });
+    });
+
+    test("normalises a read lens into the ScopeSets wire shape", async () => {
+        const { fetchImpl, captured } = capturePost({ queryMs: 1, results: [] });
+        const s = client(fetchImpl);
+        await s.documents.query({ query: "hi", lens: "team/beta/*" });
+        expect(captured.body).toEqual({ query: "hi", lens: [["team/beta/*"]] });
+
+        await s.documents.query({
+            query: "hi",
+            lens: ["team/alpha/*", ["team/beta", "tier/gold"]],
+        });
+        expect(captured.body).toEqual({
+            query: "hi",
+            lens: [["team/alpha/*"], ["team/beta", "tier/gold"]],
+        });
+    });
+
+    test("omits a lens that normalises to nothing", async () => {
+        const { fetchImpl, captured } = capturePost({ queryMs: 1, results: [] });
+        const s = client(fetchImpl);
+        await s.documents.query({ query: "hi", lens: [] });
+        expect(captured.body).toEqual({ query: "hi" });
+    });
+});
+
+describe("documents.keywords.search", () => {
+    test("posts to /documents/keywords/search with a normalised lens", async () => {
+        const { fetchImpl, captured } = capturePost({ queryMs: 1, results: [] });
+        const s = client(fetchImpl);
+        const res = await s.documents.keywords.search({
+            query: "needle",
+            k: 3,
+            threshold: 0.2,
+            lens: ["team/alpha/*", "team/beta/*"],
+        });
+        expect(res.results).toEqual([]);
+        expect(captured.url.endsWith("/api/v1/c/documents/keywords/search")).toBe(true);
+        expect(captured.body).toEqual({
+            query: "needle",
+            k: 3,
+            threshold: 0.2,
+            lens: [["team/alpha/*"], ["team/beta/*"]],
+        });
+    });
+
+    test("omits the lens when none is given", async () => {
+        const { fetchImpl, captured } = capturePost({ queryMs: 1, results: [] });
+        const s = client(fetchImpl);
+        await s.documents.keywords.search({ query: "needle" });
+        expect(captured.body).toEqual({ query: "needle" });
     });
 });

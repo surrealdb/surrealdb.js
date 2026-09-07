@@ -78,6 +78,28 @@ function addOffsetParams(query: Record<string, unknown>, options?: OffsetPageOpt
     if (options?.page !== undefined) query.page = options.page;
     if (options?.pageSize !== undefined) query.pageSize = options.pageSize;
 }
+
+/**
+ * Options for {@link Documents.query}: the wire request, except that `lens`
+ * takes the client's {@link Scope} shapes and is normalised to `ScopeSets`.
+ */
+export type DocumentQueryOptions = Omit<QueryRequestJson, "lens"> & {
+    mode?: QueryMode | string;
+    /** Read lens: a DNF scope selector that narrows the read region (outer OR, inner AND). */
+    lens?: Scope;
+};
+
+/** Options for {@link DocumentKeywords.search}. */
+export interface KeywordSearchOptions {
+    query: string;
+    /** Max hits to return (default 10, max 50). */
+    k?: number;
+    /** Minimum similarity a hit must reach. */
+    threshold?: number;
+    /** Read lens: a DNF scope selector that narrows the read region (outer OR, inner AND). */
+    lens?: Scope;
+}
+
 /** Options shared by document upload and reprocess. */
 export interface DocumentUploadOptions {
     /** Binary content. `File`, `Blob`, `Uint8Array`, `ArrayBuffer`, or `ReadableStream`. */
@@ -185,15 +207,19 @@ export class DocumentKeywords {
         return collectPages((cursor) => this.list({ ...options, cursor }), "keywords");
     }
 
-    /** Vector search over keyword embeddings. */
-    async search(options: {
-        query: string;
-        k?: number;
-        threshold?: number;
-    }): Promise<KeywordSearchResponseJson> {
+    /**
+     * Vector search over keyword embeddings.
+     *
+     * `lens` narrows the read region for this search only. It can only narrow:
+     * the caller's grants still gate on top, so a lens outside the granted
+     * region yields no hits rather than a `403`.
+     */
+    async search(options: KeywordSearchOptions): Promise<KeywordSearchResponseJson> {
         const payload: KeywordSearchRequestJson = { query: options.query };
         if (options.k !== undefined) payload.k = options.k;
         if (options.threshold !== undefined) payload.threshold = options.threshold;
+        const lens = normaliseScope(options.lens);
+        if (lens) payload.lens = lens;
         const body = await this.transport.requestJson("POST", `${this.base}/search`, {
             body: payload,
         });
@@ -345,12 +371,20 @@ export class Documents {
         await this.transport.requestJson("DELETE", `${this.base}/${encodePathSegment(documentId)}`);
     }
 
-    /** Hybrid / vector / BM25 / graph search over the document corpus. */
-    async query(
-        options: QueryRequestJson & { mode?: QueryMode | string },
-    ): Promise<QueryResponseJson> {
+    /**
+     * Hybrid / vector / BM25 / graph search over the document corpus.
+     *
+     * `lens` narrows the read region for this query only. It can only narrow:
+     * the caller's grants still gate on top, so a lens outside the granted
+     * region yields no hits rather than a `403`.
+     */
+    async query(options: DocumentQueryOptions): Promise<QueryResponseJson> {
+        const { lens, ...rest } = options;
+        const payload: Record<string, unknown> = { ...rest };
+        const scopeSets = normaliseScope(lens);
+        if (scopeSets) payload.lens = scopeSets;
         const body = await this.transport.requestJson("POST", `${this.base}/query`, {
-            body: options,
+            body: payload,
         });
         return body as QueryResponseJson;
     }

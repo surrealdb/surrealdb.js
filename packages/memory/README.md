@@ -185,7 +185,7 @@ Idempotent `GET` requests retry on `5xx` and connection failures with backoff `2
 
 ## Scope
 
-Write and session calls accept `scopes?: Scope`, and read calls accept the same shape as `lens?: Scope`. The wire format is a `ScopeSets`: a DNF (disjunctive-normal-form) selector, `string[][]`. The outer array is an OR of clauses; each inner array is an AND of `key/value` slash-paths. So `[["team/a"], ["team/b", "clearance/secret"]]` means `team/a OR (team/b AND clearance/secret)`.
+Write and session calls accept `scopes?: Scope`, and read calls (`recall`, `context`, `documents.query`, `documents.keywords.search`) accept the same shape as `lens?: Scope`. The wire format is a `ScopeSets`: a DNF (disjunctive-normal-form) selector, `string[][]`. The outer array is an OR of clauses; each inner array is an AND of `key/value` slash-paths. So `[["team/a"], ["team/b", "clearance/secret"]]` means `team/a OR (team/b AND clearance/secret)`.
 
 For ergonomics a bare string is a single-path clause and a flat string array is an OR of single-path clauses, and the two mix. All forms normalise to the wire shape via `normaliseScope`. Empty paths and empty clauses are dropped; omit `scopes` entirely to use the key's default write region.
 
@@ -193,4 +193,12 @@ For ergonomics a bare string is a single-path clause and a flat string array is 
 client.remember("...", { scopes: "team/eng" }); // -> [["team/eng"]]
 client.remember("...", { scopes: ["team/eng", "org/acme"] }); // OR -> [["team/eng"], ["org/acme"]]
 client.remember("...", { scopes: [["team/eng", "org/acme"]] }); // AND -> [["team/eng", "org/acme"]]
+```
+
+A read lens narrows the region a query reads from, and may use `/*` to select a subtree. It can only narrow: the key's grants still apply on top, so a lens outside the granted region returns no rows rather than a `403`.
+
+```ts
+client.recall("...", { lens: "team/eng/*" }); // -> [["team/eng/*"]]
+client.documents.query({ query: "...", lens: ["team/eng/*", "org/acme"] }); // OR
+client.documents.keywords.search({ query: "...", lens: "team/eng/*" });
 ```
