@@ -1675,6 +1675,15 @@ export interface components {
              * @description Max hits to return (default 10, max 50).
              */
             k?: number;
+            /**
+             * @description Read **lens**, a DNF selector (OR of conjunctive clauses): each clause is an
+             *     AND of scope paths / `/*` subtree patterns, and a row is kept if it involves
+             *     every pattern of some clause (clauses are OR'd). Narrows the caller's
+             *     effective read region for this query; empty = the whole granted region. The
+             *     lens can only narrow: permission gating from the caller's grants always
+             *     applies on top, so an out-of-region lens yields empty results, never a 403.
+             */
+            lens?: components["schemas"]["ScopeSets"];
             query: string;
             /** Format: float */
             threshold?: number;
@@ -1973,6 +1982,15 @@ export interface components {
              * @description Max hits to return (default 10, max 50).
              */
             k?: number;
+            /**
+             * @description Read **lens**, a DNF selector (OR of conjunctive clauses): each clause is an
+             *     AND of scope paths / `/*` subtree patterns, and a row is kept if it involves
+             *     every pattern of some clause (clauses are OR'd). Narrows the caller's
+             *     effective read region for this query; empty = the whole granted region. The
+             *     lens can only narrow: permission gating from the caller's grants always
+             *     applies on top, so an out-of-region lens yields empty results, never a 403.
+             */
+            lens?: components["schemas"]["ScopeSets"];
             location?: null | components["schemas"]["DocGeoFilterJson"];
             mode?: components["schemas"]["QueryMode"];
             query: string;
