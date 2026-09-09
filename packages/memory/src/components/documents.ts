@@ -222,6 +222,9 @@ export class DocumentKeywords {
         if (lens) payload.lens = lens;
         const body = await this.transport.requestJson("POST", `${this.base}/search`, {
             body: payload,
+            // A read behind a POST, because the query travels in the body. Safe
+            // to replay, so it takes the retry budget every other read gets.
+            idempotent: true,
         });
         return body as KeywordSearchResponseJson;
     }
@@ -385,6 +388,8 @@ export class Documents {
         if (scopeSets) payload.lens = scopeSets;
         const body = await this.transport.requestJson("POST", `${this.base}/query`, {
             body: payload,
+            // A read behind a POST; safe to replay.
+            idempotent: true,
         });
         return body as QueryResponseJson;
     }

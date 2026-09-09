@@ -106,6 +106,7 @@ export {
     RateLimitError,
     ScopeError,
     ServerError,
+    StreamError,
     ValidationError,
 } from "./errors.js";
 export { agentMemoryFileInputToBlob } from "./file-body.js";

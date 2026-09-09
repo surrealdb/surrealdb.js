@@ -55,6 +55,14 @@ export interface AgentMemoryOptions {
     /** API endpoint origin without trailing slash. */
     endpoint: string;
     /** Request timeout in milliseconds. Defaults to `30_000`. */
+    timeoutMs?: number;
+    /**
+     * Request timeout in milliseconds.
+     *
+     * @deprecated Use `timeoutMs`, which is what {@link Transport} has always
+     * called it. Kept so existing callers keep working; ignored when both are
+     * given.
+     */
     timeout?: number;
     /** Maximum retry attempts for idempotent requests. Defaults to `3`. */
     maxRetries?: number;
@@ -136,6 +144,15 @@ export interface ChatOptions {
     bypassCache?: boolean;
     /** Descriptive `key=value` labels for rows the chat persists. */
     labels?: string[];
+    /**
+     * Strip inline citation markers from the reply text.
+     *
+     * With markers left in, the reply carries `[S1]`-style labels that resolve
+     * against `citations`; a caller that does not render them shows them as
+     * prose. Suppressing them leaves `citations` intact, so the sources are
+     * still available to a caller that wants to list rather than inline them.
+     */
+    suppressMarkers?: boolean;
 }
 
 /**
@@ -206,7 +223,7 @@ export class AgentMemory {
         this.transport = new Transport({
             apiKey: options.apiKey,
             endpoint: options.endpoint,
-            timeoutMs: options.timeout,
+            timeoutMs: options.timeoutMs ?? options.timeout,
             maxRetries: options.maxRetries,
             fetchImpl: options.fetchImpl,
         });
@@ -324,6 +341,9 @@ export class AgentMemory {
         addDefined(payload, "location", options?.location);
         const body = await this.transport.requestJson("POST", `${this.base}/query`, {
             body: payload,
+            // A read behind a POST, because the query travels in the body. Safe
+            // to replay, so it takes the retry budget every other read gets.
+            idempotent: true,
         });
         return body as QueryMemoryResponseJson;
     }
@@ -360,6 +380,7 @@ export class AgentMemory {
         addDefined(payload, "model", options?.model);
         if (options?.bypassCache) payload.bypassCache = true;
         addDefined(payload, "labels", options?.labels);
+        if (options?.suppressMarkers) payload.suppressMarkers = true;
 
         if (options?.stream) {
             payload.stream = true;
@@ -391,6 +412,7 @@ export class AgentMemory {
         addDefined(payload, "scopeView", options?.scopeView);
         const body = await this.transport.requestJson("POST", `${this.base}/context`, {
             body: payload,
+            idempotent: true,
         });
         return body as ContextQueryResponseJson;
     }
