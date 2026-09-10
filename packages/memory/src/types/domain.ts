@@ -60,6 +60,40 @@ export const ScopeView = {
 } as const;
 export type ScopeView = (typeof ScopeView)[keyof typeof ScopeView];
 
+/**
+ * Ordering for the ranked entity head at `/entities/top`.
+ *
+ * `coverage` is most-known-about and the one ordering the entity listing cannot
+ * express, but it costs an exact aggregate pass per fact family. `importance`
+ * and `recency` are index-served single-table reads: prefer them where the
+ * ranking need not be exact.
+ */
+export const EntityRanking = {
+    coverage: "coverage",
+    importance: "importance",
+    recency: "recency",
+} as const;
+export type EntityRanking = (typeof EntityRanking)[keyof typeof EntityRanking];
+
+/**
+ * The sections `/lookup` can be asked to fill.
+ *
+ * Everything but `passages` is on by default, because `passages` costs a
+ * retrieval pass. An omitted section comes back empty with `truncated` false:
+ * it was declined, not cut short. Unknown names are ignored by the server.
+ *
+ * `entities` is absent deliberately — it is not selectable. The server fills it
+ * for a topic answer and leaves it empty for an entity one.
+ */
+export const LookupSection = {
+    facts: "facts",
+    relations: "relations",
+    events: "events",
+    passages: "passages",
+    uncertainty: "uncertainty",
+} as const;
+export type LookupSection = (typeof LookupSection)[keyof typeof LookupSection];
+
 /** Document pipeline status values returned by the API. */
 export const DocumentStatus = {
     queued: "queued",

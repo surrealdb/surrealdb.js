@@ -64,6 +64,9 @@ await client.context("Summarise preferences", { k: 5 });
 await client.reflect("What changed this week?", { persist: true });
 await client.forget("Remove old project notes", { purge: true });
 
+// What the context knows about a subject, in one round trip.
+await client.lookup("Who is Tobie?");
+
 // Snapshots and maintenance.
 await client.state({ limit: 500 }); // bounded per table; check `truncated`
 await client.profile();
@@ -90,12 +93,118 @@ for await (const chunk of stream) {
 }
 ```
 
+## Known-about lookups
+
+`client.lookup(query)` answers what the context knows about a subject in one
+round trip. Everything it returns is a stored row: nothing is generated, nothing
+is summarised by a model, and an identical query returns an identical answer.
+
+Branch on `resolution.kind` rather than inferring the case from an array length
+— "one candidate" and "confidently one entity" are different answers:
+
+```ts
+const answer = await client.lookup("Atlas");
+
+switch (answer.resolution.kind) {
+  case "entity":
+    render(answer.resolution.subject, answer.facts.items);
+    break;
+  case "ambiguous":
+    // Each candidate carries a `distinguisher` so they can be told apart.
+    offerChoice(answer.resolution.candidates);
+    break;
+  case "topic":
+    // No single subject: the answer is the cluster in `entities` / `passages`.
+    renderCluster(answer.entities.items, answer.passages.items);
+    break;
+  case "empty":
+    // `nearest` separates "not stored" from "stored under another name".
+    suggest(answer.resolution.nearest);
+    break;
+}
+```
+
+Every section is bounded and reports `truncated`; none of them page. A section
+that was cut points at its own collection endpoint, which does walk:
+
+| Section | Walk it with |
+| --- | --- |
+| `facts` | `client.facts.attributes({ entity })` |
+| `relations` | `client.facts.allEdgesOf(entity)` — the section carries edges in either direction, so one of `src` / `dst` alone reproduces half of it |
+| `events` | `client.facts.actions({ actor: entity })` |
+| `passages` | `client.recall(...)` |
+| `uncertainty` | `client.uncertainty.list({ entity })` |
+
+`facts` is ranked by importance while its collection pages in write order, so
+the ranked head is a different question from the walk, not its first page.
+
+Following a trail is cheap: pass `subject` to skip resolution when a hop already
+knows which entity it landed on.
+
+```ts
+await client.lookup("Atlas", { subject: "product/atlas", include: ["facts", "relations"] });
+```
+
+### Finding a subject
+
+```ts
+// Name search: lexical, deterministic, best match first. A ranked head, not a walk.
+await client.entities.search("tobie", { type: "person", limit: 5 });
+
+// Where to start when there is no query yet.
+await client.entities.top({ by: "coverage" }); // also `importance`, `recency`
+
+// One hop out, each neighbour carrying its own fact count.
+await client.entities.neighbours("person", "tobie", { minFacts: 2 });
+
+// What changed about a subject: every key's supersession chain, newest first.
+await client.entities.changes("person", "tobie", { limit: 50 });
+
+// The collections a bounded head points at, all cursor-paged in the same order.
+await client.facts.attributes({ entity: "person/tobie" });
+await client.facts.allEdgesOf("person/tobie"); // both directions
+await client.facts.actions({ actor: "person/tobie", since: "2026-01-01T00:00:00Z" });
+```
+
+`entities.get` returns a **bounded head** of the entity's attributes and
+relations, newest first, and reports `truncated` per section:
+
+```ts
+const { entity, attributes, relations, truncated } = await client.entities.get("person", "tobie");
+if (truncated.relations) {
+  // The head is a genuine prefix of the walk, so follow the collection for the rest.
+  const every = await client.facts.allEdgesOf("person/tobie");
+}
+```
+
+### Settling a contradiction
+
+```ts
+const open = await client.uncertainty.list({ resolved: false });
+
+for (const flag of open.unknowns) {
+  // `resolvable` says whether settling would succeed for *this* key: it is false
+  // for a subject-less flag, an already-settled one, and one scoped beyond the
+  // caller's write region.
+  if (flag.resolvable) {
+    await client.uncertainty.resolve(flag.id, "SurrealDB", { note: "confirmed in the offer letter" });
+  }
+}
+```
+
+One call claims the flag, writes the accepted value through the reconciler, and
+retires the values it beats. Settlement converges on retry rather than being
+transactional: repeating a failed call dedups the value and finishes the
+retirement.
+
 ## Namespaces
 
 | Namespace | Highlights |
 | --- | --- |
 | `client.documents` | `upload`, `reprocess`, `get`, `raw`, `chunks`, `allChunks`, `list`, `listAll`, `count`, `delete`, `query`, `recomputeLinks`, `keywords.*` |
-| `client.entities` | `list`, `listAll`, `count`, `get`, `history`, `delete` |
+| `client.entities` | `list`, `listAll`, `count`, `search`, `top`, `get`, `neighbours`, `allNeighbours`, `changes`, `allChanges`, `history`, `delete` |
+| `client.facts` | `attributes`, `allAttributes`, `relations`, `allRelations`, `allEdgesOf`, `actions`, `allActions` |
+| `client.uncertainty` | `list`, `listAll`, `count`, `resolve` |
 | `client.sessions` | `create` → `Session` (`turns`, `allTurns`, `context`, `close`) |
 | `client.lifecycle` | `expire`, `decay` |
 | `client.traces` | `list`, `listAll`, `get`, `stats` |
@@ -137,13 +246,26 @@ await client.documents.count(); // number, without fetching the documents
 ```
 
 `listAll` is an unbounded read by construction — reach for it when the
-collection is a tree or a filter source, not a screenful. `documents.allChunks`
-takes a `max` for the bounded case.
+collection is a tree or a filter source, not a screenful. `documents.allChunks`,
+`entities.allNeighbours` and `entities.allChanges` take a `max` for the bounded
+case.
+
+Not every bounded read is a page. `entities.search`, `entities.top`, the
+sections of `client.lookup`, and the fact sections of `entities.get` are ranked
+or aggregate heads: they carry no cursor, and a cut one is signalled by
+`truncated` rather than continued. Follow the collection endpoint each one names
+instead of re-requesting it with a bigger limit.
 
 `totalSize` is opt-in (`count: true`) because it costs a full count of the
 filtered set. Two endpoints do not offer it at all — `scopes.list` and
 `client.audit` take `limit` and `cursor` only, typed as `CursorOptions`, so
 asking them for a count is a type error rather than a rejected request.
+
+`entities.neighbours` offers `count`, but not beside `minFacts`: the filter runs
+after each page is hydrated, so honouring it in a total would cost the
+per-neighbour counts the walk exists to avoid. The server rejects that pairing
+with a `400`, and `NeighbourhoodOptions` is an exclusive union, so it fails to
+compile instead.
 
 `/documents`, `/documents/{id}/chunks`, and `/documents/keywords` also still
 accept the pre-cursor `page`/`pageSize` parameters, for callers with numbered
@@ -157,7 +279,9 @@ and `CursorOptions` types.
 
 ## Delegation
 
-`client.onBehalfOf(principalId)` returns a new client whose every request carries the `X-Spectron-On-Behalf-Of` header, so calls run with that principal's authorisation. This requires the `manage` grant. The original client is left unchanged.
+`client.onBehalfOf(principalId)` returns a new client whose every request carries the delegation header, so calls run with that principal's authorisation. This requires the `manage` grant. The original client is left unchanged.
+
+The header is spelled `X-Spectron-On-Behalf-Of`. That is a wire constant rather than branding: the service matches the name exactly and its CORS allowlist carries only that spelling, so it stays until the service renames it.
 
 ```ts
 const asAlex = client.onBehalfOf("principal:alex");
