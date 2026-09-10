@@ -1,11 +1,13 @@
 import { Documents } from "./components/documents.js";
-import { Entities } from "./components/entities.js";
+import { Entities, type TemporalOptions } from "./components/entities.js";
+import { Facts } from "./components/facts.js";
 import { Keys } from "./components/keys.js";
 import { Lifecycle } from "./components/lifecycle.js";
 import { Principals } from "./components/principals.js";
 import { Scopes } from "./components/scopes.js";
 import { Sessions } from "./components/sessions.js";
 import { Traces } from "./components/traces.js";
+import { Uncertainty } from "./components/uncertainty.js";
 import { addPageParams, type CursorOptions, collectPages } from "./pagination.js";
 import { getContextApiPrefix } from "./paths.js";
 import { normaliseScope, type Scope } from "./scope.js";
@@ -14,6 +16,7 @@ import { Transport } from "./transport.js";
 import type {
     BatchExtractionMode,
     InferMode,
+    LookupSection,
     MemoryCategory,
     ScopeView,
     TurnRole,
@@ -32,6 +35,9 @@ export type ConsolidateResponseJson = components["schemas"]["ConsolidateResponse
 export type ElaborateResponseJson = components["schemas"]["ElaborateResponseJson"];
 export type FsckReportJson = components["schemas"]["FsckReportJson"];
 export type InspectResponseJson = components["schemas"]["InspectResponseJson"];
+export type LookupResponseJson = components["schemas"]["LookupResponseJson"];
+export type ResolutionJson = components["schemas"]["ResolutionJson"];
+export type CoverageJson = components["schemas"]["CoverageJson"];
 export type AuditResponseJson = components["schemas"]["AuditResponseJson"];
 export type AuditRowJson = components["schemas"]["AuditRowJson"];
 export type StateResponseJson = components["schemas"]["StateResponseJson"];
@@ -132,6 +138,43 @@ export interface RecallOptions {
     location?: GeoFilterJson;
 }
 
+/** Options for {@link AgentMemory.lookup}. */
+export interface LookupOptions {
+    /**
+     * Skip resolution and answer about this subject directly, as
+     * `<type>/<name>`.
+     *
+     * This is what makes walking a trail cheap: a hop already knows which
+     * entity it landed on, so re-resolving its name would be both wasted work
+     * and a chance to land somewhere else.
+     */
+    subject?: string;
+    /** Restrict resolution to one entity type. */
+    entityType?: string;
+    /**
+     * How far the top candidate must beat the runner-up for the answer to be
+     * one entity rather than a choice between several. Defaults to `0.15`.
+     */
+    ambiguityMargin?: number;
+    /**
+     * Which sections to fill. Everything but `passages` by default.
+     *
+     * An omitted section comes back empty with `truncated` false: it was
+     * declined, not cut short, so it points at no walk.
+     */
+    include?: (LookupSection | string)[];
+    /** Max facts in the `facts` section. */
+    factLimit?: number;
+    /** Max edges in the `relations` section. */
+    relationLimit?: number;
+    /** Max events in the `events` section. */
+    eventLimit?: number;
+    /** Max passages in the `passages` section. */
+    passageLimit?: number;
+    /** Max flags in the `uncertainty` section. */
+    uncertaintyLimit?: number;
+}
+
 /** Options for {@link AgentMemory.chat}. */
 export interface ChatOptions {
     /** Session to attach the conversation to. */
@@ -194,8 +237,14 @@ export class AgentMemory {
     /** Document ingestion, retrieval, corpus search, and the keyword graph. */
     readonly documents: Documents;
 
-    /** Entity records, attributes, relations, and attribute history. */
+    /** Entity records, attributes, relations, name search, and attribute history. */
     readonly entities: Entities;
+
+    /** The attribute, relation, and action collections a bounded head points at. */
+    readonly facts: Facts;
+
+    /** Things the context is unsure about, and the write that settles one. */
+    readonly uncertainty: Uncertainty;
 
     /** Conversation sessions for this context. */
     readonly sessions: Sessions;
@@ -230,6 +279,8 @@ export class AgentMemory {
         const components = AgentMemory.buildComponents(this.transport, this.contextId);
         this.documents = components.documents;
         this.entities = components.entities;
+        this.facts = components.facts;
+        this.uncertainty = components.uncertainty;
         this.sessions = components.sessions;
         this.lifecycle = components.lifecycle;
         this.traces = components.traces;
@@ -242,6 +293,8 @@ export class AgentMemory {
         return {
             documents: new Documents(transport, contextId),
             entities: new Entities(transport, contextId),
+            facts: new Facts(transport, contextId),
+            uncertainty: new Uncertainty(transport, contextId),
             sessions: new Sessions(transport, contextId),
             lifecycle: new Lifecycle(transport, contextId),
             traces: new Traces(transport, contextId),
@@ -395,6 +448,48 @@ export class AgentMemory {
         return body as ChatResponseJson;
     }
 
+    /**
+     * What this context knows about a subject, in one round trip
+     * (`POST /lookup`).
+     *
+     * Everything returned is a stored row: nothing is generated, nothing is
+     * summarised by a model, and an identical query returns an identical
+     * answer. Branch on `resolution.kind` — `entity`, `topic`, `ambiguous`,
+     * `empty` — rather than inferring which case you got from an array length.
+     *
+     * This is a composite aggregate like {@link AgentMemory.state}, not a
+     * collection: every section is bounded and reports `truncated`, and none of
+     * them page. To read a section in full, walk its own collection endpoint —
+     * facts through `/attributes?entity=`, relations through **both**
+     * `/relations?src=` and `/relations?dst=`, events through
+     * `/actions?actor=`, passages through {@link AgentMemory.recall}, and
+     * unknowns through {@link AgentMemory.uncertainty}. Note that `facts` is
+     * ranked by importance while its collection pages in write order: the
+     * ranked head is a different question from the walk, not its first page.
+     *
+     * Facts carry their source, trust and confidence but not the quoted
+     * evidence text — a fact is one line until asked, and expanding one is a
+     * passage read.
+     */
+    async lookup(query: string, options?: LookupOptions): Promise<LookupResponseJson> {
+        const payload: Record<string, unknown> = { query };
+        addDefined(payload, "subject", options?.subject);
+        addDefined(payload, "entityType", options?.entityType);
+        addDefined(payload, "ambiguityMargin", options?.ambiguityMargin);
+        addDefined(payload, "include", options?.include);
+        addDefined(payload, "factLimit", options?.factLimit);
+        addDefined(payload, "relationLimit", options?.relationLimit);
+        addDefined(payload, "eventLimit", options?.eventLimit);
+        addDefined(payload, "passageLimit", options?.passageLimit);
+        addDefined(payload, "uncertaintyLimit", options?.uncertaintyLimit);
+        const body = await this.transport.requestJson("POST", `${this.base}/lookup`, {
+            body: payload,
+            // A read behind a POST, because the query travels in the body.
+            idempotent: true,
+        });
+        return body as LookupResponseJson;
+    }
+
     /** Retrieves LLM-facing context text for a query without a session (`POST /context`). */
     async context(
         query: string,
@@ -403,6 +498,18 @@ export class AgentMemory {
             labels?: string[];
             lens?: Scope;
             scopeView?: ScopeView | string;
+            /**
+             * Render one subject's answer rather than the query's hits, as
+             * `<type>/<name>`.
+             *
+             * This is the copy-as-context export: the fact half of the block
+             * becomes this entity's own attributes, relations and events, which
+             * is what a reader pastes into a prompt after looking a subject up.
+             * `query` still selects the passages — the only thing retrieval
+             * contributes in this mode — and `lens`, `labels` and `scopeView`
+             * filter the subject's facts exactly as they filter those passages.
+             */
+            subject?: string;
         },
     ): Promise<ContextQueryResponseJson> {
         const payload: Record<string, unknown> = { query };
@@ -410,6 +517,7 @@ export class AgentMemory {
         addDefined(payload, "labels", options?.labels);
         addDefined(payload, "lens", normaliseScope(options?.lens));
         addDefined(payload, "scopeView", options?.scopeView);
+        addDefined(payload, "subject", options?.subject);
         const body = await this.transport.requestJson("POST", `${this.base}/context`, {
             body: payload,
             idempotent: true,
@@ -476,10 +584,7 @@ export class AgentMemory {
     }
 
     /** Inspects an entity, attribute, or trace by reference (`GET /inspect`). */
-    async inspect(
-        ref: string,
-        options?: { asOf?: string; atInstant?: string; validFrom?: string; validUntil?: string },
-    ): Promise<InspectResponseJson> {
+    async inspect(ref: string, options?: TemporalOptions): Promise<InspectResponseJson> {
         const query: Record<string, unknown> = { ref };
         addDefined(query, "asOf", options?.asOf);
         addDefined(query, "atInstant", options?.atInstant);
@@ -514,11 +619,13 @@ export class AgentMemory {
      * bounded by `limit` (default 100, max 500), and `truncated` reports which
      * of them had more rows.
      *
-     * Four of those tables have their own collection endpoint to enumerate them
+     * Five of those tables have their own collection endpoint to enumerate them
      * completely — entities (see {@link AgentMemory.entities}), attributes,
-     * relations, and actions. The remaining two, `instructions` and `unknowns`,
-     * have no such route: when `truncated` flags either, the omitted rows cannot
-     * be recovered other than by raising `limit`.
+     * relations, actions, and `unknowns` (see
+     * {@link AgentMemory.uncertainty}, which also returns the subject each flag
+     * is about, where this snapshot collapses it to `{about, reason}`). Only
+     * `instructions` has no such route: when `truncated` flags it, the omitted
+     * rows cannot be recovered other than by raising `limit`.
      */
     async state(options?: { limit?: number }): Promise<StateResponseJson> {
         const query: Record<string, unknown> = {};

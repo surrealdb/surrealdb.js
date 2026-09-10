@@ -80,7 +80,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Phase 7.5 — Agent-Memory-as-agent chat endpoint. Resolves the session, retrieves context via the unified /query router, and calls the configured LLM provider; then, only after a successful synthesis (or a tier-2 cache hit), stores the user message and the assistant response via /facts and emits a response_trace. A failed synthesis writes no turn, fact, or response_trace (a retrieval_trace recording the query may still be written). Set `stream=true` for SSE. */
+        /** @description The agent's own chat endpoint, backed by Agent Memory. Resolves the session, retrieves context via the unified /query router, and calls the configured LLM provider; then, only after a successful synthesis (or a tier-2 cache hit), stores the user message and the assistant response via /facts and emits a response_trace. A failed synthesis writes no turn, fact, or response_trace (a retrieval_trace recording the query may still be written). Set `stream=true` for SSE. */
         post: operations["chat"];
         delete?: never;
         options?: never;
@@ -97,7 +97,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Phase 11b: pool recent facts and consolidate into observations. Scope-gated: only facts in the caller's `memory:read` region are pooled, and only groups in the caller's `memory:write` region are persisted (others are returned as dry-run previews). */
+        /** @description Pool recent facts and consolidate into observations. Scope-gated: only facts in the caller's `memory:read` region are pooled, and only groups in the caller's `memory:write` region are persisted (others are returned as dry-run previews). */
         post: operations["consolidate"];
         delete?: never;
         options?: never;
@@ -132,7 +132,7 @@ export interface paths {
         /** @description Lists Layer 0 knowledge documents */
         get: operations["list_documents"];
         put?: never;
-        /** @description Upload a new Layer 0 knowledge document (multipart/form-data) */
+        /** @description Upload a new Layer 0 knowledge document (multipart/form-data). Send the bytes in a `file` part and, optionally, a JSON object in a `metadata` part; the two may be sent in either order. */
         post: operations["upload_document"];
         delete?: never;
         options?: never;
@@ -217,7 +217,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Phase 6c: recompute doc-to-doc semantic_similarity edges across the Context. Returns the number of edges emitted (existing edges are retained — the (in, out, kind) triple is unique). */
+        /** @description Recompute doc-to-doc semantic_similarity edges across the Context. Returns the number of edges emitted (existing edges are retained — the (in, out, kind) triple is unique). */
         post: operations["recompute_document_links"];
         delete?: never;
         options?: never;
@@ -304,7 +304,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Phase 11a: elaborate links for a single entity or sweep low-relation entities */
+        /** @description Elaborate links for a single entity or sweep low-relation entities */
         post: operations["elaborate"];
         delete?: never;
         options?: never;
@@ -329,6 +329,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/{context_id}/entities/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Search entities by name, best match first. Lexical and deterministic: an identical query returns identical rows in an identical order, with no model and no vector index in the path. An exact match on the normalised identity name scores 1.0; everything else scores strictly below it. Each match carries its own fact count and a distinguisher built from its highest-importance facts, so two same-named candidates can be told apart without a request per candidate. Bounded by `limit` (default 10, capped by the server's list limit); this is a ranked head, not a walk. */
+        get: operations["search_entities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/entities/top": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The entities worth starting from. `by=coverage` (default) is most-known-about and is the one ordering the entity listing cannot express; `by=importance` and `by=recency` are index-served single-table reads. Coverage is deliberately exact rather than approximated: it costs one aggregate pass per fact family, on the same footing as an opt-in `?count=true`, because merging three separately-truncated top-lists would silently mis-rank an entity that leads on relations and trails on attributes. Prefer `importance` or `recency` where the ranking need not be exact. */
+        get: operations["top_entities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/{context_id}/entities/{entity_type}/{entity_name}": {
         parameters: {
             query?: never;
@@ -336,12 +370,29 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Get a single entity with its current attributes and relations */
+        /** @description Get a single entity with a bounded head of its current attributes and relations, newest first. Each section reports whether it was cut. Walk `/attributes?entity=<type>/<name>` for the attributes, and BOTH `/relations?src=<type>/<name>` and `/relations?dst=<type>/<name>` for the relations, because the head carries edges in both directions and either filter alone reproduces only half of it. All of them page by cursor in the same order. */
         get: operations["get_entity"];
         put?: never;
         post?: never;
         /** @description Soft-delete an entity and all its current attributes and relations */
         delete: operations["delete_entity"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/entities/{entity_type}/{entity_name}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every key's supersession chain for one entity, newest first. The per-key sibling at `/history/{key}` answers how one value changed; this answers what changed about the subject, which cannot be composed from it without one request per key. Superseded rows are included - the chain is the point. Paginated by cursor over `(created_at, id)`. */
+        get: operations["entity_history_all"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -364,6 +415,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/{context_id}/entities/{entity_type}/{entity_name}/neighbourhood": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One hop out from a subject, each neighbour carrying its own fact count so a relation chip is navigable rather than decorative - without it the caller needs one request per chip. Paginated by cursor over the edge's own `(created_at, id)`: a neighbour's fact count changes under ingest, so it cannot carry a stable cursor. `limit` is capped lower than the general list limit because each row costs three correlated counts. `count=true` returns the subject's visible edge total, and is refused alongside `minFacts` because that filter runs after each page is hydrated - honouring it in a total would cost the per-neighbour counts this walk exists to avoid. */
+        get: operations["entity_neighbourhood"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/{context_id}/facts": {
         parameters: {
             query?: never;
@@ -373,7 +441,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Write a single fact. Dispatches on `infer` mode: full (LLM-extracted), triples (caller-supplied), preview (dry run), none (literal). */
+        /** @description Write a single fact. Dispatches on `infer` mode: full (LLM-extracted), triples (caller-supplied structured entries covering all four fact families - entities, attributes, relations, and actions - with optional per-fact event time, verbatim source clause, and confidence), preview (dry run), none (literal). */
         post: operations["create_fact"];
         delete?: never;
         options?: never;
@@ -535,6 +603,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/{context_id}/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description What this Context knows about a subject, in one round trip. Everything returned is a stored row: nothing is generated, nothing is summarised by a model, and an identical query returns an identical answer. `resolution.kind` is a discriminated union - `entity`, `topic`, `ambiguous`, `empty` - so a client branches once rather than inferring which case it got.
+         *
+         *     This is a composite aggregate like `/state`, not a collection: every section is bounded and reports `truncated`, and none of them page. A caller needing a section in full walks its own collection endpoint, which does: facts through `/attributes?entity=`, relations through BOTH `/relations?src=` and `/relations?dst=` (the section carries edges in both directions, so either filter alone reproduces half of it), events through `/actions?actor=`, passages through `/query`, and unknowns through `/uncertainty?entity=`. Note that `facts` is ranked by importance while its collection pages in write order - the ranked head is a different question from the walk, not its first page, because importance is reinforced on recall and so cannot carry a stable cursor.
+         *
+         *     Facts carry their source, trust and confidence but not the quoted evidence text: a fact is one line until asked, and expanding one is a passage read.
+         */
+        post: operations["lookup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/{context_id}/me": {
         parameters: {
             query?: never;
@@ -647,7 +738,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Phase 7 unified query: four-tier router + fused ranker over the substrate */
+        /** @description Unified query: four-tier router + fused ranker over the substrate */
         post: operations["query_memory"];
         delete?: never;
         options?: never;
@@ -878,6 +969,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/{context_id}/uncertainty": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Things the Context is unsure about, newest first. The composite state read collapses these to `{about, reason}`, which is enough to say something is unresolved and not enough to act on it; this returns the row, so a flag can be linked to the entity it is about and settled. `resolved` defaults to unset (both), so pass `resolved=false` for the open ones. Paginated by cursor over `(created_at, id)`. */
+        get: operations["list_uncertainty"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/{context_id}/uncertainty/{uncertainty_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Settle a disagreement by accepting one value. Claims the flag, writes the accepted value through the reconciler at the upsert trust prior, and retires the values it beats, so a caller does not orchestrate three writes. The accepted value lands at the flag's own scope, not the caller's write-grant anchors, because scope is part of a fact's address and the value has to replace the contenders where they live. `acceptedValue` and `note` persist as an attribute value and its source clause in normalised, capped form - never the wire string - having run the Context's injection-scan and PII-redaction policies exactly as a structured `/facts` write does. Requires `memory:write`. Settlement is retry-converging rather than transactional: a failure after the accepted value is written hands the flag back and reports it, and repeating the call dedups the value and completes the retirement. A flag with no subject cannot be settled this way and is rejected 422: only a contradiction or a confidence-floor hold records the entity and key a written value would need, and inventing a target for the others would assert a fact nobody stated. */
+        post: operations["resolve_uncertainty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -933,6 +1058,12 @@ export interface components {
             message: string;
         };
         AttributeDetailJson: {
+            /**
+             * Format: double
+             * @description Reconciler's posterior over this assertion on a `[0, 1]` scale. Distinct
+             *     from `source.trust`, the prior of the origin that fed it.
+             */
+            confidence: number;
             createdAt: string;
             /**
              * @description Navigable ref of the owning entity, `entity:<type>/<name>` — resolvable
@@ -943,8 +1074,19 @@ export interface components {
             /** Format: double */
             importance: number;
             key: string;
+            labels: string[];
             memoryCategory: components["schemas"]["MemoryCategory"];
+            /**
+             * @description The compartments this fact is visible in, in disjunctive normal form:
+             *     one inner list per AND-clause of scope paths. Empty means unscoped.
+             */
+            scope: string[][];
             source?: null | components["schemas"]["SourceRefJson"];
+            /**
+             * @description The fact rendered as a sentence, written at ingest by templating (no
+             *     model). Absent on rows written before the column existed.
+             */
+            summary?: string | null;
             supersededBy?: string | null;
             supersedes?: string | null;
             validFrom?: string | null;
@@ -1019,7 +1161,7 @@ export interface components {
         };
         ChatRequestJson: {
             /**
-             * @description Phase 7.6 — when `true` skips the tier-2 response cache and
+             * @description When `true` skips the tier-2 response cache and
              *     forces a fresh tier-3 call. Defaults to `false`.
              */
             bypassCache?: boolean;
@@ -1135,19 +1277,30 @@ export interface components {
              */
             k?: number;
             /**
-             * @description Label filter (design §4): `key=value` strings the result rows must all
+             * @description Label filter: `key=value` strings the result rows must all
              *     carry; applied after the scope predicate (never widening).
              */
             labels?: string[];
             /**
              * @description Read **lens** (DNF: OR of conjunctive clauses) narrowing the effective read
-             *     region (design §7.1); see [`QueryMemoryRequestJson::lens`]. Empty = the
+             *     region; see [`QueryMemoryRequestJson::lens`]. Empty = the
              *     whole granted region.
              */
             lens?: components["schemas"]["ScopeSets"];
             query: string;
-            /** @description Scope read breadth: `strict` (default) | `merged` | `crossTeam` (§7.1). */
+            /** @description Scope read breadth: `strict` (default) | `merged` | `crossTeam`. */
             scopeView?: string | null;
+            /**
+             * @description Render one subject's answer rather than a query's hits, as
+             *     `<type>/<name>`. This is the copy-as-context export: the fact half of
+             *     the markdown block becomes this entity's own attributes, relations and
+             *     events, which is what a reader pastes into a prompt after looking a
+             *     subject up. `query` is still required and still selects the passages,
+             *     which are the only thing retrieval contributes in this mode - facts
+             *     about other entities are not appended. `lens`, `labels` and `scopeView`
+             *     filter the subject's facts exactly as they filter the passages.
+             */
+            subject?: string | null;
         };
         ContextQueryResponseJson: {
             context: string;
@@ -1160,7 +1313,7 @@ export interface components {
             key: string;
             values: string[];
         };
-        /** @description §15 operational signal (#174): cross-provenance contradiction rate. */
+        /** @description Operational signal: cross-provenance contradiction rate. */
         ContradictionStatsJson: {
             /** Format: double */
             contradictionRate: number;
@@ -1174,6 +1327,21 @@ export interface components {
             key: string;
             newValue: string;
             oldValue: string;
+        };
+        /**
+         * @description Where the answer's facts came from.
+         *
+         *     Deliberately only the breakdown. The subject's own totals - its fact count
+         *     and when it was last learned about - live on `resolution.subject`, where
+         *     they are computed over the whole subject rather than over the bounded slice
+         *     this response carries. Repeating them here would be two numbers that
+         *     disagree the moment a section is truncated or excluded.
+         */
+        CoverageJson: {
+            /** @description How many of the facts **in this answer** came from each source kind. */
+            sourceKinds: {
+                [key: string]: number;
+            };
         };
         CreateSessionRequestJson: {
             metadata?: unknown;
@@ -1192,7 +1360,7 @@ export interface components {
          */
         DecisionKind: "create" | "update" | "supersede";
         /**
-         * @description Phase 6.5 — geographic filter on `/documents/query`. Mirrors the
+         * @description Geographic filter on `/documents/query`. Mirrors the
          *     shape on the memory `/query` endpoint.
          */
         DocGeoFilterJson: {
@@ -1257,27 +1425,44 @@ export interface components {
          * @description Lifecycle state of a [`Document`] in the ingestion pipeline.
          *
          *     Matches the SurrealQL `ASSERT $value IN [...]` on `document.status` in
-         *     `V1__schema.surql`. The `Keywording` state is reserved for
-         *     Phase C; in Phase A the pipeline transitions straight from `Embedding` to
-         *     `Ready`.
+         *     `V1__schema.surql`. The `Keywording` state is entered only when the
+         *     Context's ingestion profile gates in the keywording stage; profiles
+         *     without it transition straight past it.
          * @enum {string}
          */
         DocumentStatus: "queued" | "extracting" | "chunking" | "embedding" | "keywording" | "extracting_nodes" | "ready" | "failed";
         /**
-         * @description OpenAPI documentation shape for the `multipart/form-data` upload/reprocess
-         *     body: a `file` part plus a `metadata` JSON part ([`UploadMetadataJson`], which
-         *     carries `scopes` / `labels` / `title` / …). The handlers parse the multipart
-         *     stream directly; this type exists only so the parts (and `scopes`) appear in
-         *     the generated spec. The `metadata` part MUST precede `file` on the wire.
+         * @description The `multipart/form-data` body of an upload or reprocess: the document bytes
+         *     in a `file` part, and an optional `metadata` part carrying `title` /
+         *     `source` / `mimeType` / `scopes` / `labels` / `observedAt` as a JSON object.
+         *
+         *     The two parts may be sent in either order. `metadata` first is marginally
+         *     cheaper - the media-type and content gates then run before the body reaches
+         *     storage rather than after - but a `metadata` part sent after `file` applies
+         *     in full either way.
+         *
+         *     Only `file` is required. Without a `metadata` part the document takes its
+         *     title and source from the part's filename, its media type from the part's
+         *     `Content-Type` (or, absent one, from the bytes), and the caller's whole
+         *     `memory:write` region as its scope.
+         *
+         *     `scopes` and `labels` apply on upload only. A reprocess replaces an existing
+         *     document's bytes and keeps its scope and labels, so it ignores both fields
+         *     rather than failing the request; every other field applies to both.
          */
         DocumentUploadForm: {
             /**
              * Format: binary
-             * @description The raw document bytes.
+             * @description The raw document bytes. A `Content-Type` on this part declares the media
+             *     type; without one the type is inferred from the bytes, falling back to
+             *     `text/plain` for a body that is text. An empty part is a 400.
              */
             file: string;
-            /** @description The document metadata part, sent as a serialised JSON object. */
-            metadata: components["schemas"]["UploadMetadataJson"];
+            /**
+             * @description The document metadata, as a serialised JSON object. Optional; either a
+             *     JSON object or no part at all.
+             */
+            metadata?: components["schemas"]["UploadMetadataJson"];
         };
         DuplicateFindingJson: {
             entityA: string;
@@ -1332,6 +1517,10 @@ export interface components {
             name: string;
             updatedAt: string;
         };
+        EntityHistoryAllResponseJson: {
+            history: components["schemas"]["AttributeDetailJson"][];
+            page: components["schemas"]["PageMeta"];
+        };
         EntityHistoryResponseJson: {
             history: components["schemas"]["AttributeDetailJson"][];
         };
@@ -1340,10 +1529,56 @@ export interface components {
             /** @description Where this page sits in the walk. Follow `nextCursor` for the next. */
             page: components["schemas"]["PageMeta"];
         };
+        /**
+         * @description An entity with the coverage figures a reader needs to decide whether it is
+         *     the one they meant, and whether walking to it is worth it.
+         */
+        EntityMatchJson: {
+            /**
+             * @description One sentence assembled from the highest-importance fact summaries, so
+             *     two same-named candidates can be told apart. Absent when the entity has
+             *     no summarised facts.
+             */
+            distinguisher?: string | null;
+            entity: components["schemas"]["EntityDetailJson"];
+            /**
+             * Format: int64
+             * @description Attributes + events + outbound relations. The number that says whether
+             *     walking here is worth it, which is why it is inline rather than a
+             *     request per row.
+             */
+            factCount: number;
+            /** @description Newest known-time across the entity's own facts. */
+            lastLearnedAt?: string | null;
+            /**
+             * @description The alias that matched, when the query named an alias and resolution
+             *     followed `same_as` to the canonical entity.
+             */
+            matchedAlias?: string | null;
+            /**
+             * Format: double
+             * @description Match quality in `[0, 1]`. `1.0` for an exact match on the normalised
+             *     identity name; otherwise the Jaccard overlap of the query's word tokens
+             *     with the candidate name's, scaled to sit strictly below `1.0`. Corpus
+             *     independent, so one `ambiguityMargin` means the same thing in a Context
+             *     of ten entities and one of ten million. Always `1.0` for a listing that
+             *     matched no query.
+             */
+            score: number;
+        };
         EntityResponseJson: {
             attributes: components["schemas"]["AttributeDetailJson"][];
             entity: components["schemas"]["EntityDetailJson"];
             relations: components["schemas"]["RelationDetailJson"][];
+            /**
+             * @description Per-section truncation. A `true` flag means that section has more rows
+             *     than this response carries, and the complete set must be walked through
+             *     that section's own collection endpoint.
+             */
+            truncated: components["schemas"]["EntityTruncationJson"];
+        };
+        EntitySearchResponseJson: {
+            matches: components["schemas"]["EntityMatchJson"][];
         };
         EntitySummaryJson: {
             entityType: string;
@@ -1351,6 +1586,17 @@ export interface components {
             isNew: boolean;
             memoryCategory: components["schemas"]["MemoryCategory"];
             name: string;
+        };
+        /**
+         * @description Which of the entity read's two fact sections were bounded short.
+         *
+         *     Both sections come back newest first, the order those collections page in,
+         *     so a truncated section is a genuine prefix of that walk rather than a
+         *     separate ranking.
+         */
+        EntityTruncationJson: {
+            attributes: boolean;
+            relations: boolean;
         };
         ExtractionResultJson: {
             actions: components["schemas"]["ActionSummaryJson"][];
@@ -1410,9 +1656,8 @@ export interface components {
             /** @description Inference mode (`full` is the default). */
             infer?: components["schemas"]["InferMode"];
             /**
-             * @description Descriptive labels for the persisted rows (scope-model §5). Accepted
-             *     and recorded on the wire now; row-level application lands in a
-             *     follow-up (cf. `ScopeView` — accepted but behaves as `Strict`).
+             * @description Descriptive labels for the persisted rows: `key=value` strings
+             *     stamped on every row the write reconciles.
              */
             labels?: components["schemas"]["Label"][];
             memory_category?: null | components["schemas"]["MemoryCategory"];
@@ -1420,13 +1665,16 @@ export interface components {
              * @description Optional RFC3339 known/observed time for the written facts (backfill).
              *     When set, the facts are stamped with this `created_at` (known time), so
              *     `as_of` queries see them dated to when they were observed rather than to
-             *     wall-clock ingest. `None` keeps the default (facts dated to ingest time).
+             *     wall-clock ingest; a `temporal_hint` on a structured triples entry also
+             *     resolves against this anchor ("yesterday" relative to when the fact was
+             *     observed, not to ingest). `None` keeps the default (facts dated to
+             *     ingest time, hints anchored at now).
              */
             observed_at?: string | null;
             role?: null | components["schemas"]["TurnRole"];
             /**
-             * @description Scope paths the write targets — canonical slash-paths, e.g. `org/apple/`
-             *     (scope-model §5). Used when auto-creating a session. Empty = the
+             * @description Scope paths the write targets — canonical slash-paths, e.g.
+             *     `org/apple/`. Used when auto-creating a session. Empty = the
              *     caller's default write region.
              */
             scopes?: components["schemas"]["ScopeSets"];
@@ -1440,7 +1688,10 @@ export interface components {
              *     when `infer = triples` is supplied.
              */
             text?: string | null;
-            /** @description Caller-supplied triples (only consumed when `infer = triples`). */
+            /**
+             * @description Caller-supplied structured fact entries (only consumed when
+             *     `infer = triples`); see [`Triple`] for the per-entry contract.
+             */
             triples?: components["schemas"]["Triple"][];
         };
         FactsResponseJson: {
@@ -1460,7 +1711,7 @@ export interface components {
              */
             dryRun?: boolean;
             /**
-             * @description Phase 10.7 — right-to-be-forgotten. When `true`, the handler
+             * @description Right-to-be-forgotten. When `true`, the handler
              *     also removes the supersession history (rows with `valid_until`
              *     set) that match the same scope/entity criteria. When omitted or
              *     `false`, prior rows are retained for audit even after the
@@ -1496,7 +1747,7 @@ export interface components {
             maxResults?: number | null;
         };
         /**
-         * @description Wire shape for the Phase 6.5 geo filter on `/query`. Mirrors the
+         * @description Wire shape for the geo filter on `/query`. Mirrors the
          *     in-process [`crate::memory::types::GeoFilter`] enum.
          */
         GeoFilterJson: {
@@ -1573,6 +1824,8 @@ export interface components {
             /** @enum {string} */
             kind: "entity";
             relations: components["schemas"]["RelationDetailJson"][];
+            /** @description Per-section truncation, as on `GET /entities/{type}/{name}`. */
+            truncated: components["schemas"]["EntityTruncationJson"];
         } | {
             current?: null | components["schemas"]["AttributeDetailJson"];
             /**
@@ -1588,8 +1841,17 @@ export interface components {
             /**
              * @description Live relations matching the `src -[label]-> dst` shape. Empty if
              *     none survive the temporal filter.
+             *
+             *     Addressed in the database by both endpoints and the label, so this
+             *     is empty only when no such edge is visible, never because the
+             *     subject had too many other edges to look through.
              */
             matches: components["schemas"]["RelationDetailJson"][];
+            /**
+             * @description Whether the parallel-edge set between this pair under this label was
+             *     itself cut short. False in every ordinary case.
+             */
+            truncated: boolean;
         } | {
             /** @enum {string} */
             kind: "trace";
@@ -1685,7 +1947,16 @@ export interface components {
              */
             lens?: components["schemas"]["ScopeSets"];
             query: string;
-            /** Format: float */
+            /**
+             * Format: float
+             * @description Minimum similarity a keyword must reach to be returned
+             *     (default 0.5). Values of `0` or below, and values too large to
+             *     represent as a 32-bit float (`1e39` and up), are coerced back to
+             *     that 0.5 default, so the cutoff cannot be disabled; send a small
+             *     positive value such as `0.01` to widen the result set. Any other
+             *     finite value is used as given, including one above the `1.0`
+             *     ceiling on cosine similarity, which matches nothing.
+             */
             threshold?: number;
         };
         KeywordSearchResponseJson: {
@@ -1698,6 +1969,61 @@ export interface components {
         LifecycleResponseJson: {
             /** Format: int64 */
             affected: number;
+        };
+        LookupRequestJson: {
+            /**
+             * Format: double
+             * @description How far the top candidate must beat the runner-up for the answer to be
+             *     one entity rather than a choice between several. Defaults to 0.15.
+             */
+            ambiguityMargin?: number | null;
+            /** @description Restrict resolution to one entity type. */
+            entityType?: string | null;
+            /** Format: int32 */
+            eventLimit?: number | null;
+            /** Format: int32 */
+            factLimit?: number | null;
+            /**
+             * @description Which sections to fill. Defaults to everything except `passages`, which
+             *     costs a retrieval pass and is the one section whose selection is not
+             *     provider-free: it embeds the query. No language model is consulted for
+             *     it either way - the pass runs with query classification, retrieval
+             *     iteration and HyDE suppressed, whatever the deployment enables
+             *     elsewhere, so the same query returns the same passages. Every other
+             *     section is stored rows chosen by predicate. Unknown names are ignored.
+             *     An omitted section comes back empty with `truncated` false: it was
+             *     declined, not cut short, so it points at no walk.
+             */
+            include?: string[] | null;
+            /** Format: int32 */
+            passageLimit?: number | null;
+            /** @description What the reader asked about. */
+            query: string;
+            /** Format: int32 */
+            relationLimit?: number | null;
+            /**
+             * @description Skip resolution and answer about this subject directly, as
+             *     `<type>/<name>`. This is what makes walking a trail cheap: a hop
+             *     already knows which entity it landed on, so re-resolving its name would
+             *     be both wasted work and a chance to land somewhere else.
+             */
+            subject?: string | null;
+            /** Format: int32 */
+            uncertaintyLimit?: number | null;
+        };
+        LookupResponseJson: {
+            coverage?: null | components["schemas"]["CoverageJson"];
+            /**
+             * @description The entities a topic query spans, with their relevance. Empty for an
+             *     entity answer, where the subject is in `resolution`.
+             */
+            entities: components["schemas"]["SectionJson_EntityMatchJson"];
+            events: components["schemas"]["SectionJson_ActionDetailJson"];
+            facts: components["schemas"]["SectionJson_AttributeDetailJson"];
+            passages: components["schemas"]["SectionJson_PassageJson"];
+            relations: components["schemas"]["SectionJson_RelationDetailJson"];
+            resolution: components["schemas"]["ResolutionJson"];
+            uncertainty: components["schemas"]["SectionJson_UncertaintyJson"];
         };
         /**
          * @description Memory category classification applied during extraction.
@@ -1769,6 +2095,22 @@ export interface components {
              * @description Mint-time expiry. Absent ⇒ no expiry.
              */
             validUntil?: string | null;
+        };
+        NeighbourJson: {
+            far: components["schemas"]["EntityMatchJson"];
+            label: string;
+            /**
+             * @description `true` when the edge reads subject -> far, `false` when it reads
+             *     far -> subject. The label is stored once, in the outbound direction.
+             */
+            outbound: boolean;
+            relationId: string;
+            validUntil?: string | null;
+        };
+        NeighbourhoodResponseJson: {
+            neighbours: components["schemas"]["NeighbourJson"][];
+            /** @description Where this page sits in the walk. Follow `nextCursor` for the next. */
+            page: components["schemas"]["PageMeta"];
         };
         /** @description The pagination block returned beside a page's rows. */
         PageMeta: {
@@ -1854,19 +2196,19 @@ export interface components {
         QueryKind: "direct_lookup" | "hybrid" | "full_context";
         QueryMemoryRequestJson: {
             /**
-             * @description Phase 11.5 — historical query timestamp (known time). When set
-             *     the retrieval path walks the supersession chain to surface the
+             * @description Historical query timestamp (known time). When set the
+             *     retrieval path walks the supersession chain to surface the
              *     row that was current as-of this instant.
              */
             asOf?: string | null;
             /**
-             * @description Phase 11.5 — system-time query. Prepends `VERSION d'…'` to the
+             * @description System-time query. Prepends `VERSION d'…'` to the
              *     underlying `SELECT` so SurrealDB MVCC returns the substrate
              *     state at the supplied instant.
              */
             atInstant?: string | null;
             /**
-             * @description Phase 7 — which families of result to include. Defaults to
+             * @description Which families of result to include. Defaults to
              *     `["facts", "passages"]` (both). Pass either alone to scope the
              *     response.
              */
@@ -1884,7 +2226,7 @@ export interface components {
              */
             k?: number;
             /**
-             * @description Label filter (design §4): `key=value` strings the result rows must **all**
+             * @description Label filter: `key=value` strings the result rows must **all**
              *     carry. Applied after the scope predicate — labels never widen access, only
              *     narrow the already-authorised result set. Empty = no label filter.
              */
@@ -1893,8 +2235,8 @@ export interface components {
              * @description Scope/permission model — read **lens**, a DNF selector (OR of conjunctive
              *     clauses): each clause is an AND of scope paths / `/*` subtree patterns, and
              *     a row is kept if it involves every pattern of some clause (clauses are
-             *     OR'd). Narrows the caller's effective read region for this query (design
-             *     §7.1); empty = the whole granted region. The lens can only narrow —
+             *     OR'd). Narrows the caller's effective read region for this query;
+             *     empty = the whole granted region. The lens can only narrow —
              *     permission gating from the caller's grants always applies on top, so an
              *     out-of-region lens yields empty results, never a 403.
              */
@@ -1904,30 +2246,30 @@ export interface components {
             query: string;
             /**
              * @description Scope read breadth: `strict` (default) | `merged` | `crossTeam`. Only
-             *     `strict` is enforced pre-launch; `merged` / `crossTeam` are accepted and
-             *     behave as `strict` until their region logic ships (design §7.1).
+             *     `strict` is enforced; `merged` / `crossTeam` are accepted on the wire
+             *     and behave as `strict`.
              */
             scopeView?: string | null;
             sessionId?: string | null;
             /**
-             * @description Phase 7 — free-form source label. Recorded on the trace for
-             *     audit replay; doesn't affect retrieval today.
+             * @description Free-form source label. Recorded on the trace for audit
+             *     replay; does not affect retrieval.
              */
             source?: string | null;
             /**
-             * @description Phase 11.5 — valid-time (world-time) lower bound. Filters rows
+             * @description Valid-time (world-time) lower bound. Filters rows
              *     whose `valid_from` is ≥ this timestamp.
              */
             validFrom?: string | null;
             /**
-             * @description Phase 11.5 — valid-time (world-time) upper bound. Filters rows
+             * @description Valid-time (world-time) upper bound. Filters rows
              *     whose `valid_until` is ≤ this timestamp.
              */
             validUntil?: string | null;
         };
         QueryMemoryResponseJson: {
             /**
-             * @description Phase 7 — query-understanding output. `kind` is one of
+             * @description Query-understanding output. `kind` is one of
              *     `direct_lookup` / `hybrid` / `full_context`; `seed_entities`
              *     is the (possibly empty) set of entity surface forms extracted
              *     from the query.
@@ -1954,7 +2296,7 @@ export interface components {
             queryWindow?: null | components["schemas"]["QueryWindowJson"];
             seedEntities: string[];
             tier: components["schemas"]["Tier"];
-            /** @description Phase 7 — short trace summary returned inline. */
+            /** @description Short trace summary returned inline. */
             trace: components["schemas"]["QueryTraceJson"];
         };
         /**
@@ -1964,7 +2306,7 @@ export interface components {
         QueryMode: "hybrid" | "vector" | "bm25" | "hybrid_graph";
         QueryRequestJson: {
             /**
-             * @description W5b: opt into sub-question decomposition for this query. The
+             * @description Opt into sub-question decomposition for this query. The
              *     caller fans out to one retrieval per sub-question and
              *     RRF-merges the result lists. Like `use_hyde`, requires the
              *     Context to have an LLM provider attached.
@@ -1996,17 +2338,29 @@ export interface components {
             query: string;
             /** Format: float */
             rrfK?: number;
-            /** Format: float */
+            /**
+             * Format: float
+             * @description Minimum similarity for the vector leg (default 0.5). It is
+             *     applied to the vector search only: `bm25` mode ignores it, and
+             *     the hybrid modes admit BM25 hits into the fused ranking without
+             *     it, so outside `vector` mode a returned chunk need not reach
+             *     this score. Values of `0` or below, and values too large to
+             *     represent as a 32-bit float (`1e39` and up), are coerced back to
+             *     the 0.5 default, so the cutoff cannot be disabled; send a small
+             *     positive value such as `0.01` to widen the vector leg. Any other
+             *     finite value is used as given, including one above the `1.0`
+             *     ceiling on cosine similarity, which matches nothing.
+             */
             threshold?: number;
             /**
-             * @description W5a: opt into HyDE (Hypothetical Document Embeddings) for this
+             * @description Opt into HyDE (Hypothetical Document Embeddings) for this
              *     query. Requires the Context to have an LLM provider attached;
              *     callers without one should leave this `false`. Defaults to
              *     `false` so existing agents see the same vector-only behaviour.
              */
             useHyde?: boolean | null;
             /**
-             * @description W5c: opt into cross-encoder reranking of the top-K. Requires
+             * @description Opt into cross-encoder reranking of the top-K. Requires
              *     the server to have a `Reranker` provider attached. Off by
              *     default; takes effect after the store returns results so it
              *     composes naturally with HyDE / decomposition / hybrid graph.
@@ -2040,7 +2394,7 @@ export interface components {
             precision: string;
             start: string;
         };
-        /** @description Phase 6c: doc-to-doc semantic link recomputation. */
+        /** @description Doc-to-doc semantic link recomputation. */
         RecomputeLinksResponse: {
             /** Format: int64 */
             linksEmitted: number;
@@ -2055,7 +2409,7 @@ export interface components {
             reflection: string;
             /**
              * @description Id of the trace cluster written during the reflect, for correlation
-             *     with `/traces/{id}`. Empty when no trace was written (#229).
+             *     with `/traces/{id}`. Empty when no trace was written.
              */
             traceId: string;
         };
@@ -2076,12 +2430,21 @@ export interface components {
             path: components["schemas"]["ScopePath"];
         };
         RelationDetailJson: {
+            /**
+             * Format: double
+             * @description Reconciler's posterior over the edge on a `[0, 1]` scale. Distinct from
+             *     `source.trust`, the prior of the origin that fed it.
+             */
+            confidence: number;
             createdAt: string;
             id: string;
             label: string;
+            labels: string[];
             memoryCategory: components["schemas"]["MemoryCategory"];
             /** @description Navigable ref of the object entity, `entity:<type>/<name>`. */
             object: string;
+            /** @description The compartments this edge is visible in, in disjunctive normal form. */
+            scope: string[][];
             source?: null | components["schemas"]["SourceRefJson"];
             /**
              * @description Navigable ref of the subject entity, `entity:<type>/<name>` —
@@ -2089,6 +2452,11 @@ export interface components {
              *     grammar.
              */
             subject: string;
+            /**
+             * @description The edge rendered as a sentence, written at ingest by templating (no
+             *     model). Absent on rows written before the column existed.
+             */
+            summary?: string | null;
             validFrom?: string | null;
             validUntil?: string | null;
         };
@@ -2102,6 +2470,69 @@ export interface components {
             memoryCategory: components["schemas"]["MemoryCategory"];
             object: string;
             subject: string;
+        };
+        /**
+         * @description What the query resolved to.
+         *
+         *     A discriminated union on `kind`, so a client branches once and renders one
+         *     of four layouts. It never has to infer ambiguity from an array length,
+         *     which is the failure mode of a flat shape: "one candidate" and "confidently
+         *     one entity" are different answers and must not look alike on the wire.
+         */
+        ResolutionJson: {
+            /**
+             * Format: double
+             * @description The winning candidate's score. `1.0` is an exact identity match.
+             */
+            confidence: number;
+            /** @enum {string} */
+            kind: "entity";
+            /**
+             * @description Boxed so one confident answer does not set the size of every
+             *     resolution, including the empty one.
+             */
+            subject: components["schemas"]["EntityMatchJson"];
+        } | {
+            candidates: components["schemas"]["EntityMatchJson"][];
+            /** @enum {string} */
+            kind: "ambiguous";
+        } | {
+            /** @enum {string} */
+            kind: "topic";
+        } | {
+            /** @enum {string} */
+            kind: "empty";
+            nearest: components["schemas"]["EntityMatchJson"][];
+        };
+        ResolveUncertaintyRequestJson: {
+            /**
+             * @description The value to accept. Written as a fresh assertion at the upsert trust
+             *     prior, which is the highest in the table, and the revisions it beats are
+             *     retired explicitly.
+             *
+             *     What persists is the **normalised** form, not the wire string:
+             *     whitespace runs collapse to single spaces, other control characters
+             *     drop, the result is capped at the value bound, and where the Context
+             *     enables PII redaction the detected identifiers are replaced first. That
+             *     form is also what the injection scan reads, so the stored text is
+             *     always a prefix of the text that was checked. A value that normalises
+             *     to nothing is refused rather than written.
+             */
+            acceptedValue: string;
+            /**
+             * @description Why this value was chosen, persisted as the new row's source clause so
+             *     the fact reads as an operator decision rather than an unexplained
+             *     high-trust assertion.
+             *
+             *     Normalised on the same terms as `acceptedValue` and capped at the
+             *     source-clause bound, since the stored clause is rendered into
+             *     line-structured prompts where a newline could forge framing. A later
+             *     read returns that form, not the string as sent.
+             */
+            note?: string | null;
+        };
+        ResolveUncertaintyResponseJson: {
+            uncertainty: components["schemas"]["UncertaintyJson"];
         };
         /**
          * @description Typed pointer to the row behind a hit's [`ResultHit::id`], so a caller can
@@ -2169,7 +2600,7 @@ export interface components {
          * @enum {string}
          */
         ResultKind: "attribute" | "entity" | "action" | "chunk" | "memory_chunk" | "turn" | "section";
-        /** @description §15 operational signal (#174): retrieval candidate-set breadth. */
+        /** @description Operational signal: retrieval candidate-set breadth. */
         RetrievalStatsJson: {
             /** Format: double */
             avgCandidateSet: number;
@@ -2272,6 +2703,234 @@ export interface components {
         ScopePattern: string;
         /** @description A DNF scope selector: an OR of conjunctive clauses. Each clause is an array of scope paths, ALL of which a reader must cover (AND); the outer array is the OR. E.g. [["team/a"],["team/b","clearance/secret"]] means team/a OR (team/b AND clearance/secret). Empty means unscoped (the caller's default region). A bare string is also accepted as a singleton clause. */
         ScopeSets: string[][];
+        /**
+         * @description A bounded slice of one section, with the flag that says whether it was cut.
+         *
+         *     `truncated` comes from a probe row, never a count: the read fetches one row
+         *     past the limit and drops it, so "there is more" costs nothing. It is the
+         *     signal to follow the section's own collection endpoint, not to re-request
+         *     this one with a bigger limit.
+         */
+        SectionJson_ActionDetailJson: {
+            items: {
+                /** @description Navigable ref of the acting entity, `entity:<type>/<name>`. */
+                actor: string;
+                /** Format: double */
+                confidence: number;
+                createdAt: string;
+                id: string;
+                memoryCategory: components["schemas"]["MemoryCategory"];
+                /**
+                 * @description Navigable ref (`entity:<type>/<name>`) of the acted-on entity, when
+                 *     the object resolved to a graph entity.
+                 */
+                object?: string | null;
+                /**
+                 * @description The acted-on thing's verbatim name, when it did not resolve to an
+                 *     entity. At most one of `object` / `objectText` is set.
+                 */
+                objectText?: string | null;
+                /**
+                 * @description Event time, distinct from assertion validity and learn time. Absent
+                 *     when the source stated no resolvable time.
+                 */
+                occurredAt?: string | null;
+                source?: null | components["schemas"]["SourceRefJson"];
+                summary: string;
+                validFrom?: string | null;
+                validUntil?: string | null;
+                verb: string;
+            }[];
+            truncated: boolean;
+        };
+        /**
+         * @description A bounded slice of one section, with the flag that says whether it was cut.
+         *
+         *     `truncated` comes from a probe row, never a count: the read fetches one row
+         *     past the limit and drops it, so "there is more" costs nothing. It is the
+         *     signal to follow the section's own collection endpoint, not to re-request
+         *     this one with a bigger limit.
+         */
+        SectionJson_AttributeDetailJson: {
+            items: {
+                /**
+                 * Format: double
+                 * @description Reconciler's posterior over this assertion on a `[0, 1]` scale. Distinct
+                 *     from `source.trust`, the prior of the origin that fed it.
+                 */
+                confidence: number;
+                createdAt: string;
+                /**
+                 * @description Navigable ref of the owning entity, `entity:<type>/<name>` — resolvable
+                 *     via `GET /entities/{type}/{name}` or the `inspect` ref grammar.
+                 */
+                entity: string;
+                id: string;
+                /** Format: double */
+                importance: number;
+                key: string;
+                labels: string[];
+                memoryCategory: components["schemas"]["MemoryCategory"];
+                /**
+                 * @description The compartments this fact is visible in, in disjunctive normal form:
+                 *     one inner list per AND-clause of scope paths. Empty means unscoped.
+                 */
+                scope: string[][];
+                source?: null | components["schemas"]["SourceRefJson"];
+                /**
+                 * @description The fact rendered as a sentence, written at ingest by templating (no
+                 *     model). Absent on rows written before the column existed.
+                 */
+                summary?: string | null;
+                supersededBy?: string | null;
+                supersedes?: string | null;
+                validFrom?: string | null;
+                validUntil?: string | null;
+                value: string;
+            }[];
+            truncated: boolean;
+        };
+        /**
+         * @description A bounded slice of one section, with the flag that says whether it was cut.
+         *
+         *     `truncated` comes from a probe row, never a count: the read fetches one row
+         *     past the limit and drops it, so "there is more" costs nothing. It is the
+         *     signal to follow the section's own collection endpoint, not to re-request
+         *     this one with a bigger limit.
+         */
+        SectionJson_EntityMatchJson: {
+            items: {
+                /**
+                 * @description One sentence assembled from the highest-importance fact summaries, so
+                 *     two same-named candidates can be told apart. Absent when the entity has
+                 *     no summarised facts.
+                 */
+                distinguisher?: string | null;
+                entity: components["schemas"]["EntityDetailJson"];
+                /**
+                 * Format: int64
+                 * @description Attributes + events + outbound relations. The number that says whether
+                 *     walking here is worth it, which is why it is inline rather than a
+                 *     request per row.
+                 */
+                factCount: number;
+                /** @description Newest known-time across the entity's own facts. */
+                lastLearnedAt?: string | null;
+                /**
+                 * @description The alias that matched, when the query named an alias and resolution
+                 *     followed `same_as` to the canonical entity.
+                 */
+                matchedAlias?: string | null;
+                /**
+                 * Format: double
+                 * @description Match quality in `[0, 1]`. `1.0` for an exact match on the normalised
+                 *     identity name; otherwise the Jaccard overlap of the query's word tokens
+                 *     with the candidate name's, scaled to sit strictly below `1.0`. Corpus
+                 *     independent, so one `ambiguityMargin` means the same thing in a Context
+                 *     of ten entities and one of ten million. Always `1.0` for a listing that
+                 *     matched no query.
+                 */
+                score: number;
+            }[];
+            truncated: boolean;
+        };
+        /**
+         * @description A bounded slice of one section, with the flag that says whether it was cut.
+         *
+         *     `truncated` comes from a probe row, never a count: the read fetches one row
+         *     past the limit and drops it, so "there is more" costs nothing. It is the
+         *     signal to follow the section's own collection endpoint, not to re-request
+         *     this one with a bigger limit.
+         */
+        SectionJson_PassageJson: {
+            items: {
+                documentId?: string | null;
+                occurredAt?: string | null;
+                /** Format: int64 */
+                position?: number | null;
+                /** Format: float */
+                score: number;
+                text: string;
+            }[];
+            truncated: boolean;
+        };
+        /**
+         * @description A bounded slice of one section, with the flag that says whether it was cut.
+         *
+         *     `truncated` comes from a probe row, never a count: the read fetches one row
+         *     past the limit and drops it, so "there is more" costs nothing. It is the
+         *     signal to follow the section's own collection endpoint, not to re-request
+         *     this one with a bigger limit.
+         */
+        SectionJson_RelationDetailJson: {
+            items: {
+                /**
+                 * Format: double
+                 * @description Reconciler's posterior over the edge on a `[0, 1]` scale. Distinct from
+                 *     `source.trust`, the prior of the origin that fed it.
+                 */
+                confidence: number;
+                createdAt: string;
+                id: string;
+                label: string;
+                labels: string[];
+                memoryCategory: components["schemas"]["MemoryCategory"];
+                /** @description Navigable ref of the object entity, `entity:<type>/<name>`. */
+                object: string;
+                /** @description The compartments this edge is visible in, in disjunctive normal form. */
+                scope: string[][];
+                source?: null | components["schemas"]["SourceRefJson"];
+                /**
+                 * @description Navigable ref of the subject entity, `entity:<type>/<name>` —
+                 *     resolvable via `GET /entities/{type}/{name}` or the `inspect` ref
+                 *     grammar.
+                 */
+                subject: string;
+                /**
+                 * @description The edge rendered as a sentence, written at ingest by templating (no
+                 *     model). Absent on rows written before the column existed.
+                 */
+                summary?: string | null;
+                validFrom?: string | null;
+                validUntil?: string | null;
+            }[];
+            truncated: boolean;
+        };
+        /**
+         * @description A bounded slice of one section, with the flag that says whether it was cut.
+         *
+         *     `truncated` comes from a probe row, never a count: the read fetches one row
+         *     past the limit and drops it, so "there is more" costs nothing. It is the
+         *     signal to follow the section's own collection endpoint, not to re-request
+         *     this one with a bigger limit.
+         */
+        SectionJson_UncertaintyJson: {
+            items: {
+                about: string;
+                createdAt: string;
+                /** @description Navigable ref of the subject, `entity:<type>/<name>`, when there is one. */
+                entity?: string | null;
+                id: string;
+                key?: string | null;
+                labels: string[];
+                reason: string;
+                /**
+                 * @description Whether `POST /uncertainty/{id}/resolve` would settle this flag **for
+                 *     the calling key**. `false` for a subject-less flag, for one already
+                 *     settled, and for one whose scope reaches beyond the caller's
+                 *     `memory:write` region, since settling replaces the contenders where
+                 *     they live and is refused rather than narrowed. A client can offer the
+                 *     action exactly when it would succeed instead of deriving that from
+                 *     other fields, and the same row can be `true` for one key and `false`
+                 *     for another.
+                 */
+                resolvable: boolean;
+                resolved: boolean;
+                resolvedAt?: string | null;
+                scope: string[][];
+            }[];
+            truncated: boolean;
+        };
         SessionContextRequestJson: {
             query: string;
         };
@@ -2283,7 +2942,7 @@ export interface components {
             id: string;
             scopes: components["schemas"]["ScopeSets"];
         };
-        /** @description §15 operational signal (#174): one provenance source-kind + its count. */
+        /** @description Operational signal: one provenance source-kind + its count. */
         SourceKindCountJson: {
             /** Format: int64 */
             count: number;
@@ -2304,6 +2963,19 @@ export interface components {
             ref?: string | null;
             /** @description The session the source turn belongs to (`turn` kind only). */
             sessionId?: string | null;
+            /**
+             * @description The source document's title (`document` kind only), resolved in one
+             *     batched read per response so naming a source costs no extra request.
+             */
+            title?: string | null;
+            /**
+             * Format: double
+             * @description The source-level trust prior this row was written under, defaulted by
+             *     kind. This is what makes "a document said this" weigh differently from
+             *     "someone said this once" when two sources disagree. Absent on rows
+             *     written before provenance carried it.
+             */
+            trust?: number | null;
         };
         StateResponseJson: {
             context: components["schemas"]["CategoryStateJson"];
@@ -2327,7 +2999,7 @@ export interface components {
             relations: boolean;
             unknowns: boolean;
         };
-        /** @description §15 operational signal (#174): supersession churn. */
+        /** @description Operational signal: supersession churn. */
         SupersessionStatsJson: {
             /** Format: double */
             churnPerEntity: number;
@@ -2338,7 +3010,7 @@ export interface components {
         };
         /**
          * @description Which tier resolved the query. Exposed on the response for the
-         *     CLI's `--tier` flag (Phase 8) and so callers can tell when their
+         *     CLI's `--tier` flag and so callers can tell when their
          *     query went all the way to tier 4.
          * @enum {string}
          */
@@ -2350,6 +3022,9 @@ export interface components {
             escalated: number;
             /** Format: int64 */
             hybrid: number;
+        };
+        TopEntitiesResponseJson: {
+            entities: components["schemas"]["EntityMatchJson"][];
         };
         /**
          * @description The trace `kind` discriminant — a closed three-value set over the
@@ -2387,59 +3062,139 @@ export interface components {
             avgLatencyMs: number;
             /**
              * Format: double
-             * @description Phase 7.6 — `response_traces_cached / response_traces_total`.
+             * @description `response_traces_cached / response_traces_total`.
              */
             cacheHitRate: number;
             /** Format: int64 */
             cacheHits: number;
-            /** @description §15 — cross-provenance contradiction rate. */
+            /** @description Cross-provenance contradiction rate. */
             contradiction: components["schemas"]["ContradictionStatsJson"];
             /**
              * Format: int64
-             * @description Phase 7.6 — subset with `reused_from IS NOT NONE` (served from
+             * @description Subset with `reused_from IS NOT NONE` (served from
              *     the entity-aware cache).
              */
             responseTracesCached: number;
             /**
              * Format: int64
-             * @description Phase 7.6 — `response_trace` rows in the configured window.
+             * @description `response_trace` rows in the configured window.
              */
             responseTracesTotal: number;
-            /** @description §15 — retrieval candidate-set breadth. */
+            /** @description Retrieval candidate-set breadth. */
             retrieval: components["schemas"]["RetrievalStatsJson"];
             /**
-             * @description §15 operational signals (#174), aggregated over the same window:
+             * @description Operational signal, aggregated over the same window:
              *     distribution of attribute provenance by `source.kind`.
              */
             sourceKindDistribution: components["schemas"]["SourceKindCountJson"][];
-            /** @description §15 — supersession churn. */
+            /** @description Supersession churn. */
             supersession: components["schemas"]["SupersessionStatsJson"];
             tierCounts: components["schemas"]["TierCountsJson"];
             /** Format: int64 */
             totalQueries: number;
             /**
              * Format: int32
-             * @description Phase 7.6 — window over which the response-trace counts were
+             * @description Window over which the response-trace counts were
              *     aggregated.
              */
             windowHours: number;
         };
         /**
-         * @description A structured triple supplied directly by the caller (no LLM).
+         * @description A structured fact entry supplied directly by the caller (no LLM).
          *
-         *     `key` + `value` create an attribute; if `value` is `None` and `target`
-         *     is `Some`, the triple represents a relation edge from `entity` to
-         *     `target` with `key` as the relation label.
+         *     One array, four families, discriminated by which optional field is set -
+         *     exactly one of:
+         *
+         *     - `value` - an **attribute**: `key` + `value` on `entity`.
+         *     - `target` - a **relation** edge from `entity` to `target`, labelled `key`.
+         *     - `verb` - an **action** (a dated event `entity` performed); `key` must be absent. The acted-on
+         *       thing is named by `object` (free text that links to an entity iff the name resolves to one
+         *       supplied in this array or already in scope, mirroring extraction) - there is no typed object
+         *       reference, so a caller that needs a guaranteed entity link supplies the object entity as its
+         *       own entry in the same array first.
+         *     - none of the three - an **entity-only upsert** of `entity` (`key`, when present, is ignored for
+         *       backward compatibility).
+         *
+         *     The per-fact enrichments mirror the extraction contract: `source_clause`
+         *     (verbatim provenance), `confidence` (attributes and actions only - the
+         *     extraction contract carries no per-relation score, so relations keep the
+         *     upsert trust prior), and event time as either `occurred_at` (explicit
+         *     RFC 3339, authoritative) or `temporal_hint` (a verbatim phrase resolved
+         *     against the request's `observed_at`/now anchor), never both. Relations
+         *     additionally accept explicit world-time `valid_from` / `valid_until`.
+         *     Entries that violate these rules are rejected with HTTP 422, never
+         *     silently reinterpreted.
          */
         Triple: {
+            /**
+             * Format: double
+             * @description Per-assertion confidence in `[0, 1]`, same semantics as extraction:
+             *     when absent the reconciler falls back to the upsert trust prior.
+             *     Attributes and actions only.
+             */
+            confidence?: number | null;
             entity: components["schemas"]["TripleEntity"];
-            key: string;
+            /**
+             * @description Attribute key or relation label. Required for attribute and relation
+             *     entries; must be absent on action entries (the predicate is `verb`).
+             */
+            key?: string | null;
             memory_category?: null | components["schemas"]["MemoryCategory"];
+            /**
+             * @description Action object: the acted-on thing's name. Links to an entity iff the
+             *     name resolves to one (supplied in this array or already in scope);
+             *     otherwise stored verbatim as loose text, exactly as extraction does.
+             */
+            object?: string | null;
+            /**
+             * @description Explicit event time (RFC 3339), authoritative. On an attribute or
+             *     relation it also sets the assertion's `valid_from` (the same mapping a
+             *     resolved at/since hint produces); on an action it is the event instant.
+             *     Mutually exclusive with `temporal_hint`.
+             */
+            occurred_at?: string | null;
+            /**
+             * @description The verbatim clause of the caller's source material that states this
+             *     fact, stored beside the normalized row for lexical search.
+             */
+            source_clause?: string | null;
+            /**
+             * @description Action summary: one short self-contained sentence restating the event
+             *     with every reference resolved to a name - the text the event is found
+             *     by. Synthesised from actor/verb/object when absent. No dates: event
+             *     time lives in `occurred_at`, never in the searchable sentence.
+             */
+            summary?: string | null;
             target?: null | components["schemas"]["TripleEntity"];
+            /**
+             * @description Verbatim temporal phrase ("last Friday", "since 2019"), resolved by
+             *     the same resolver extraction uses, anchored at the request's
+             *     `observed_at` when set, else ingest time. Mutually exclusive with the
+             *     explicit timestamp fields.
+             */
+            temporal_hint?: string | null;
+            /**
+             * @description Relation only: explicit world-time validity start (RFC 3339). Mutually
+             *     exclusive with `occurred_at` (both state the start).
+             */
+            valid_from?: string | null;
+            /** @description Relation only: explicit world-time validity end (RFC 3339). */
+            valid_until?: string | null;
             value?: string | null;
+            /**
+             * @description Action discriminant: what `entity` did, as a lowercase snake_case verb
+             *     phrase ("shipped", "moved_to") following the relation-label convention.
+             */
+            verb?: string | null;
         };
         /** @description Entity descriptor on a [`Triple`]. */
         TripleEntity: {
+            /**
+             * @description Entity surface name. Must contain at least one non-whitespace
+             *     character: the stored record id derives from the normalised name, so a
+             *     blank name has no identity and is rejected (HTTP 422). Surrounding
+             *     whitespace is accepted and trimmed by normalisation.
+             */
             name: string;
             type: string;
         };
@@ -2462,6 +3217,47 @@ export interface components {
          * @enum {string}
          */
         TurnRole: "user" | "assistant" | "system" | "tool";
+        /**
+         * @description One thing the Context is unsure about.
+         *
+         *     `entity` and `key` are present only on the two reconciler-raised kinds - a
+         *     cross-provenance contradiction and a confidence-floor hold. An
+         *     injection-scan finding and a model-emitted doubt carry neither, and
+         *     `resolvable` is `false` for them: there is no fact to write, so no accepted
+         *     value could settle them. It is `false` for an already-settled flag too:
+         *     settling is guarded on `resolved = false`, so a second attempt is refused
+         *     whatever the row records, and `false` for a flag whose scope is wider than
+         *     the caller's own write region, since that settlement is refused rather
+         *     than narrowed to the part the caller may write.
+         */
+        UncertaintyJson: {
+            about: string;
+            createdAt: string;
+            /** @description Navigable ref of the subject, `entity:<type>/<name>`, when there is one. */
+            entity?: string | null;
+            id: string;
+            key?: string | null;
+            labels: string[];
+            reason: string;
+            /**
+             * @description Whether `POST /uncertainty/{id}/resolve` would settle this flag **for
+             *     the calling key**. `false` for a subject-less flag, for one already
+             *     settled, and for one whose scope reaches beyond the caller's
+             *     `memory:write` region, since settling replaces the contenders where
+             *     they live and is refused rather than narrowed. A client can offer the
+             *     action exactly when it would succeed instead of deriving that from
+             *     other fields, and the same row can be `true` for one key and `false`
+             *     for another.
+             */
+            resolvable: boolean;
+            resolved: boolean;
+            resolvedAt?: string | null;
+            scope: string[][];
+        };
+        UncertaintyListResponseJson: {
+            page: components["schemas"]["PageMeta"];
+            unknowns: components["schemas"]["UncertaintyJson"][];
+        };
         UncertaintySummaryJson: {
             about: string;
             reason: string;
@@ -2477,6 +3273,8 @@ export interface components {
              * @description Optional `"key=value"` labels stamped onto the document and inherited by its
              *     chunks/sections (validated like facts: `_`-prefixed keys rejected with 400, a
              *     per-fact count cap with 409). Reconciled graph rows are never labelled.
+             *     Upload only: a reprocess keeps the document's existing labels and ignores
+             *     this field.
              */
             labels?: string[];
             mimeType?: string | null;
@@ -2499,8 +3297,8 @@ export interface components {
              *     `[["org/apple/product/macbook"]]` (or co-owned `["team/a","team/b"]`). Each
              *     clause's nodes must lie within the caller's `memory:write` region (a request
              *     outside it is a 403). Omitted ⇒ the document inherits the caller's whole
-             *     write region (unchanged behaviour). Clients must send the `metadata` part
-             *     before the `file` part for it to apply.
+             *     write region. Upload only: a reprocess keeps the document's existing scope
+             *     and ignores this field.
              */
             scopes?: components["schemas"]["ScopeSets"];
             source?: string | null;
@@ -2846,6 +3644,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
+            /** @description Label count exceeds the per-fact cap */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             /** @description Invalid context id */
             422: {
                 headers: {
@@ -2958,6 +3765,15 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description The requested `subject` names no entity the caller can read */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3088,7 +3904,7 @@ export interface operations {
                     "application/json": components["schemas"]["UploadResponse"];
                 };
             };
-            /** @description Malformed multipart, scope, or label */
+            /** @description Malformed multipart, empty file part, scope, or label */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -3590,7 +4406,7 @@ export interface operations {
                     "application/json": components["schemas"]["UploadResponse"];
                 };
             };
-            /** @description Malformed multipart */
+            /** @description Malformed multipart or empty file part */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -4076,9 +4892,154 @@ export interface operations {
             };
         };
     };
+    search_entities: {
+        parameters: {
+            query: {
+                /** @description The name to search for */
+                q: string;
+                /** @description Restrict to one entity type */
+                type?: string;
+                /** @description Max matches (default 10) */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Agent Memory context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySearchResponseJson"];
+                };
+            };
+            /** @description Invalid query */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    top_entities: {
+        parameters: {
+            query?: {
+                /** @description coverage (default) | importance | recency */
+                by?: string;
+                /** @description Restrict to one entity type */
+                type?: string;
+                /** @description Max entities (default 10) */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Agent Memory context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopEntitiesResponseJson"];
+                };
+            };
+            /** @description Invalid ordering */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     get_entity: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Max rows per fact section (default 500, max 500) */
+                limit?: number;
+                /** @description Known-time: read the facts as they stood at this instant */
+                asOf?: string;
+                /** @description Read through MVCC at this instant */
+                atInstant?: string;
+                /** @description World-time lower bound */
+                validFrom?: string;
+                /** @description World-time upper bound */
+                validUntil?: string;
+            };
             header?: never;
             path: {
                 /** @description Agent Memory context id */
@@ -4194,6 +5155,86 @@ export interface operations {
             };
         };
     };
+    entity_history_all: {
+        parameters: {
+            query?: {
+                /** @description Max rows per page */
+                limit?: number;
+                /** @description Continuation token from `page.nextCursor` */
+                cursor?: string;
+                /** @description Also return `page.totalSize` */
+                count?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Agent Memory context id */
+                context_id: string;
+                /** @description Entity type */
+                entity_type: string;
+                /** @description Entity name */
+                entity_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityHistoryAllResponseJson"];
+                };
+            };
+            /** @description Invalid pagination parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Entity not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     get_entity_history: {
         parameters: {
             query?: never;
@@ -4218,6 +5259,88 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityHistoryResponseJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Entity not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    entity_neighbourhood: {
+        parameters: {
+            query?: {
+                /** @description Drop neighbours with fewer facts than this */
+                minFacts?: number;
+                /** @description Max neighbours per page */
+                limit?: number;
+                /** @description Continuation token from `page.nextCursor` */
+                cursor?: string;
+                /** @description Also return the subject's visible edge total in `page.totalSize`. Cannot be combined with `minFacts`. */
+                count?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Agent Memory context id */
+                context_id: string;
+                /** @description Entity type */
+                entity_type: string;
+                /** @description Entity name */
+                entity_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NeighbourhoodResponseJson"];
+                };
+            };
+            /** @description Invalid pagination parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -4311,7 +5434,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
-            /** @description Invalid context id */
+            /** @description Invalid context id, or a malformed/ambiguous `triples` entry */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -5007,6 +6130,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LifecycleResponseJson"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    lookup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent Memory context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LookupRequestJson"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupResponseJson"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -6540,6 +7727,161 @@ export interface operations {
                 };
             };
             /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_uncertainty: {
+        parameters: {
+            query?: {
+                /** @description Restrict to one subject, as `<type>/<name>` */
+                entity?: string;
+                /** @description Filter on settled state */
+                resolved?: boolean;
+                /** @description Max rows per page */
+                limit?: number;
+                /** @description Continuation token from `page.nextCursor` */
+                cursor?: string;
+                /** @description Also return `page.totalSize` */
+                count?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Agent Memory context id */
+                context_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UncertaintyListResponseJson"];
+                };
+            };
+            /** @description Invalid pagination parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Server too busy: the per-pod in-flight request cap was exceeded. Retry per the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    resolve_uncertainty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agent Memory context id */
+                context_id: string;
+                /** @description Uncertainty record id fragment */
+                uncertainty_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveUncertaintyRequestJson"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolveUncertaintyResponseJson"];
+                };
+            };
+            /** @description `acceptedValue` or `note` carries content the Context's injection-scan policy refuses */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description The `memory:write` grant is required, or the flag is scoped outside the caller's write region */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Uncertainty not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Invalid context id, or a flag with no subject */
             422: {
                 headers: {
                     [name: string]: unknown;
