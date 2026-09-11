@@ -107,6 +107,11 @@ export class ManagedLiveSubscription extends LiveSubscription {
 
         if (this.#controller.status === "connected") {
             this.#ready = this.#listen();
+
+            // Awaiting `ready()` is optional, and the registration fails with the connection it
+            // was made on - which `#listen` has already reported on the error channel - so the
+            // promise is kept from going unhandled. Callers who do await it still see it fail.
+            this.#ready.catch(() => {});
         }
     }
 

@@ -11,6 +11,16 @@ import {
 } from "../utils/symbols";
 
 /**
+ * The value a frame carries for a statement whose result is `T`.
+ *
+ * A statement which answers with a list of records is streamed a record at a
+ * time, so each frame carries one of them; a statement which answers with a
+ * single value - `SELECT ... FROM ONLY`, `CREATE ONLY`, a `RETURN` - is one
+ * frame carrying that value. The result type is what distinguishes the two.
+ */
+export type StreamedRow<T> = T extends readonly (infer U)[] ? U : T;
+
+/**
  * Represents a single query result frame frame
  */
 export class Frame<T, J extends boolean> {

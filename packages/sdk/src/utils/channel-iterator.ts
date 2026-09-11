@@ -1,10 +1,12 @@
+type Waiter<T> = (result: IteratorResult<T>) => void;
+
 /**
  * The channel iterator is a utility class that allows you to submit values to an async iterator.
  */
 export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
     #cancelled = false;
     #queue: T[] = [];
-    #waiter?: (r: IteratorResult<T>) => void;
+    #waiters: Waiter<T>[] = [];
     #cleanup?: () => void;
 
     constructor(cleanup?: () => void) {
@@ -26,18 +28,15 @@ export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
             });
         }
 
+        // Every reader is remembered, in the order it asked. A single slot would leave an earlier
+        // reader's promise unsettled forever the moment a second one arrived.
         return new Promise<IteratorResult<T>>((resolve) => {
-            this.#waiter = resolve;
+            this.#waiters.push(resolve);
         });
     }
 
     return(): Promise<IteratorResult<T>> {
-        this.#cancelled = true;
-        this.#cleanup?.();
-        this.#waiter?.({
-            value: undefined,
-            done: true,
-        });
+        this.#end();
 
         return Promise.resolve({
             value: undefined,
@@ -47,14 +46,7 @@ export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
 
     throw(error?: unknown): Promise<IteratorResult<T>> {
         // Cancel the iterator immediately - protocol errors should terminate the stream
-        this.#cancelled = true;
-        this.#cleanup?.();
-
-        // If there's a waiter, resolve it with the error
-        if (this.#waiter) {
-            this.#waiter({ value: undefined, done: true });
-            this.#waiter = undefined;
-        }
+        this.#end();
 
         // Propagate the error to the consumer
         return Promise.reject(error);
@@ -65,10 +57,15 @@ export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
     }
 
     submit(value: T): void {
-        if (this.#cancelled) this.return;
+        if (this.#cancelled) return;
 
-        if (this.#waiter) {
-            this.#waiter({ value, done: false });
+        const waiter = this.#waiters.shift();
+
+        if (waiter) {
+            // Taken out of the queue before it is resolved. A second value submitted before the
+            // consumer asks for the next one would otherwise resolve this same, already settled
+            // promise, and every value but the first of a burst would be lost.
+            waiter({ value, done: false });
             return;
         }
 
@@ -76,8 +73,21 @@ export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
     }
 
     cancel(): void {
+        this.#end();
+    }
+
+    /**
+     * Ends the channel, settling every reader still waiting on it.
+     */
+    #end(): void {
+        const waiters = this.#waiters;
+
         this.#cancelled = true;
+        this.#waiters = [];
         this.#cleanup?.();
-        this.#waiter?.({ value: undefined, done: true });
+
+        for (const waiter of waiters) {
+            waiter({ value: undefined, done: true });
+        }
     }
 }
