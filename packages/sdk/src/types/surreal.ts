@@ -72,6 +72,7 @@ export interface SurrealProtocol {
 
     // Query operations
     query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>>;
+    gql<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>>;
     liveQuery(id: Uuid): AsyncIterable<LiveMessage>;
 }
 

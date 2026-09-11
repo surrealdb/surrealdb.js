@@ -103,6 +103,39 @@ export abstract class SurrealQueryable {
     }
 
     /**
+     * Runs an ISO GQL (ISO/IEC 39075) query against the database.
+     *
+     * GQL is the standardized graph query language. Unlike {@link query}, the
+     * provided string is executed by the server's GQL engine rather than the
+     * SurrealQL engine. The resulting `Query` instance behaves identically to a
+     * SurrealQL query: await it (or use `.collect()`, `.stream()`, `.responses()`)
+     * to process the results.
+     *
+     * A namespace and database must be selected before running a GQL query.
+     *
+     * @example
+     * ```ts
+     * const [people] = await db.gql("MATCH (p:person) RETURN p.name AS name");
+     * ```
+     *
+     * @param query The GQL query string
+     * @param bindings Assigns variables which can be referenced in the query
+     * @returns A `Query` instance which can be used to execute or configure the query
+     */
+    gql<R extends unknown[] = unknown[]>(
+        query: string,
+        bindings?: Record<string, unknown>,
+    ): Query<R> {
+        return new Query(this.#connection, {
+            query: new BoundQuery(query, bindings),
+            transaction: this.#transaction,
+            session: this.#session,
+            json: false,
+            dialect: "gql",
+        });
+    }
+
+    /**
      * Returns the record representing the currently authenticated record user by
      * selecting the [$auth parameter](https://surrealdb.com/docs/surrealql/parameters#auth).
      *
