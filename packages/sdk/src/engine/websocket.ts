@@ -150,24 +150,11 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                         this.#publisher.publish("error", new ReconnectExhaustionError());
                     }
 
-                    // Optionally terminate pending calls
-                    if (!this.#terminated) {
-                        for (const { reject } of this.#calls.values()) {
-                            reject(new CallTerminatedError());
-                        }
-                    }
-
-                    // No socket is coming, so the streams held for a re-send are given up on
-                    // too - failed or dropped to match the calls above.
-                    if (this.#terminated) {
-                        this.#streams.clear();
-                    } else {
-                        this.failStreams(new CallTerminatedError());
-                    }
+                    // No socket is coming back, so nothing in flight can be answered.
+                    this.terminatePending(new CallTerminatedError());
 
                     this._state = undefined;
                     this.#active = false;
-                    this.#calls.clear();
                     this.#publisher.publish("disconnected");
 
                     break;
@@ -193,13 +180,14 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
         this._state = undefined;
         this.#terminated = true;
+        this.#active = false;
         this.#socket?.close();
 
-        // Dropped rather than failed, which is what closing does to the calls in flight: the
-        // caller has abandoned its pending work. A streamed query must not answer a `close`
-        // differently from a buffered one, and failing them here would turn a query nobody is
-        // holding into an unhandled rejection.
-        this.#streams.clear();
+        // Settled here rather than when the loop above next wakes, which a reconnect cooldown
+        // can hold off for as long as its backoff: a caller awaiting a query when the connection
+        // is closed under it learns that it died, instead of waiting on it for the life of the
+        // process.
+        this.terminatePending(new CallTerminatedError());
 
         if (socketState === WebSocketImpl.OPEN || socketState === WebSocketImpl.CLOSING) {
             await this.#publisher.subscribeFirst("disconnected");
@@ -474,6 +462,23 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     }
 
     /**
+     * Fails everything in flight, for a connection which is not coming back.
+     *
+     * The calls and the streams are settled together: a query which reported a
+     * closed connection differently for having been streamed would make the
+     * two transports observably different, and one which reported nothing at
+     * all would leave its caller waiting on it for the life of the process.
+     */
+    private terminatePending(error: Error): void {
+        for (const { reject } of this.#calls.values()) {
+            reject(error);
+        }
+
+        this.#calls.clear();
+        this.failStreams(error);
+    }
+
+    /**
      * Fails the streaming queries in flight, as a stream cannot outlive its socket.
      *
      * With `framedOnly`, only those which have delivered a frame: they cannot be
@@ -557,7 +562,9 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
                     this.#pinger = setInterval(() => {
                         try {
-                            this.send({ method: "ping" });
+                            // A ping in flight is terminated with every other call when the
+                            // connection goes, and its rejection belongs to nobody.
+                            this.send({ method: "ping" }).catch(() => {});
                         } catch {
                             // we are not interested in the result
                         }

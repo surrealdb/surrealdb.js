@@ -554,32 +554,52 @@ describe("websocket query streaming", () => {
         expect(new Set(ids).size).toBe(1);
     });
 
-    test("closing answers a stream the way it answers a buffered call", async () => {
-        // Closing abandons the work in flight rather than failing it, for both kinds of query.
-        // A streamed query which answered a `close` differently - by rejecting - would turn a
-        // query nobody is holding into an unhandled rejection, which a buffered one never does.
+    test("closing fails a query in flight, streamed or buffered alike", async () => {
         for (const streaming of [true, false]) {
             MockSocket.reset();
 
             const started = await openEngine({ streaming });
 
             MockSocket.handler = () => {
-                // Answer nothing: the query is still in flight when the engine is closed.
+                // Answer nothing: the query is in flight when the connection is closed.
             };
 
-            const outcomes: string[] = [];
-            const attempt = collect(started.query(new BoundQuery("SLEEP 5s"), undefined))
-                .then(() => outcomes.push("resolved"))
-                .catch((error: Error) => outcomes.push(`rejected: ${error.constructor.name}`));
+            const attempt = collect(started.query(new BoundQuery("SLEEP 5s"), undefined));
+            const outcome = attempt.then(
+                () => "resolved",
+                (error: Error) => error.constructor.name,
+            );
 
             await Bun.sleep(10);
             await started.close();
-            await Promise.race([attempt, Bun.sleep(500)]);
 
-            expect(outcomes).toBeEmpty();
+            // Raced, so a promise which never settles fails this rather than hanging the run.
+            expect(
+                await Promise.race([outcome, Bun.sleep(1_000).then(() => "still waiting")]),
+            ).toBe("CallTerminatedError");
 
             engine = undefined;
         }
+    });
+
+    test("a query issued after closing is refused rather than queued", async () => {
+        const started = await openEngine();
+
+        MockSocket.handler = () => {};
+
+        await started.close();
+
+        const attempt = collect(started.query(new BoundQuery("RETURN 1"), undefined));
+        const outcome = attempt.then(
+            () => "resolved",
+            (error: Error) => error.constructor.name,
+        );
+
+        expect(await Promise.race([outcome, Bun.sleep(1_000).then(() => "still waiting")])).toBe(
+            "ConnectionUnavailableError",
+        );
+
+        engine = undefined;
     });
 
     test("a query which lost its socket part way through is failed, never replayed", async () => {
