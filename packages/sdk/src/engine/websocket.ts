@@ -157,8 +157,13 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                         }
                     }
 
-                    // No socket is coming, so the streams held for a re-send are given up on too.
-                    this.failStreams(new CallTerminatedError());
+                    // No socket is coming, so the streams held for a re-send are given up on
+                    // too - failed or dropped to match the calls above.
+                    if (this.#terminated) {
+                        this.#streams.clear();
+                    } else {
+                        this.failStreams(new CallTerminatedError());
+                    }
 
                     this._state = undefined;
                     this.#active = false;
@@ -190,9 +195,11 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         this.#terminated = true;
         this.#socket?.close();
 
-        // No socket is coming now, so the streams waiting for one are settled here rather than
-        // when the reconnect cooldown they are waiting through happens to elapse.
-        this.failStreams(new CallTerminatedError());
+        // Dropped rather than failed, which is what closing does to the calls in flight: the
+        // caller has abandoned its pending work. A streamed query must not answer a `close`
+        // differently from a buffered one, and failing them here would turn a query nobody is
+        // holding into an unhandled rejection.
+        this.#streams.clear();
 
         if (socketState === WebSocketImpl.OPEN || socketState === WebSocketImpl.CLOSING) {
             await this.#publisher.subscribeFirst("disconnected");

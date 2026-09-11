@@ -554,32 +554,32 @@ describe("websocket query streaming", () => {
         expect(new Set(ids).size).toBe(1);
     });
 
-    test("closing during a reconnect cooldown settles a stream waiting for a socket", async () => {
-        // A cooldown long enough that the close below lands inside it.
-        const started = await openEngine({
-            reconnect: { retryDelay: 5_000, retryDelayMax: 5_000 },
-        });
+    test("closing answers a stream the way it answers a buffered call", async () => {
+        // Closing abandons the work in flight rather than failing it, for both kinds of query.
+        // A streamed query which answered a `close` differently - by rejecting - would turn a
+        // query nobody is holding into an unhandled rejection, which a buffered one never does.
+        for (const streaming of [true, false]) {
+            MockSocket.reset();
 
-        MockSocket.handler = (socket, request) => {
-            // The request is written and the socket dies with nothing framed, so the stream is
-            // held for the next socket - which closing means will never come.
-            if (request.method === "query_stream") {
-                queueMicrotask(() => socket.close());
-            }
-        };
+            const started = await openEngine({ streaming });
 
-        const attempt = collect(started.query(new BoundQuery("SELECT * FROM person"), undefined))
-            .then(() => "resolved")
-            .catch((error: Error) => error.constructor.name);
+            MockSocket.handler = () => {
+                // Answer nothing: the query is still in flight when the engine is closed.
+            };
 
-        await Bun.sleep(50);
-        await started.close();
+            const outcomes: string[] = [];
+            const attempt = collect(started.query(new BoundQuery("SLEEP 5s"), undefined))
+                .then(() => outcomes.push("resolved"))
+                .catch((error: Error) => outcomes.push(`rejected: ${error.constructor.name}`));
 
-        // Raced rather than awaited: an unsettled stream would otherwise hang the run rather
-        // than fail it.
-        const outcome = await Promise.race([attempt, Bun.sleep(2_000).then(() => "still waiting")]);
+            await Bun.sleep(10);
+            await started.close();
+            await Promise.race([attempt, Bun.sleep(500)]);
 
-        expect(outcome).toBe("CallTerminatedError");
+            expect(outcomes).toBeEmpty();
+
+            engine = undefined;
+        }
     });
 
     test("a query which lost its socket part way through is failed, never replayed", async () => {
