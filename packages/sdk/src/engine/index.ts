@@ -5,6 +5,7 @@ import { WebSocketEngine } from "./websocket";
 
 export { HttpEngine } from "./http";
 export { RpcEngine } from "./rpc";
+export { framesToChunks, type QueryStreamFrame } from "./stream";
 export { WebSocketEngine } from "./websocket";
 
 /**

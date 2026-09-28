@@ -139,7 +139,10 @@ export class Query<
                     records = additions;
                     responses[index] = records;
                 } else {
-                    records.push(...additions);
+                    // Appended one at a time rather than spread: a streamed
+                    // batch is unbounded, and spreading it would pass every row
+                    // as an argument and overflow the stack.
+                    for (const addition of additions) records.push(addition);
                 }
             }
 
@@ -267,7 +270,10 @@ export class Query<
                 records = additions;
                 collections[index] = records;
             } else {
-                records.push(...additions);
+                // Appended one at a time rather than spread: a streamed batch
+                // is unbounded, and spreading it would pass every row as an
+                // argument and overflow the stack.
+                for (const addition of additions) records.push(addition);
             }
 
             if (chunk.kind === "batched-final") {
