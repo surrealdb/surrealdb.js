@@ -5,10 +5,6 @@ import { toSurrealqlString } from "./to-surql-string.ts";
 
 const MAX_i64 = 9223372036854775807n;
 
-function isOnlyNumbers(str: string): boolean {
-    return /^[\d_]+$/.test(str);
-}
-
 /**
  * Escape a given string to be used as a valid SurrealQL ident
  *
@@ -16,12 +12,13 @@ function isOnlyNumbers(str: string): boolean {
  * @returns Optionally escaped string
  */
 export function escapeIdent(str: string): string {
-    if (isOnlyNumbers(str)) {
-        return `⟨${str}⟩`;
-    }
-
     if (str === "") {
         return "⟨⟩";
+    }
+    // removed isOnlyNumbers() since this covers it
+    const first = str.charCodeAt(0);
+    if (first > 47 && first < 58) {
+        return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
     }
 
     let code: number;
