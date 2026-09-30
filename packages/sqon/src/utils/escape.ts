@@ -6,6 +6,58 @@ import { toSurrealqlString } from "./to-surql-string.ts";
 const MAX_i64 = 9223372036854775807n;
 
 /**
+ * Set of reserved keywords in SurrealQL that cannot be used as bare identifiers.
+ * Sourced from `surrealdb/core/src/syn/lexer/keywords.rs` (RESERVED_KEYWORD + EXPLAIN).
+ */
+const SURREAL_RESERVED_KEYWORDS = new Set([
+    "alter",
+    "begin",
+    "break",
+    "cancel",
+    "commit",
+    "continue",
+    "create",
+    "define",
+    "delete",
+    "for",
+    "if",
+    "info",
+    "insert",
+    "kill",
+    "live",
+    "option",
+    "rebuild",
+    "return",
+    "relate",
+    "remove",
+    "select",
+    "let",
+    "show",
+    "sleep",
+    "throw",
+    "update",
+    "upsert",
+    "use",
+    "diff",
+    "rand",
+    "none",
+    "null",
+    "after",
+    "before",
+    "value",
+    "by",
+    "all",
+    "true",
+    "false",
+    "where",
+    "table",
+    "tb",
+    "sequence",
+    "function",
+    "explain",
+]);
+
+/**
  * Escape a given string to be used as a valid SurrealQL ident
  *
  * @param str - The string to escape
@@ -18,6 +70,14 @@ export function escapeIdent(str: string): string {
     // removed isOnlyNumbers() since this covers it
     const first = str.charCodeAt(0);
     if (first > 47 && first < 58) {
+        return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
+    }
+
+    if (str === "NaN" || str === "Infinity") {
+        return `⟨${str}⟩`;
+    }
+
+    if (SURREAL_RESERVED_KEYWORDS.has(str.toLowerCase())) {
         return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
     }
 
