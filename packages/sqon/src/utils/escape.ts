@@ -5,10 +5,6 @@ import { toSurrealqlString } from "./to-surql-string.ts";
 
 const MAX_i64 = 9223372036854775807n;
 
-function isOnlyNumbers(str: string): boolean {
-    return /^[\d_]+$/.test(str);
-}
-
 /**
  * Set of reserved keywords in SurrealQL that cannot be used as bare identifiers.
  * Sourced from `surrealdb/core/src/syn/lexer/keywords.rs` (RESERVED_KEYWORD + EXPLAIN).
@@ -68,12 +64,13 @@ const SURREAL_RESERVED_KEYWORDS = new Set([
  * @returns Optionally escaped string
  */
 export function escapeIdent(str: string): string {
-    if (isOnlyNumbers(str)) {
-        return `⟨${str}⟩`;
-    }
-
     if (str === "") {
         return "⟨⟩";
+    }
+    // removed isOnlyNumbers() since this covers it
+    const first = str.charCodeAt(0);
+    if (first > 47 && first < 58) {
+        return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
     }
 
     if (str === "NaN" || str === "Infinity") {
