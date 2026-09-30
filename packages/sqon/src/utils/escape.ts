@@ -10,6 +10,58 @@ function isOnlyNumbers(str: string): boolean {
 }
 
 /**
+ * Set of reserved keywords in SurrealQL that cannot be used as bare identifiers.
+ * Sourced from `surrealdb/core/src/syn/lexer/keywords.rs` (RESERVED_KEYWORD + EXPLAIN).
+ */
+const SURREAL_RESERVED_KEYWORDS = new Set([
+    "alter",
+    "begin",
+    "break",
+    "cancel",
+    "commit",
+    "continue",
+    "create",
+    "define",
+    "delete",
+    "for",
+    "if",
+    "info",
+    "insert",
+    "kill",
+    "live",
+    "option",
+    "rebuild",
+    "return",
+    "relate",
+    "remove",
+    "select",
+    "let",
+    "show",
+    "sleep",
+    "throw",
+    "update",
+    "upsert",
+    "use",
+    "diff",
+    "rand",
+    "none",
+    "null",
+    "after",
+    "before",
+    "value",
+    "by",
+    "all",
+    "true",
+    "false",
+    "where",
+    "table",
+    "tb",
+    "sequence",
+    "function",
+    "explain",
+]);
+
+/**
  * Escape a given string to be used as a valid SurrealQL ident
  *
  * @param str - The string to escape
@@ -22,6 +74,14 @@ export function escapeIdent(str: string): string {
 
     if (str === "") {
         return "⟨⟩";
+    }
+
+    if (str === "NaN" || str === "Infinity") {
+        return `⟨${str}⟩`;
+    }
+
+    if (SURREAL_RESERVED_KEYWORDS.has(str.toLowerCase())) {
+        return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
     }
 
     let code: number;
