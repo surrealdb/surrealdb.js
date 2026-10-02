@@ -284,13 +284,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        surrealdb: ["v2.2.7", "v2.3.7", "v3.0.0", "nightly"]
+        surrealdb: ["v2.2.7", "v2.3.7", "latest-v2", "v3.0.0", "nightly"]
         engine: ["ws", "http"]
     steps:
       - name: Install SurrealDB ${{ matrix.surrealdb }} over ${{ matrix.engine }} engine
         run: |
           if [ "${{ matrix.surrealdb }}" = "nightly" ]; then
             curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --nightly
+          elif [ "${{ matrix.surrealdb }}" = "latest-v2" ]; then
+            # Resolve the newest stable 2.x tag at run time, so new 2.x releases are tested without a matrix bump
+            version=$(git ls-remote --tags --refs https://github.com/surrealdb/surrealdb 'v2.*' | sed 's#.*refs/tags/##' | grep -E '^v2\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+            if [ -z "$version" ]; then
+              echo "::error::Could not resolve the latest SurrealDB 2.x release."
+              exit 1
+            fi
+            echo "Resolved latest-v2 to $version"
+            curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --version "$version"
           else
             curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --version ${{ matrix.surrealdb }}
           fi
