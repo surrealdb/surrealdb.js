@@ -307,14 +307,13 @@ export class TextParser {
             if (char === undefined) {
                 this.#error(`Unterminated identifier, expected '${close}'`);
             }
-            if (char === "\\" && this.#peek(1) === close) {
-                result += close;
-                this.#pos += 2;
-                continue;
-            }
             this.#pos += 1;
             if (char === close) break;
-            result += char;
+            if (char === "\\") {
+                result += this.#readEscape();
+            } else {
+                result += char;
+            }
         }
         return result;
     }
