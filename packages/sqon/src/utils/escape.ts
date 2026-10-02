@@ -103,20 +103,19 @@ export function escapeIdent(str: string): string {
 /**
  * Surround an ident with delimiters, escaping the backslashes and delimiters inside it.
  *
- * SurrealDB 2.x and 3.x both read `\\` and `` \` `` inside a delimited ident, but only
- * 2.x reads `\⟩`, so an ident containing `⟩` is surrounded with backticks instead.
+ * Every supported SurrealDB version reads `\\` and `` \` `` inside a backtick ident, but
+ * escapes inside `⟨⟩` differ: 2.1.0 to 2.1.3 read none, later 2.x versions read `\⟩`, and
+ * 3.x rejects `\⟩`. An ident containing `\` or `⟩` is therefore surrounded with backticks.
  *
  * @param str - The ident to surround
  * @returns Surrounded ident
  */
 function delimitIdent(str: string): string {
-    const escaped = str.replaceAll("\\", "\\\\");
-
-    if (!str.includes("⟩")) {
-        return `⟨${escaped}⟩`;
+    if (!str.includes("\\") && !str.includes("⟩")) {
+        return `⟨${str}⟩`;
     }
 
-    return `\`${escaped.replaceAll("`", "\\`")}\``;
+    return `\`${str.replaceAll("\\", "\\\\").replaceAll("`", "\\`")}\``;
 }
 
 /**

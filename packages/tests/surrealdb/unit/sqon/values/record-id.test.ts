@@ -34,7 +34,7 @@ describe("record ids", () => {
         expect(new RecordId("person", "test").toString()).toBe("person:test");
         expect(new RecordId("person", "complex-ident").toString()).toBe("person:⟨complex-ident⟩");
         expect(new RecordId("person", "⟩").toString()).toBe("person:`⟩`");
-        expect(new RecordId("person", "back\\slash").toString()).toBe("person:⟨back\\\\slash⟩");
+        expect(new RecordId("person", "back\\slash").toString()).toBe("person:`back\\\\slash`");
         expect(new RecordId("complex-table", "complex-ident").toString()).toBe(
             "⟨complex-table⟩:⟨complex-ident⟩",
         );

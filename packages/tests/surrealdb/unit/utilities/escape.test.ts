@@ -53,10 +53,11 @@ describe("escape functions", () => {
         expect(escapeIdent("INFINITY")).toBe("INFINITY");
     });
 
-    test("escapes backslashes", () => {
-        expect(escapeIdent("back\\slash")).toBe("⟨back\\\\slash⟩");
-        expect(escapeIdent("trailing\\")).toBe("⟨trailing\\\\⟩");
+    test("uses backticks for identifiers containing backslashes", () => {
+        expect(escapeIdent("back\\slash")).toBe("`back\\\\slash`");
+        expect(escapeIdent("trailing\\")).toBe("`trailing\\\\`");
         expect(escapeIdent("\\⟩")).toBe("`\\\\⟩`");
+        expect(escapeIdent("tick`and\\slash")).toBe("`tick\\`and\\\\slash`");
     });
 
     test("uses backticks for identifiers containing ⟩", () => {
