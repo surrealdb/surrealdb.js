@@ -280,6 +280,17 @@ describe("tables", () => {
         expect((TextCodec.parseValue("⟨with\\⟩angle⟩") as Table).name).toBe("with⟩angle");
     });
 
+    test("escaped backslashes inside identifiers", () => {
+        expect((TextCodec.parseValue("`back\\\\slash`") as Table).name).toBe("back\\slash");
+        expect((TextCodec.parseValue("⟨back\\\\slash⟩") as Table).name).toBe("back\\slash");
+        expect((TextCodec.parseValue("⟨trailing\\\\⟩") as Table).name).toBe("trailing\\");
+    });
+
+    test("an escaped backslash does not escape the delimiter after it", () => {
+        expect(() => TextCodec.parseValue("⟨a\\\\⟩b⟩")).toThrow(TextParseError);
+        expect(() => TextCodec.parseValue("`a\\\\`b`")).toThrow(TextParseError);
+    });
+
     test("Infinity and NaN", () => {
         expect(TextCodec.parseValue("Infinity")).toBe(Number.POSITIVE_INFINITY);
         expect(Number.isNaN(TextCodec.parseValue("NaN") as number)).toBe(true);
@@ -762,7 +773,11 @@ describe("value round-trips (decode(encode(value)) equals value)", () => {
         ["datetime", new DateTime("2024-01-15T09:30:00.123456789Z")],
         ["table", new Table("person")],
         ["table needing escaping", new Table("some-table")],
+        ["table with a backslash", new Table("back\\slash")],
+        ["table with an angle bracket", new Table("with⟩angle")],
         ["record id (string)", new RecordId("user", "tobie")],
+        ["record id with backslashes", new RecordId("back\\slash", "trailing\\")],
+        ["record id with delimiters", new RecordId("with⟩angle", "tick`and⟩angle")],
         ["record id (numeric)", new RecordId("user", 42)],
         ["record id range", new RecordIdRange("user", new BoundIncluded(1), new BoundExcluded(5))],
         [

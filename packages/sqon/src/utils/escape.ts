@@ -70,7 +70,7 @@ export function escapeIdent(str: string): string {
     // removed isOnlyNumbers() since this covers it
     const first = str.charCodeAt(0);
     if (first > 47 && first < 58) {
-        return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
+        return delimitIdent(str);
     }
 
     if (str === "NaN" || str === "Infinity") {
@@ -78,7 +78,7 @@ export function escapeIdent(str: string): string {
     }
 
     if (SURREAL_RESERVED_KEYWORDS.has(str.toLowerCase())) {
-        return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
+        return delimitIdent(str);
     }
 
     let code: number;
@@ -93,11 +93,29 @@ export function escapeIdent(str: string): string {
             !(code > 96 && code < 123) && // lower alpha (a-z)
             !(code === 95) // underscore (_)
         ) {
-            return `⟨${str.replaceAll("⟩", "\\⟩")}⟩`;
+            return delimitIdent(str);
         }
     }
 
     return str;
+}
+
+/**
+ * Surround an ident with delimiters, escaping the backslashes and delimiters inside it.
+ *
+ * Every supported SurrealDB version reads `\\` and `` \` `` inside a backtick ident, but
+ * escapes inside `⟨⟩` differ: 2.1.0 to 2.1.3 read none, later 2.x versions read `\⟩`, and
+ * 3.x rejects `\⟩`. An ident containing `\` or `⟩` is therefore surrounded with backticks.
+ *
+ * @param str - The ident to surround
+ * @returns Surrounded ident
+ */
+function delimitIdent(str: string): string {
+    if (!str.includes("\\") && !str.includes("⟩")) {
+        return `⟨${str}⟩`;
+    }
+
+    return `\`${str.replaceAll("\\", "\\\\").replaceAll("`", "\\`")}\``;
 }
 
 /**

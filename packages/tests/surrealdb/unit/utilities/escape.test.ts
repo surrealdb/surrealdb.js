@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { escapeIdent, escapeNumber } from "surrealdb";
+import { escapeIdent, escapeNumber, TextCodec } from "surrealdb";
 
 describe("escape functions", () => {
     test("empty ident", () => {
@@ -51,5 +51,30 @@ describe("escape functions", () => {
         expect(escapeIdent("Infinity")).toBe("⟨Infinity⟩");
         expect(escapeIdent("infinity")).toBe("infinity");
         expect(escapeIdent("INFINITY")).toBe("INFINITY");
+    });
+
+    test("uses backticks for identifiers containing backslashes", () => {
+        expect(escapeIdent("back\\slash")).toBe("`back\\\\slash`");
+        expect(escapeIdent("trailing\\")).toBe("`trailing\\\\`");
+        expect(escapeIdent("\\⟩")).toBe("`\\\\⟩`");
+        expect(escapeIdent("tick`and\\slash")).toBe("`tick\\`and\\\\slash`");
+    });
+
+    test("uses backticks for identifiers containing ⟩", () => {
+        expect(escapeIdent("⟩")).toBe("`⟩`");
+        expect(escapeIdent("with⟩angle")).toBe("`with⟩angle`");
+        expect(escapeIdent("tick`and⟩angle")).toBe("`tick\\`and⟩angle`");
+    });
+
+    test("leaves backticks unescaped inside angle brackets", () => {
+        expect(escapeIdent("tick`")).toBe("⟨tick`⟩");
+    });
+
+    test("escaped identifiers decode back to the original name", () => {
+        const names = ["hello-world", "back\\slash", "trailing\\", "with⟩angle", "\\⟩", "tick`"];
+
+        for (const name of names) {
+            expect(TextCodec.parseTable(escapeIdent(name)).name).toBe(name);
+        }
     });
 });
