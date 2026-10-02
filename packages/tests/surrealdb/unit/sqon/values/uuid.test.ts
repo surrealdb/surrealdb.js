@@ -54,6 +54,21 @@ describe("Uuid", () => {
         );
     });
 
+    test("construct when SharedArrayBuffer is undefined", () => {
+        // Non-cross-origin-isolated pages have no SharedArrayBuffer global, so
+        // referencing it unguarded threw ReferenceError on every construction.
+        const globals = globalThis as { SharedArrayBuffer?: unknown };
+        const saved = globals.SharedArrayBuffer;
+        delete globals.SharedArrayBuffer;
+
+        try {
+            expect(new Uuid(EXAMPLE).toString()).toBe(EXAMPLE);
+            expect(Uuid.v4()).toBeInstanceOf(Uuid);
+        } finally {
+            globals.SharedArrayBuffer = saved;
+        }
+    });
+
     test("toUint8Array returns 16 bytes", () => {
         const uuid = new Uuid(EXAMPLE);
         const bytes = uuid.toUint8Array();
