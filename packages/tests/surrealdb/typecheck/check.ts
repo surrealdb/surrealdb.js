@@ -56,6 +56,33 @@ async function _main() {
         .query("SELECT * FROM $table WHERE age > $age", { table, age: 25 })
         .collect<[Person[]]>();
 
+    // Streamed results: a frame of a statement which answers with a list of records carries one
+    // of those records, and one which answers with a single value carries that value.
+    for await (const frame of db.select<Person>(table).stream()) {
+        if (frame.isValue()) {
+            const _row: Person = frame.value;
+        }
+    }
+
+    for await (const frame of db.select<Person>(_stringId).stream()) {
+        if (frame.isValue()) {
+            const _only: Person | undefined = frame.value;
+        }
+    }
+
+    for await (const frame of db.insert<Person>(table, [{ name: "Tobie", age: 30 }]).stream()) {
+        if (frame.isValue()) {
+            const _inserted: Person = frame.value;
+        }
+    }
+
+    for await (const frame of db.run<number>("fn::count").stream()) {
+        if (frame.isValue()) {
+            // A `RETURN` is one value, so the frame carries the whole result.
+            const _returned: number = frame.value;
+        }
+    }
+
     // Live queries
     const stream = await db.live(table);
     for await (const { action, value } of stream) {
