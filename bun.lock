@@ -80,7 +80,7 @@
     },
     "packages/sdk": {
       "name": "surrealdb",
-      "version": "2.0.9",
+      "version": "2.0.10",
       "dependencies": {
         "@surrealdb/sqon": "workspace:^",
       },
