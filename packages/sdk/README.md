@@ -184,7 +184,7 @@ The `cache` option decides when a resolved credential is used again instead of c
 | `cache` | A resolved credential is used... |
 | --- | --- |
 | `"until-expiry"` (default) | until `expiryMargin` seconds before the `exp` claim of the token. A token without an expiry, such as an opaque token, cannot be reused safely and is resolved for every request. |
-| `{ ttl: 300 }` | for at most 300 seconds, and no longer than a token with an expiry is valid. This is how to bound the reuse of tokens without one. |
+| `{ ttl: 300 }` | for at most 300 seconds, and for a token with an expiry never beyond the point at which `"until-expiry"` would stop using it. This is how to bound the reuse of tokens without an expiry. |
 | `"none"` | never. `resolve` is evaluated for every request, and concurrent requests do not share the result. |
 
 Concurrent requests which need a credential share a single call to `resolve`. When `resolve` fails, the request is rejected with an `AuthResolverError` and is not sent. It is never sent without credentials or with an earlier credential instead, nothing about the session changes, and the failure is not remembered: the next request tries again.
