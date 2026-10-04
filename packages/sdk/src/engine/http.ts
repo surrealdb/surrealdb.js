@@ -5,19 +5,13 @@ import {
     UnexpectedServerResponseError,
     UnsupportedFeatureError,
 } from "../errors";
-import { throwIfAborted } from "../internal/abort";
 import { getSessionFromState } from "../internal/get-session-from-state";
-import { fetchSurreal, readBody } from "../internal/http";
+import { fetchSurreal } from "../internal/http";
 import { parseRpcError } from "../internal/parse-error";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
-import type {
-    ConnectionState,
-    EngineEvents,
-    RequestOptions,
-    SurrealEngine,
-} from "../types/surreal";
+import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
 import { Features } from "../utils";
 import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
@@ -33,6 +27,18 @@ const ALWAYS_ALLOW = new Set([
     "health",
 ]);
 
+// Requests which establish the credentials of a session, or which do not need any. These
+// never trigger the resolution of per-request credentials.
+const NEVER_RESOLVE = new Set([
+    "signin",
+    "signup",
+    "authenticate",
+    "refresh",
+    "revoke",
+    "version",
+    "health",
+]);
+
 /**
  * An engine that communicates by sending individual HTTP requests
  */
@@ -44,6 +50,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         Features.Api,
         Features.ExportImportRaw,
         Features.SurrealML,
+        Features.PerRequestAuth,
     ]);
 
     subscribe<K extends keyof EngineEvents>(
@@ -71,11 +78,10 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
 
     override async send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,
-        options?: RequestOptions,
     ): Promise<Result> {
-        throwIfAborted(options?.signal);
+        const state = this._state;
 
-        if (!this._state) {
+        if (!state) {
             throw new ConnectionUnavailableError();
         }
 
@@ -96,15 +102,14 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             }
         }
 
-        const session = getSessionFromState(this._state, request.session);
+        const session = getSessionFromState(state, request.session);
 
         if ((!session.namespace || !session.database) && !ALWAYS_ALLOW.has(request.method)) {
             throw new MissingNamespaceDatabaseError();
         }
 
         switch (request.method) {
-            case "query":
-            case "gql": {
+            case "query": {
                 request.params = [
                     request.params?.[0],
                     {
@@ -117,15 +122,15 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         }
 
         const id = this._context.uniqueId();
-        const res = await fetchSurreal(this._context, this._state, session, {
+        const res = await fetchSurreal(this._context, state, session, {
             body: {
                 id,
                 ...request,
             },
-            signal: options?.signal,
+            resolve: !NEVER_RESOLVE.has(request.method),
         });
 
-        const buffer = await readBody(res, options?.signal);
+        const buffer = await res.arrayBuffer();
 
         let response: RpcResponse<Result>;
 

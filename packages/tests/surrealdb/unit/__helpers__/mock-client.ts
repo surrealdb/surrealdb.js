@@ -96,3 +96,22 @@ export async function closeClients(): Promise<void> {
         await client.close();
     }
 }
+
+/** What `fetchSurreal` needs around it, for tests which call it directly */
+export function createFetchHarness() {
+    const fetched: string[] = [];
+    const context = {
+        options: {
+            fetchImpl: (async (url: URL) => {
+                fetched.push(url.toString());
+                return new Response("", { status: 200 });
+            }) as unknown as typeof fetch,
+        },
+        codecs: { cbor: { encode: () => new Uint8Array([1]) } },
+    } as never;
+    const session = { id: undefined, namespace: "ns", database: "db", accessToken: undefined };
+    const state = (credentials?: { token: () => Promise<string | undefined> }) =>
+        ({ url: new URL("ws://mock.test:8000/rpc"), credentials }) as never;
+
+    return { fetched, context, session: session as never, state };
+}

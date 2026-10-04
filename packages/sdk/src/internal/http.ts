@@ -1,6 +1,6 @@
-import { HttpConnectionError } from "../errors";
+import { HttpConnectionError, SurrealError } from "../errors";
+import type { Token } from "../types/auth";
 import type { ConnectionSession, ConnectionState, DriverContext } from "../types/surreal";
-import { raceAbort, throwIfAborted } from "./abort";
 import { wrapSqonError } from "./wrap-sqon-error";
 
 export interface FetchSurrealOptions {
@@ -8,23 +8,12 @@ export interface FetchSurrealOptions {
     url?: URL;
     headers?: Record<string, string>;
     method?: string;
-    /** Abandons the request, and the reading of its response, when it aborts */
-    signal?: AbortSignal;
-}
-
-/**
- * Read a response body in full, without waiting on it beyond what the signal allows.
- *
- * A `fetch` given the signal errors the body itself when it aborts. This does not rely on it, so
- * that a `fetchImpl` which ignores signals cannot keep the caller waiting for the rest of a body.
- */
-export function readBody(response: Response, signal?: AbortSignal): Promise<ArrayBuffer> {
-    return raceAbort(response.arrayBuffer(), signal);
-}
-
-/** Release a response nobody is going to read */
-function discardResponse(response: Response): void {
-    response.body?.cancel().catch(() => {});
+    /**
+     * Whether to present the credential resolved for each request, if the connection
+     * resolves credentials that way. Disabled for requests which establish credentials
+     * themselves. Defaults to true.
+     */
+    resolve?: boolean;
 }
 
 export async function fetchSurreal(
@@ -49,35 +38,57 @@ export async function fetchSurreal(
         headerMap["Surreal-DB"] = session.database;
     }
 
-    if (session.accessToken) {
-        headerMap.Authorization = `Bearer ${session.accessToken}`;
-    }
-
     endpoint.protocol = endpoint.protocol.replace("ws", "http");
 
-    // Nothing is sent for a request which has been abandoned already
-    throwIfAborted(options.signal);
+    // A credential which is resolved for a request is only ever presented to the connection it
+    // was resolved for, and never follows a redirect elsewhere.
+    const source = options.resolve !== false ? state.credentials : undefined;
+    const scoped = source !== undefined;
+
+    if (scoped && endpoint.origin !== originOf(state.url)) {
+        throw new SurrealError("Request credentials are only sent to the origin of the connection");
+    }
+
+    let token = session.accessToken;
+
+    if (source) {
+        token = await source.token(session.id);
+    }
 
     const encodedBody = encodeBody(context, options.body);
-    const response = await raceAbort(
-        fetchImpl(endpoint, {
-            ...context.options.fetchOptions,
+    const attempt = (bearer: Token | undefined): Promise<Response> => {
+        const headers = bearer ? { ...headerMap, Authorization: `Bearer ${bearer}` } : headerMap;
+
+        return fetchImpl(endpoint, {
             method: options.method ?? "POST",
-            headers: headerMap,
+            headers,
             body: encodedBody,
-            signal: options.signal,
+            ...(scoped ? { redirect: "manual" as const } : {}),
             // @ts-expect-error TS is dumb
             duplex: "half",
-        }),
-        options.signal,
-        discardResponse,
-    );
+        });
+    };
+
+    let response = await attempt(token);
+
+    // The server answers 401 to a token it does not accept, such as one which has expired, before
+    // it executes anything. This is the one rejection which is known to not have been applied, so
+    // it is safe to ask for a new credential and send the request again, once, whatever the
+    // request does. A body which has been streamed out cannot be sent again.
+    if (response.status === 401 && source && token && !(encodedBody instanceof ReadableStream)) {
+        const renewed = await source.token(session.id, token);
+
+        if (renewed && renewed !== token) {
+            await response.body?.cancel().catch(() => {});
+            response = await attempt(renewed);
+        }
+    }
 
     if (response.status === 200) {
         return response;
     }
 
-    const buffer = await readBody(response, options.signal);
+    const buffer = await response.arrayBuffer();
 
     throw new HttpConnectionError(
         new TextDecoder("utf-8").decode(buffer),
@@ -85,6 +96,14 @@ export async function fetchSurreal(
         response.statusText,
         buffer,
     );
+}
+
+function originOf(url: URL): string {
+    const normalized = new URL(url);
+
+    normalized.protocol = normalized.protocol.replace("ws", "http");
+
+    return normalized.origin;
 }
 
 const REMOTE_PROTOCOLS = new Set(["http", "https", "ws", "wss"]);

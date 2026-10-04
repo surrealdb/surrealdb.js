@@ -53,6 +53,37 @@ async function _main() {
     });
     await db.connect(url, { authentication: async () => null });
 
+    // A resolver evaluated when connecting, or for each request
+    await db.connect(url, { authentication: { resolve: () => "token", when: "connect" } });
+    await db.connect(url, { authentication: { resolve: () => "token" } });
+    await db.connect(url, {
+        authentication: {
+            resolve: async () => ({ access: "user", variables: { id: 1 } }),
+            when: "request",
+        },
+        expiryMargin: 30,
+    });
+    await db.connect(url, {
+        authentication: { resolve: () => "token", when: "request", cache: "until-expiry" },
+    });
+    await db.connect(url, {
+        authentication: { resolve: () => "token", when: "request", cache: "none" },
+    });
+    await db.connect(url, {
+        authentication: { resolve: () => "token", when: "request", cache: { ttl: 300 } },
+    });
+
+    const resolve = () => "token";
+
+    // @ts-expect-error a cache policy only applies to credentials resolved for each request
+    await db.connect(url, { authentication: { resolve, when: "connect", cache: "none" } });
+    // @ts-expect-error a cache policy only applies to credentials resolved for each request
+    await db.connect(url, { authentication: { resolve, cache: "none" } });
+    // @ts-expect-error the cache policy is not known
+    await db.connect(url, { authentication: { resolve, when: "request", cache: "forever" } });
+    // @ts-expect-error credentials are resolved on connect or on request
+    await db.connect(url, { authentication: { resolve, when: "sometimes" } });
+
     // Record IDs
     const _stringId = new RecordId("person", "tobie");
     const _numberId = new RecordId("person", 123);

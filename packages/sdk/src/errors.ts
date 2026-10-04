@@ -572,12 +572,15 @@ export class AuthenticationError extends SurrealError {
 }
 
 /**
- * Thrown when the `authentication` function provided to `connect()` throws, or returns
+ * Thrown when the `authentication` resolver provided to `connect()` throws, or returns
  * something which is not a token, authentication details, or `null`. The underlying
  * problem is available as the `cause`.
  *
  * The message deliberately does not repeat the cause, nor anything which was returned,
  * as either may contain credentials.
+ *
+ * When the resolver is evaluated for a request, the request is not sent and the state of
+ * the session is left as it was.
  */
 export class AuthResolverError extends AuthenticationError {
     override name = "AuthResolverError";

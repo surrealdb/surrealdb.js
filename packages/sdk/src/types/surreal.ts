@@ -183,11 +183,31 @@ export interface ConnectOptions {
      * until the Promise is resolved. If the callback throws, or returns something unusable, the
      * connection fails with an `AuthResolverError`.
      *
-     * When a callback fails while the session is being renewed, the failure is reported as an
-     * `AuthResolverError` through the `error` event, and the session is invalidated once its
-     * token expires, rather than being left holding a token which nothing will replace.
-     *
      * When `.signin()`, `.signup()`, or `.authenticate()` is used this property will be ignored for the duration of the session.
+     *
+     * To evaluate the function as requests are made instead, so that a token which is rotated
+     * out of band is picked up, or because the connection is not long lived, pass a resolver
+     * with `when: "request"`. The credential is then reused until shortly before it expires,
+     * as governed by `cache` and `expiryMargin`, and resolved again after that. No timers are
+     * scheduled, and nothing is resolved when connecting.
+     *
+     * Over HTTP the credential is sent as the `Authorization` header of the request. Over
+     * WebSocket the session is authenticated again whenever the credential changes, before the
+     * request is sent. The credential belongs to the session, so requests which need different
+     * identities must use `.as()` (HTTP) or separate sessions (WebSocket).
+     *
+     * @example
+     * ```ts
+     * await db.connect("https://example.surrealdb.com", {
+     *     namespace: "app",
+     *     database: "app",
+     *     authentication: {
+     *         resolve: async () => await fetchTokenFromIdentityProvider(),
+     *         when: "request",
+     *         cache: "until-expiry",
+     *     },
+     * });
+     * ```
      */
     authentication?: AuthProvider;
     /**
@@ -209,6 +229,9 @@ export interface ConnectOptions {
      *
      * If none of these steps succeed, the session will be invalidated regardless.
      *
+     * This does not apply to credentials which are resolved for each request, as those are
+     * not renewed in the background. They are resolved again by the request which needs them.
+     *
      * @default false
      */
     invalidateOnExpiry?: boolean;
@@ -216,6 +239,9 @@ export interface ConnectOptions {
      * The amount of time in seconds before the expected expiry of the session token to attempt
      * a renewal or invalidation of the session. When the session duration is shorter than the
      * expiry margin, the margin is skipped and the token expiry is used as the delay.
+     *
+     * For credentials which are resolved for each request, it is how long before the expiry of
+     * a token it stops being reused.
      *
      * @default 60
      */
@@ -438,6 +464,26 @@ export interface ConnectionState {
     requestTimeout?: number;
     rootSession: ConnectionSession;
     sessions: Map<Uuid, ConnectionSession>;
+    /**
+     * Supplies the credential to present for each request, for engines which present
+     * credentials with every request. Only set when the connection resolves credentials
+     * per request.
+     */
+    credentials?: CredentialSource;
+}
+
+/**
+ * Supplies the credential an engine presents with a request.
+ */
+export interface CredentialSource {
+    /**
+     * Resolve the token to present for a request on a session. Resolves to undefined when
+     * the request is to be made without credentials.
+     *
+     * @param session The session the request is made on
+     * @param rejected A token which the server has just refused, which is not handed out again
+     */
+    token(session: Session, rejected?: Token): Promise<Token | undefined>;
 }
 
 export type { CodecOptions, ValueCodec };

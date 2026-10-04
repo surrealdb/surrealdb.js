@@ -160,7 +160,41 @@ await db.connect(url, {
 });
 ```
 
-When the function throws, or returns something which cannot be used, the connection fails with an `AuthResolverError` with the original error as its `cause`. Neither the message of the error nor the error itself repeats what was returned, as that may be a credential. If renewing the session fails, the failure is reported through the `error` event, and the session is invalidated once its token has expired. Using `signin()`, `signup()`, or `authenticate()` yourself takes over from the `authentication` option for that session.
+When the function throws, or returns something which cannot be used, the connection fails with an `AuthResolverError` with the original error as its `cause`. Neither the message of the error nor the error itself repeats what was returned, as that may be a credential. Using `signin()`, `signup()`, or `authenticate()` yourself takes over from the `authentication` option for that session.
+
+#### Resolving credentials for each request
+
+Give `authentication` a resolver with `when: "request"` to evaluate the function as requests are made, instead of when connecting. This suits short lived tokens, tokens which are rotated out of band, and connections which do not live long, such as one for each invocation on a serverless platform. Nothing is resolved when connecting, and no timers are started.
+
+```ts
+await db.connect("https://example.surrealdb.com", {
+    namespace: "app",
+    database: "app",
+    authentication: {
+        resolve: async (session) => await identityProvider.issueToken(),
+        when: "request",
+        cache: "until-expiry", // the default
+    },
+    expiryMargin: 60,
+});
+```
+
+The `cache` option decides when a resolved credential is used again instead of calling `resolve` again:
+
+| `cache` | A resolved credential is used... |
+| --- | --- |
+| `"until-expiry"` (default) | until `expiryMargin` seconds before the `exp` claim of the token. A token without an expiry, such as an opaque token, cannot be reused safely and is resolved for every request. |
+| `{ ttl: 300 }` | for at most 300 seconds, and no longer than a token with an expiry is valid. This is how to bound the reuse of tokens without one. |
+| `"none"` | never. `resolve` is evaluated for every request, and concurrent requests do not share the result. |
+
+Concurrent requests which need a credential share a single call to `resolve`. When `resolve` fails, the request is rejected with an `AuthResolverError` and is not sent. It is never sent without credentials or with an earlier credential instead, nothing about the session changes, and the failure is not remembered: the next request tries again.
+
+How the credential is presented depends on the protocol:
+
+- **HTTP:** the token is the `Authorization` header of the request. It is only ever sent to the origin of the connection, and requests which carry it do not follow redirects. When the server answers `401` the credential is resolved again and the request is sent again, once. The server answers `401` to a token it does not accept before it runs anything, so this is safe for every request, including writes. An error reported inside a successful response is not a `401`, as the request may have partly run, and is never sent again. Neither is an import which is streamed.
+- **WebSocket:** the session is authenticated again, before the request is sent, whenever the credential has changed. The server is only told when it did, and requests wait for it. When the connection is re-established the credential is resolved again.
+
+A credential belongs to the session, not to a request: requests which share a session share an identity, and a credential is reused for all of them unless `cache` is `"none"`. Over HTTP `"none"` sends each request with what was resolved for it, so `resolve` may read who it is for from the request being handled. Calling `db.invalidate()` discards the credential, and the next request resolves a new one.
 
 ### Sending queries
 

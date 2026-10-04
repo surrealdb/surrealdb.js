@@ -1,5 +1,49 @@
-import { AuthResolverError } from "../errors";
-import type { AuthCallable, ProvidedAuth, Session } from "../types";
+import { AuthResolverError, SurrealError } from "../errors";
+import type { AuthCache, AuthCallable, AuthProvider, ProvidedAuth, Session } from "../types";
+import { assertAuthCache } from "./request-credentials";
+
+export interface ParsedAuthentication {
+    /** Credentials applied when connecting, and again when they are about to expire */
+    provider: ProvidedAuth | AuthCallable | undefined;
+    /** Credentials resolved as requests are made */
+    request: { resolve: AuthCallable; cache: AuthCache } | undefined;
+}
+
+/**
+ * Tell apart the ways in which authentication may be provided to a connection.
+ */
+export function parseAuthentication(
+    authentication: AuthProvider | undefined,
+): ParsedAuthentication {
+    if (
+        typeof authentication === "object" &&
+        authentication !== null &&
+        "resolve" in authentication
+    ) {
+        if (typeof authentication.resolve !== "function") {
+            throw new SurrealError("The authentication resolver must be a function");
+        }
+
+        if (authentication.when === "request") {
+            const cache = authentication.cache ?? "until-expiry";
+
+            // Reported when connecting rather than on the first request
+            assertAuthCache(cache);
+
+            return { provider: undefined, request: { resolve: authentication.resolve, cache } };
+        }
+
+        if (authentication.when !== undefined && authentication.when !== "connect") {
+            throw new SurrealError(
+                'The authentication resolver must be evaluated on "connect" or on "request"',
+            );
+        }
+
+        return { provider: authentication.resolve, request: undefined };
+    }
+
+    return { provider: authentication, request: undefined };
+}
 
 /**
  * Evaluate the authentication provider for a session. A provider which throws, or which

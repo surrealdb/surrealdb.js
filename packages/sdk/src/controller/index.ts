@@ -11,16 +11,17 @@ import {
     UnsupportedFeatureError,
     UnsupportedVersionError,
 } from "../errors";
-import { invokeProvider } from "../internal/auth-provider";
+import { invokeProvider, parseAuthentication } from "../internal/auth-provider";
 import type { Feature } from "../internal/feature";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { ReconnectContext } from "../internal/reconnect";
+import { RequestCredentials } from "../internal/request-credentials";
 import { RetryContext } from "../internal/retry";
 import { fastParseJwt, renewalDelay, tokenExpiry } from "../internal/tokens";
 import type {
     AccessRecordAuth,
     AnyAuth,
-    AuthProvider,
+    AuthCallable,
     ConnectionSession,
     ConnectionState,
     ConnectionStatus,
@@ -31,6 +32,7 @@ import type {
     MlExportOptions,
     NamespaceDatabase,
     Nullable,
+    ProvidedAuth,
     QueryChunk,
     RetryOptions,
     Session,
@@ -67,7 +69,9 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #engine: SurrealEngine | undefined;
     #nextEngine: SurrealEngine | undefined;
     #status: ConnectionStatus = "disconnected";
-    #authProvider: AuthProvider | undefined;
+    #authProvider: ProvidedAuth | AuthCallable | undefined;
+    #requestResolver: AuthCallable | undefined;
+    #requestAuth: RequestCredentials | undefined;
     #cachedVersion: string | undefined;
     #expiryMargin: number = 60;
     #skipRenewal: boolean = false;
@@ -103,6 +107,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     // =========================================================== //
 
     public async connect(url: URL, options: ConnectOptions): Promise<true> {
+        const authentication = parseAuthentication(options.authentication);
         const engine = this.#instanceEngine(url);
 
         this.#nextEngine = engine;
@@ -118,10 +123,17 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         this.#engine = engine;
         this.#nextEngine = undefined;
-        this.#authProvider = options.authentication;
         this.#skipRenewal = options.invalidateOnExpiry ?? false;
         this.#checkVersion = options.versionCheck ?? true;
         this.#expiryMargin = options.expiryMargin ?? 60;
+        this.#authProvider = authentication.provider;
+        this.#requestResolver = authentication.request?.resolve;
+        this.#requestAuth = authentication.request
+            ? new RequestCredentials({
+                  cache: authentication.request.cache,
+                  margin: () => this.#expiryMargin,
+              })
+            : undefined;
         this.#state = {
             url,
             sessions: new Map(),
@@ -133,6 +145,14 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
                 database: options.database,
             },
         };
+
+        // Engines which present credentials with every request ask for them as they go, rather
+        // than having them applied to a session
+        if (this.#requestAuth && engine.features.has(Features.PerRequestAuth)) {
+            this.#state.credentials = {
+                token: (session, rejected) => this.#requestToken(session, rejected),
+            };
+        }
 
         this.#engine.subscribe("connected", () => this.#onConnected());
         this.#engine.subscribe("disconnected", () => this.#onDisconnected());
@@ -411,26 +431,42 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     importSql(data: string | Blob | ReadableStream): Promise<void> {
-        if (!this.#engine) throw new ConnectionUnavailableError();
+        const engine = this.#engine;
+        if (!engine) throw new ConnectionUnavailableError();
         if (data instanceof ReadableStream || data instanceof Blob) {
             this.assertFeature(Features.ExportImportRaw);
         }
-        return this.#engine.importSql(data);
+        return this.#whenAuthenticated(undefined, () => engine.importSql(data));
     }
 
     exportSql(options: Partial<SqlExportOptions>): Promise<Response | string> {
-        if (!this.#engine) throw new ConnectionUnavailableError();
-        return this.#engine.exportSql(options);
+        const engine = this.#engine;
+        if (!engine) throw new ConnectionUnavailableError();
+        return this.#whenAuthenticated(undefined, () => engine.exportSql(options));
     }
 
     exportMlModel(options: MlExportOptions): Promise<Response | Uint8Array> {
-        if (!this.#engine) throw new ConnectionUnavailableError();
-        return this.#engine.exportMlModel(options);
+        const engine = this.#engine;
+        if (!engine) throw new ConnectionUnavailableError();
+        return this.#whenAuthenticated(undefined, () => engine.exportMlModel(options));
     }
 
     query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
-        if (!this.#engine) throw new ConnectionUnavailableError();
-        return this.#engine.query(query, session, txn);
+        const engine = this.#engine;
+        if (!engine) throw new ConnectionUnavailableError();
+
+        if (!this.#needsPreparation()) {
+            return engine.query(query, session, txn);
+        }
+
+        const prepare = () => this.#prepare(session);
+
+        return {
+            async *[Symbol.asyncIterator]() {
+                await prepare();
+                yield* engine.query<T>(query, session, txn);
+            },
+        };
     }
 
     liveQuery(id: Uuid): AsyncIterable<LiveMessage> {
@@ -480,6 +516,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             this.#cancelAuthRenewal(session.id);
         }
 
+        this.#requestAuth?.clear();
+        this.#requestAuth = undefined;
         this.#state = undefined;
         this.#engine = undefined;
         this.#status = "disconnected";
@@ -532,6 +570,95 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return true;
     }
 
+    // =========================================================== //
+    //                                                             //
+    //                  Authentication Per Request                 //
+    //                                                             //
+    // =========================================================== //
+
+    /**
+     * Whether requests wait for credentials to be applied to their session. This is for
+     * engines which hold credentials in a server side session: when the credentials change,
+     * the session is authenticated again before the request is sent.
+     */
+    #needsPreparation(): boolean {
+        return !!this.#requestAuth && !this.#engine?.features.has(Features.PerRequestAuth);
+    }
+
+    #whenAuthenticated<T>(session: Session, run: () => Promise<T>): Promise<T> {
+        if (!this.#needsPreparation()) return run();
+
+        return this.#prepare(session).then(run);
+    }
+
+    /**
+     * Make sure the session holds a current credential before a request is sent on it.
+     */
+    async #prepare(session: Session): Promise<void> {
+        const requestAuth = this.#requestAuth;
+        const resolver = this.#requestResolver;
+
+        if (!requestAuth || !resolver) return;
+
+        // The user took over authentication of this session
+        if (this.getSession(session).authOverriden) return;
+
+        await requestAuth.get(session, async () => {
+            const provided = await invokeProvider(resolver, session);
+            const sessionState = this.getSession(session);
+
+            if (provided === null) {
+                if (sessionState.accessToken) await this.invalidate(session);
+                return undefined;
+            }
+
+            if (typeof provided === "string") {
+                // Nothing to tell the server when the session already presents this very token
+                if (provided !== sessionState.accessToken) {
+                    await this.authenticate(provided, session, true);
+                }
+
+                return provided;
+            }
+
+            return (await this.signin(provided, session, true)).access;
+        });
+    }
+
+    /**
+     * Resolve the token a request on a session presents, for engines which present
+     * credentials with every request. Nothing is applied to the session and no timers are
+     * started, so a request which is the only thing alive does not keep the process running.
+     */
+    async #requestToken(session: Session, rejected?: string): Promise<string | undefined> {
+        const requestAuth = this.#requestAuth;
+        const resolver = this.#requestResolver;
+        const engine = this.#engine;
+
+        if (!requestAuth || !resolver || !engine) {
+            throw new ConnectionUnavailableError();
+        }
+
+        // The user took over authentication of this session
+        const sessionState = this.getSession(session);
+
+        if (sessionState.authOverriden) return sessionState.accessToken;
+
+        return requestAuth.get(
+            session,
+            async () => {
+                const provided = await invokeProvider(resolver, session);
+
+                if (provided === null) return undefined;
+                if (typeof provided === "string") return provided;
+
+                // Over HTTP this exchanges the details for a token, and nothing else
+                return (await engine.signin(provided, session)).access;
+            },
+            rejected,
+        );
+    }
+
     #cancelAuthRenewal(session: Session): void {
         if (!this.#state) return;
         const sessionState = this.getSession(session);
@@ -550,6 +677,9 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         this.#cancelAuthRenewal(session);
         this.#eventPublisher.publish("auth", tokens, session);
+
+        // Credentials resolved per request are renewed by the requests which need them
+        if (this.#requestAuth && !sessionState.authOverriden) return;
 
         // Schedule token renewal
         const payload = fastParseJwt(tokens.access);
@@ -605,6 +735,16 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     async #applyAuthentication(session: Session): Promise<void> {
         const sessionState = this.getSession(session);
+
+        // Credentials resolved per request are applied when a request needs them. Whatever the
+        // session held belongs to a connection or session which no longer exists.
+        if (this.#requestAuth && !sessionState.authOverriden) {
+            this.#requestAuth.forget(session);
+
+            if (sessionState.accessToken) this.#handleAuthInvalidate(session);
+
+            return;
+        }
 
         // Skip renewal if requested
         if (this.#skipRenewal) {
@@ -665,6 +805,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         sessionState.accessToken = undefined;
         sessionState.refreshToken = undefined;
 
+        this.#requestAuth?.forget(session);
         this.#cancelAuthRenewal(session);
         this.#eventPublisher.publish("auth", null, session);
     }
@@ -714,6 +855,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         await this.detach(session);
 
+        this.#requestAuth?.forget(session);
         this.#state.sessions.delete(session);
     }
 
