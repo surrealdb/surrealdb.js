@@ -1,6 +1,7 @@
 import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
-import { ConnectionUnavailableError, LiveSubscriptionError } from "../errors";
+import { CallTerminatedError, ConnectionUnavailableError, LiveSubscriptionError } from "../errors";
+import type { AbortScope } from "../internal/abort";
 import { Query } from "../query";
 import type { LiveMessage, LiveResource, Session } from "../types";
 import { BoundQuery } from "./bound-query";
@@ -9,6 +10,38 @@ import { ChannelIterator } from "./channel-iterator";
 // Kill does not compute paramters yet :(
 function newKill(id: Uuid): BoundQuery {
     return new BoundQuery(`KILL u"${id.toString()}"`);
+}
+
+/**
+ * Whether an error means the connection is gone, and with it every live query it held, so that a
+ * subscription being torn down has nothing left to kill.
+ */
+function isConnectionGone(error: unknown): boolean {
+    return error instanceof ConnectionUnavailableError || error instanceof CallTerminatedError;
+}
+
+/**
+ * Tie a subscription to the signals it was made with, so that it is killed when they abort.
+ *
+ * The signals belong to the subscription from here on, rather than to the call which made it, as it
+ * outlives that call. `unwatch` lets go of them, and the subscription calls it however it ends.
+ */
+function watchAbort(
+    abort: AbortScope | undefined,
+    onAbort: () => void,
+): { unwatch: () => void } | undefined {
+    const signal = abort?.signal;
+
+    if (!abort || !signal) return undefined;
+
+    signal.addEventListener("abort", onAbort, { once: true });
+
+    return {
+        unwatch: () => {
+            signal.removeEventListener("abort", onAbort);
+            abort.dispose();
+        },
+    };
 }
 
 /**
@@ -84,19 +117,28 @@ export class ManagedLiveSubscription extends LiveSubscription {
     #serverKilled = false;
     #channels: Set<ChannelIterator<LiveMessage>> = new Set();
     #unsubscribe: () => void;
+    #unwatch: () => void = () => {};
+    #killing: Promise<void> | undefined;
+    #stream: AsyncIterator<LiveMessage> | undefined;
     #ready: Promise<void> = Promise.resolve();
 
+    /**
+     * @param abort When given, the subscription is killed once its signal aborts, and the scope is
+     *              let go of when the subscription ends.
+     */
     constructor(
         controller: ConnectionController,
         resource: LiveResource,
         session: Session,
         query: Query,
+        abort?: AbortScope,
     ) {
         super();
         this.#controller = controller;
         this.#resource = resource;
         this.#session = session;
         this.#query = query;
+        this.#unwatch = watchAbort(abort, () => void this.#abandon())?.unwatch ?? this.#unwatch;
 
         this.#unsubscribe = this.#controller.subscribe("connected", () => {
             // Re-establish the subscription in the background on reconnect.
@@ -143,14 +185,26 @@ export class ManagedLiveSubscription extends LiveSubscription {
         return !this.#killed && !this.#serverKilled && this.#controller.hasSession(this.#session);
     }
 
-    public async kill(): Promise<void> {
+    /**
+     * Kill the live subscription. Killing it again, or after its signal aborted, is a no-op which
+     * waits for the first kill, so that a `finally` block can kill it whatever came first.
+     */
+    public kill(): Promise<void> {
+        this.#killing ??= this.#kill();
+
+        return this.#killing;
+    }
+
+    async #kill(): Promise<void> {
         this.#killed = true;
+        this.#unwatch();
 
         for (const channel of this.#channels) {
             channel.cancel();
         }
 
         this.#unsubscribe();
+        this.#release(this.#stream);
 
         if (this.id) {
             await new Query(this.#controller, {
@@ -176,6 +230,38 @@ export class ManagedLiveSubscription extends LiveSubscription {
         return channel;
     }
 
+    /**
+     * The signal of the subscription aborted: end it like a kill does, and tell the server.
+     *
+     * Aborting is the normal end of a live stream, so iteration ends cleanly rather than throwing,
+     * and `isAlive` turns false at once. A failure to kill is reported on the error channel, unless it
+     * is only that the connection is gone, which takes the live query with it.
+     */
+    async #abandon(): Promise<void> {
+        try {
+            await this.kill();
+        } catch (err: unknown) {
+            if (!isConnectionGone(err)) {
+                this.#controller.propagateError(new LiveSubscriptionError(err));
+            }
+        }
+    }
+
+    async #killRegistered(id: Uuid): Promise<void> {
+        try {
+            await new Query(this.#controller, {
+                query: newKill(id),
+                transaction: undefined,
+                session: this.#session,
+                json: false,
+            });
+        } catch (err: unknown) {
+            if (!isConnectionGone(err)) {
+                this.#controller.propagateError(new LiveSubscriptionError(err));
+            }
+        }
+    }
+
     async #listen(): Promise<void> {
         let messageStream: AsyncIterable<LiveMessage>;
 
@@ -184,11 +270,19 @@ export class ManagedLiveSubscription extends LiveSubscription {
 
             this.#currentId = id;
 
+            // Killed while this was in flight, so that the server registered a live query which
+            // nobody is going to listen to, and which only a kill can end
+            if (this.#killed) {
+                await this.#killRegistered(id);
+                return;
+            }
+
             // Subscribe to the notification stream immediately after the query
             // resolves. The engine buffers any notification that arrived before
             // this point, so the window between server registration and this
             // subscription cannot drop notifications.
             messageStream = this.#controller.liveQuery(id);
+            this.#stream = messageStream[Symbol.asyncIterator]();
         } catch (err: unknown) {
             const error = new LiveSubscriptionError(err);
             this.#controller.propagateError(error);
@@ -197,12 +291,21 @@ export class ManagedLiveSubscription extends LiveSubscription {
 
         // Fan out notifications to consumers in the background; the round-trip
         // is complete, so #listen (and thus ready()) may resolve now.
-        void this.#consume(messageStream);
+        void this.#consume(this.#stream as AsyncIterator<LiveMessage>);
     }
 
-    async #consume(messageStream: AsyncIterable<LiveMessage>): Promise<void> {
+    /**
+     * Stop reading the notifications of a live query which has ended, which releases the engine's
+     * hold on them. A server which does not announce the end of a killed live query would otherwise
+     * leave it held for as long as the connection lasts.
+     */
+    #release(stream: AsyncIterator<LiveMessage> | undefined): void {
+        stream?.return?.()?.catch(() => {});
+    }
+
+    async #consume(stream: AsyncIterator<LiveMessage>): Promise<void> {
         try {
-            for await (const message of messageStream) {
+            for await (const message of { [Symbol.asyncIterator]: () => stream }) {
                 for (const channel of this.#channels) {
                     channel.submit(message);
                 }
@@ -212,6 +315,7 @@ export class ManagedLiveSubscription extends LiveSubscription {
                 // restart on reconnect. isAlive flips to false.
                 if (message.action === "KILLED") {
                     this.#serverKilled = true;
+                    this.#unwatch();
                     this.#unsubscribe();
 
                     for (const channel of this.#channels) {
@@ -238,9 +342,16 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
     #session: Session;
     #killed = false;
     #serverKilled = false;
+    #unwatch: () => void = () => {};
+    #killing: Promise<void> | undefined;
+    #stream: AsyncIterator<LiveMessage> | undefined;
     #channels: Set<ChannelIterator<LiveMessage>> = new Set();
 
-    constructor(controller: ConnectionController, session: Session, id: Uuid) {
+    /**
+     * @param abort When given, the subscription is killed once its signal aborts, and the scope is
+     *              let go of when the subscription ends.
+     */
+    constructor(controller: ConnectionController, session: Session, id: Uuid, abort?: AbortScope) {
         super();
         this.#controller = controller;
         this.#session = session;
@@ -250,10 +361,14 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
             throw new ConnectionUnavailableError();
         }
 
+        this.#unwatch = watchAbort(abort, () => void this.#abandon())?.unwatch ?? this.#unwatch;
+
         (async () => {
             const messageStream = controller.liveQuery(id);
+            const stream = messageStream[Symbol.asyncIterator]();
+            this.#stream = stream;
 
-            for await (const message of messageStream) {
+            for await (const message of { [Symbol.asyncIterator]: () => stream }) {
                 for (const channel of this.#channels) {
                     channel.submit(message);
                 }
@@ -266,10 +381,23 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
                 }
             }
 
+            this.#unwatch();
+
             for (const channel of this.#channels) {
                 channel.cancel();
             }
         })();
+    }
+
+    /** The signal of the subscription aborted: end it like a kill does, and tell the server */
+    async #abandon(): Promise<void> {
+        try {
+            await this.kill();
+        } catch (err: unknown) {
+            if (!isConnectionGone(err)) {
+                this.#controller.propagateError(new LiveSubscriptionError(err));
+            }
+        }
     }
 
     public get id(): Uuid {
@@ -291,12 +419,25 @@ export class UnmanagedLiveSubscription extends LiveSubscription {
         return !this.#killed && !this.#serverKilled && this.#controller.hasSession(this.#session);
     }
 
-    public async kill(): Promise<void> {
+    /**
+     * Kill the live subscription. Killing it again, or after its signal aborted, is a no-op which
+     * waits for the first kill, so that a `finally` block can kill it whatever came first.
+     */
+    public kill(): Promise<void> {
+        this.#killing ??= this.#kill();
+
+        return this.#killing;
+    }
+
+    async #kill(): Promise<void> {
         this.#killed = true;
+        this.#unwatch();
 
         for (const channel of this.#channels) {
             channel.cancel();
         }
+
+        this.#stream?.return?.()?.catch(() => {});
 
         if (this.id) {
             await new Query(this.#controller, {

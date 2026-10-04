@@ -4,6 +4,7 @@ import {
     type DriverOptions,
     type EngineEvents,
     Features,
+    type LiveMessage,
     Publisher,
     type QueryChunk,
     type RequestOptions,
@@ -53,7 +54,14 @@ export class FakeEngine extends RpcEngine implements SurrealEngine {
           ) => AsyncIterable<QueryChunk<unknown>>)
         | undefined;
 
-    features: SurrealEngine["features"] = new Set([Features.Api, Features.Transactions]);
+    /** Hands back the notifications of a live query. Assigned per test. */
+    liveImpl: ((id: Uuid) => AsyncIterable<LiveMessage>) | undefined;
+
+    features: SurrealEngine["features"] = new Set([
+        Features.Api,
+        Features.Transactions,
+        Features.LiveQueries,
+    ]);
 
     subscribe<K extends keyof EngineEvents>(
         event: K,
@@ -103,8 +111,10 @@ export class FakeEngine extends RpcEngine implements SurrealEngine {
         return super.query<T>(query, session, txn, options);
     }
 
-    override liveQuery(): never {
-        throw new Error("Not supported by the fake engine");
+    override liveQuery(id: Uuid): AsyncIterable<LiveMessage> {
+        if (!this.liveImpl) throw new Error("No live query has been set up on the fake engine");
+
+        return this.liveImpl(id);
     }
 }
 

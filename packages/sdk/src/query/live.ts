@@ -1,5 +1,6 @@
 import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
+import { abortScope, raceAbort, throwIfAborted } from "../internal/abort";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { Expr, ExprLike, LiveResource, Session } from "../types";
 import type { Field, Selection } from "../types/internal";
@@ -18,6 +19,8 @@ interface ManagedLiveOptions {
     cond?: Expr;
     fetch?: string[];
     session: Session;
+    /** Kill the subscription when any of these abort, which a request scope sets */
+    signals?: readonly AbortSignal[];
 }
 
 /**
@@ -100,22 +103,43 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
     }
 
     protected async dispatch(): Promise<LiveSubscription> {
-        await this.#connection.ready();
+        const abort = abortScope(this.#options.signals ?? []);
+        let subscription: ManagedLiveSubscription | undefined;
 
-        this.#connection.assertFeature(Features.LiveQueries);
+        try {
+            // A signal which has aborted already means no live query is registered at all
+            throwIfAborted(abort.signal);
+            await raceAbort(this.#connection.ready(), abort.signal);
 
-        const subscription = new ManagedLiveSubscription(
-            this.#connection,
-            this.#options.what,
-            this.#options.session,
-            this.#build(),
-        );
+            this.#connection.assertFeature(Features.LiveQueries);
+            throwIfAborted(abort.signal);
 
-        // Await the LIVE round-trip so the query is registered on the server and
-        // this client is subscribed before the caller can issue any writes.
-        await subscription.ready();
+            // From here the subscription owns the signals, and kills itself when they abort
+            subscription = new ManagedLiveSubscription(
+                this.#connection,
+                this.#options.what,
+                this.#options.session,
+                this.#build(),
+                abort.signal ? abort : undefined,
+            );
 
-        return subscription;
+            // Await the LIVE round-trip so the query is registered on the server and
+            // this client is subscribed before the caller can issue any writes. If the signal
+            // aborts first the caller is told so at once, and the subscription, which has been
+            // killed, ends the live query the server registers in the meantime.
+            await raceAbort(subscription.ready(), abort.signal);
+
+            return subscription;
+        } catch (error) {
+            if (subscription && abort.signal) {
+                // Not handed over, so nothing else will end it or let go of its signals
+                await subscription.kill().catch(() => {});
+            } else {
+                abort.dispose();
+            }
+
+            throw error;
+        }
     }
 
     #build(): Query {
@@ -155,6 +179,8 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
 interface UnmanagedLiveOptions {
     id: Uuid;
     session: Session;
+    /** Kill the subscription when any of these abort, which a request scope sets */
+    signals?: readonly AbortSignal[];
 }
 
 /**
@@ -171,14 +197,26 @@ export class UnmanagedLivePromise extends DispatchedPromise<LiveSubscription> {
     }
 
     protected async dispatch(): Promise<LiveSubscription> {
-        await this.#connection.ready();
+        const abort = abortScope(this.#options.signals ?? []);
 
-        this.#connection.assertFeature(Features.LiveQueries);
+        try {
+            // A signal which has aborted already means nothing is subscribed to
+            throwIfAborted(abort.signal);
+            await raceAbort(this.#connection.ready(), abort.signal);
 
-        return new UnmanagedLiveSubscription(
-            this.#connection,
-            this.#options.session,
-            this.#options.id,
-        );
+            this.#connection.assertFeature(Features.LiveQueries);
+            throwIfAborted(abort.signal);
+
+            // From here the subscription owns the signals, and kills itself when they abort
+            return new UnmanagedLiveSubscription(
+                this.#connection,
+                this.#options.session,
+                this.#options.id,
+                abort.signal ? abort : undefined,
+            );
+        } catch (error) {
+            abort.dispose();
+            throw error;
+        }
     }
 }
