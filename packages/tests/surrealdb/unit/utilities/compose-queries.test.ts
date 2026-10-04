@@ -3,6 +3,7 @@ import { RecordId, Table } from "@surrealdb/sqon";
 import { Surreal } from "../../../../sdk/src/api/surreal";
 import { ExpressionError } from "../../../../sdk/src/errors";
 import {
+    assertTransactionSafe,
     composeQueries,
     joinQueries,
     resolveQueries,
@@ -286,5 +287,96 @@ describe("binding conflicts", () => {
         const names = Object.keys(query.bindings);
 
         expect(new Set(names).size).toBe(names.length);
+    });
+});
+
+describe("assertTransactionSafe", () => {
+    const check = (...inputs: string[]) => assertTransactionSafe(resolveQueries(inputs));
+
+    test("accepts ordinary statements", () => {
+        expect(() =>
+            check("CREATE person SET a = 1", "UPDATE person SET a = 2; DELETE person", "SELECT 1"),
+        ).not.toThrow();
+    });
+
+    test.each(["BEGIN", "COMMIT", "CANCEL", "begin transaction", "Commit Transaction", "cancel;"])(
+        "rejects %p, naming its index",
+        (statement) => {
+            expect(() => check("CREATE person", statement)).toThrow(ExpressionError);
+            expect(() => check("CREATE person", statement)).toThrow(/queries\[1\] contains a/);
+        },
+    );
+
+    test("rejects a transaction statement in the middle of a multi-statement input", () => {
+        expect(() => check("CREATE a; COMMIT; CREATE b")).toThrow(
+            "queries[0] contains a COMMIT statement",
+        );
+    });
+
+    test("rejects a complete transaction", () => {
+        expect(() => check("BEGIN; CREATE a; COMMIT;")).toThrow("queries[0] contains a BEGIN");
+    });
+
+    test("accepts the words in strings, comments and blocks", () => {
+        expect(() =>
+            check(
+                `CREATE note SET text = 'BEGIN; COMMIT; CANCEL;'`,
+                `CREATE note SET text = "BEGIN; COMMIT;"`,
+                "-- BEGIN;\nSELECT 1 /* COMMIT; */ # CANCEL;",
+                "DEFINE FUNCTION fn::a() { LET $x = 1; RETURN $x }",
+                "SELECT begin, commit, cancel FROM thing",
+                "SELECT * FROM `BEGIN`",
+            ),
+        ).not.toThrow();
+    });
+
+    describe("RETURN", () => {
+        test("accepts a RETURN as the last statement", () => {
+            expect(() => check("CREATE a", "RETURN 1")).not.toThrow();
+            expect(() => check("CREATE a; RETURN 1")).not.toThrow();
+            expect(() => check("RETURN 1")).not.toThrow();
+        });
+
+        test("rejects a RETURN followed by a statement of another input", () => {
+            expect(() => check("RETURN 1", "CREATE a")).toThrow(ExpressionError);
+            expect(() => check("CREATE a", "RETURN 1", "CREATE b")).toThrow(
+                /queries\[1\] contains a RETURN statement which is followed by another statement \(in queries\[2\]\)/,
+            );
+        });
+
+        test("rejects a RETURN followed by a statement of the same input", () => {
+            expect(() => check("RETURN 1; CREATE a")).toThrow(
+                /queries\[0\] contains a RETURN statement which is followed by another statement \(in queries\[0\]\)/,
+            );
+        });
+
+        test("rejects two RETURN statements in a row", () => {
+            expect(() => check("RETURN 1", "RETURN 2")).toThrow(/queries\[0\] contains a RETURN/);
+        });
+
+        test("accepts a RETURN clause, which is not a RETURN statement", () => {
+            expect(() =>
+                check(
+                    "CREATE a RETURN AFTER",
+                    "UPDATE a SET b = 1 RETURN NONE",
+                    "DELETE a RETURN BEFORE",
+                    "INSERT INTO a { b: 1 } RETURN VALUE b",
+                ),
+            ).not.toThrow();
+        });
+
+        test("accepts statements which produce a value without ending the transaction", () => {
+            expect(() =>
+                check("LET $a = 1", "$a + 1", "SELECT * FROM a", "(1 + 2)", "{ a: 1 }"),
+            ).not.toThrow();
+        });
+
+        test("accepts a RETURN inside a block expression", () => {
+            expect(() => check("LET $a = { RETURN 1 }", "SELECT * FROM a")).not.toThrow();
+        });
+
+        test("reports a transaction statement ahead of a RETURN which precedes it", () => {
+            expect(() => check("RETURN 1", "COMMIT")).toThrow(/contains a COMMIT/);
+        });
     });
 });

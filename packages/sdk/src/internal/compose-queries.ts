@@ -2,6 +2,7 @@ import { ExpressionError } from "../errors";
 import { ManagedLivePromise } from "../query/live";
 import type { CompilableQuery, InnerQuery, QueryLike } from "../types";
 import { BoundQuery } from "../utils/bound-query";
+import { scanStatements } from "./scan-statements";
 
 /**
  * Separates the inputs of a composed query.
@@ -135,4 +136,48 @@ export function joinQueries(queries: readonly BoundQuery[], name = "queries"): B
  */
 export function composeQueries(inputs: readonly QueryLike[]): BoundQuery {
     return joinQueries(resolveQueries(inputs));
+}
+
+const TRANSACTION_CONTROL = new Set(["BEGIN", "COMMIT", "CANCEL"]);
+
+/**
+ * Check that queries can be wrapped in a transaction, and run to completion once they are.
+ *
+ * - `BEGIN`, `COMMIT` and `CANCEL` are rejected, as `transaction()` supplies its own. A
+ *   `COMMIT` among the queries would commit early, and a `CANCEL` would throw it all away.
+ * - A `RETURN` which is followed by another statement is rejected. Inside a transaction a
+ *   `RETURN` ends it: the statements after it are skipped, yet the transaction still commits.
+ *   That would drop part of the work without an error, and shorten the results. Statements
+ *   which produce a value without ending the transaction, such as `SELECT` or a bare
+ *   expression, are fine, as is a `RETURN` which comes last.
+ *
+ * A `RETURN` nested inside a block, such as an `IF`, ends a transaction just the same, but
+ * cannot be told apart from a block which merely produces a value without understanding
+ * SurrealQL in full, so it is not detected.
+ *
+ * @param queries The queries which would be wrapped
+ * @param name How the caller names the array, used when reporting the index of an input
+ */
+export function assertTransactionSafe(queries: readonly BoundQuery[], name = "queries"): void {
+    let returned: number | undefined;
+
+    for (const [index, query] of queries.entries()) {
+        for (const keyword of scanStatements(query.query)) {
+            if (TRANSACTION_CONTROL.has(keyword)) {
+                throw new ExpressionError(
+                    `${name}[${index}] contains a ${keyword} statement. transaction() wraps the queries in BEGIN and COMMIT itself, so they must not contain any`,
+                );
+            }
+
+            if (returned !== undefined) {
+                throw new ExpressionError(
+                    `${name}[${returned}] contains a RETURN statement which is followed by another statement (in ${name}[${index}]). Inside a transaction RETURN ends it early: the statements after it would be skipped but the transaction would still commit. Use SELECT or a bare expression instead, or move the RETURN to the end`,
+                );
+            }
+
+            if (keyword === "RETURN") {
+                returned = index;
+            }
+        }
+    }
 }

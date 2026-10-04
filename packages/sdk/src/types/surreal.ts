@@ -274,6 +274,19 @@ export interface RetryOptions {
 }
 
 /**
+ * Options to configure a stateless, atomic `transaction()`.
+ */
+export interface TransactionOptions {
+    /**
+     * Replay the whole transaction when it fails due to a transaction conflict.
+     *
+     * Defaults to the `retry` behavior configured on the connection. The queries passed to
+     * `transaction()` are sent as one atomic request, so replaying them is always safe.
+     */
+    retry?: RetryValue;
+}
+
+/**
  * A query builder, such as the one returned by `select()`, `create()`, `update()`,
  * `upsert()`, `delete()`, `insert()`, `relate()`, `run()`, `auth()` or `api()`, which can
  * be compiled into the {@link BoundQuery} it would send.

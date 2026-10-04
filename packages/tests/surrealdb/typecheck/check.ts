@@ -8,10 +8,12 @@ import {
     type QueryLike,
     RecordId,
     RecordIdRange,
+    ServerError,
     StringRecordId,
     Surreal,
     surql,
     Table,
+    type TransactionOptions,
     Uuid,
 } from "surrealdb";
 
@@ -153,4 +155,45 @@ async function _batch() {
     // A list of queries is available inside of an interactive transaction as well
     const txn = await db.beginTransaction();
     await txn.query<[number, number]>(["RETURN 1", "RETURN 2"]);
+}
+
+async function _transaction() {
+    const db = new Surreal();
+
+    // Atomic transactions take a list of queries, and resolve to the same tuple of results
+    const [_from, _to] = await db.transaction<[Person, Person]>(
+        [
+            db.update<Person>(new RecordId("person", "a")).merge({ age: 1 }),
+            surql`UPDATE ONLY ${new RecordId("person", "b")} SET age += ${1}`,
+        ],
+        { retry: true },
+    );
+
+    const _source: Person = _from;
+    const _target: Person = _to;
+
+    const _results: unknown[] = await db.transaction(["RETURN 1"]);
+
+    // The retry can be configured like any other
+    const _options: TransactionOptions = {
+        retry: { attempts: 3, retryable: (error) => error instanceof ServerError },
+    };
+
+    await db.transaction(["RETURN 1"], _options);
+    await db.transaction(["RETURN 1"], { retry: false });
+
+    // @ts-expect-error The callback form is not available yet
+    await db.transaction(async () => {});
+
+    // @ts-expect-error A transaction takes a list of queries, not one
+    await db.transaction("RETURN 1");
+
+    // A session can run one, but a transaction cannot start another inside itself
+    const session = await db.newSession();
+    await session.transaction(["RETURN 1"]);
+
+    const txn = await db.beginTransaction();
+
+    // @ts-expect-error Transactions do not nest
+    await txn.transaction(["RETURN 1"]);
 }

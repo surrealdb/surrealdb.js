@@ -223,6 +223,49 @@ it, while a query builder always takes exactly one. An item cannot be empty, and
 bind the same parameter name (the `surql` template and query builders generate unique names, so
 this only concerns a `BoundQuery` you wrote by hand).
 
+#### Atomic transactions
+
+Use `transaction` to run a list of queries atomically: either every change is applied or none is.
+The queries are wrapped in `BEGIN` and `COMMIT` and sent in a single request, so unlike
+`beginTransaction()` it does not hold any state on the connection and works over HTTP as well as
+WebSockets.
+
+```ts
+const [from, to] = await db.transaction<[Account, Account]>([
+    surql`UPDATE ONLY ${fromId} SET balance -= ${amount}`,
+    surql`UPDATE ONLY ${toId} SET balance += ${amount}`,
+]);
+```
+
+It resolves to the result of each statement, in order, or rejects with the error which made the
+transaction fail. That is the error of the statement which actually failed, not one of the "not
+executed" errors the server reports for the statements it rolled back.
+
+Queries must not contain `BEGIN`, `COMMIT` or `CANCEL` statements, as `transaction` adds its own. A
+`RETURN` statement is only allowed as the last statement, because `RETURN` ends a transaction early
+in SurrealQL: the statements after it would be skipped, and the transaction would still commit.
+Use `SELECT` or a bare expression to produce a value in the middle of a transaction. A `RETURN`
+nested inside a block, such as an `IF`, ends the transaction in the same way, but cannot be
+detected, so take care with those.
+
+Under concurrent load a transaction can fail because another one wrote to the same data. As the
+whole transaction is sent at once it is always safe to replay, so it can opt into retrying with
+the `retry` option, which defaults to the `retry` configured when connecting:
+
+```ts
+await db.transaction(
+    [
+        surql`UPDATE counter:visits SET count += 1`,
+        surql`CREATE visit SET at = time::now()`,
+    ],
+    { retry: true },
+);
+```
+
+To run queries inside a transaction which you control, such as to read before deciding what to
+write, use `beginTransaction()` on a WebSocket connection. A list of queries can also be passed
+to `query` on the returned transaction.
+
 ### Subscribing to live queries
 
 You can subscribe to live queries to receive updates when the data in the database changes.
