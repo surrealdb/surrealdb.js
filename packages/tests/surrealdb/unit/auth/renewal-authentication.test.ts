@@ -1,30 +1,32 @@
-import { afterEach, describe, expect, jest, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { AuthResolverError, type ConnectOptions, type Session } from "../../../../sdk/src";
+import { FakeClock } from "../__helpers__/fake-clock";
 import { createJwtExpiringIn, deferred } from "../__helpers__/mock-fetch";
 import { closeSessionClients, connect, serve } from "../__helpers__/session-engine";
 
 const START = new Date("2030-01-01T00:00:00Z");
 
-// Bun fakes these, but its type declarations do not know of them yet
-const timers = jest as unknown as {
-    advanceTimersByTime(milliseconds: number): void;
-    getTimerCount(): number;
-};
+let clock: FakeClock | undefined;
 
 afterEach(async () => {
-    jest.useRealTimers();
+    clock?.uninstall();
+    clock = undefined;
     await closeSessionClients();
 });
 
-/** Let whatever is waiting on a promise run, as timers which are faked do not */
+/** Let whatever is waiting on a promise run */
 async function flush(): Promise<void> {
     for (let i = 0; i < 50; i++) await Promise.resolve();
 }
 
 /** Move the clock, and run what became due, and what that set going */
 async function advance(milliseconds: number): Promise<void> {
-    timers.advanceTimersByTime(milliseconds);
-    await flush();
+    await clock?.advance(milliseconds, flush);
+}
+
+/** How many timers are waiting */
+function timers(): number {
+    return clock?.timers ?? 0;
 }
 
 type Outcome = "ok" | "fail";
@@ -40,8 +42,7 @@ async function renewing(options: {
     connect?: Partial<ConnectOptions>;
     token?: (call: number) => string;
 }) {
-    jest.useFakeTimers();
-    jest.setSystemTime(START);
+    clock = new FakeClock(START).install();
 
     const sessions: Session[] = [];
     let calls = 0;
@@ -107,7 +108,7 @@ describe("a renewal which fails", () => {
 
         // Only the first failure is reported, and nothing is left over
         expect(errors).toHaveLength(1);
-        expect(timers.getTimerCount()).toBe(1);
+        expect(timers()).toBe(1);
 
         // And the new token is renewed in its turn, as if nothing had happened
         await advance(90_000);
@@ -179,7 +180,7 @@ describe("a renewal which fails", () => {
         // not for the attempts in between
         expect(errors).toHaveLength(2);
         expect(errors.every((error) => error instanceof AuthResolverError)).toBeTrue();
-        expect(timers.getTimerCount()).toBe(0);
+        expect(timers()).toBe(0);
 
         // Nothing runs after it
         await advance(600_000);
@@ -208,7 +209,7 @@ describe("a renewal which fails", () => {
         expect(db.accessToken).toBeUndefined();
         expect(invalidations()).toBe(1);
         expect(errors).toHaveLength(2);
-        expect(timers.getTimerCount()).toBe(0);
+        expect(timers()).toBe(0);
 
         await advance(600_000);
         expect(calls()).toBe(2);
@@ -327,7 +328,7 @@ describe("a renewal which fails", () => {
             expect(db.accessToken).toBe("signin-token");
 
             // The token which was signed in with has no expiry, so nothing is left to run
-            expect(timers.getTimerCount()).toBe(0);
+            expect(timers()).toBe(0);
 
             await advance(600_000);
             expect(calls()).toBe(2);
@@ -370,7 +371,7 @@ describe("a renewal which fails", () => {
             expect(errors).toHaveLength(1);
 
             await db.invalidate();
-            expect(timers.getTimerCount()).toBe(0);
+            expect(timers()).toBe(0);
 
             await advance(600_000);
             expect(calls()).toBe(2);
@@ -397,10 +398,10 @@ describe("a renewal which fails", () => {
             const attempts = calls();
 
             // The default session renews itself, and the fork is waiting to try again
-            expect(timers.getTimerCount()).toBe(2);
+            expect(timers()).toBe(2);
 
             await fork.closeSession();
-            expect(timers.getTimerCount()).toBe(1);
+            expect(timers()).toBe(1);
 
             await advance(600_000);
 
@@ -422,7 +423,7 @@ describe("a renewal which fails", () => {
             expect(errors).toHaveLength(1);
 
             await db.close();
-            expect(timers.getTimerCount()).toBe(0);
+            expect(timers()).toBe(0);
 
             await advance(600_000);
             expect(calls()).toBe(2);
@@ -439,7 +440,7 @@ describe("a renewal which fails", () => {
         });
 
         expect(db.accessToken).toBe("opaque-token");
-        expect(timers.getTimerCount()).toBe(0);
+        expect(timers()).toBe(0);
 
         await advance(86_400_000);
         expect(calls()).toBe(1);
