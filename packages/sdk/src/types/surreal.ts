@@ -216,6 +216,14 @@ export interface ConnectOptions {
      * request is sent. The credential belongs to the session, so requests which need different
      * identities must use `.as()` (HTTP) or separate sessions (WebSocket).
      *
+     * When renewing the session fails, the renewal is tried again with backoff until it
+     * succeeds or the token expires, and the session is invalidated then. The delays are those of
+     * `reconnect`, which can turn retrying off, and its `attempts` do not apply. The `error`
+     * event reports the first failure of a renewal, and the last one when the session is
+     * invalidated, and not every attempt in between. Signing in again, invalidating or closing the
+     * session, and closing the connection end the retries. Credentials which are resolved for each
+     * request are not renewed in the background.
+     *
      * @example Who is asking decides the identity, so the function is evaluated for every request
      * ```ts
      * await db.connect("https://example.surrealdb.com", {
@@ -284,6 +292,9 @@ export interface ConnectOptions {
      * - When set to `false`, the driver will remain disconnected after a connection is lost.
      * - When set to `true`, the driver will attempt to reconnect using default options.
      * - When set to an object, the driver will attempt to reconnect using the provided options.
+     *
+     * The delays are also those with which a failed renewal of the session is tried again, see
+     * `authentication`.
      *
      * @default true
      */

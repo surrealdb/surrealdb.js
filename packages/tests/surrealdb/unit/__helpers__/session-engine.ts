@@ -41,7 +41,8 @@ export class SessionEngine extends RpcEngine implements SurrealEngine {
 
     open(state: ConnectionState): void {
         this._state = state;
-        setTimeout(() => this.#publisher.publish("connected"));
+        // Not a timer, so that connecting works with faked ones
+        queueMicrotask(() => this.#publisher.publish("connected"));
     }
 
     async close(): Promise<void> {

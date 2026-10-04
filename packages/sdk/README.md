@@ -160,7 +160,11 @@ await db.connect(url, {
 });
 ```
 
-When the function throws, or returns something which cannot be used, the connection fails with an `AuthResolverError` with the original error as its `cause`. Neither the message of the error nor the error itself repeats what was returned, as that may be a credential. Using `signin()`, `signup()`, or `authenticate()` yourself takes over from the `authentication` option for that session.
+When the function throws, or returns something which cannot be used, the connection fails with an `AuthResolverError` with the original error as its `cause`. Neither the message of the error nor the error itself repeats what was returned, as that may be a credential.
+
+When renewing the session fails, for example because the identity provider is briefly unreachable, the renewal is tried again, backing off the way reconnecting does, until it succeeds or the token expires, and the session is invalidated then. The delays are those of the `reconnect` option (`retryDelay`, `retryDelayMax`, `retryDelayMultiplier` and `retryDelayJitter`), and `reconnect: false` turns retrying off. Its `attempts` do not apply, as how long to keep trying is for the token to decide. The `error` event reports the first failure of a renewal, and the last one when the session is invalidated, and not every attempt in between. Signing in again, invalidating or closing the session, and closing the connection all end the retries.
+
+Using `signin()`, `signup()`, or `authenticate()` yourself takes over from the `authentication` option for that session.
 
 #### Resolving credentials for each request
 

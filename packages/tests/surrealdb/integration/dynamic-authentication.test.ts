@@ -36,6 +36,16 @@ async function rejection(call: PromiseLike<unknown>): Promise<Failure> {
     throw new Error("Expected the call to be rejected");
 }
 
+/** Poll until the condition holds, which is how what happens on a timer is awaited */
+async function until(condition: () => boolean, timeout = 8000): Promise<void> {
+    const start = Date.now();
+
+    while (!condition()) {
+        if (Date.now() - start > timeout) throw new Error("The condition was not met in time");
+        await Bun.sleep(25);
+    }
+}
+
 const { is3x } = await requestVersion();
 const isRemote = SURREAL_BACKEND === "remote";
 const isHttp = SURREAL_PROTOCOL === "http";
@@ -63,6 +73,11 @@ beforeEach(async () => {
             DURATION FOR TOKEN 61s;
 
         -- Tokens which expire quickly, to see what happens when they do
+        DEFINE ACCESS medium_user ON DATABASE TYPE RECORD
+            SIGNUP ( CREATE ${record}('user', $id) )
+            SIGNIN ( SELECT * FROM ${record}('user', $id) )
+            DURATION FOR TOKEN 5s;
+
         DEFINE ACCESS short_user ON DATABASE TYPE RECORD
             SIGNUP ( CREATE ${record}('user', $id) )
             SIGNIN ( SELECT * FROM ${record}('user', $id) )
@@ -167,7 +182,7 @@ describe.skipIf(!isRemote)("record access from a callback", () => {
 });
 
 describe.skipIf(!isRemote)("a failing renewal", () => {
-    test("is reported, and the session is invalidated once its token expires", async () => {
+    test("is reported, tried again, and the session invalidated once its token expires", async () => {
         const { surreal, connect } = await createIdleSurreal({ auth: "none" });
         const errors: Error[] = [];
         const events: unknown[] = [];
@@ -179,21 +194,64 @@ describe.skipIf(!isRemote)("a failing renewal", () => {
         await connect({
             authentication: () => {
                 if (++calls > 1) throw new Error("identity provider is down");
-                return { access: "short_user", variables: { id: "alice" } };
+                return { access: "medium_user", variables: { id: "alice" } };
             },
-            expiryMargin: 1,
+            expiryMargin: 2,
+            reconnect: { retryDelay: 200, retryDelayMultiplier: 1, retryDelayJitter: 0 },
         });
 
         expect(surreal.accessToken).toBeString();
 
-        // Renewal at about a second, which fails, and expiry at about two
-        await Bun.sleep(1500);
+        // The renewal is due two seconds before the token expires, and fails
+        await until(() => errors.length > 0);
+
         expect(errors[0]).toBeInstanceOf(AuthResolverError);
         expect(surreal.accessToken).toBeString();
 
-        await Bun.sleep(2000);
-        expect(surreal.accessToken).toBeUndefined();
+        // It is tried again, and the session is invalidated when the token has expired
+        await until(() => surreal.accessToken === undefined);
+
+        expect(calls).toBeGreaterThan(3);
         expect(events.at(-1)).toBeNull();
+
+        // Reported when the renewal first failed, and when the session was invalidated, and
+        // not for the attempts in between
+        expect(errors).toHaveLength(2);
+    });
+
+    test("is tried again, and recovers when the provider does", async () => {
+        const { surreal, connect } = await createIdleSurreal({ auth: "none" });
+        const errors: Error[] = [];
+        const events: unknown[] = [];
+        let calls = 0;
+
+        surreal.subscribe("error", (error) => errors.push(error));
+        surreal.subscribe("auth", (tokens) => events.push(tokens));
+
+        await connect({
+            authentication: () => {
+                // The renewal fails once, which is the second time it is called
+                if (++calls === 2) throw new Error("identity provider is down");
+                return { access: "medium_user", variables: { id: "alice" } };
+            },
+            expiryMargin: 2,
+            reconnect: { retryDelay: 100, retryDelayMultiplier: 1, retryDelayJitter: 0 },
+        });
+
+        const first = surreal.accessToken;
+
+        // The renewal is due in two to three seconds, and the third attempt, which is the
+        // first one after it failed, follows it by a tenth of a second
+        await until(() => calls >= 3);
+        await Bun.sleep(100);
+
+        expect(calls).toBeGreaterThanOrEqual(3);
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toBeInstanceOf(AuthResolverError);
+        expect(surreal.accessToken).toBeString();
+        expect(surreal.accessToken).not.toBe(first);
+        expect(events).not.toContain(null);
+        expect(await surreal.auth<{ id: RecordId }>()).toMatchObject({ id: alice });
     });
 });
 

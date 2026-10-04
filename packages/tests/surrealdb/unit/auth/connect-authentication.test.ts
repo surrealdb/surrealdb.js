@@ -11,17 +11,10 @@ import {
     signins,
 } from "../__helpers__/mock-client";
 import { bearerOf, createJwtExpiringIn, createMockFetch } from "../__helpers__/mock-fetch";
-import {
-    closeSessionClients,
-    connect as connectSession,
-    serve as serveSession,
-    until,
-} from "../__helpers__/session-engine";
 
 afterEach(async () => {
     setSystemTime();
     await closeClients();
-    await closeSessionClients();
 });
 
 describe("providers returning any authentication", () => {
@@ -176,39 +169,5 @@ describe("providers returning any authentication", () => {
 
         expect(error.message).not.toContain("12345678");
         expect((error.cause as Error).message).not.toContain("12345678");
-    });
-});
-
-describe("authentication from a callback, applied when connecting", () => {
-    test("a failing renewal is reported, and the session invalidated once its token expires", async () => {
-        let calls = 0;
-        const { db, engine } = await connectSession(
-            serveSession(),
-            () => {
-                if (++calls > 1) throw new Error("identity provider is down");
-                return createJwtExpiringIn(4);
-            },
-            { expiryMargin: 1 },
-        );
-        const errors: Error[] = [];
-        const events: unknown[] = [];
-
-        db.subscribe("error", (error) => errors.push(error));
-        db.subscribe("auth", (tokens) => events.push(tokens));
-
-        expect(db.accessToken).toBeString();
-
-        // Renewal is attempted a margin before the token expires, and fails
-        await until(() => errors.length > 0);
-
-        expect(errors[0]).toBeInstanceOf(AuthResolverError);
-        expect(errors[0]).toHaveProperty("name", "AuthResolverError");
-        expect(db.accessToken).toBeString();
-
-        // The token is not left behind once it has expired, with nothing to replace it
-        await until(() => db.accessToken === undefined);
-
-        expect(events.at(-1)).toBeNull();
-        expect(engine.methods()).toContain("invalidate");
     });
 });

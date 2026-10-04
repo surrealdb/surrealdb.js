@@ -12,6 +12,7 @@ import {
     UnsupportedVersionError,
 } from "../errors";
 import { assertCredential, invokeProvider, parseAuthentication } from "../internal/auth-provider";
+import { backoffDelay } from "../internal/backoff";
 import type { Feature } from "../internal/feature";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { ReconnectContext } from "../internal/reconnect";
@@ -53,6 +54,17 @@ import {
     Publisher,
 } from "../utils";
 
+/**
+ * A run of attempts at renewing the credentials of a session, from the first, which is
+ * scheduled when the credentials change, until one succeeds or the cycle is replaced
+ */
+interface RenewalCycle {
+    /** How many times a failed renewal has been tried again */
+    retries: number;
+    /** The latest failure */
+    failure: AuthenticationError | undefined;
+}
+
 type ConnectionEvents = {
     connecting: [];
     connected: [string];
@@ -73,6 +85,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #authProvider: ProvidedAuth | AuthCallable | undefined;
     #requestResolver: AuthCallable | undefined;
     #requestAuth: RequestCredentials | undefined;
+    #renewals = new WeakMap<ConnectionSession, RenewalCycle>();
     #cachedVersion: string | undefined;
     #expiryMargin: number = 60;
     #skipRenewal: boolean = false;
@@ -691,6 +704,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #cancelAuthRenewal(session: Session): void {
         if (!this.#state) return;
         const sessionState = this.getSession(session);
+        this.#renewals.delete(sessionState);
         if (!sessionState.authRenewal) return;
         clearTimeout(sessionState.authRenewal);
         sessionState.authRenewal = undefined;
@@ -719,37 +733,102 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         const remaining = Math.max(payload.exp - now, 0);
         const delay = renewalDelay(remaining, this.#expiryMargin);
 
-        sessionState.authRenewal = setTimeout(() => {
-            this.#applyAuthentication(session).catch((err) => {
-                this.#eventPublisher.publish(
-                    "error",
-                    err instanceof AuthenticationError ? err : new AuthenticationError(err),
-                );
+        const cycle: RenewalCycle = { retries: 0, failure: undefined };
 
-                this.#invalidateOnceExpired(session);
-            });
-        }, delay * 1000);
+        this.#renewals.set(sessionState, cycle);
+        sessionState.authRenewal = setTimeout(() => this.#renew(session, cycle), delay * 1000);
+    }
+
+    #isCurrentRenewal(session: Session, cycle: RenewalCycle): boolean {
+        return (
+            this.#state !== undefined &&
+            this.hasSession(session) &&
+            this.#renewals.get(this.getSession(session)) === cycle
+        );
+    }
+
+    #renew(session: Session, cycle: RenewalCycle): void {
+        if (!this.#isCurrentRenewal(session, cycle)) return;
+
+        this.getSession(session).authRenewal = undefined;
+        this.#applyAuthentication(session).catch((error) =>
+            this.#renewalFailed(session, cycle, error),
+        );
     }
 
     /**
-     * A renewal failed, which would otherwise leave the session holding a token which is
-     * about to expire, with nothing scheduled to ever replace it. Invalidate the session once
-     * that token has expired instead, so that it does not linger on in an unknown state.
+     * A renewal failed. Left alone, the session would hold a token which is about to expire with
+     * nothing scheduled to ever replace it, so the renewal is tried again, backing off like a
+     * reconnect does, for as long as the token is valid. A renewal which succeeds, a new sign in,
+     * an invalidated or closed session, and a lost connection all replace or cancel the cycle,
+     * which makes a failure which arrives late a thing of the past. Once the token has expired
+     * the session is invalidated, rather than lingering in an unknown state.
+     *
+     * The failure is reported once for the cycle, and not for every attempt, followed by the
+     * last one when the session is invalidated.
      */
-    #invalidateOnceExpired(session: Session): void {
-        if (!this.#state || !this.hasSession(session)) return;
+    #renewalFailed(session: Session, cycle: RenewalCycle, error: unknown): void {
+        if (!this.#state || !this.#isCurrentRenewal(session, cycle)) return;
+
+        const failure =
+            error instanceof AuthenticationError ? error : new AuthenticationError(error);
+
+        cycle.failure = failure;
+
+        if (cycle.retries === 0) {
+            this.#eventPublisher.publish("error", failure);
+        }
 
         const sessionState = this.getSession(session);
         const expiry = sessionState.accessToken ? tokenExpiry(sessionState.accessToken) : undefined;
-        const remaining = Math.max((expiry ?? 0) - Math.floor(Date.now() / 1000), 0);
+        const remaining = expiry === undefined ? 0 : expiry * 1000 - Date.now();
 
-        this.#cancelAuthRenewal(session);
+        // Expired already, or nothing is known about its expiry
+        if (remaining <= 0) {
+            this.#giveUpRenewal(session, cycle);
+            return;
+        }
 
-        sessionState.authRenewal = setTimeout(() => {
-            this.#abortAuthentication(session).catch((err) => {
-                this.#eventPublisher.publish("error", new AuthenticationError(err));
-            });
-        }, remaining * 1000);
+        // The delays are those of reconnecting, which is what failing to reach whatever
+        // provides the credentials resembles. How many attempts are made is for the token to
+        // decide, and not for the number of reconnect attempts to.
+        const options = this.#state.reconnect.options;
+        const delay = options.enabled
+            ? backoffDelay(options, cycle.retries + 1)
+            : Number.POSITIVE_INFINITY;
+
+        // No further attempt fits in what is left of the token
+        if (delay >= remaining) {
+            sessionState.authRenewal = setTimeout(
+                () => this.#giveUpRenewal(session, cycle),
+                remaining,
+            );
+            return;
+        }
+
+        cycle.retries++;
+        sessionState.authRenewal = setTimeout(() => this.#renew(session, cycle), delay);
+    }
+
+    #giveUpRenewal(session: Session, cycle: RenewalCycle): void {
+        if (!this.#isCurrentRenewal(session, cycle)) return;
+
+        const failure = cycle.failure;
+
+        this.#abortAuthentication(session).then(
+            () => {
+                if (failure) this.#eventPublisher.publish("error", failure);
+            },
+            (error) => {
+                // The server could not be told, but the session is not to be kept either
+                if (this.#state && this.hasSession(session)) this.#handleAuthInvalidate(session);
+
+                this.#eventPublisher.publish(
+                    "error",
+                    error instanceof AuthenticationError ? error : new AuthenticationError(error),
+                );
+            },
+        );
     }
 
     async #abortAuthentication(session: Session): Promise<void> {
@@ -884,6 +963,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         await this.detach(session);
 
+        this.#cancelAuthRenewal(session);
         this.#requestAuth?.forget(session);
         this.#state.sessions.delete(session);
     }
