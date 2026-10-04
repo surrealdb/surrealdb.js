@@ -173,12 +173,19 @@ export interface ConnectOptions {
      */
     database?: string;
     /**
-     * Authentication details to use when connecting as a system user or with a token. You can provide a static value,
-     * or a function which is called to compute the authentication details. Unlike when using the `.signin()` method,
-     * the provided authentication details may be used for all sessions and will be reused when a session expires.
+     * Authentication details to use when connecting, or a function computing them. The details
+     * may be a token, or anything accepted by `.signin()`: a system user, record access
+     * `variables`, a bearer access `key`, or a system user signing in through an `access` method.
+     * Unlike when using the `.signin()` method, the provided authentication details may be used
+     * for all sessions and will be reused when a session expires.
      *
      * When a callback is specified returning a Promise, the SDK will wait with signaling the connection as connected
-     * until the Promise is resolved.
+     * until the Promise is resolved. If the callback throws, or returns something unusable, the
+     * connection fails with an `AuthResolverError`.
+     *
+     * When a callback fails while the session is being renewed, the failure is reported as an
+     * `AuthResolverError` through the `error` event, and the session is invalidated once its
+     * token expires, rather than being left holding a token which nothing will replace.
      *
      * When `.signin()`, `.signup()`, or `.authenticate()` is used this property will be ignored for the duration of the session.
      */

@@ -137,6 +137,31 @@ await db.signin({
 });
 ```
 
+### Authentication
+
+Instead of calling `db.signin()` yourself, you can give the SDK the credentials with the `authentication` option of `connect()`. They are applied when the connection is established, applied again when it is re-established, and renewed when the session is about to expire.
+
+```ts
+// A token
+await db.connect(url, { authentication: process.env.SURREAL_TOKEN });
+
+// Anything which `signin()` accepts, such as a system user
+await db.connect(url, { authentication: { username: "root", password: "root" } });
+
+// Or a function which computes either, and may be asynchronous. It can return a token, a system
+// user, record access `variables`, a bearer access `key`, or `null` for no authentication.
+await db.connect(url, {
+    namespace: "app",
+    database: "app",
+    authentication: async () => ({
+        access: "account",
+        variables: { email, password: await readPassword() },
+    }),
+});
+```
+
+When the function throws, or returns something which cannot be used, the connection fails with an `AuthResolverError` with the original error as its `cause`. Neither the message of the error nor the error itself repeats what was returned, as that may be a credential. If renewing the session fails, the failure is reported through the `error` event, and the session is invalidated once its token has expired. Using `signin()`, `signup()`, or `authenticate()` yourself takes over from the `authentication` option for that session.
+
 ### Sending queries
 
 After you have connected to a SurrealDB instance, you can send queries to the database. Queries can be sent in two ways:

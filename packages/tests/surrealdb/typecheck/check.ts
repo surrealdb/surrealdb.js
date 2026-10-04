@@ -32,6 +32,27 @@ async function _main() {
     await db.use({ namespace: "test", database: "test" });
     await db.signin({ username: "root", password: "root" });
 
+    // Authentication providers
+    const url = "ws://localhost:8000";
+
+    await db.connect(url, { authentication: { username: "root", password: "root" } });
+    await db.connect(url, { authentication: "an.access.token" });
+    await db.connect(url, { authentication: null });
+
+    // Anything accepted by `signin()` may be provided, or returned from a function
+    await db.connect(url, {
+        authentication: { access: "user", variables: { id: 1, email: "tobie@example.com" } },
+    });
+    await db.connect(url, { authentication: () => ({ access: "bearer", key: "grant-key" }) });
+    await db.connect(url, {
+        authentication: async (session) => ({
+            access: "staff",
+            username: session ? "forked" : "default",
+            password: "secret",
+        }),
+    });
+    await db.connect(url, { authentication: async () => null });
+
     // Record IDs
     const _stringId = new RecordId("person", "tobie");
     const _numberId = new RecordId("person", 123);

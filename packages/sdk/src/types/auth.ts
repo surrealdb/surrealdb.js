@@ -51,8 +51,26 @@ export type AnyAuth = SystemAuth | AccessAuth;
 
 export type Token = string;
 export type AuthOrToken = AnyAuth | Token;
-export type ProvidedAuth = SystemAuth | Token | null;
+
+/**
+ * The credentials an authentication provider may supply:
+ *
+ * - an access token, which is used as is,
+ * - any authentication details accepted by `signin()`, which are exchanged for a token,
+ *   including record access `variables`, a bearer access `key`, and a system user
+ *   signing in through an `access` method, or
+ * - `null` for no authentication.
+ */
+export type ProvidedAuth = AnyAuth | Token | null;
+
+/**
+ * A function computing the credentials for a session. It may be asynchronous.
+ */
 export type AuthCallable = (session: Session) => ProvidedAuth | Promise<ProvidedAuth>;
+
+/**
+ * Authentication details, a token, or a function computing either.
+ */
 export type AuthProvider = ProvidedAuth | AuthCallable;
 
 export type Tokens = {

@@ -11,12 +11,12 @@ import {
     UnsupportedFeatureError,
     UnsupportedVersionError,
 } from "../errors";
-import { assertTimeout } from "../internal/abort";
+import { invokeProvider } from "../internal/auth-provider";
 import type { Feature } from "../internal/feature";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { ReconnectContext } from "../internal/reconnect";
 import { RetryContext } from "../internal/retry";
-import { fastParseJwt } from "../internal/tokens";
+import { fastParseJwt, renewalDelay, tokenExpiry } from "../internal/tokens";
 import type {
     AccessRecordAuth,
     AnyAuth,
@@ -32,7 +32,6 @@ import type {
     NamespaceDatabase,
     Nullable,
     QueryChunk,
-    RequestOptions,
     RetryOptions,
     Session,
     SqlExportOptions,
@@ -104,10 +103,6 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     // =========================================================== //
 
     public async connect(url: URL, options: ConnectOptions): Promise<true> {
-        if (options.requestTimeout !== undefined) {
-            assertTimeout(options.requestTimeout, "requestTimeout");
-        }
-
         const engine = this.#instanceEngine(url);
 
         this.#nextEngine = engine;
@@ -132,7 +127,6 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             sessions: new Map(),
             reconnect: new ReconnectContext(options.reconnect),
             retry: RetryContext.mergeOptions(options.retry),
-            requestTimeout: options.requestTimeout,
             rootSession: {
                 ...this.#createSessionState(undefined),
                 namespace: options.namespace,
@@ -193,19 +187,6 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         if (!this.#state) throw new ConnectionUnavailableError();
 
         return this.#state.retry;
-    }
-
-    /** The default client side limit in milliseconds for each query request, if any */
-    public get requestTimeout(): number | undefined {
-        return this.#state?.requestTimeout;
-    }
-
-    /**
-     * The version reported by the server on the most recent (re)connect, or
-     * `undefined` before the first connection has been established.
-     */
-    public get serverVersion(): string | undefined {
-        return this.#cachedVersion;
     }
 
     #instanceEngine(url: URL): SurrealEngine {
@@ -447,24 +428,9 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.exportMlModel(options);
     }
 
-    query<T>(
-        query: BoundQuery,
-        session: Session,
-        txn?: Uuid,
-        options?: RequestOptions,
-    ): AsyncIterable<QueryChunk<T>> {
+    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
         if (!this.#engine) throw new ConnectionUnavailableError();
-        return this.#engine.query(query, session, txn, options);
-    }
-
-    gql<T>(
-        query: BoundQuery,
-        session: Session,
-        txn?: Uuid,
-        options?: RequestOptions,
-    ): AsyncIterable<QueryChunk<T>> {
-        if (!this.#engine) throw new ConnectionUnavailableError();
-        return this.#engine.gql(query, session, txn, options);
+        return this.#engine.query(query, session, txn);
     }
 
     liveQuery(id: Uuid): AsyncIterable<LiveMessage> {
@@ -551,7 +517,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             return false;
         }
 
-        const computed = typeof provider === "function" ? await provider(session) : provider;
+        const computed = await invokeProvider(provider, session);
 
         if (computed === null) {
             return false;
@@ -592,16 +558,39 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         const now = Math.floor(Date.now() / 1000);
         const remaining = Math.max(payload.exp - now, 0);
-        const delay = Math.min(
-            remaining,
-            Math.max(remaining - this.#expiryMargin, this.#expiryMargin),
-        );
+        const delay = renewalDelay(remaining, this.#expiryMargin);
 
         sessionState.authRenewal = setTimeout(() => {
             this.#applyAuthentication(session).catch((err) => {
-                this.#eventPublisher.publish("error", new AuthenticationError(err));
+                this.#eventPublisher.publish(
+                    "error",
+                    err instanceof AuthenticationError ? err : new AuthenticationError(err),
+                );
+
+                this.#invalidateOnceExpired(session);
             });
         }, delay * 1000);
+    }
+
+    /**
+     * A renewal failed, which would otherwise leave the session holding a token which is
+     * about to expire, with nothing scheduled to ever replace it. Invalidate the session once
+     * that token has expired instead, so that it does not linger on in an unknown state.
+     */
+    #invalidateOnceExpired(session: Session): void {
+        if (!this.#state || !this.hasSession(session)) return;
+
+        const sessionState = this.getSession(session);
+        const expiry = sessionState.accessToken ? tokenExpiry(sessionState.accessToken) : undefined;
+        const remaining = Math.max((expiry ?? 0) - Math.floor(Date.now() / 1000), 0);
+
+        this.#cancelAuthRenewal(session);
+
+        sessionState.authRenewal = setTimeout(() => {
+            this.#abortAuthentication(session).catch((err) => {
+                this.#eventPublisher.publish("error", new AuthenticationError(err));
+            });
+        }, remaining * 1000);
     }
 
     async #abortAuthentication(session: Session): Promise<void> {
@@ -630,12 +619,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             if (payload?.exp) {
                 const now = Math.floor(Date.now() / 1000);
                 const remaining = Math.max(payload.exp - now, 0);
-                const renewalDelay = Math.min(
-                    remaining,
-                    Math.max(remaining - this.#expiryMargin, this.#expiryMargin),
-                );
 
-                if (remaining > renewalDelay) {
+                if (remaining > renewalDelay(remaining, this.#expiryMargin)) {
                     try {
                         await this.authenticate(sessionState.accessToken, session, true);
                         return;
