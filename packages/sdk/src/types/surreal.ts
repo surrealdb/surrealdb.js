@@ -127,7 +127,20 @@ export interface DriverOptions {
     codecOptions?: CodecOptions;
     websocketImpl?: typeof WebSocket;
     fetchImpl?: typeof fetch;
+    /**
+     * Extra options merged into the `init` of every request the HTTP engine makes with `fetch`,
+     * such as `cache`, `priority`, `credentials` or `keepalive`.
+     *
+     * Unlike `fetchImpl`, which replaces `fetch` altogether, these only add to the request. The
+     * `method`, `headers`, `body` and `signal` of a request belong to the SDK and cannot be set.
+     */
+    fetchOptions?: FetchOptions;
 }
+
+/**
+ * Options which can be merged into the `init` of a `fetch` request made by the SDK
+ */
+export type FetchOptions = Omit<RequestInit, "method" | "headers" | "body" | "signal">;
 
 /**
  * Options used to customize a specific connection to a SurrealDB datastore

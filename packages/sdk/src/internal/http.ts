@@ -61,6 +61,7 @@ export async function fetchSurreal(
     const encodedBody = encodeBody(context, options.body);
     const response = await raceAbort(
         fetchImpl(endpoint, {
+            ...context.options.fetchOptions,
             method: options.method ?? "POST",
             headers: headerMap,
             body: encodedBody,

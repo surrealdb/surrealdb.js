@@ -262,3 +262,68 @@ describe("http engine signals", () => {
         expect(held).toBe(0);
     });
 });
+
+describe("fetchOptions", () => {
+    test("are merged into the init of every request", async () => {
+        const received: RequestInit[] = [];
+        const opened = openEngine(
+            async (_, init) => {
+                received.push(init ?? {});
+                return answer("surrealdb-3.0.0");
+            },
+            { fetchOptions: { cache: "no-store", priority: "high", keepalive: true } },
+        );
+
+        await opened.send({ method: "version" });
+        await opened.send({ method: "version" });
+
+        expect(received).toHaveLength(2);
+
+        for (const init of received) {
+            expect(init.cache).toBe("no-store");
+            expect((init as { priority?: string }).priority).toBe("high");
+            expect(init.keepalive).toBe(true);
+            expect(init.method).toBe("POST");
+        }
+    });
+
+    test("cannot replace what the SDK controls", async () => {
+        const controller = new AbortController();
+        let received: RequestInit | undefined;
+        const opened = openEngine(
+            async (_, init) => {
+                received = init;
+                return answer("surrealdb-3.0.0");
+            },
+            {
+                fetchOptions: {
+                    method: "GET",
+                    body: "hijacked",
+                    headers: { "Content-Type": "text/plain" },
+                    signal: new AbortController().signal,
+                },
+            },
+        );
+
+        await opened.send({ method: "version" }, { signal: controller.signal });
+
+        expect(received?.method).toBe("POST");
+        expect(received?.body).not.toBe("hijacked");
+        expect((received?.headers as Record<string, string>)["Content-Type"]).toBe(
+            "application/cbor",
+        );
+        expect(received?.signal).toBe(controller.signal);
+    });
+
+    test("do nothing when absent", async () => {
+        let received: RequestInit | undefined;
+        const opened = openEngine(async (_, init) => {
+            received = init;
+            return answer("surrealdb-3.0.0");
+        });
+
+        await opened.send({ method: "version" });
+
+        expect(received && "cache" in received).toBe(false);
+    });
+});
