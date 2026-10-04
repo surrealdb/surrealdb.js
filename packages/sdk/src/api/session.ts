@@ -229,6 +229,13 @@ export class SurrealSession extends SurrealQueryable {
      * for earlier versions, provide a `retryable` predicate as for `query().retry()`. It is given
      * the error which made the transaction fail, whichever version it is.
      *
+     * The options also take a `signal` and a `requestTimeout`, as the query builders do with
+     * `.signal()` and `.requestTimeout()`: the transaction is abandoned when the signal aborts, or
+     * when the server has not answered in time, and a retry is not made once it is. As the
+     * transaction is a single request which the server may carry on to run, **an abandoned
+     * transaction may or may not have been committed**. Use `withSignal()` to bind every transaction
+     * of a request handler to the signal of the request.
+     *
      * @example
      * ```ts
      * const [from, to] = await db.transaction<[Account, Account]>([

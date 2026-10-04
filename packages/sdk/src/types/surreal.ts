@@ -238,8 +238,9 @@ export interface ConnectOptions {
      * signal, which fails with the reason of that signal.
      *
      * The limit applies to each request separately, so a query retried after a transaction
-     * conflict gets a fresh one for every attempt, and to queries only: it does not apply to
-     * signing in, selecting a namespace, transaction control, import or export. It starts when
+     * conflict gets a fresh one for every attempt, and to queries only, which includes a list of
+     * queries and an atomic `transaction()`: it does not apply to signing in, selecting a
+     * namespace, the `begin` and `commit` of an interactive transaction, import or export. It starts when
      * the request is sent, and does not include waiting for a connection to be established. To
      * bound the whole of an operation, including retries and connection waits, pass
      * `AbortSignal.timeout()` to `.signal()` instead.
@@ -320,6 +321,76 @@ export interface RetryOptions {
      */
     retryable?: (error: unknown) => boolean;
 }
+
+/**
+ * Options to configure a stateless, atomic `transaction()`.
+ */
+export interface TransactionOptions {
+    /**
+     * Replay the whole transaction when it fails due to a transaction conflict.
+     *
+     * Defaults to the `retry` behavior configured on the connection. The queries passed to
+     * `transaction()` are sent as one atomic request, so replaying them is always safe.
+     *
+     * As for any retry, a conflict is only recognized by default when the server reports it as a
+     * structured `TransactionConflict`, which SurrealDB 3.1.0 and later do. For earlier versions
+     * give a `retryable` predicate, which is passed the error which made the transaction fail.
+     */
+    retry?: RetryValue;
+    /**
+     * Abandon the transaction when this signal aborts.
+     *
+     * If the signal has already aborted, nothing is sent. If it aborts later, the transaction stops
+     * waiting for the server and fails with the `reason` of the signal, as it is, and a transaction
+     * waiting to be retried is not retried again. Combined with the signal of the view it is called
+     * on, if it was made with `withSignal()`: the transaction is abandoned when either aborts.
+     *
+     * Aborting means "stop waiting", and nothing more. The transaction was sent as a single request,
+     * which the server may well carry on to run, and **it may or may not have been committed**.
+     */
+    signal?: AbortSignal;
+    /**
+     * How long to wait for the server to answer, in milliseconds, before giving up with a
+     * `TimeoutError`, as for `requestTimeout` of the connection, which is the default. `0` waits
+     * without limit.
+     *
+     * It applies to each attempt, so a transaction which is retried gets the full time for every
+     * attempt. As for a signal, the transaction may or may not have been committed when it expires.
+     */
+    requestTimeout?: number;
+}
+
+/**
+ * A query builder, such as the one returned by `select()`, `create()`, `update()`,
+ * `upsert()`, `delete()`, `insert()`, `relate()`, `run()`, `auth()` or `api()`, which can
+ * be compiled into the {@link BoundQuery} it would send.
+ */
+export interface CompilableQuery {
+    compile(): BoundQuery;
+}
+
+/**
+ * A query which exposes the {@link BoundQuery} it will send as `inner`, such as the `Query`
+ * returned by `query()`.
+ */
+export interface InnerQuery {
+    readonly inner: BoundQuery;
+}
+
+/**
+ * Anything which can be combined with other queries by `query([...])` or `transaction([...])`.
+ *
+ * - A `string` of SurrealQL, which carries no bindings
+ * - A {@link BoundQuery}, such as one created by the `surql` template tag
+ * - A query builder, which contributes the statement it compiles to
+ * - A `Query` returned by `query()`, which contributes its inner query
+ *
+ * Only the statements and their bindings are taken from an input. Anything configured on a
+ * builder or `Query` itself, such as `.json()`, `.retry()`, `.signal()` or `.requestTimeout()`, is
+ * ignored in favor of the combined query's own configuration: to abandon the combined query, call
+ * `.signal()` on it, or call `query()` on a view made with `withSignal()`.
+ */
+export type QueryLike = string | BoundQuery | CompilableQuery | InnerQuery;
 
 export interface ConnectionSession {
     id: Session;

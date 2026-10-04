@@ -4,6 +4,7 @@ import { Query } from "../query/query";
 import type { QueryLike, QueryResponse, Session, TransactionOptions } from "../types";
 import { BoundQuery } from "../utils/bound-query";
 import { isVersionSupported } from "../utils/is-version-supported";
+import { abortScope, addSignal, assertTimeout, raceAbort, throwIfAborted } from "./abort";
 import { assertTransactionSafe, joinQueries, resolveQueries } from "./compose-queries";
 import { RetryContext } from "./retry";
 import { findRootCause } from "./root-cause";
@@ -81,6 +82,8 @@ function wrapInTransaction(body: BoundQuery): BoundQuery {
  * @param session The session to run the queries in
  * @param queries The queries to run
  * @param options Options to configure the transaction
+ * @param signals The signals of the view this is run from, which abandon the transaction as the
+ *                `signal` option does
  * @returns The result of each statement of the queries
  */
 export async function executeTransaction<R extends unknown[]>(
@@ -88,38 +91,63 @@ export async function executeTransaction<R extends unknown[]>(
     session: Session,
     queries: readonly QueryLike[],
     options: TransactionOptions = {},
+    signals?: readonly AbortSignal[],
 ): Promise<R> {
-    const resolved = resolveQueries(queries);
-
-    // Nothing to do is atomic by definition
-    if (resolved.length === 0) {
-        return [] as unknown as R;
+    if (options.requestTimeout !== undefined) {
+        assertTimeout(options.requestTimeout, "requestTimeout");
     }
 
-    // What a transaction may hold depends on the version of the server
-    await connection.ready();
+    // The signals of the transaction, to which the request, and the wait to retry it, are bound
+    const all = addSignal(signals, options.signal);
+    const scope = abortScope(all ?? []);
 
-    assertTransactionSafe(resolved, "queries", {
-        returnReplacesResults: !isModernTransaction(connection.serverVersion),
-    });
+    try {
+        // Nothing is sent for a transaction which has been abandoned already
+        throwIfAborted(scope.signal);
 
-    const query = new Query(connection, {
-        query: wrapInTransaction(joinQueries(resolved)),
-        transaction: undefined,
-        session,
-        json: false,
-    });
+        const resolved = resolveQueries(queries);
 
-    const context = new RetryContext(RetryContext.mergeOptions(options.retry, connection.retry));
-
-    return context.run(async () => {
-        const responses = await query.responses();
-        const cause = findRootCause(responses.flatMap((r) => (r && !r.success ? [r.error] : [])));
-
-        if (cause) {
-            throw cause;
+        // Nothing to do is atomic by definition
+        if (resolved.length === 0) {
+            return [] as unknown as R;
         }
 
-        return unwrapResults(responses, connection.serverVersion) as R;
-    });
+        // What a transaction may hold depends on the version of the server
+        await raceAbort(connection.ready(), scope.signal);
+
+        assertTransactionSafe(resolved, "queries", {
+            returnReplacesResults: !isModernTransaction(connection.serverVersion),
+        });
+
+        // A query like any other, which is abandoned by the signals and held to the request timeout
+        // on every attempt, so a retry gets the whole of it
+        const query = new Query(connection, {
+            query: wrapInTransaction(joinQueries(resolved)),
+            transaction: undefined,
+            session,
+            json: false,
+            signals: all,
+            requestTimeout: options.requestTimeout,
+        });
+
+        const context = new RetryContext(
+            RetryContext.mergeOptions(options.retry, connection.retry),
+            scope.signal,
+        );
+
+        return await context.run(async () => {
+            const responses = await query.responses();
+            const cause = findRootCause(
+                responses.flatMap((r) => (r && !r.success ? [r.error] : [])),
+            );
+
+            if (cause) {
+                throw cause;
+            }
+
+            return unwrapResults(responses, connection.serverVersion) as R;
+        });
+    } finally {
+        scope.dispose();
+    }
 }

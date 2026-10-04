@@ -1,6 +1,8 @@
 import type { ConnectionController } from "../controller";
+import { ExpressionError } from "../errors";
 import { abortScope, addSignal, raceAbort, throwIfAborted } from "../internal/abort";
-import type { Session } from "../types";
+import { executeTransaction } from "../internal/transaction";
+import type { QueryLike, Session, TransactionOptions } from "../types";
 import { SurrealQueryable } from "./queryable";
 import { SurrealTransaction } from "./transaction";
 
@@ -10,7 +12,8 @@ import { SurrealTransaction } from "./transaction";
  * It is created with `withSignal()`, which is how the work of a request handler is tied to the
  * signal of the request without passing it to every call: a query made through the scope is
  * abandoned when the signal aborts, exactly as if `.signal()` had been called on it, and a signal
- * given to `.signal()` in addition is combined with it.
+ * given to `.signal()` in addition is combined with it. That includes a list of queries run with
+ * `query([...])`, and an atomic `transaction([...])`.
  *
  * ```ts
  * export default {
@@ -62,6 +65,43 @@ export class SurrealRequestScope extends SurrealQueryable {
             this.#session,
             addSignal(this.#signals, signal) ?? [],
         );
+    }
+
+    /**
+     * Run a list of queries atomically, in a single request, abandoned when the signals of this scope
+     * abort. See `SurrealSession.transaction()` for what the queries may be and what is resolved.
+     *
+     * The `signal` and `requestTimeout` of the options apply as well, combined with the signals of
+     * this scope. If a signal aborts, the transaction stops waiting and fails with its reason, and a
+     * transaction waiting to be retried is not retried again. Unlike a transaction begun with
+     * `beginTransaction()`, whose commit is a request of its own which a signal leaves alone, this one
+     * is a single request, commit included, which the server may carry on to run: **it may or may not
+     * have been committed** when it is abandoned.
+     *
+     * @example
+     * ```ts
+     * const [from, to] = await db.withSignal(request.signal).transaction<[Account, Account]>([
+     *     surql`UPDATE ONLY ${fromId} SET balance -= ${amount}`,
+     *     surql`UPDATE ONLY ${toId} SET balance += ${amount}`,
+     * ], { retry: true });
+     * ```
+     *
+     * @param queries The queries to run, each of which can be a string, `BoundQuery`, query builder or `Query`
+     * @param options Options to configure the transaction
+     * @returns The result of each statement, in order
+     */
+    transaction<R extends unknown[] = unknown[]>(
+        queries: readonly QueryLike[],
+        options?: TransactionOptions,
+    ): Promise<R>;
+
+    // Shadow implementation, as for the session
+    async transaction(queries: unknown, options?: TransactionOptions): Promise<unknown[]> {
+        if (!Array.isArray(queries)) {
+            throw new ExpressionError("transaction() expects an array of queries");
+        }
+
+        return executeTransaction(this.#connection, this.#session, queries, options, this.#signals);
     }
 
     /**
