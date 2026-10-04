@@ -188,107 +188,6 @@ let [created] = await db
     .collect<[Person]>();
 ```
 
-#### Running several queries at once
-
-Pass a list to `query` to run several queries in a single request. Each item can be a string,
-a `surql` template, or a query builder such as `select()` and `create()`. The result is the same
-`Query` you would get from a single string, so `.collect()`, `.responses()` and `.stream()` all work.
-
-```ts
-import { surql, Table } from "surrealdb";
-
-const [people, adults] = await db
-    .query<[Person[], Person[]]>([
-        db.select<Person>(personTable),
-        surql`SELECT * FROM person WHERE age >= ${18}`,
-    ])
-    .collect();
-```
-
-A list of queries is a **batch**, not a transaction. It behaves exactly as if the statements had
-been written one after another in a single query: nothing is atomic, a failing statement does not
-stop the ones after it, and whatever the others did stays done. Use `.responses()` to see which
-statements failed without losing the results of the rest:
-
-```ts
-const [first, second] = await db.query(["RETURN 1", "THROW 'oops'"]).responses();
-
-first.success; // true
-second.success; // false
-```
-
-Results are positional **per statement**, not per item. An item holding several statements, such as
-`"CREATE a; CREATE b"`, takes several slots in the results and moves the results of the items after
-it, while a query builder always takes exactly one. An item cannot be empty, and two items cannot
-bind the same parameter name (the `surql` template and query builders generate unique names, so
-this only concerns a `BoundQuery` you wrote by hand).
-
-#### Atomic transactions
-
-Use `transaction` to run a list of queries atomically: either every change is applied or none is.
-The queries are wrapped in `BEGIN` and `COMMIT` and sent in a single request, so unlike
-`beginTransaction()` it does not hold any state on the connection and works over HTTP as well as
-WebSockets.
-
-```ts
-const [from, to] = await db.transaction<[Account, Account]>([
-    surql`UPDATE ONLY ${fromId} SET balance -= ${amount}`,
-    surql`UPDATE ONLY ${toId} SET balance += ${amount}`,
-]);
-```
-
-It resolves to the result of each statement, in order, or rejects with the error which made the
-transaction fail. That is the error of the statement which actually failed, not one of the "not
-executed" errors the server reports for the statements it rolled back.
-
-Queries must not contain `BEGIN`, `COMMIT` or `CANCEL` statements, as `transaction` adds its own. A
-`RETURN` statement is only allowed as the last statement, because `RETURN` ends a transaction early
-in SurrealQL: the statements after it would be skipped, and the transaction would still commit.
-Use `SELECT` or a bare expression to produce a value in the middle of a transaction. A `RETURN`
-nested inside a block, such as an `IF`, ends the transaction in the same way, but cannot be
-detected, so take care with those. Before SurrealDB 3.0 a `RETURN` also replaces the results of
-the statements before it, so no `RETURN` is allowed at all.
-
-Under concurrent load a transaction can fail because another one wrote to the same data. As the
-whole transaction is sent at once it is always safe to replay, so it can opt into retrying with
-the `retry` option, which defaults to the `retry` configured when connecting:
-
-```ts
-await db.transaction(
-    [
-        surql`UPDATE counter:visits SET count += 1`,
-        surql`CREATE visit SET at = time::now()`,
-    ],
-    { retry: true },
-);
-```
-
-As with any retry, a conflict is only recognized by default when the server reports it as a structured
-`TransactionConflict`, which SurrealDB 3.1.0 and later do. For earlier versions, give a `retryable`
-predicate in the `retry` option, which is passed the error which made the transaction fail.
-
-To run queries inside a transaction which you control, such as to read before deciding what to
-write, use `beginTransaction()` on a WebSocket connection. A list of queries can also be passed
-to `query` on the returned transaction.
-
-#### ISO GQL queries
-
-In addition to SurrealQL, you can run [ISO GQL](https://www.iso.org/standard/76120.html)
-(ISO/IEC 39075) queries with the `gql` method. It behaves exactly like `query`
-— returning the same awaitable `Query` instance — but executes the string with
-the server's GQL engine. A namespace and database must be selected first.
-
-```ts
-// Run a GQL query and collect the results
-const [people] = await db.gql<[{ name: string }[]]>(
-    "MATCH (p:person) WHERE p.age > $min RETURN p.name AS name ORDER BY name",
-    { min: 21 },
-);
-```
-
-> GQL is served by remote (WebSocket/HTTP) engines connected to a SurrealDB
-> instance with GQL enabled.
-
 ### Subscribing to live queries
 
 You can subscribe to live queries to receive updates when the data in the database changes.
@@ -303,6 +202,159 @@ for await (const { action, value } of subscription) {
         console.log("A new person was created:", value);
     }
 }
+```
+
+### Cancelling queries and setting timeouts
+
+Serverless functions and request handlers need to stop waiting on the database when the work they do is cancelled, or runs out of time. Every query can be given an [`AbortSignal`](https://developer.mozilla.org/docs/Web/API/AbortSignal), and the connection can be given a limit on how long to wait for an answer.
+
+```ts
+// Abandon a query when a signal aborts
+const controller = new AbortController();
+const people = await db.select<Person>(personTable).signal(controller.signal);
+
+// Give up after two seconds
+const [report] = await db
+    .query("SELECT * FROM report")
+    .signal(AbortSignal.timeout(2000))
+    .collect<[Report[]]>();
+```
+
+`.signal()` is available on `.query()` and on every query builder: `select`, `create`, `update`, `upsert`, `delete`, `insert`, `relate`, `run`, `auth` and `api`. It works the same whether you await the query, call `.collect()` or `.responses()`, or read it with `.stream()`.
+
+- A signal which has already aborted rejects straight away, and nothing is sent.
+- When a signal aborts, the query stops waiting and rejects with the signal's `reason`, as it is. That is an `AbortError` for `controller.abort()` and a `TimeoutError` for `AbortSignal.timeout()`, so `error.name` tells a timeout from an abort the way it does for `fetch`. They are not wrapped in an SDK error, and they are not `SurrealError`s.
+- A stream ends with the reason, and lets go of what it holds. A query which is waiting to be retried is not retried again.
+- `.signal()` can be called more than once, and the query is abandoned when any of the signals aborts.
+
+**Aborting means "stop waiting", and nothing more.** The SDK stops waiting, and over HTTP the request is cancelled, but a SurrealDB server which has been sent a query may well carry on executing it. Over WebSocket there is no way to tell the server to stop, so it runs the query to the end and the answer is thrown away when it arrives. **A write which was sent before the signal aborted may or may not have been applied**, and a caller which needs to know has to check, for example by reading the record back or by making the write idempotent. Abandoned queries keep using resources on the server until they finish.
+
+#### Timeouts
+
+Set a default limit, in milliseconds, for every query on a connection, and override it for a query where it needs to differ:
+
+```ts
+await db.connect("wss://my-instance.aws-euw1.surreal.cloud", {
+    requestTimeout: 5_000,
+});
+
+// Allow this one a minute, and this one as long as it takes
+await db.query("SELECT * FROM report").requestTimeout(60_000);
+await db.query("SELECT * FROM backfill").requestTimeout(0);
+```
+
+A query which takes longer fails with the `TimeoutError` of `AbortSignal.timeout()`. The limit applies to each request separately, so a query which is retried gets the full time for every attempt. It starts when the request is sent, and does not include the time spent waiting for a connection; to bound the whole of an operation, including retries, pass `AbortSignal.timeout()` to `.signal()` instead. It applies to queries, and not to signing in, selecting a namespace, transaction control, import or export.
+
+`.requestTimeout()` is the way to _extend_ the default for a query. A signal can only ever shorten it, as the query is abandoned when the first of them fires.
+
+This is not the `TIMEOUT` clause, which the query builders expose as `.timeout()`:
+
+| | `.timeout(duration)` | `requestTimeout` and `.requestTimeout(ms)` |
+| --- | --- | --- |
+| Enforced by | The server, as a `TIMEOUT` clause in the query | The client, which stops waiting |
+| Takes | A `Duration` | Milliseconds |
+| On expiry | The server stops the query and reports a `QueryError` | The query fails with a `TimeoutError` and the server is not told |
+
+#### Scoping a request handler to its request
+
+Rather than passing the signal of a request to every call, make a view of the connection which carries it with `withSignal()`. Everything made through the view is abandoned when the signal aborts, and has the same methods as the connection:
+
+```ts
+const scoped = db.withSignal(request.signal);
+
+const people = await scoped.select<Person>(personTable);
+const [report] = await scoped.query("SELECT * FROM report").collect<[Report[]]>();
+
+// A signal for one call is combined with the one of the scope
+await scoped.select<Person>(personTable).signal(AbortSignal.timeout(500));
+
+// Transactions begun on the view are bound to the signal too
+const txn = await scoped.beginTransaction();
+```
+
+The view is a cheap object which shares the connection and the session it was made from and does not change them, so make one for every request on a connection which is shared by all of them. It can be made from a session (`db`, or one from `forkSession()`), and from a transaction. Only queries are bound to the signal: a live query started through it is not, as it outlives the request which started it, and neither is the `commit()` of a transaction, so that abandoning a request can never leave the outcome of a commit in doubt.
+
+**Cloudflare Workers**, or anywhere else a handler receives a `Request`:
+
+```ts
+export default {
+    async fetch(request: Request, env: Env): Promise<Response> {
+        const db = new Surreal();
+        await db.connect(env.SURREALDB_URL, {
+            namespace: "app",
+            database: "app",
+            authentication: { username: env.SURREALDB_USER, password: env.SURREALDB_PASS },
+            requestTimeout: 5_000,
+        });
+
+        try {
+            const people = await db.withSignal(request.signal).select<Person>(personTable);
+            return Response.json(people);
+        } finally {
+            await db.close();
+        }
+    },
+};
+```
+
+**Next.js** route handlers, which are given the `Request`:
+
+```ts
+// app/api/people/route.ts
+export async function GET(request: Request) {
+    const people = await db.withSignal(request.signal).select<Person>(personTable);
+
+    return Response.json(people);
+}
+```
+
+**Hono**:
+
+```ts
+app.get("/people", async (c) => {
+    const people = await db.withSignal(c.req.raw.signal).select<Person>(personTable);
+
+    return c.json(people);
+});
+```
+
+**Express**, where the request has no signal, so make one from the response closing:
+
+```ts
+app.get("/people", async (req, res, next) => {
+    const controller = new AbortController();
+
+    // `res` closes when the response is over. If it closes before it was finished, the client went away.
+    res.on("close", () => {
+        if (!res.writableFinished) controller.abort();
+    });
+
+    try {
+        const people = await db.withSignal(controller.signal).select<Person>(personTable);
+        res.json(people);
+    } catch (error) {
+        // Nobody is left to answer when the client went away
+        if (!controller.signal.aborted) next(error);
+    }
+});
+```
+
+Listen on `res` rather than `req` here: on current versions of Node.js the `close` event of a request which has a body fires as soon as that body has been read, which is long before the client could go away.
+
+Whether, and when, the signal of a request aborts depends on the platform running your handler. Consult its documentation for the conditions under which it does.
+
+#### Runtimes
+
+`AbortSignal.any()` and `AbortSignal.timeout()` are used where the runtime has them, and replaced by an equivalent where it does not, such as in React Native. A signal whose `reason` the runtime does not record is reported as an `AbortError`.
+
+#### Customising `fetch`
+
+The HTTP engine makes its requests with the global `fetch`, or the `fetchImpl` you give the driver, which replaces it altogether. To only add to every request, pass `fetchOptions`, which are merged into the `init` of each `fetch` call. The `method`, `headers`, `body` and `signal` of a request belong to the SDK and cannot be set this way.
+
+```ts
+const db = new Surreal({
+    fetchOptions: { cache: "no-store", priority: "high" },
+});
 ```
 
 ### Next steps
@@ -380,7 +432,7 @@ When using the embedded engine, call `.close()` when you are done to shut down t
 | Area | Key exports |
 | --- | --- |
 | Client | `Surreal`, `SurrealSession`, `SurrealTransaction` |
-| Query API | `.query()`, `.gql()`, `.select()`, `.create()`, `.update()`, `.delete()`, `.insert()`, `.upsert()`, `.relate()`, `.live()` |
+| Query API | `.query()`, `.select()`, `.create()`, `.update()`, `.delete()`, `.insert()`, `.upsert()`, `.relate()`, `.live()`, `.signal()`, `.requestTimeout()`, `.withSignal()` |
 | Remote engines | `createRemoteEngines()`, `WebSocketEngine`, `HttpEngine` |
 | Bound queries | `surql`, `BoundQuery`, `expr`, comparison and logical operators |
 | Value types | `RecordId`, `Table`, `DateTime`, `Decimal`, `Uuid`, and more (from `@surrealdb/sqon`) |
