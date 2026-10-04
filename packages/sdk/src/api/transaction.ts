@@ -1,6 +1,7 @@
 import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { ConnectionUnavailableError } from "../errors";
+import { addSignal } from "../internal/abort";
 import type { Session } from "../types";
 import { SurrealQueryable } from "./queryable";
 
@@ -14,12 +15,37 @@ export class SurrealTransaction extends SurrealQueryable {
     #connection: ConnectionController;
     #session: Session;
     #transaction: Uuid;
+    #signals: readonly AbortSignal[] | undefined;
 
-    constructor(connection: ConnectionController, session: Session, transaction: Uuid) {
-        super(connection, session, transaction);
+    constructor(
+        connection: ConnectionController,
+        session: Session,
+        transaction: Uuid,
+        signals?: readonly AbortSignal[],
+    ) {
+        super(connection, session, transaction, signals);
         this.#connection = connection;
         this.#session = session;
         this.#transaction = transaction;
+        this.#signals = signals;
+    }
+
+    /**
+     * Create a handle on this same transaction in which every query is also bound to a signal.
+     *
+     * The handle commits and cancels the transaction just as this one does. Only queries are bound
+     * to the signal: `commit()` and `cancel()` are not, so a request which is being abandoned cannot
+     * leave the outcome of a commit in doubt. See `SurrealScope`.
+     *
+     * @param signal The signal to add. Without one, the handle is bound to the same signals as this.
+     */
+    withSignal(signal: AbortSignal | undefined): SurrealTransaction {
+        return new SurrealTransaction(
+            this.#connection,
+            this.#session,
+            this.#transaction,
+            addSignal(this.#signals, signal),
+        );
     }
 
     /**

@@ -812,6 +812,279 @@ describe.each(builders)("%s", (_, make) => {
     });
 });
 
+describe("withSignal", () => {
+    const scoped = [
+        ["query", (s: ReturnType<Surreal["withSignal"]>) => s.query("RETURN 1")],
+        ["select", (s: ReturnType<Surreal["withSignal"]>) => s.select(person)],
+        ["create", (s: ReturnType<Surreal["withSignal"]>) => s.create(person).content({})],
+        ["update", (s: ReturnType<Surreal["withSignal"]>) => s.update(person).merge({})],
+        ["upsert", (s: ReturnType<Surreal["withSignal"]>) => s.upsert(person).merge({})],
+        ["delete", (s: ReturnType<Surreal["withSignal"]>) => s.delete(person)],
+        [
+            "insert",
+            (s: ReturnType<Surreal["withSignal"]>) =>
+                s.insert<{ name: string }>(person, [{ name: "n" }]),
+        ],
+        [
+            "relate",
+            (s: ReturnType<Surreal["withSignal"]>) =>
+                s.relate(new RecordId("a", 1), new Table("b"), new RecordId("c", 1)),
+        ],
+        ["run", (s: ReturnType<Surreal["withSignal"]>) => s.run("fn::slow")],
+        ["auth", (s: ReturnType<Surreal["withSignal"]>) => s.auth()],
+        ["api", (s: ReturnType<Surreal["withSignal"]>) => s.api().get("/slow")],
+    ] as const;
+
+    test.each(scoped)("%s inherits the signal without being given one", async (_, make) => {
+        const { db, engine } = await connect();
+        const reason = new Error("client went away");
+        const controller = new AbortController();
+        engine.respond = (_, options) => hang(options);
+
+        const running = Promise.resolve(make(db.withSignal(controller.signal)));
+
+        await Bun.sleep(1);
+        controller.abort(reason);
+
+        expect(await caught(running)).toBe(reason);
+    });
+
+    test.each(scoped)("%s is not sent once the signal has aborted", async (_, make) => {
+        const { db, engine } = await connect();
+        const reason = new Error("client went away");
+        const controller = new AbortController();
+        controller.abort(reason);
+
+        expect(await caught(Promise.resolve(make(db.withSignal(controller.signal))))).toBe(reason);
+        expect(engine.sent).toEqual([]);
+    });
+
+    test("the signal of a call is combined with the one of the scope", async () => {
+        const { db, engine } = await connect();
+        engine.respond = (_, options) => hang(options);
+
+        const scope = new AbortController();
+        const call = new AbortController();
+        const scopeReason = new Error("the request went away");
+        const callReason = new Error("this call gave up");
+
+        const scopeFirst = Promise.resolve(
+            db.withSignal(scope.signal).select(person).signal(call.signal),
+        );
+        await Bun.sleep(1);
+        scope.abort(scopeReason);
+        expect(await caught(scopeFirst)).toBe(scopeReason);
+
+        const callFirst = Promise.resolve(
+            db.withSignal(new AbortController().signal).select(person).signal(call.signal),
+        );
+        await Bun.sleep(1);
+        call.abort(callReason);
+        expect(await caught(callFirst)).toBe(callReason);
+    });
+
+    test("scopes nest, and the signals of all of them apply", async () => {
+        const { db, engine } = await connect();
+        engine.respond = (_, options) => hang(options);
+
+        const outer = new AbortController();
+        const inner = new AbortController();
+        const reason = new Error("outer");
+        const nested = db.withSignal(outer.signal).withSignal(inner.signal).withSignal(undefined);
+
+        const running = Promise.resolve(nested.select(person));
+
+        await Bun.sleep(1);
+        outer.abort(reason);
+
+        expect(await caught(running)).toBe(reason);
+    });
+
+    test("it does not change the connection it was made from", async () => {
+        const { db, engine } = await connect();
+        const controller = new AbortController();
+
+        const scope = db.withSignal(controller.signal);
+        controller.abort(new Error("client went away"));
+
+        // The scope is spent, and the session it came from is not
+        await caught(Promise.resolve(scope.select(person)));
+        await db.select(person);
+
+        expect(engine.sent).toHaveLength(1);
+        expect(signalOf(engine.sent[0])).toBeUndefined();
+    });
+
+    test("one request's scope does not affect another's", async () => {
+        const { db, engine } = await connect();
+        const gone = new AbortController();
+        const staying = new AbortController();
+        engine.respond = async (_, options) => {
+            await Bun.sleep(10);
+            if (options?.signal?.aborted) throw options.signal.reason;
+            return ok(["done"]);
+        };
+
+        const first = Promise.resolve(db.withSignal(gone.signal).select(person));
+        const second = Promise.resolve(db.withSignal(staying.signal).select(person));
+
+        gone.abort(new Error("client went away"));
+
+        await caught(first);
+        expect((await second) as unknown).toEqual(["done"]);
+    });
+
+    test("a scope without a signal is a plain session", async () => {
+        const { db, engine } = await connect();
+
+        await db.withSignal(undefined).select(person);
+
+        expect(signalOf(engine.sent[0])).toBeUndefined();
+    });
+
+    test("it can be made from a session, and from a transaction", async () => {
+        const { db, engine } = await connect();
+        const txn = Uuid.v4();
+        engine.respond = async (request) => (request.method === "begin" ? txn : ok([]));
+        const controller = new AbortController();
+        const reason = new Error("client went away");
+
+        const session = db.withSignal(controller.signal);
+        const transaction = await session.beginTransaction();
+
+        engine.respond = (_, options) => hang(options);
+        const running = Promise.resolve(transaction.select(person));
+
+        await Bun.sleep(1);
+        controller.abort(reason);
+
+        expect(await caught(running)).toBe(reason);
+
+        // The transaction is the one which was begun
+        expect(engine.sent.find((s) => s.request.method === "query")?.request.txn).toEqual(txn);
+    });
+});
+
+describe("transactions and signals", () => {
+    test("beginning a transaction is not done for a signal which has aborted", async () => {
+        const { db, engine } = await connect();
+        const reason = new Error("client went away");
+        const controller = new AbortController();
+        controller.abort(reason);
+
+        expect(await caught(db.withSignal(controller.signal).beginTransaction())).toBe(reason);
+        expect(engine.sent).toEqual([]);
+    });
+
+    test("every query of a scoped transaction is bound to the signal", async () => {
+        const { db, engine } = await connect();
+        const txn = Uuid.v4();
+        const controller = new AbortController();
+        const reason = new Error("client went away");
+        engine.respond = async (request) => (request.method === "begin" ? txn : ok(["row"]));
+
+        const transaction = await db.withSignal(controller.signal).beginTransaction();
+
+        expect((await transaction.select(person)) as unknown).toEqual(["row"]);
+        expect(signalOf(engine.sent.find((s) => s.request.method === "query"))?.aborted).toBe(
+            false,
+        );
+
+        engine.respond = (_, options) => hang(options);
+        const running = Promise.resolve(transaction.create(person).content({}));
+
+        await Bun.sleep(1);
+        controller.abort(reason);
+
+        expect(await caught(running)).toBe(reason);
+        expect(await caught(Promise.resolve(transaction.select(person)))).toBe(reason);
+    });
+
+    test("committing is not bound to the signal", async () => {
+        const { db, engine } = await connect();
+        const txn = Uuid.v4();
+        const controller = new AbortController();
+        engine.respond = async (request) => (request.method === "begin" ? txn : ok([]));
+
+        const transaction = await db.withSignal(controller.signal).beginTransaction();
+
+        controller.abort(new Error("client went away"));
+        engine.respond = async () => undefined;
+        await transaction.commit();
+
+        const commit = engine.sent.find((s) => s.request.method === "commit");
+
+        expect(commit?.request.params).toEqual([txn]);
+        expect(commit?.options).toBeUndefined();
+    });
+
+    test("a transaction begun on the server after the abort is cancelled", async () => {
+        const { db, engine } = await connect();
+        const txn = Uuid.v4();
+        const controller = new AbortController();
+        const reason = new Error("client went away");
+        let begin: (id: Uuid) => void = () => {};
+
+        engine.respond = (request) => {
+            if (request.method === "begin") {
+                return new Promise<Uuid>((resolve) => {
+                    begin = resolve;
+                });
+            }
+
+            return Promise.resolve(undefined);
+        };
+
+        const beginning = db.withSignal(controller.signal).beginTransaction();
+
+        await Bun.sleep(1);
+        controller.abort(reason);
+
+        expect(await caught(beginning)).toBe(reason);
+
+        // The server answers anyway, with a transaction nobody holds
+        begin(txn);
+        await Bun.sleep(5);
+
+        const cancel = engine.sent.find((s) => s.request.method === "cancel");
+
+        expect(cancel?.request.params).toEqual([txn]);
+    });
+
+    test("a transaction can be given a signal after it has begun", async () => {
+        const { db, engine } = await connect();
+        const txn = Uuid.v4();
+        const controller = new AbortController();
+        const reason = new Error("client went away");
+        engine.respond = async (request) => (request.method === "begin" ? txn : ok([]));
+
+        const plain = await db.beginTransaction();
+        const bound = plain.withSignal(controller.signal);
+
+        engine.respond = (_, options) => hang(options);
+        const running = Promise.resolve(bound.select(person));
+        const unbound = Promise.resolve(plain.select(person));
+
+        await Bun.sleep(1);
+        controller.abort(reason);
+
+        expect(await caught(running)).toBe(reason);
+
+        // Only the handle which was given the signal is bound to it
+        const queries = engine.sent.filter((s) => s.request.method === "query");
+
+        expect(queries.map((q) => signalOf(q) === undefined).sort()).toEqual([false, true]);
+        unbound.catch(() => {});
+
+        // And it is the same transaction, which either handle can end
+        engine.respond = async () => undefined;
+        await bound.cancel();
+        expect(engine.sent.find((s) => s.request.method === "cancel")?.request.params).toEqual([
+            txn,
+        ]);
+    });
+});
+
 describe("diagnostics", () => {
     test("the signal reaches an engine wrapped for diagnostics", async () => {
         const { FakeEngine } = await import("../__helpers__/mock-engine");
