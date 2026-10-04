@@ -540,6 +540,122 @@ describe("import and signals", () => {
         expect((source.log.cancelled as Error).name).toBe("TimeoutError");
     });
 
+    test("a stream is uploaded whole and in order when there is a signal to honour", async () => {
+        const controller = new AbortController();
+        const spy = spyOnListeners(controller.signal);
+        const encoder = new TextEncoder();
+        const sent = Array.from({ length: 50 }, (_, i) => `CREATE person:${i};\n`);
+        const received: string[] = [];
+        const { db } = await connect({
+            import: async (init) => {
+                const reader = (init.body as ReadableStream<Uint8Array>).getReader();
+
+                for (;;) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    received.push(new TextDecoder().decode(value));
+                }
+
+                return new Response("[]");
+            },
+        });
+
+        await db
+            .import(
+                new ReadableStream<Uint8Array>({
+                    start(stream) {
+                        for (const chunk of sent) stream.enqueue(encoder.encode(chunk));
+                        stream.close();
+                    },
+                }),
+            )
+            .signal(controller.signal);
+
+        expect(received).toEqual(sent);
+        expect(spy.held).toBe(0);
+    });
+
+    test("a stream which fetch gives up on is cancelled with what fetch said", async () => {
+        const controller = new AbortController();
+        const source = stalling(["OPTION IMPORT;\n"]);
+        const why = new Error("the connection dropped");
+        const { db } = await connect({
+            import: async (init) => {
+                const reader = (init.body as ReadableStream<Uint8Array>).getReader();
+
+                await reader.read();
+                await reader.cancel(why);
+
+                throw why;
+            },
+        });
+
+        await caught(db.import(source.body).signal(controller.signal));
+
+        expect(source.log.cancelled).toBe(why);
+        expect(controller.signal.aborted).toBe(false);
+    });
+
+    test("a runtime which cancels the upload first still has the source told why", async () => {
+        const controller = new AbortController();
+        const reason = new Error("client went away");
+        const source = stalling(["OPTION IMPORT;\n"]);
+        let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+
+        // A listener which comes first, as the abort steps of a runtime's own fetch do, and which
+        // cancels the body without saying why, as Bun does
+        controller.signal.addEventListener("abort", () => reader?.cancel(), { once: true });
+
+        const { db } = await connect({
+            import: async (init) => {
+                reader = (init.body as ReadableStream<Uint8Array>).getReader();
+
+                for (;;) {
+                    if ((await reader.read()).done) break;
+                }
+
+                return new Response("[]");
+            },
+        });
+
+        const importing = db.import(source.body).signal(controller.signal);
+
+        setTimeout(() => controller.abort(reason), 20);
+
+        expect(await caught(importing)).toBe(reason);
+        expect(source.log.cancelled).toBe(reason);
+    });
+
+    test("a stream which fails fails the upload with its error", async () => {
+        const controller = new AbortController();
+        const failure = new Error("the source broke");
+        const { db } = await connect({
+            import: async (init) => {
+                const reader = (init.body as ReadableStream<Uint8Array>).getReader();
+
+                for (;;) {
+                    if ((await reader.read()).done) break;
+                }
+
+                return new Response("[]");
+            },
+        });
+
+        const error = await caught(
+            db
+                .import(
+                    new ReadableStream({
+                        pull(stream) {
+                            stream.error(failure);
+                        },
+                    }),
+                )
+                .signal(controller.signal),
+        );
+
+        expect(error).toBe(failure);
+    });
+
     test("an upload which finishes is unaffected by a signal which aborts afterwards", async () => {
         const controller = new AbortController();
         const spy = spyOnListeners(controller.signal);

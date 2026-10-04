@@ -184,18 +184,77 @@ export function parseEndpoint(value: string | URL): URL {
     return url;
 }
 
+/**
+ * Pass a stream on, until a signal aborts: the stream is then cancelled with the reason of the
+ * signal, and what it was passed to is errored with it.
+ *
+ * This is written out rather than done with `pipeThrough(transform, { signal })`, whose `signal`
+ * option is not honoured by every runtime. Some, among them older versions of Bun, leave the source
+ * open when it aborts, which is exactly what this is here to prevent.
+ */
+function abortableStream(source: ReadableStream, signal: AbortSignal): ReadableStream {
+    const reader = source.getReader();
+    let onAbort: (() => void) | undefined;
+
+    const unwatch = () => {
+        if (onAbort) signal.removeEventListener("abort", onAbort);
+        onAbort = undefined;
+    };
+
+    return new ReadableStream({
+        start(controller) {
+            onAbort = () => {
+                const reason = abortReason(signal);
+
+                onAbort = undefined;
+                reader.cancel(reason).catch(() => {});
+                controller.error(reason);
+            };
+
+            signal.addEventListener("abort", onAbort, { once: true });
+        },
+
+        async pull(controller) {
+            try {
+                const { done, value } = await reader.read();
+
+                // Reading ended because the abort cancelled the source, which is not the end of it
+                if (signal.aborted) return;
+
+                if (done) {
+                    unwatch();
+                    controller.close();
+                    return;
+                }
+
+                controller.enqueue(value);
+            } catch (error) {
+                unwatch();
+                controller.error(error);
+            }
+        },
+
+        // Whatever the stream was passed to has had enough, so the source is told so. When that is
+        // `fetch` giving up because of the signal, it may well be asking before the abort event
+        // reaches the listener above, since a runtime runs its own abort steps first, and does not
+        // always say why. The signal does.
+        cancel(reason) {
+            unwatch();
+            return reader.cancel(signal.aborted ? abortReason(signal) : reason);
+        },
+    });
+}
+
 function encodeBody(
     context: DriverContext,
     body?: unknown,
     signal?: AbortSignal,
 ): BodyInit | undefined {
-    // A stream being uploaded is handed over through a pipe which the signal tears down, so that
-    // aborting cancels the stream of the caller with the reason of the signal, rather than relying on
-    // `fetch` to do so, which a `fetchImpl` which ignores signals will not.
+    // A stream being uploaded is handed over through one which the signal tears down, so that
+    // aborting cancels the stream of the caller with the reason of the signal, rather than relying
+    // on `fetch` to do so, which a `fetchImpl` which ignores signals will not.
     if (body instanceof ReadableStream) {
-        return signal && typeof TransformStream === "function"
-            ? body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>(), { signal })
-            : body;
+        return signal ? abortableStream(body, signal) : body;
     }
 
     if (body instanceof Blob) {
