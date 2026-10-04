@@ -35,6 +35,6 @@ export const _timeout = (timeout: Duration): Expr => ({
             throw new ExpressionError(`Invalid timeout value: ${timeout}`);
         }
 
-        return `TIMEOUT ${timeout.toString()}`;
+        return timeout.toString();
     },
 });
