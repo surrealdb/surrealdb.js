@@ -1,4 +1,4 @@
-import type { SqonError } from "@surrealdb/sqon";
+import { Duration, type SqonError } from "@surrealdb/sqon";
 import type { Feature } from "./internal/feature";
 import type { ApiResponse } from "./query/api";
 import type { Session } from "./types";
@@ -221,7 +221,12 @@ export type QueryErrorDetail =
     | {
           readonly kind: "TimedOut";
           readonly details: {
-              readonly duration: { readonly secs: number; readonly nanos: number };
+              /**
+               * The exceeded timeout. The binary protocols decode this to a `Duration`; a plain
+               * `{ secs, nanos }` object is also accepted. Use `QueryError.timeout` to read it
+               * as a `Duration` regardless.
+               */
+              readonly duration: Duration | { readonly secs: number; readonly nanos: number };
           };
       }
     | { readonly kind: "Cancelled" }
@@ -402,10 +407,20 @@ export class QueryError extends ServerError {
         return this.details?.kind === "TransactionConflict";
     }
 
-    /** The timeout duration, if this is a timeout error. Returns `{ secs, nanos }` or undefined. */
-    get timeout(): { secs: number; nanos: number } | undefined {
+    /**
+     * The timeout which was exceeded, if this is a timeout error, or `undefined` otherwise.
+     *
+     * This is always a `Duration`, whichever engine or protocol received the error, so it can
+     * be used as is, e.g. passed to `.timeout()` of a query builder.
+     */
+    get timeout(): Duration | undefined {
         if (this.details?.kind !== "TimedOut") return undefined;
-        return this.details.details?.duration;
+
+        const duration = this.details.details?.duration;
+        if (!duration) return undefined;
+        if (duration instanceof Duration) return duration;
+
+        return new Duration([duration.secs, duration.nanos]);
     }
 }
 
