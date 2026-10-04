@@ -1,5 +1,6 @@
 import { HttpConnectionError } from "../errors";
 import type { ConnectionSession, ConnectionState, DriverContext } from "../types/surreal";
+import { raceAbort, throwIfAborted } from "./abort";
 import { wrapSqonError } from "./wrap-sqon-error";
 
 export interface FetchSurrealOptions {
@@ -7,6 +8,23 @@ export interface FetchSurrealOptions {
     url?: URL;
     headers?: Record<string, string>;
     method?: string;
+    /** Abandons the request, and the reading of its response, when it aborts */
+    signal?: AbortSignal;
+}
+
+/**
+ * Read a response body in full, without waiting on it beyond what the signal allows.
+ *
+ * A `fetch` given the signal errors the body itself when it aborts. This does not rely on it, so
+ * that a `fetchImpl` which ignores signals cannot keep the caller waiting for the rest of a body.
+ */
+export function readBody(response: Response, signal?: AbortSignal): Promise<ArrayBuffer> {
+    return raceAbort(response.arrayBuffer(), signal);
+}
+
+/** Release a response nobody is going to read */
+function discardResponse(response: Response): void {
+    response.body?.cancel().catch(() => {});
 }
 
 export async function fetchSurreal(
@@ -37,20 +55,28 @@ export async function fetchSurreal(
 
     endpoint.protocol = endpoint.protocol.replace("ws", "http");
 
+    // Nothing is sent for a request which has been abandoned already
+    throwIfAborted(options.signal);
+
     const encodedBody = encodeBody(context, options.body);
-    const response = await fetchImpl(endpoint, {
-        method: options.method ?? "POST",
-        headers: headerMap,
-        body: encodedBody,
-        // @ts-expect-error TS is dumb
-        duplex: "half",
-    });
+    const response = await raceAbort(
+        fetchImpl(endpoint, {
+            method: options.method ?? "POST",
+            headers: headerMap,
+            body: encodedBody,
+            signal: options.signal,
+            // @ts-expect-error TS is dumb
+            duplex: "half",
+        }),
+        options.signal,
+        discardResponse,
+    );
 
     if (response.status === 200) {
         return response;
     }
 
-    const buffer = await response.arrayBuffer();
+    const buffer = await readBody(response, options.signal);
 
     throw new HttpConnectionError(
         new TextDecoder("utf-8").decode(buffer),

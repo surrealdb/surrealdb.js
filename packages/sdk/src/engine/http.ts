@@ -5,13 +5,19 @@ import {
     UnexpectedServerResponseError,
     UnsupportedFeatureError,
 } from "../errors";
+import { throwIfAborted } from "../internal/abort";
 import { getSessionFromState } from "../internal/get-session-from-state";
-import { fetchSurreal } from "../internal/http";
+import { fetchSurreal, readBody } from "../internal/http";
 import { parseRpcError } from "../internal/parse-error";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
-import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
+import type {
+    ConnectionState,
+    EngineEvents,
+    RequestOptions,
+    SurrealEngine,
+} from "../types/surreal";
 import { Features } from "../utils";
 import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
@@ -65,7 +71,10 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
 
     override async send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,
+        options?: RequestOptions,
     ): Promise<Result> {
+        throwIfAborted(options?.signal);
+
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
@@ -113,9 +122,10 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
                 id,
                 ...request,
             },
+            signal: options?.signal,
         });
 
-        const buffer = await res.arrayBuffer();
+        const buffer = await readBody(res, options?.signal);
 
         let response: RpcResponse<Result>;
 

@@ -71,9 +71,31 @@ export interface SurrealProtocol {
     exportMlModel(options: MlExportOptions): Promise<Response | Uint8Array>;
 
     // Query operations
-    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>>;
-    gql<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>>;
+    query<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>>;
     liveQuery(id: Uuid): AsyncIterable<LiveMessage>;
+}
+
+/**
+ * Options for a single request made to an engine
+ */
+export interface RequestOptions {
+    /**
+     * Abandon the request when this signal aborts.
+     *
+     * An engine honouring it stops waiting for the answer, releases what the request holds,
+     * and fails with the reason of the signal. Whether the server also stops executing is up
+     * to the protocol: where it has no way of being told, it carries on and the answer is
+     * discarded on arrival.
+     *
+     * Engines are free to ignore it. The SDK stops waiting on its own either way, so an
+     * engine which does only misses the chance to release resources early.
+     */
+    signal?: AbortSignal;
 }
 
 /**
@@ -105,18 +127,6 @@ export interface DriverOptions {
     codecOptions?: CodecOptions;
     websocketImpl?: typeof WebSocket;
     fetchImpl?: typeof fetch;
-    /**
-     * Stream query results from the server as they are produced, instead of receiving
-     * them in a single response, on engines and servers which support it.
-     *
-     * Streaming lowers the time until the first result and avoids decoding one large
-     * response, and is transparent: results, errors, and statistics are the same either
-     * way. Queries sent inside a transaction created with `.begin()` are never streamed,
-     * and a server without support for streaming is detected and used as before.
-     *
-     * @default true
-     */
-    streaming?: boolean;
 }
 
 /**
@@ -272,54 +282,6 @@ export interface RetryOptions {
      */
     retryable?: (error: unknown) => boolean;
 }
-
-/**
- * Options to configure a stateless, atomic `transaction()`.
- */
-export interface TransactionOptions {
-    /**
-     * Replay the whole transaction when it fails due to a transaction conflict.
-     *
-     * Defaults to the `retry` behavior configured on the connection. The queries passed to
-     * `transaction()` are sent as one atomic request, so replaying them is always safe.
-     *
-     * As for any retry, a conflict is only recognized by default when the server reports it as a
-     * structured `TransactionConflict`, which SurrealDB 3.1.0 and later do. For earlier versions
-     * give a `retryable` predicate, which is passed the error which made the transaction fail.
-     */
-    retry?: RetryValue;
-}
-
-/**
- * A query builder, such as the one returned by `select()`, `create()`, `update()`,
- * `upsert()`, `delete()`, `insert()`, `relate()`, `run()`, `auth()` or `api()`, which can
- * be compiled into the {@link BoundQuery} it would send.
- */
-export interface CompilableQuery {
-    compile(): BoundQuery;
-}
-
-/**
- * A query which exposes the {@link BoundQuery} it will send as `inner`, such as the `Query`
- * returned by `query()`.
- */
-export interface InnerQuery {
-    readonly inner: BoundQuery;
-}
-
-/**
- * Anything which can be combined with other queries by `query([...])` or `transaction([...])`.
- *
- * - A `string` of SurrealQL, which carries no bindings
- * - A {@link BoundQuery}, such as one created by the `surql` template tag
- * - A query builder, which contributes the statement it compiles to
- * - A `Query` returned by `query()`, which contributes its inner query
- *
- * Only the statements and their bindings are taken from an input. Anything configured on a
- * builder or `Query` itself, such as `.json()` or `.retry()`, is ignored in favor of the
- * combined query's own configuration.
- */
-export type QueryLike = string | BoundQuery | CompilableQuery | InnerQuery;
 
 export interface ConnectionSession {
     id: Session;

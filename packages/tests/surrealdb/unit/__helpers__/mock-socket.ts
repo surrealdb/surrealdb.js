@@ -1,5 +1,5 @@
 import { CborCodec } from "@surrealdb/sqon";
-import type { ConnectionState, DriverContext } from "surrealdb";
+import type { ConnectionState, DriverContext, DriverOptions } from "surrealdb";
 import { ReconnectContext } from "../../../../sdk/src/internal/reconnect";
 import { DEFAULT_RETRY_OPTIONS } from "../../../../sdk/src/internal/retry";
 
@@ -18,11 +18,12 @@ const codec = new CborCodec({});
 
 /**
  * A `WebSocket` implementation which hands every request to a test provided
- * handler and lets it answer with any number of responses.
+ * handler and lets it answer with any number of responses, or none at all.
  *
  * The engine is driven over its real transport this way: requests are encoded
- * and responses decoded by the same codec a server would use, so frame
- * ordering, correlation by request id and cancellation are all exercised.
+ * and responses decoded by the same codec a server would use, so correlation by
+ * request id and what happens to a response nobody is waiting for any longer
+ * are exercised for real.
  */
 export class MockSocket {
     static readonly CONNECTING = 0;
@@ -117,7 +118,7 @@ export class MockSocket {
 /**
  * A driver context wired to the mocked socket.
  */
-export function mockContext(options: { streaming?: boolean } = {}): DriverContext {
+export function mockContext(options: Partial<DriverOptions> = {}): DriverContext {
     let id = 0;
 
     return {

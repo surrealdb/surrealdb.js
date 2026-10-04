@@ -31,6 +31,7 @@ import type {
     NamespaceDatabase,
     Nullable,
     QueryChunk,
+    RequestOptions,
     RetryOptions,
     Session,
     SqlExportOptions,
@@ -435,9 +436,14 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.exportMlModel(options);
     }
 
-    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
+    query<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
         if (!this.#engine) throw new ConnectionUnavailableError();
-        return this.#engine.query(query, session, txn);
+        return this.#engine.query(query, session, txn, options);
     }
 
     gql<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
