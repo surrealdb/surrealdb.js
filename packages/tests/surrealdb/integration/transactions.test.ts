@@ -21,10 +21,11 @@ import {
     createSurreal,
     getEngines,
     requestVersion,
+    SURREAL_BACKEND,
     SURREAL_PROTOCOL,
 } from "./__helpers__";
 
-const { is3x } = await requestVersion();
+const { is2x, is3x, structuredConflicts } = await requestVersion();
 
 interface Person {
     id: RecordId<"person">;
@@ -305,12 +306,29 @@ describe("transaction()", async () => {
             expect(await surreal.select<Person>(new Table("person"))).toEqual([]);
         });
 
-        test("a RETURN last is fine", async () => {
+        test.if(is3x)("a RETURN last is fine", async () => {
             const surreal = await createSurreal();
 
             expect(
                 await surreal.transaction<[unknown, number]>(["CREATE person:a", "RETURN 7"]),
             ).toEqual([expect.anything(), 7]);
+        });
+
+        // Before 3.0 the results of the statements before a RETURN are replaced by its own, which
+        // is why no RETURN is allowed at all there: what is left cannot be matched to the queries.
+        test.if(is2x)("a RETURN is rejected before SurrealDB 3.0, even last", async () => {
+            const surreal = await createSurreal();
+            await surreal.query(/* surql */ `DEFINE TABLE person SCHEMALESS`);
+
+            const results = await surreal.query("BEGIN; CREATE person:a; RETURN 7; COMMIT;");
+
+            expect(results).toEqual([7]);
+
+            await expect(surreal.transaction(["CREATE person:b", "RETURN 7"])).rejects.toThrow(
+                /queries\[1\] contains a RETURN statement.*before 3\.0/,
+            );
+
+            expect(await surreal.select<Person>(new RecordId("person", "b"))).toBeUndefined();
         });
 
         test("the keywords in strings are fine", async () => {
@@ -498,9 +516,16 @@ describe.if(is3x)("transaction() on SurrealDB 3", async () => {
         });
     });
 
-    describe("conflicts", () => {
+    // Two connections to the same server, which an embedded engine does not offer: each
+    // connection to `mem://` is a datastore of its own, and embedded engines do not conflict the
+    // way a server does.
+    describe.if(SURREAL_BACKEND === "remote")("conflicts", () => {
         // Each updates the same record, and stays open long enough for the other to as well
         const increment = ["UPDATE counter:c SET n += 1", "SLEEP 300ms"];
+
+        // Replays for longer than the other transaction stays open, as a server may report a
+        // conflict as soon as it happens, which is before the first one has committed.
+        const patient = { retryDelay: 5, retryDelayMax: 20, attempts: 50 };
 
         async function connections() {
             const [first, second] = await Promise.all([createSurreal(), createSurreal()]);
@@ -528,16 +553,52 @@ describe.if(is3x)("transaction() on SurrealDB 3", async () => {
             // the error of an update which was rolled back as a consequence of it.
             const reason = (losers[0] as PromiseRejectedResult).reason;
 
-            expect(reason).toBeInstanceOf(QueryError);
-            expect((reason as QueryError).isTransactionConflict).toBeTrue();
+            expect(reason).toBeInstanceOf(ServerError);
+            expect((reason as ServerError).message).toMatch(/conflict/i);
+            expect((reason as ServerError).message).not.toMatch(/not executed due to a/);
+
+            // Before 3.1.0 a conflict is only a message, from then on it is structured
+            if (structuredConflicts) {
+                expect(reason).toBeInstanceOf(QueryError);
+                expect((reason as QueryError).isTransactionConflict).toBeTrue();
+                expect((reason as QueryError).isNotExecuted).toBeFalse();
+            }
 
             expect((await counter(first))?.n).toBe(1);
         });
 
-        test("with retry, the loser is replayed and both go through", async () => {
+        test.if(structuredConflicts)(
+            "with retry, the loser is replayed and both go through",
+            async () => {
+                const { first, second } = await connections();
+                const options: TransactionOptions = { retry: patient };
+
+                await Promise.all([
+                    first.transaction(increment, options),
+                    second.transaction(increment, options),
+                ]);
+
+                expect((await counter(first))?.n).toBe(2);
+            },
+        );
+
+        // What servers before 3.1.0, which report a conflict as a message, need. The predicate is
+        // given the conflict, which is the error to look at, and not the "not executed" errors
+        // of the statements which were rolled back.
+        test("with retry and a predicate for the message of a conflict, the loser is replayed", async () => {
             const { first, second } = await connections();
+            const seen: unknown[] = [];
+
             const options: TransactionOptions = {
-                retry: { enabled: true, retryDelay: 1, retryDelayMax: 10, attempts: 10 },
+                retry: {
+                    ...patient,
+                    retryable: (error) => {
+                        seen.push(error);
+                        return (
+                            error instanceof ServerError && error.message.includes("can be retried")
+                        );
+                    },
+                },
             };
 
             await Promise.all([
@@ -546,6 +607,11 @@ describe.if(is3x)("transaction() on SurrealDB 3", async () => {
             ]);
 
             expect((await counter(first))?.n).toBe(2);
+
+            expect(seen.length).toBeGreaterThan(0);
+            for (const error of seen) {
+                expect((error as ServerError).message).toMatch(/conflict/i);
+            }
         });
     });
 });

@@ -8,11 +8,26 @@ import { assertTransactionSafe, joinQueries, resolveQueries } from "./compose-qu
 import { RetryContext } from "./retry";
 
 /**
- * The first version of SurrealDB which reports a result for the `BEGIN` and `COMMIT`
- * statements themselves. Before it, a transaction's results hold only the statements
- * between them.
+ * The first version of SurrealDB to give a transaction the results which `transaction()`
+ * relies on. Before it:
+ *
+ * - the results hold only the statements between the `BEGIN` and the `COMMIT`, which are not
+ *   reported themselves;
+ * - a `RETURN` replaces the results of every statement before it with its own, so what a
+ *   transaction resolves to can no longer be matched to the queries which were passed.
  */
-const CONTROL_RESULTS_SINCE = "3.0.0";
+const MODERN_TRANSACTIONS_SINCE = "3.0.0";
+
+/**
+ * Whether a server reports a result for the `BEGIN` and `COMMIT` of a transaction, and keeps
+ * the results of the statements before a `RETURN`.
+ *
+ * The SDK only supports servers up to 3.x, so a connection whose version is not known is
+ * expected to be a recent one.
+ */
+function isModernTransaction(version: string | undefined): boolean {
+    return version === undefined || isVersionSupported(version, MODERN_TRANSACTIONS_SINCE);
+}
 
 /**
  * Pattern for the errors which servers without structured errors report for the statements
@@ -76,10 +91,7 @@ export function unwrapResults(
     responses: readonly QueryResponse[],
     version: string | undefined,
 ): unknown[] {
-    // The SDK only supports servers up to 3.x, so a connection whose version is not yet
-    // known is expected to be a recent one.
-    const control =
-        version === undefined || isVersionSupported(version, CONTROL_RESULTS_SINCE) ? 1 : 0;
+    const control = isModernTransaction(version) ? 1 : 0;
 
     if (responses.length < control * 2) {
         throw new UnexpectedServerResponseError(
@@ -134,7 +146,12 @@ export async function executeTransaction<R extends unknown[]>(
         return [] as unknown as R;
     }
 
-    assertTransactionSafe(resolved);
+    // What a transaction may hold depends on the version of the server
+    await connection.ready();
+
+    assertTransactionSafe(resolved, "queries", {
+        returnReplacesResults: !isModernTransaction(connection.serverVersion),
+    });
 
     const query = new Query(connection, {
         query: wrapInTransaction(joinQueries(resolved)),
@@ -142,8 +159,6 @@ export async function executeTransaction<R extends unknown[]>(
         session,
         json: false,
     });
-
-    await connection.ready();
 
     const context = new RetryContext(RetryContext.mergeOptions(options.retry, connection.retry));
 

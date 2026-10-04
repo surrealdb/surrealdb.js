@@ -282,6 +282,10 @@ export interface TransactionOptions {
      *
      * Defaults to the `retry` behavior configured on the connection. The queries passed to
      * `transaction()` are sent as one atomic request, so replaying them is always safe.
+     *
+     * As for any retry, a conflict is only recognized by default when the server reports it as a
+     * structured `TransactionConflict`, which SurrealDB 3.1.0 and later do. For earlier versions
+     * give a `retryable` predicate, which is passed the error which made the transaction fail.
      */
     retry?: RetryValue;
 }

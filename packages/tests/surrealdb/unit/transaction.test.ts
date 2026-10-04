@@ -122,6 +122,13 @@ function connection(
     return fake as typeof fake & ConnectionController;
 }
 
+// A "not executed" error as servers without structured errors word it
+const secondaryLegacy = () =>
+    new InternalError({
+        kind: "Internal",
+        message: "The query was not executed due to a failed transaction",
+    });
+
 const FAST: TransactionOptions = { retry: { enabled: true, retryDelay: 0, retryDelayMax: 0 } };
 
 describe("isSecondaryError", () => {
@@ -164,6 +171,23 @@ describe("isSecondaryError", () => {
             ),
         ).toBe(true);
         expect(isSecondaryError(legacy("An error occurred: boom"))).toBe(false);
+    });
+
+    // What SurrealDB 3.0.0 reports for a conflict, as recorded from its CI run: unstructured, and
+    // worded like a "not executed" error, yet it is the failure itself and what a retry needs.
+    test("a conflict from SurrealDB 3.0.0 is a failure, although it says the query was not executed", () => {
+        const conflict30 = new InternalError({
+            kind: "Internal",
+            message:
+                "Query not executed: Transaction conflict: Resource busy: . This transaction can be retried",
+        });
+
+        expect(isSecondaryError(conflict30)).toBe(false);
+
+        // Among the errors of a transaction, it is the one which is found
+        expect(findRootCause(toResponses([ok(), fail(secondaryLegacy()), fail(conflict30)]))).toBe(
+            conflict30,
+        );
     });
 
     test("does not read the message of an error which is structured", () => {
@@ -364,6 +388,40 @@ describe("executeTransaction", () => {
 
         expect(await executeTransaction(conn, undefined, [])).toEqual([]);
         expect(conn.sent).toHaveLength(0);
+    });
+
+    describe("a RETURN, which depends on the version of the server", () => {
+        test("is allowed last on SurrealDB 3.0 and later", async () => {
+            const conn = connection([[ok(), ok("a"), ok(7), ok()]], { version: "surrealdb-3.0.0" });
+
+            expect(await executeTransaction(conn, undefined, ["'a'", "RETURN 7"])).toEqual([
+                "a",
+                7,
+            ]);
+        });
+
+        test("is allowed last when the version is not known", async () => {
+            const conn = connection([[ok(), ok(7), ok()]], { version: null });
+
+            expect(await executeTransaction(conn, undefined, ["RETURN 7"])).toEqual([7]);
+        });
+
+        test("is rejected before SurrealDB 3.0, even last, without sending anything", async () => {
+            for (const version of ["surrealdb-2.2.7", "surrealdb-2.3.7", "surrealdb-2.9.9"]) {
+                const conn = connection([[ok(7)]], { version });
+
+                await expect(
+                    executeTransaction(conn, undefined, ["'a'", "RETURN 7"]),
+                ).rejects.toThrow(/queries\[1\] contains a RETURN statement.*before 3\.0/);
+                expect(conn.sent).toHaveLength(0);
+            }
+        });
+
+        test("is not a problem before SurrealDB 3.0 when there is none", async () => {
+            const conn = connection([[ok("a"), ok("b")]], { version: "surrealdb-2.2.7" });
+
+            expect(await executeTransaction(conn, undefined, ["'a'", "'b'"])).toEqual(["a", "b"]);
+        });
     });
 
     describe("rejecting queries", () => {

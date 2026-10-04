@@ -378,5 +378,39 @@ describe("assertTransactionSafe", () => {
         test("reports a transaction statement ahead of a RETURN which precedes it", () => {
             expect(() => check("RETURN 1", "COMMIT")).toThrow(/contains a COMMIT/);
         });
+
+        // Servers before 3.0 replace the results of the statements before a RETURN with its own
+        describe("where a RETURN replaces the results of the statements before it", () => {
+            const legacy = (...inputs: string[]) =>
+                assertTransactionSafe(resolveQueries(inputs), "queries", {
+                    returnReplacesResults: true,
+                });
+
+            test("rejects a RETURN even when it is last", () => {
+                expect(() => legacy("CREATE a", "RETURN 1")).toThrow(ExpressionError);
+                expect(() => legacy("CREATE a", "RETURN 1")).toThrow(
+                    /queries\[1\] contains a RETURN statement.*before 3\.0/,
+                );
+                expect(() => legacy("RETURN 1")).toThrow(/queries\[0\] contains a RETURN/);
+                expect(() => legacy("CREATE a; RETURN 1")).toThrow(
+                    /queries\[0\] contains a RETURN/,
+                );
+            });
+
+            test("accepts everything which is not a RETURN statement", () => {
+                expect(() =>
+                    legacy(
+                        "CREATE a RETURN AFTER",
+                        "LET $a = { RETURN 1 }",
+                        "$a + 1",
+                        "SELECT * FROM a",
+                    ),
+                ).not.toThrow();
+            });
+
+            test("still rejects the statements which a transaction supplies itself", () => {
+                expect(() => legacy("COMMIT")).toThrow(/contains a COMMIT/);
+            });
+        });
     });
 });

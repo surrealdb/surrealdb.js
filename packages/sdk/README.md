@@ -246,7 +246,8 @@ Queries must not contain `BEGIN`, `COMMIT` or `CANCEL` statements, as `transacti
 in SurrealQL: the statements after it would be skipped, and the transaction would still commit.
 Use `SELECT` or a bare expression to produce a value in the middle of a transaction. A `RETURN`
 nested inside a block, such as an `IF`, ends the transaction in the same way, but cannot be
-detected, so take care with those.
+detected, so take care with those. Before SurrealDB 3.0 a `RETURN` also replaces the results of
+the statements before it, so no `RETURN` is allowed at all.
 
 Under concurrent load a transaction can fail because another one wrote to the same data. As the
 whole transaction is sent at once it is always safe to replay, so it can opt into retrying with
@@ -261,6 +262,10 @@ await db.transaction(
     { retry: true },
 );
 ```
+
+As with any retry, a conflict is only recognized by default when the server reports it as a structured
+`TransactionConflict`, which SurrealDB 3.1.0 and later do. For earlier versions, give a `retryable`
+predicate in the `retry` option, which is passed the error which made the transaction fail.
 
 To run queries inside a transaction which you control, such as to read before deciding what to
 write, use `beginTransaction()` on a WebSocket connection. A list of queries can also be passed

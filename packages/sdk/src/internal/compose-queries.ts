@@ -150,6 +150,9 @@ const TRANSACTION_CONTROL = new Set(["BEGIN", "COMMIT", "CANCEL"]);
  *   That would drop part of the work without an error, and shorten the results. Statements
  *   which produce a value without ending the transaction, such as `SELECT` or a bare
  *   expression, are fine, as is a `RETURN` which comes last.
+ * - On servers where a `RETURN` replaces the results of the statements before it, which is the
+ *   case before SurrealDB 3.0, every `RETURN` is rejected, as the results which are left can no
+ *   longer be matched to the queries.
  *
  * A `RETURN` nested inside a block, such as an `IF`, ends a transaction just the same, but
  * cannot be told apart from a block which merely produces a value without understanding
@@ -157,8 +160,13 @@ const TRANSACTION_CONTROL = new Set(["BEGIN", "COMMIT", "CANCEL"]);
  *
  * @param queries The queries which would be wrapped
  * @param name How the caller names the array, used when reporting the index of an input
+ * @param rules What the server which the queries are for does with a `RETURN`
  */
-export function assertTransactionSafe(queries: readonly BoundQuery[], name = "queries"): void {
+export function assertTransactionSafe(
+    queries: readonly BoundQuery[],
+    name = "queries",
+    { returnReplacesResults = false }: { returnReplacesResults?: boolean } = {},
+): void {
     let returned: number | undefined;
 
     for (const [index, query] of queries.entries()) {
@@ -166,6 +174,12 @@ export function assertTransactionSafe(queries: readonly BoundQuery[], name = "qu
             if (TRANSACTION_CONTROL.has(keyword)) {
                 throw new ExpressionError(
                     `${name}[${index}] contains a ${keyword} statement. transaction() wraps the queries in BEGIN and COMMIT itself, so they must not contain any`,
+                );
+            }
+
+            if (keyword === "RETURN" && returnReplacesResults) {
+                throw new ExpressionError(
+                    `${name}[${index}] contains a RETURN statement. On SurrealDB before 3.0 a RETURN in a transaction replaces the results of the statements before it, so the results could no longer be matched to the queries. Use SELECT or a bare expression instead`,
                 );
             }
 

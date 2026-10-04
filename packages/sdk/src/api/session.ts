@@ -185,11 +185,15 @@ export class SurrealSession extends SurrealQueryable {
      * They cannot contain `BEGIN`, `COMMIT` or `CANCEL` statements, nor a `RETURN` followed by
      * further statements, as `RETURN` ends a transaction early in SurrealQL: use `SELECT` or a
      * bare expression to produce a value instead. A `RETURN` nested inside a block, such as an
-     * `IF`, ends the transaction in the same way but cannot be detected.
+     * `IF`, ends the transaction in the same way but cannot be detected. Before SurrealDB 3.0 a
+     * `RETURN` also replaces the results of the statements before it, so none is allowed at all.
      *
      * Because the queries are sent as one atomic request, they are safe to replay, and so a
      * transaction can opt into retrying when it fails due to a conflict with a concurrent
-     * transaction, using the `retry` option or the `retry` configured on the connection.
+     * transaction, using the `retry` option or the `retry` configured on the connection. Only
+     * SurrealDB 3.1.0 and later report a conflict in a way which the default retry recognizes:
+     * for earlier versions, provide a `retryable` predicate as for `query().retry()`. It is given
+     * the error which made the transaction fail, whichever version it is.
      *
      * @example
      * ```ts
