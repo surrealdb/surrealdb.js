@@ -164,37 +164,56 @@ When the function throws, or returns something which cannot be used, the connect
 
 #### Resolving credentials for each request
 
-Give `authentication` a resolver with `when: "request"` to evaluate the function as requests are made, instead of when connecting. This suits short lived tokens, tokens which are rotated out of band, and connections which do not live long, such as one for each invocation on a serverless platform. Nothing is resolved when connecting, and no timers are started.
+Give `authentication` a resolver with `when: "request"` to evaluate the function as requests are made, instead of when connecting. This suits tokens which are rotated out of band, identities which differ from request to request, and connections which do not live long, such as one for each invocation on a serverless platform. Nothing is resolved when connecting, and no timers are started.
+
+There are two recipes, which differ in what the function may depend on:
 
 ```ts
+// The identity is that of whoever is asking, so it is decided for every request. This is
+// the default: `cache: "none"`. The function may read it from the request being handled.
 await db.connect("https://example.surrealdb.com", {
     namespace: "app",
     database: "app",
     authentication: {
-        resolve: async (session) => await identityProvider.issueToken(),
+        resolve: () => requestContext.getStore()?.token ?? null,
         when: "request",
-        cache: "until-expiry", // the default
+    },
+});
+
+// The identity is the same for everyone, such as a service token which is rotated, so it is
+// reused until it is about to expire. The function must not depend on the current request.
+await db.connect("https://example.surrealdb.com", {
+    namespace: "app",
+    database: "app",
+    authentication: {
+        resolve: async () => await identityProvider.issueServiceToken(),
+        when: "request",
+        cache: "until-expiry",
     },
     expiryMargin: 60,
 });
 ```
 
+> **Warning:** with `cache: "until-expiry"` or `{ ttl }` the credential belongs to the session and is used for every request which is made on it, including the ones which are made while the first is still being resolved, which wait for it. If `resolve` returns something which depends on the current request, such as the user it is being handled for, everyone gets the credential which was resolved first. That is a security problem, which is why the default never reuses one.
+
 The `cache` option decides when a resolved credential is used again instead of calling `resolve` again:
 
 | `cache` | A resolved credential is used... |
 | --- | --- |
-| `"until-expiry"` (default) | until `expiryMargin` seconds before the `exp` claim of the token. A token without an expiry, such as an opaque token, cannot be reused safely and is resolved for every request. |
+| `"none"` (default) | never. `resolve` is evaluated for every request, and concurrent requests do not share the result. |
+| `"until-expiry"` | until `expiryMargin` seconds before the `exp` claim of the token, and concurrent requests share one call to `resolve`. A token without an expiry, such as an opaque token, cannot be reused safely and is resolved for every request. |
 | `{ ttl: 300 }` | for at most 300 seconds, and for a token with an expiry never beyond the point at which `"until-expiry"` would stop using it. This is how to bound the reuse of tokens without an expiry. |
-| `"none"` | never. `resolve` is evaluated for every request, and concurrent requests do not share the result. |
 
-Concurrent requests which need a credential share a single call to `resolve`. When `resolve` fails, the request is rejected with an `AuthResolverError` and is not sent. It is never sent without credentials or with an earlier credential instead, nothing about the session changes, and the failure is not remembered: the next request tries again.
+When `resolve` returns authentication details rather than a token, they are signed in with whenever a credential is resolved, which with the default is for every request. Return a token, or choose a `cache`, when that is more than you want.
+
+When `resolve` fails, the request is rejected with an `AuthResolverError` and is not sent. It is never sent without credentials or with an earlier credential instead, nothing about the session changes, and the failure is not remembered: the next request tries again.
 
 How the credential is presented depends on the protocol:
 
 - **HTTP:** the token is the `Authorization` header of the request. It is only ever sent to the origin of the connection, and requests which carry it do not follow redirects. When the server answers `401` the credential is resolved again and the request is sent again, once. The server answers `401` to a token it does not accept before it runs anything, so this is safe for every request, including writes. An error reported inside a successful response is not a `401`, as the request may have partly run, and is never sent again. Neither is an import which is streamed.
 - **WebSocket:** the session is authenticated again, before the request is sent, whenever the credential has changed. The server is only told when it did, and requests wait for it. When the connection is re-established the credential is resolved again.
 
-A credential belongs to the session, not to a request: requests which share a session share an identity, and a credential is reused for all of them unless `cache` is `"none"`. Over HTTP `"none"` sends each request with what was resolved for it, so `resolve` may read who it is for from the request being handled. Calling `db.invalidate()` discards the credential, and the next request resolves a new one.
+A credential belongs to the session, not to a request. Over HTTP `"none"` sends each request with what was resolved for it, so `resolve` may decide on the identity of each one. Over WebSocket requests which share a session share an identity, as a session holds one, so what was resolved for each request is applied to it one request after the other. Calling `db.invalidate()` discards the credential, and the next request resolves a new one.
 
 #### Running a call as someone else
 

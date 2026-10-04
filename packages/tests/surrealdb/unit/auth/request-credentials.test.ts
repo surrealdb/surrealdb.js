@@ -380,3 +380,110 @@ describe("forgetting", () => {
         expect(calls).toBe(4);
     });
 });
+
+describe("none, for a session which the credential is applied to", () => {
+    function serialized() {
+        return new RequestCredentials({
+            cache: "none",
+            margin: () => 60,
+            now: () => START,
+            serialize: true,
+        });
+    }
+
+    test("resolutions for one session run one after the other, in the order asked", async () => {
+        const credentials = serialized();
+        const gates = [deferred<string>(), deferred<string>(), deferred<string>()];
+        const started: number[] = [];
+        let running = 0;
+        let overlapped = false;
+
+        const load = (n: number) => async () => {
+            started.push(n);
+            running++;
+            overlapped ||= running > 1;
+
+            const token = await gates[n].promise;
+
+            running--;
+
+            return token;
+        };
+
+        const results = [0, 1, 2].map((n) => credentials.get(undefined, load(n)));
+
+        await Promise.resolve();
+        expect(started).toEqual([0]);
+
+        gates[0].resolve("a");
+        await results[0];
+        await Bun.sleep(1);
+        expect(started).toEqual([0, 1]);
+
+        gates[1].resolve("b");
+        await results[1];
+        await Bun.sleep(1);
+        gates[2].resolve("c");
+
+        expect(await Promise.all(results)).toEqual(["a", "b", "c"]);
+        expect(started).toEqual([0, 1, 2]);
+        expect(overlapped).toBeFalse();
+    });
+
+    test("a failure does not hold back the ones which follow, and is only for its own request", async () => {
+        const credentials = serialized();
+        const first = credentials.get(undefined, async () => {
+            throw new Error("down");
+        });
+        const second = credentials.get(undefined, async () => "recovered");
+
+        await expect(first).rejects.toThrow("down");
+        expect(await second).toBe("recovered");
+    });
+
+    test("sessions do not wait for each other", async () => {
+        const credentials = serialized();
+        const other = Uuid.v4();
+        const gate = deferred<string>();
+        const slow = credentials.get(undefined, () => gate.promise);
+
+        expect(await credentials.get(other, async () => "quick")).toBe("quick");
+
+        gate.resolve("slow");
+        expect(await slow).toBe("slow");
+    });
+
+    test("nothing is kept once they have run", async () => {
+        const credentials = serialized();
+        let calls = 0;
+        const load = async () => `opaque-${++calls}`;
+
+        expect(await credentials.get(undefined, load)).toBe("opaque-1");
+        expect(await credentials.get(undefined, load)).toBe("opaque-2");
+    });
+
+    test("without it, nothing waits", async () => {
+        const credentials = new RequestCredentials({
+            cache: "none",
+            margin: () => 60,
+            now: () => START,
+        });
+        const gate = deferred<string>();
+        let started = 0;
+
+        const slow = credentials.get(undefined, () => {
+            started++;
+            return gate.promise;
+        });
+        const quick = credentials.get(undefined, async () => {
+            started++;
+            return "quick";
+        });
+
+        expect(await quick).toBe("quick");
+        expect(started).toBe(2);
+
+        gate.resolve("slow");
+        await slow;
+    });
+});

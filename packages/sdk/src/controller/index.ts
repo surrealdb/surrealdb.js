@@ -133,6 +133,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             ? new RequestCredentials({
                   cache: authentication.request.cache,
                   margin: () => this.#expiryMargin,
+                  // A session held on the other side ends up with what was applied last
+                  serialize: !engine.features.has(Features.PerRequestAuth),
               })
             : undefined;
         this.#state = {

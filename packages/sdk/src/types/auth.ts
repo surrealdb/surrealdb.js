@@ -70,14 +70,21 @@ export type AuthCallable = (session: Session) => ProvidedAuth | Promise<Provided
 
 /**
  * How long a credential resolved for a request may be reused instead of invoking the
- * resolver again.
+ * resolver again. The default is `"none"`.
  *
+ * - `"none"` always invokes the resolver for a request, and concurrent requests do not share
+ *   what it resolves. This is the only policy which is safe when the resolver depends on who
+ *   is asking, such as one which reads the identity from the request being handled. Anything
+ *   which reuses a credential hands the one which was resolved first to everyone.
  * - `"until-expiry"` reuses a token until shortly before the `exp` claim of the JWT expires, as
- *   governed by the `expiryMargin` connect option. A token without a known expiry, such as an
- *   opaque token, cannot be reused safely and is resolved again for every request.
- * - `"none"` always invokes the resolver for a request.
+ *   governed by the `expiryMargin` connect option, and concurrent requests share one call to
+ *   the resolver. A token without a known expiry, such as an opaque token, cannot be reused
+ *   safely and is resolved again for every request. **The resolver must not depend on the
+ *   current request**: the credential belongs to the session, so it is for an identity which
+ *   is the same for everyone, such as a service token which is rotated.
  * - `{ ttl }` reuses a credential for at most `ttl` seconds, and no longer than the expiry of
- *   a token which carries one. It is the way to bound the reuse of tokens without an expiry.
+ *   a token which carries one. It is the way to bound the reuse of tokens without an expiry,
+ *   and has the same restriction as `"until-expiry"`.
  */
 export type AuthCache = "until-expiry" | "none" | { ttl: number };
 
@@ -97,6 +104,9 @@ export interface AuthResolverOnConnect {
 export interface AuthResolverOnRequest {
     resolve: AuthCallable;
     when: "request";
+    /**
+     * @default "none"
+     */
     cache?: AuthCache;
 }
 

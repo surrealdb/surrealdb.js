@@ -47,7 +47,7 @@ async function _main() {
     });
     await db.connect(url, { authentication: async () => null });
 
-    // A resolver evaluated when connecting, or for each request
+    // A resolver evaluated when connecting, or for each request, where the cache defaults to "none"
     await db.connect(url, { authentication: { resolve: () => "token", when: "connect" } });
     await db.connect(url, { authentication: { resolve: () => "token" } });
     await db.connect(url, {

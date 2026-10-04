@@ -7,6 +7,7 @@ import {
     Surreal,
     SurrealError,
 } from "../../../../sdk/src";
+import { parseAuthentication } from "../../../../sdk/src/internal/auth-provider";
 import { fetchSurreal } from "../../../../sdk/src/internal/http";
 import {
     clients,
@@ -64,6 +65,18 @@ describe("authentication configuration", () => {
     test("a cache policy must be one that can be honoured", async () => {
         await rejects({ resolve: () => null, when: "request", cache: "forever" });
         await rejects({ resolve: () => null, when: "request", cache: { ttl: 0 } });
+    });
+
+    test("credentials are not reused unless the cache says so", () => {
+        const resolve = () => null;
+
+        expect(parseAuthentication({ resolve, when: "request" }).request?.cache).toBe("none");
+        expect(
+            parseAuthentication({ resolve, when: "request", cache: "until-expiry" }).request?.cache,
+        ).toBe("until-expiry");
+        expect(
+            parseAuthentication({ resolve, when: "request", cache: { ttl: 30 } }).request?.cache,
+        ).toEqual({ ttl: 30 });
     });
 
     test("a resolver with when connect behaves like a function", async () => {
@@ -192,17 +205,48 @@ describe("per request resolution", () => {
         expect(tokens[3]).not.toBe(tokens[2]);
     });
 
-    test("until-expiry is the default policy", async () => {
+    test("the resolver is evaluated for every request by default", async () => {
         let calls = 0;
-        const { db } = await connect(server({}), {
+        const { db, mock } = await connect(server({}), {
             resolve: () => createJwtExpiringIn(3600, `token-${++calls}`),
             when: "request",
         });
 
         await db.query("RETURN 1");
         await db.query("RETURN 2");
+        await db.query("RETURN 3");
 
-        expect(calls).toBe(1);
+        // However long the token lives, as what it was resolved for may not be what is asked next
+        expect(calls).toBe(3);
+        expect(new Set(queries(mock.calls).map(bearerOf)).size).toBe(3);
+    });
+
+    test("concurrent requests do not share a resolution by default, and carry their own", async () => {
+        const gates = [deferred<string>(), deferred<string>(), deferred<string>()];
+        let calls = 0;
+        const { db, mock } = await connect(server({}), {
+            resolve: () => gates[calls++].promise,
+            when: "request",
+        });
+
+        const requests = [1, 2, 3].map((n) => db.query(`RETURN ${n}`).collect());
+
+        await Bun.sleep(5);
+        expect(calls).toBe(3);
+
+        // Resolved in the opposite order to which they were asked
+        gates[2].resolve("for-the-third");
+        gates[0].resolve("for-the-first");
+        gates[1].resolve("for-the-second");
+        await Promise.all(requests);
+
+        const byQuery = new Map(
+            queries(mock.calls).map((r) => [r.rpc?.params?.[0] as string, bearerOf(r)]),
+        );
+
+        expect(byQuery.get("RETURN 1")).toBe("for-the-first");
+        expect(byQuery.get("RETURN 2")).toBe("for-the-second");
+        expect(byQuery.get("RETURN 3")).toBe("for-the-third");
     });
 
     test("concurrent requests share one resolution", async () => {
@@ -214,6 +258,7 @@ describe("per request resolution", () => {
                 return gate.promise;
             },
             when: "request",
+            cache: "until-expiry",
         });
 
         const requests = [1, 2, 3, 4, 5].map((n) => db.query(`RETURN ${n}`).collect());
@@ -302,6 +347,7 @@ describe("per request resolution", () => {
                 return { access: "user", variables: { id: 7 } };
             },
             when: "request",
+            cache: "until-expiry",
         });
 
         await db.query("RETURN 1");
@@ -527,6 +573,7 @@ describe("a token which the server refuses", () => {
             {
                 resolve: () => tokens[calls++],
                 when: "request",
+                cache: "until-expiry",
             },
         );
 
@@ -536,6 +583,48 @@ describe("a token which the server refuses", () => {
 
         expect(calls).toBe(2);
         expect(queries(mock.calls).map(bearerOf)).toEqual([first, first, second]);
+    });
+
+    test("is replaced by default, by resolving again", async () => {
+        const first = createJwtExpiringIn(3600, "first");
+        const second = createJwtExpiringIn(3600, "second");
+        let revoked = false;
+        let calls = 0;
+
+        const { db, mock } = await connect(
+            server({ accept: (token) => !(revoked && token === first) }),
+            {
+                // The credential which is current until the server stops accepting it
+                resolve: () => (++calls < 3 ? first : second),
+                when: "request",
+            },
+        );
+
+        await db.query("RETURN 1");
+        revoked = true;
+        await db.query("RETURN 2");
+
+        // The second request was refused with what the resolver gave, and asked for it again
+        expect(calls).toBe(3);
+        expect(queries(mock.calls).map(bearerOf)).toEqual([first, first, second]);
+    });
+
+    test("each of the requests which are refused together resolves for itself by default", async () => {
+        const stale = createJwtExpiringIn(3600, "stale");
+        const fresh = createJwtExpiringIn(3600, "fresh");
+        let calls = 0;
+
+        const { db, mock } = await connect(server({ accept: (token) => token !== stale }), {
+            // The first three resolutions are for the first attempts of three requests
+            resolve: () => (++calls <= 3 ? stale : fresh),
+            when: "request",
+        });
+
+        await Promise.all([1, 2, 3].map((n) => db.query(`RETURN ${n}`).collect()));
+
+        expect(calls).toBe(6);
+        expect(queries(mock.calls).filter((r) => bearerOf(r) === fresh)).toHaveLength(3);
+        expect(queries(mock.calls)).toHaveLength(6);
     });
 
     test("is replaced for requests which write as well, as a refusal means nothing ran", async () => {
@@ -598,6 +687,7 @@ describe("a token which the server refuses", () => {
                     return calls === 1 ? stale : gate.promise;
                 },
                 when: "request",
+                cache: "until-expiry",
             },
         );
 

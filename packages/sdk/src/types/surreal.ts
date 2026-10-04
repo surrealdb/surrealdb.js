@@ -205,22 +205,36 @@ export interface ConnectOptions {
      *
      * To evaluate the function as requests are made instead, so that a token which is rotated
      * out of band is picked up, or because the connection is not long lived, pass a resolver
-     * with `when: "request"`. The credential is then reused until shortly before it expires,
-     * as governed by `cache` and `expiryMargin`, and resolved again after that. No timers are
-     * scheduled, and nothing is resolved when connecting.
+     * with `when: "request"`. By default the function is evaluated for every request, which is
+     * what a resolver needs when its answer depends on who is asking. Set `cache` to reuse a
+     * credential until shortly before it expires, which suits an identity which is the same for
+     * everyone, such as a service token which is rotated, and which must then not depend on the
+     * current request. No timers are scheduled, and nothing is resolved when connecting.
      *
      * Over HTTP the credential is sent as the `Authorization` header of the request. Over
      * WebSocket the session is authenticated again whenever the credential changes, before the
      * request is sent. The credential belongs to the session, so requests which need different
      * identities must use `.as()` (HTTP) or separate sessions (WebSocket).
      *
-     * @example
+     * @example Who is asking decides the identity, so the function is evaluated for every request
      * ```ts
      * await db.connect("https://example.surrealdb.com", {
      *     namespace: "app",
      *     database: "app",
      *     authentication: {
-     *         resolve: async () => await fetchTokenFromIdentityProvider(),
+     *         resolve: () => requestContext.getStore()?.token ?? null,
+     *         when: "request",
+     *     },
+     * });
+     * ```
+     *
+     * @example A service token which is rotated, the same for everyone, and reused until it expires
+     * ```ts
+     * await db.connect("https://example.surrealdb.com", {
+     *     namespace: "app",
+     *     database: "app",
+     *     authentication: {
+     *         resolve: async () => await fetchServiceToken(),
      *         when: "request",
      *         cache: "until-expiry",
      *     },

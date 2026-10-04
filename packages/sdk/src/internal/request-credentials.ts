@@ -40,7 +40,10 @@ export function assertAuthCache(cache: AuthCache): void {
  * - A failed resolution is not remembered. The next request resolves again.
  *
  * With the `"none"` policy nothing is stored and nothing is shared, so that the resolver
- * is evaluated once per request. This matters when its answer depends on who is asking.
+ * is evaluated once per request. This matters when its answer depends on who is asking. Only
+ * when resolving applies the credential to a session held on the other side (`serialize`)
+ * are the resolutions for one session made one after the other, as the session ends up with
+ * what the last of them applied.
  */
 export class RequestCredentials {
     readonly #cache: AuthCache;
@@ -48,12 +51,20 @@ export class RequestCredentials {
     readonly #now: () => number;
     readonly #entries = new Map<string, Entry>();
     readonly #inflight = new Map<string, Promise<Token | undefined>>();
+    readonly #queues = new Map<string, Promise<void>>();
+    readonly #serialize: boolean;
     #epoch = 0;
 
-    constructor(options: { cache: AuthCache; margin: () => number; now?: () => number }) {
+    constructor(options: {
+        cache: AuthCache;
+        margin: () => number;
+        now?: () => number;
+        serialize?: boolean;
+    }) {
         assertAuthCache(options.cache);
 
         this.#cache = options.cache;
+        this.#serialize = options.serialize ?? false;
         this.#margin = options.margin;
         this.#now = options.now ?? (() => Date.now());
     }
@@ -71,11 +82,12 @@ export class RequestCredentials {
         load: () => Promise<Token | undefined>,
         rejected?: Token,
     ): Promise<Token | undefined> {
+        const key = keyOf(session);
+
         if (this.#cache === "none") {
-            return load();
+            return this.#serialize ? this.#enqueue(key, load) : load();
         }
 
-        const key = keyOf(session);
         const entry = this.#entries.get(key);
 
         if (
@@ -104,6 +116,26 @@ export class RequestCredentials {
         this.#inflight.set(key, resolution);
 
         return resolution;
+    }
+
+    /**
+     * Run `load` after the resolutions which were asked for before it, for the same session
+     */
+    #enqueue(key: string, load: () => Promise<Token | undefined>): Promise<Token | undefined> {
+        const previous = this.#queues.get(key);
+        const run = previous ? previous.then(() => load()) : load();
+        const tail: Promise<void> = run
+            .then(
+                () => undefined,
+                () => undefined,
+            )
+            .finally(() => {
+                if (this.#queues.get(key) === tail) this.#queues.delete(key);
+            });
+
+        this.#queues.set(key, tail);
+
+        return run;
     }
 
     async #resolve(

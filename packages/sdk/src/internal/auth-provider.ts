@@ -32,7 +32,7 @@ export function parseAuthentication(
         }
 
         if (authentication.when === "request") {
-            const cache = authentication.cache ?? "until-expiry";
+            const cache = authentication.cache ?? "none";
 
             // Reported when connecting rather than on the first request
             assertAuthCache(cache);

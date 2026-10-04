@@ -51,6 +51,7 @@ describe("per request authentication of a session", () => {
                 return createJwtExpiringIn(3600);
             },
             when: "request",
+            cache: "until-expiry",
         });
 
         await db.query("RETURN 1");
@@ -61,7 +62,7 @@ describe("per request authentication of a session", () => {
         expect(engine.methods().filter((m) => m === "authenticate")).toHaveLength(1);
     });
 
-    test("the resolver is asked every time with none, and the server is told only of changes", async () => {
+    test("the resolver is asked every time by default, and the server is told only of changes", async () => {
         let current = "opaque-a";
         let calls = 0;
         const { db, engine } = await connect(serve(), {
@@ -70,7 +71,6 @@ describe("per request authentication of a session", () => {
                 return current;
             },
             when: "request",
-            cache: "none",
         });
         const authentications = () => engine.methods().filter((m) => m === "authenticate").length;
 
@@ -93,6 +93,7 @@ describe("per request authentication of a session", () => {
         const { db, engine } = await connect(serve({ tokens: [token] }), {
             resolve: () => ({ access: "user", variables: { id: 1 } }),
             when: "request",
+            cache: "until-expiry",
         });
 
         await db.query("RETURN 1");
@@ -124,6 +125,7 @@ describe("per request authentication of a session", () => {
                     return "token";
                 },
                 when: "request",
+                cache: "until-expiry",
             },
         );
 
@@ -138,6 +140,57 @@ describe("per request authentication of a session", () => {
         expect(resolved).toBe(1);
         expect(order).toEqual(["authenticate", "query", "query", "query"]);
         expect(engine.methods().filter((m) => m === "authenticate")).toHaveLength(1);
+    });
+
+    test("what concurrent requests resolved is applied one after the other, by default", async () => {
+        const tokens = ["opaque-a", "opaque-b", "opaque-c"];
+        const gates = [deferred<null>(), deferred<null>(), deferred<null>()];
+        const applied: string[] = [];
+        let resolved = 0;
+        let running = 0;
+        let overlapped = false;
+
+        const { db } = await connect(
+            async (request) => {
+                if (request.method === "authenticate") {
+                    running++;
+                    overlapped ||= running > 1;
+                    applied.push(request.params?.[0] as string);
+
+                    await gates[applied.length - 1].promise;
+                    running--;
+
+                    return null;
+                }
+
+                return serve()(request);
+            },
+            {
+                resolve: () => tokens[resolved++],
+                when: "request",
+            },
+        );
+
+        const requests = [1, 2, 3].map((n) => db.query(`RETURN ${n}`).collect());
+
+        await Bun.sleep(10);
+
+        // The session holds one identity, and it is what the last of them applied, so they do
+        // not race: nothing is applied until what was applied before has been
+        expect(applied).toEqual(["opaque-a"]);
+
+        gates[0].resolve(null);
+        await Bun.sleep(10);
+        expect(applied).toEqual(["opaque-a", "opaque-b"]);
+
+        gates[1].resolve(null);
+        await Bun.sleep(10);
+        gates[2].resolve(null);
+        await Promise.all(requests);
+
+        expect(applied).toEqual(tokens);
+        expect(overlapped).toBeFalse();
+        expect(db.accessToken).toBe("opaque-c");
     });
 
     test("a resolver which fails rejects the request, which is never sent", async () => {

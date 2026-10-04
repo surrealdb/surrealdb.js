@@ -209,6 +209,19 @@ describe.skipIf(!isRemote)("authentication resolved per request", () => {
         expect(resolve).toBeCalledTimes(1);
     });
 
+    test("is evaluated for every request unless the cache says otherwise", async () => {
+        const { surreal, connect } = await createIdleSurreal({ auth: "none" });
+        const resolve = mock(() => ({ access: "user", variables: { id: "alice" } }));
+
+        await connect({ authentication: { resolve, when: "request" } });
+
+        for (let i = 0; i < 3; i++) {
+            expect(await surreal.auth<{ id: RecordId }>()).toMatchObject({ id: alice });
+        }
+
+        expect(resolve).toBeCalledTimes(3);
+    });
+
     test("is reused until the token expires", async () => {
         const { surreal, connect } = await createIdleSurreal({ auth: "none" });
         const resolve = mock(() => ({ access: "user", variables: { id: "alice" } }));
@@ -229,7 +242,7 @@ describe.skipIf(!isRemote)("authentication resolved per request", () => {
             return { access: "user", variables: { id: "alice" } };
         });
 
-        await connect({ authentication: { resolve, when: "request" } });
+        await connect({ authentication: { resolve, when: "request", cache: "until-expiry" } });
 
         const results = await Promise.all(
             Array.from({ length: 8 }, () => surreal.auth<{ id: RecordId }>()),
@@ -244,7 +257,7 @@ describe.skipIf(!isRemote)("authentication resolved per request", () => {
         const resolve = mock(() => ({ access: "short_user", variables: { id: "alice" } }));
 
         await connect({
-            authentication: { resolve, when: "request" },
+            authentication: { resolve, when: "request", cache: "until-expiry" },
             expiryMargin: 1,
         });
 
