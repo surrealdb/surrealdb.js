@@ -1,13 +1,6 @@
-import { HttpConnectionError, SurrealError } from "../errors";
-import type { Token } from "../types/auth";
-import type {
-    ConnectionSession,
-    ConnectionState,
-    CredentialSource,
-    DriverContext,
-    Session,
-} from "../types/surreal";
-import { raceAbort, throwIfAborted } from "./abort";
+import { HttpConnectionError } from "../errors";
+import type { ConnectionSession, ConnectionState, DriverContext } from "../types/surreal";
+import { abortReason, raceAbort, throwIfAborted } from "./abort";
 import { wrapSqonError } from "./wrap-sqon-error";
 
 export interface FetchSurrealOptions {
@@ -15,16 +8,6 @@ export interface FetchSurrealOptions {
     url?: URL;
     headers?: Record<string, string>;
     method?: string;
-    /**
-     * A token to present for this request only, instead of the one of the session.
-     */
-    token?: Token;
-    /**
-     * Whether to present the credential resolved for each request, if the connection
-     * resolves credentials that way. Disabled for requests which establish credentials
-     * themselves. Defaults to true.
-     */
-    resolve?: boolean;
     /** Abandons the request, and the reading of its response, when it aborts */
     signal?: AbortSignal;
 }
@@ -39,8 +22,91 @@ export function readBody(response: Response, signal?: AbortSignal): Promise<Arra
     return raceAbort(response.arrayBuffer(), signal);
 }
 
+/**
+ * Read a response body in full, cancelling the stream if the signal aborts first.
+ *
+ * Unlike `readBody`, which is for the small answer of an RPC call and leaves the stream to `fetch`,
+ * this reads a body which may be very large and is likely to be streamed, so what it holds is let go
+ * of when the signal aborts, whatever `fetch` did with it. The reason of the signal is thrown.
+ */
+async function readChunks(
+    response: Response,
+    signal: AbortSignal,
+    onChunk: (chunk: Uint8Array) => void,
+): Promise<void> {
+    throwIfAborted(signal);
+
+    if (!response.body) {
+        onChunk(new Uint8Array(await raceAbort(response.arrayBuffer(), signal)));
+        return;
+    }
+
+    const reader = response.body.getReader();
+    const cancel = () => {
+        reader.cancel(abortReason(signal)).catch(() => {});
+    };
+
+    signal.addEventListener("abort", cancel, { once: true });
+
+    try {
+        for (;;) {
+            const { done, value } = await reader.read();
+
+            // A cancelled stream reads as finished, which is not the whole of the body
+            throwIfAborted(signal);
+
+            if (done) return;
+            onChunk(value);
+        }
+    } finally {
+        signal.removeEventListener("abort", cancel);
+        reader.releaseLock();
+    }
+}
+
+/**
+ * Read a response as text, cancelling the stream if the signal aborts first.
+ */
+export async function readText(response: Response, signal?: AbortSignal): Promise<string> {
+    if (!signal) return response.text();
+
+    const decoder = new TextDecoder();
+    let text = "";
+
+    await readChunks(response, signal, (chunk) => {
+        text += decoder.decode(chunk, { stream: true });
+    });
+
+    return text + decoder.decode();
+}
+
+/**
+ * Read a response as bytes, cancelling the stream if the signal aborts first.
+ */
+export async function readBytes(response: Response, signal?: AbortSignal): Promise<Uint8Array> {
+    if (!signal) return new Uint8Array(await response.arrayBuffer());
+
+    const parts: Uint8Array[] = [];
+    let length = 0;
+
+    await readChunks(response, signal, (chunk) => {
+        parts.push(chunk);
+        length += chunk.byteLength;
+    });
+
+    const bytes = new Uint8Array(length);
+    let offset = 0;
+
+    for (const part of parts) {
+        bytes.set(part, offset);
+        offset += part.byteLength;
+    }
+
+    return bytes;
+}
+
 /** Release a response nobody is going to read */
-function discardResponse(response: Response): void {
+export function releaseResponse(response: Response): void {
     response.body?.cancel().catch(() => {});
 }
 
@@ -66,62 +132,29 @@ export async function fetchSurreal(
         headerMap["Surreal-DB"] = session.database;
     }
 
+    if (session.accessToken) {
+        headerMap.Authorization = `Bearer ${session.accessToken}`;
+    }
+
     endpoint.protocol = endpoint.protocol.replace("ws", "http");
 
     // Nothing is sent for a request which has been abandoned already
     throwIfAborted(options.signal);
 
-    // A credential which is decided for a single request is only ever presented to the
-    // connection it was resolved for, and never follows a redirect elsewhere.
-    const source =
-        options.token === undefined && options.resolve !== false ? state.credentials : undefined;
-    const scoped = options.token !== undefined || source !== undefined;
-
-    if (scoped && endpoint.origin !== originOf(state.url)) {
-        throw new SurrealError("Request credentials are only sent to the origin of the connection");
-    }
-
-    let token = options.token ?? session.accessToken;
-
-    if (source) {
-        token = await resolveToken(source, session.id, undefined, options.signal);
-    }
-
-    const encodedBody = encodeBody(context, options.body);
-    const attempt = (bearer: Token | undefined): Promise<Response> => {
-        const headers = bearer ? { ...headerMap, Authorization: `Bearer ${bearer}` } : headerMap;
-
-        return raceAbort(
-            fetchImpl(endpoint, {
-                ...context.options.fetchOptions,
-                method: options.method ?? "POST",
-                headers,
-                body: encodedBody,
-                ...(scoped ? { redirect: "manual" as const } : {}),
-                signal: options.signal,
-                // @ts-expect-error TS is dumb
-                duplex: "half",
-            }),
-            options.signal,
-            discardResponse,
-        );
-    };
-
-    let response = await attempt(token);
-
-    // The server answers 401 to a token it does not accept, such as one which has expired, before
-    // it executes anything. This is the one rejection which is known to not have been applied, so
-    // it is safe to ask for a new credential and send the request again, once, whatever the
-    // request does. A body which has been streamed out cannot be sent again. Abandoning the
-    // request ends the wait for the new credential, and the replay, like anything else.
-    if (response.status === 401 && source && token && !(encodedBody instanceof ReadableStream)) {
-        const renewed = await resolveToken(source, session.id, token, options.signal);
-
-        if (renewed && renewed !== token) {
-            discardResponse(response);
-            response = await attempt(renewed);
-        }
-    }
+    const encodedBody = encodeBody(context, options.body, options.signal);
+    const response = await raceAbort(
+        fetchImpl(endpoint, {
+            ...context.options.fetchOptions,
+            method: options.method ?? "POST",
+            headers: headerMap,
+            body: encodedBody,
+            signal: options.signal,
+            // @ts-expect-error TS is dumb
+            duplex: "half",
+        }),
+        options.signal,
+        releaseResponse,
+    );
 
     if (response.status === 200) {
         return response;
@@ -135,37 +168,6 @@ export async function fetchSurreal(
         response.statusText,
         buffer,
     );
-}
-
-/**
- * Ask the connection for the credential of a request, for as long as the request is wanted.
- *
- * What is waited for is the resolver of the application, which cannot be stopped, so an abort ends
- * the wait with the reason of the signal and what the resolver comes up with is left to the
- * connection, which keeps it for the requests which follow. An abort wins over a resolver which
- * fails at the same moment: a request which has been abandoned is not told that its credential
- * could not be resolved.
- */
-async function resolveToken(
-    source: CredentialSource,
-    session: Session,
-    rejected: Token | undefined,
-    signal: AbortSignal | undefined,
-): Promise<Token | undefined> {
-    try {
-        return await raceAbort(source.token(session, rejected, signal), signal);
-    } catch (error) {
-        throwIfAborted(signal);
-        throw error;
-    }
-}
-
-function originOf(url: URL): string {
-    const normalized = new URL(url);
-
-    normalized.protocol = normalized.protocol.replace("ws", "http");
-
-    return normalized.origin;
 }
 
 const REMOTE_PROTOCOLS = new Set(["http", "https", "ws", "wss"]);
@@ -182,8 +184,21 @@ export function parseEndpoint(value: string | URL): URL {
     return url;
 }
 
-function encodeBody(context: DriverContext, body?: unknown): BodyInit | undefined {
-    if (body instanceof ReadableStream || body instanceof Blob) {
+function encodeBody(
+    context: DriverContext,
+    body?: unknown,
+    signal?: AbortSignal,
+): BodyInit | undefined {
+    // A stream being uploaded is handed over through a pipe which the signal tears down, so that
+    // aborting cancels the stream of the caller with the reason of the signal, rather than relying on
+    // `fetch` to do so, which a `fetchImpl` which ignores signals will not.
+    if (body instanceof ReadableStream) {
+        return signal && typeof TransformStream === "function"
+            ? body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>(), { signal })
+            : body;
+    }
+
+    if (body instanceof Blob) {
         return body;
     }
 

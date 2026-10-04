@@ -193,7 +193,7 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
-    async importSql(data: string | Blob | ReadableStream): Promise<void> {
+    async importSql(data: string | Blob | ReadableStream, request?: RequestOptions): Promise<void> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
@@ -209,10 +209,14 @@ export abstract class RpcEngine implements SurrealProtocol {
             headers: {
                 Accept: "application/json",
             },
+            signal: request?.signal,
         });
     }
 
-    async exportSql(options: Partial<SqlExportOptions>): Promise<Response> {
+    async exportSql(
+        options: Partial<SqlExportOptions>,
+        request?: RequestOptions,
+    ): Promise<Response> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
@@ -228,10 +232,11 @@ export abstract class RpcEngine implements SurrealProtocol {
             headers: {
                 Accept: "plain/text",
             },
+            signal: request?.signal,
         });
     }
 
-    async exportMlModel(options: MlExportOptions): Promise<Response> {
+    async exportMlModel(options: MlExportOptions, request?: RequestOptions): Promise<Response> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
@@ -244,6 +249,7 @@ export abstract class RpcEngine implements SurrealProtocol {
         return fetchSurreal(this._context, this._state, this._state.rootSession, {
             url: endpoint,
             method: "GET",
+            signal: request?.signal,
         });
     }
 

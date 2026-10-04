@@ -252,26 +252,32 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async importSql(data: string | ReadableStream): Promise<void> {
+    async importSql(data: string | ReadableStream, request?: RequestOptions): Promise<void> {
         return this.#diagnose(
             "importSql",
-            () => this.#delegate.importSql(data),
+            () => this.#delegate.importSql(data, request),
             () => undefined,
         );
     }
 
-    async exportSql(options: Partial<SqlExportOptions>): Promise<Response | string> {
+    async exportSql(
+        options: Partial<SqlExportOptions>,
+        request?: RequestOptions,
+    ): Promise<Response | string> {
         return this.#diagnose(
             "exportSql",
-            () => this.#delegate.exportSql(options),
+            () => this.#delegate.exportSql(options, request),
             () => undefined,
         );
     }
 
-    async exportMlModel(options: MlExportOptions): Promise<Response | Uint8Array> {
+    async exportMlModel(
+        options: MlExportOptions,
+        request?: RequestOptions,
+    ): Promise<Response | Uint8Array> {
         return this.#diagnose(
             "exportMlModel",
-            () => this.#delegate.exportMlModel(options),
+            () => this.#delegate.exportMlModel(options, request),
             () => undefined,
         );
     }

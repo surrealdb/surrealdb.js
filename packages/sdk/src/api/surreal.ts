@@ -15,6 +15,7 @@ import type {
 } from "../types";
 import { Publisher } from "../utils/publisher";
 import { ExportModelPromise, ExportPromise } from "./export";
+import { ImportPromise } from "./import";
 import { type SessionEvents, SurrealSession } from "./session";
 
 export type SurrealEvents = SessionEvents & {
@@ -238,13 +239,15 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
     // =========================================================== //
 
     /**
-     * Import an existing export into the database
+     * Import an existing export into the database.
+     *
+     * Like the other query methods, the import is only started once the returned `Promise` is
+     * awaited. Chain `.signal()` to abandon it, or `.requestTimeout()` to limit it.
      *
      * @param input The data to import
      */
-    public async import(input: string | Blob | ReadableStream): Promise<void> {
-        await this.ready;
-        return this.#connection.importSql(input);
+    public import(input: string | Blob | ReadableStream): ImportPromise {
+        return new ImportPromise(this.#connection, input);
     }
 
     /**
