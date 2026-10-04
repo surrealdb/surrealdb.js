@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Duration, Features, QueryError, RecordId, Table } from "surrealdb";
+import { Features, QueryError, RecordId, ServerError, Table } from "surrealdb";
 import { createIdleSurreal, createSurreal, requestVersion, SURREAL_PROTOCOL } from "./__helpers__";
 
 const { is3x } = await requestVersion();
@@ -19,6 +19,17 @@ async function caught(promise: Promise<unknown>): Promise<unknown> {
     }
 
     throw new Error("Expected the promise to reject");
+}
+
+/**
+ * Define a function which takes as long as SLOW, to be called with the `run()` builder.
+ *
+ * `sleep(5s)` itself cannot be called with `run()`: at the start of a statement SurrealDB 2.x
+ * reads `sleep` as the keyword of the SLEEP statement, and rejects the call as a parse error. Inside
+ * a function body it is an expression, which every supported server runs.
+ */
+async function defineSlowFunction(surreal: { query(sql: string): PromiseLike<unknown> }) {
+    await surreal.query(/* surql */ `DEFINE FUNCTION fn::slow() { RETURN sleep(5s); }`);
 }
 
 /** How long something takes, and what it returned. */
@@ -175,10 +186,10 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")("abort sig
 
     test("a builder is abandoned promptly, awaited or streamed", async () => {
         const surreal = await createSurreal();
-        const sleep = new Duration("5s");
+        await defineSlowFunction(surreal);
 
         const awaited = await timed(() =>
-            caught(Promise.resolve(surreal.run("sleep", [sleep]).signal(AbortSignal.timeout(100)))),
+            caught(Promise.resolve(surreal.run("fn::slow").signal(AbortSignal.timeout(100)))),
         );
 
         expect((awaited.value as Error).name).toBe("TimeoutError");
@@ -193,7 +204,7 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")("abort sig
             caught(
                 (async () => {
                     for await (const _ of surreal
-                        .run("sleep", [sleep])
+                        .run("fn::slow")
                         .signal(controller.signal)
                         .stream()) {
                         // Nothing arrives
@@ -250,6 +261,9 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")("abort sig
 
 describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")("requestTimeout", () => {
     test("a connection default limits the wait for every query", async () => {
+        // Defined over a connection of its own, as the limit would apply to defining it too
+        await defineSlowFunction(await createSurreal());
+
         const { surreal, connect } = await createIdleSurreal();
         await connect({ requestTimeout: 200 });
 
@@ -259,7 +273,7 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")("requestTi
         expect(ms).toBeLessThan(PROMPT);
 
         // A builder is held to it too, as is the next query: nothing was left behind
-        const builder = await caught(Promise.resolve(surreal.run("sleep", [new Duration("5s")])));
+        const builder = await caught(Promise.resolve(surreal.run("fn::slow")));
 
         expect((builder as Error).name).toBe("TimeoutError");
         expect(await surreal.query("RETURN 1").collect()).toEqual([1]);
@@ -313,9 +327,14 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")("requestTi
         );
 
         // An error the server reported, rather than the client's TimeoutError
-        expect(value).toBeInstanceOf(QueryError);
+        expect(value).toBeInstanceOf(ServerError);
         expect((value as Error).name).not.toBe("TimeoutError");
+        expect((value as Error).message).toMatch(/exceeded the timeout/);
         expect(ms).toBeLessThan(PROMPT);
+
+        // Servers before 3.0 do not say what kind of error it was, so it is a generic ServerError
+        // there. From 3.0 it is the QueryError which says it timed out.
+        if (is3x) expect(value).toBeInstanceOf(QueryError);
     });
 
     test("an invalid value is refused", async () => {
@@ -329,6 +348,8 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")("requestTi
 describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")("withSignal", () => {
     test("everything made through a scope is abandoned with its signal", async () => {
         const surreal = await createSurreal();
+        await defineSlowFunction(surreal);
+
         const controller = new AbortController();
         const reason = new Error("the request went away");
         const scoped = surreal.withSignal(controller.signal);
@@ -336,7 +357,7 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")("withSigna
         const queries = [
             caught(scoped.query(SLOW).collect()),
             caught(scoped.query(SLOW).responses()),
-            caught(Promise.resolve(scoped.run("sleep", [new Duration("5s")]))),
+            caught(Promise.resolve(scoped.run("fn::slow"))),
         ];
 
         await Bun.sleep(100);
