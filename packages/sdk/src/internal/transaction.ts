@@ -1,11 +1,12 @@
 import type { ConnectionController } from "../controller";
-import { QueryError, type ServerError, UnexpectedServerResponseError } from "../errors";
+import { UnexpectedServerResponseError } from "../errors";
 import { Query } from "../query/query";
 import type { QueryLike, QueryResponse, Session, TransactionOptions } from "../types";
 import { BoundQuery } from "../utils/bound-query";
 import { isVersionSupported } from "../utils/is-version-supported";
 import { assertTransactionSafe, joinQueries, resolveQueries } from "./compose-queries";
 import { RetryContext } from "./retry";
+import { findRootCause } from "./root-cause";
 
 /**
  * The first version of SurrealDB to give a transaction the results which `transaction()`
@@ -27,57 +28,6 @@ const MODERN_TRANSACTIONS_SINCE = "3.0.0";
  */
 function isModernTransaction(version: string | undefined): boolean {
     return version === undefined || isVersionSupported(version, MODERN_TRANSACTIONS_SINCE);
-}
-
-/**
- * Pattern for the errors which servers without structured errors report for the statements
- * of a transaction that did not run because of another statement's failure.
- */
-const LEGACY_SECONDARY = /^The query was not executed due to a (failed|cancelled) transaction/;
-
-/**
- * Whether an error only says that a statement did not run because something else in its
- * transaction failed, as opposed to being the failure itself.
- *
- * When a statement fails in a transaction, the server rolls it back and reports every other
- * statement as an error too: those before it as "not executed due to a failed transaction",
- * those after it as "not executed due to a cancelled transaction", and the `COMMIT` as
- * "aborted due to a prior error". Those errors are consequences, never causes.
- */
-export function isSecondaryError(error: ServerError): boolean {
-    if (error instanceof QueryError && (error.isNotExecuted || error.isCancelled)) {
-        return true;
-    }
-
-    // Servers without structured error details only send the message
-    return !error.details && LEGACY_SECONDARY.test(error.message);
-}
-
-/**
- * Find the error which made a transaction fail, among the responses of its statements.
- *
- * It is **not** the first error in order: the statements which precede the failing one are
- * rewritten to errors too, so the real one can arrive late. A transaction which fails to
- * commit because of a conflict, for instance, reports the conflict on the `COMMIT`, after
- * an error for every statement before it.
- *
- * @param responses The response of each statement
- * @returns The first error which is not a consequence of another, or the first error if all are
- */
-export function findRootCause(responses: readonly QueryResponse[]): ServerError | undefined {
-    let first: ServerError | undefined;
-
-    for (const response of responses) {
-        if (!response || response.success) continue;
-
-        if (!isSecondaryError(response.error)) {
-            return response.error;
-        }
-
-        first ??= response.error;
-    }
-
-    return first;
 }
 
 /**
@@ -164,7 +114,7 @@ export async function executeTransaction<R extends unknown[]>(
 
     return context.run(async () => {
         const responses = await query.responses();
-        const cause = findRootCause(responses);
+        const cause = findRootCause(responses.flatMap((r) => (r && !r.success ? [r.error] : [])));
 
         if (cause) {
             throw cause;
