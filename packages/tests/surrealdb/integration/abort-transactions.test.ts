@@ -127,9 +127,10 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")(
             expect(ms).toBeLessThan(PROMPT);
 
             // Allowed longer than the default, which a signal could not do
-            const slower = "SLEEP 600ms; RETURN 'done'";
-            expect(await caught(surreal.transaction([slower]))).toBeInstanceOf(Error);
-            expect(await surreal.transaction([slower], { requestTimeout: 0 })).toBeDefined();
+            // (a bare expression rather than RETURN, which transaction() refuses before 3.0)
+            const slower = ["SLEEP 600ms", "'done'"];
+            expect(await caught(surreal.transaction(slower))).toBeInstanceOf(Error);
+            expect(await surreal.transaction(slower, { requestTimeout: 0 })).toHaveLength(2);
         });
 
         test("a signal which has aborted already means nothing is run", async () => {
