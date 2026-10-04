@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Duration, QueryError, RecordId, raw, type Surreal } from "surrealdb";
+import { DateTime, Duration, QueryError, RecordId, raw, type Surreal } from "surrealdb";
 import {
     createSurreal,
     graphTable,
@@ -181,6 +181,41 @@ describe("builder timeout()", async () => {
                 expect(queryError.isTimedOut).toBe(true);
                 expect(queryError.timeout).toBeDefined();
             });
+        });
+    }
+});
+
+// The server only accepts `VERSION` before `TIMEOUT`. Not every datastore supports
+// versioned queries, so only assert that the statement makes it past the parser.
+describe("builder timeout() with version()", async () => {
+    const cases: Record<string, (surreal: Surreal) => PromiseLike<unknown>> = {
+        "select()": (s) => s.select<Person>(personTable).timeout(GENEROUS).version(new DateTime(0)),
+        "create()": (s) =>
+            s
+                .create<Person>(new RecordId("person", 1))
+                .content({ firstname: "John", lastname: "Doe" })
+                .timeout(GENEROUS)
+                .version(new DateTime(0)),
+        "insert()": (s) =>
+            s
+                .insert<Person>({
+                    id: new RecordId("person", 1),
+                    firstname: "John",
+                    lastname: "Doe",
+                })
+                .timeout(GENEROUS)
+                .version(new DateTime(0)),
+    };
+
+    for (const [name, run] of Object.entries(cases)) {
+        test(`${name} is parsed by the server`, async () => {
+            const surreal = await createSurreal();
+            const error = await run(surreal).then(
+                () => undefined,
+                (err: unknown) => err,
+            );
+
+            expect((error as Error | undefined)?.message ?? "").not.toContain("Parse error");
         });
     }
 });

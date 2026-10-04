@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`select() compile: query-http 1`] = `"SELECT type::fields($bind__3) FROM ONLY $bind__4 WHERE age = $bind__5 START $bind__6 LIMIT $bind__7 FETCH type::fields($bind__8) TIMEOUT 1s VERSION $bind__9"`;
+exports[`select() compile: query-http 1`] = `"SELECT type::fields($bind__3) FROM ONLY $bind__4 WHERE age = $bind__5 START $bind__6 LIMIT $bind__7 FETCH type::fields($bind__8) VERSION $bind__9 TIMEOUT 1s"`;
 
 exports[`select() compile: bindings-http 1`] = `
 {
@@ -26,7 +26,7 @@ exports[`select() compile: bindings-http 1`] = `
 }
 `;
 
-exports[`select() compile: query-ws 1`] = `"SELECT type::fields($bind__4) FROM ONLY $bind__5 WHERE age = $bind__6 START $bind__7 LIMIT $bind__8 FETCH type::fields($bind__9) TIMEOUT 1s VERSION $bind__10"`;
+exports[`select() compile: query-ws 1`] = `"SELECT type::fields($bind__4) FROM ONLY $bind__5 WHERE age = $bind__6 START $bind__7 LIMIT $bind__8 FETCH type::fields($bind__9) VERSION $bind__10 TIMEOUT 1s"`;
 
 exports[`select() compile: bindings-ws 1`] = `
 {
@@ -52,7 +52,7 @@ exports[`select() compile: bindings-ws 1`] = `
 }
 `;
 
-exports[`select() compile: query-mem 1`] = `"SELECT type::fields($bind__3) FROM ONLY $bind__4 WHERE age = $bind__5 START $bind__6 LIMIT $bind__7 FETCH type::fields($bind__8) TIMEOUT 1s VERSION $bind__9"`;
+exports[`select() compile: query-mem 1`] = `"SELECT type::fields($bind__3) FROM ONLY $bind__4 WHERE age = $bind__5 START $bind__6 LIMIT $bind__7 FETCH type::fields($bind__8) VERSION $bind__9 TIMEOUT 1s"`;
 
 exports[`select() compile: bindings-mem 1`] = `
 {
