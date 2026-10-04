@@ -112,6 +112,33 @@ async function _main() {
         .withSignal(signal)
         .select<Person>(table);
 
+    // A list of queries, and an atomic transaction, are bound to the signal like any other query
+    const [_scopedList] = await scoped
+        .query<[Person[]]>([db.select<Person>(table), "SELECT * FROM person"])
+        .requestTimeout(1_000)
+        .collect();
+    const _listed = await db.query(["SELECT * FROM person"]).signal(signal).responses();
+    const [_scopedFrom, _scopedTo] = await scoped.transaction<[Person, Person]>(
+        [
+            db.update<Person>(_stringId).merge({ age: 1 }),
+            surql`UPDATE ONLY ${_numberId} SET age += ${1}`,
+        ],
+        { retry: true, signal, requestTimeout: 5_000 },
+    );
+    const _transactionResults: unknown[] = await db.transaction(["'a'"], {
+        signal: AbortSignal.timeout(2_000),
+        requestTimeout: 0,
+    });
+
+    // @ts-expect-error a transaction's signal is an AbortSignal
+    await scoped.transaction(["'a'"], { signal: "not a signal" });
+
+    // @ts-expect-error a transaction's request timeout is a number of milliseconds
+    await scoped.transaction(["'a'"], { requestTimeout: "5s" });
+
+    // @ts-expect-error a view takes a list of queries, as a session does
+    await scoped.transaction("'a'");
+
     // Transactions begun on a scope, or given a signal after the fact
     const scopedTransaction = await scoped.beginTransaction();
     await scopedTransaction.select<Person>(table);
