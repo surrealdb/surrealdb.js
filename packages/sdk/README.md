@@ -196,6 +196,22 @@ How the credential is presented depends on the protocol:
 
 A credential belongs to the session, not to a request: requests which share a session share an identity, and a credential is reused for all of them unless `cache` is `"none"`. Over HTTP `"none"` sends each request with what was resolved for it, so `resolve` may read who it is for from the request being handled. Calling `db.invalidate()` discards the credential, and the next request resolves a new one.
 
+#### Running a call as someone else
+
+Over HTTP a single call can be run as a different identity, without changing the session which other calls share. Chain `.as()` to a query or any of the query builders with an access token, or with anything `signin()` accepts:
+
+```ts
+const notes = await db.select(new Table("note")).as(userToken);
+
+const [mine] = await db.query("SELECT * FROM note").as(userToken).collect();
+
+const me = await db.auth().as({ access: "account", variables: { email, password } });
+```
+
+The credential is the `Authorization` header of that request only. The selected namespace and database stay as they are, and the session does not authenticate with it, so concurrent calls for different users can share one connection. Authentication details are exchanged for a token first, which costs one more request. A token is not checked until the server sees it, and a call which is refused is not sent again.
+
+This needs an engine which presents credentials with every request. On a WebSocket connection `.as()` rejects the call with an `UnsupportedFeatureError`, rather than running it as the session, which would be the wrong identity. There, create a session for the identity with `db.forkSession()` and call `authenticate()` on it.
+
 ### Sending queries
 
 After you have connected to a SurrealDB instance, you can send queries to the database. Queries can be sent in two ways:

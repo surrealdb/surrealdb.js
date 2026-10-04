@@ -1,5 +1,12 @@
-import { AuthResolverError, SurrealError } from "../errors";
-import type { AuthCache, AuthCallable, AuthProvider, ProvidedAuth, Session } from "../types";
+import { AuthenticationError, AuthResolverError, SurrealError } from "../errors";
+import type {
+    AuthCache,
+    AuthCallable,
+    AuthOrToken,
+    AuthProvider,
+    ProvidedAuth,
+    Session,
+} from "../types";
 import { assertAuthCache } from "./request-credentials";
 
 export interface ParsedAuthentication {
@@ -73,6 +80,25 @@ export async function invokeProvider(
     throw new AuthResolverError(
         new TypeError(
             `Expected a token, authentication details or null, but received ${describeValue(provided)}`,
+        ),
+    );
+}
+
+/**
+ * Check the credential of a call which is to run as someone else. An unusable credential is
+ * refused outright, as ignoring it would run the call as the session instead.
+ */
+export function assertCredential(credential: AuthOrToken): void {
+    if (
+        (typeof credential === "string" && credential.length > 0) ||
+        (typeof credential === "object" && credential !== null && !Array.isArray(credential))
+    ) {
+        return;
+    }
+
+    throw new AuthenticationError(
+        new TypeError(
+            `Expected a token or authentication details, but received ${describeValue(credential)}`,
         ),
     );
 }

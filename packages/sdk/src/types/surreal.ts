@@ -10,7 +10,7 @@ import type { ServerError } from "../errors";
 import type { Feature } from "../internal/feature";
 import type { ReconnectContext } from "../internal/reconnect";
 import type { BoundQuery } from "../utils";
-import type { AccessRecordAuth, AnyAuth, AuthProvider, Token, Tokens } from "./auth";
+import type { AccessRecordAuth, AnyAuth, AuthOrToken, AuthProvider, Token, Tokens } from "./auth";
 import type { Nullable } from "./helpers";
 import type { Prettify } from "./internal";
 import type { LiveMessage } from "./live";
@@ -112,6 +112,24 @@ export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEve
     open(state: ConnectionState): void;
     close(): Promise<void>;
     ready(): void;
+
+    /**
+     * Run a query as a different identity than the one of the session, for this query only.
+     * The session is neither used for authentication nor changed.
+     *
+     * Only implemented by engines which present credentials with every request, and which
+     * declare `Features.PerRequestAuth`. A query which is to run as someone else is never
+     * run through `query()`, so an engine, or something wrapping one, which does not implement
+     * this method refuses the query rather than running it as the session.
+     *
+     * @param credential An access token, or authentication details which are exchanged for one
+     */
+    queryAs?<T>(
+        query: BoundQuery,
+        session: Session,
+        txn: Uuid | undefined,
+        credential: AuthOrToken,
+    ): AsyncIterable<QueryChunk<T>>;
 }
 
 /**

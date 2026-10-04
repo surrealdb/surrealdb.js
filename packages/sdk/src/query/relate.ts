@@ -1,12 +1,13 @@
 import { type DateTime, type Duration, RecordId, type Table, type Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
-import { ExpressionError, SurrealError } from "../errors";
+import { SurrealError } from "../errors";
+import { assertCredential } from "../internal/auth-provider";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { AnyRecordId, Output, RetryValue, Session } from "../types";
+import type { AnyRecordId, AuthOrToken, Output, RetryValue, Session } from "../types";
 import { type BoundQuery, surql } from "../utils";
-import type { Frame, StreamedRow } from "../utils/frame";
+import type { Frame } from "../utils/frame";
 import { Query } from "./query";
 
 interface RelateOptions {
@@ -21,6 +22,7 @@ interface RelateOptions {
     transaction: Uuid | undefined;
     session: Session;
     retry?: RetryValue;
+    credential?: AuthOrToken;
     json: boolean;
 }
 
@@ -50,6 +52,26 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
         return new RelatePromise<T, true>(this.#connection, {
             ...this.#options,
             json: true,
+        });
+    }
+
+    /**
+     * Run this call as a different identity than the one of the session, for this call only.
+     * The session is neither used nor changed. Supported by engines which present credentials
+     * with every request, such as HTTP, and rejected with an `UnsupportedFeatureError` by
+     * the others.
+     *
+     * @see {@link Query.as} for details.
+     *
+     * @param credential An access token or authentication details to run this call as
+     * @returns A new `RelatePromise` which runs as the provided identity.
+     */
+    as(credential: AuthOrToken): RelatePromise<T, J> {
+        assertCredential(credential);
+
+        return new RelatePromise<T, J>(this.#connection, {
+            ...this.#options,
+            credential,
         });
     }
 
@@ -109,11 +131,8 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
     }
 
     /**
-     * Configure a custom version of the data being created.
-     *
-     * @deprecated SurrealDB has no `VERSION` clause for `RELATE` statements, so
-     * a query using this method fails with an `ExpressionError` when it is
-     * compiled or executed, before anything is sent to the server.
+     * Configure a custom version of the data being created. This is used
+     * alongside version enabled storage engines such as SurrealKV.
      */
     version(version: DateTime): RelatePromise<T, J> {
         return new RelatePromise<T, J>(this.#connection, {
@@ -134,9 +153,9 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
      *
      * @returns An async iterable of query frames.
      */
-    async *stream(): AsyncIterable<Frame<StreamedRow<T>, J>> {
+    async *stream(): AsyncIterable<Frame<T, J>> {
         await this.#connection.ready();
-        const query = this.#build().stream<StreamedRow<T>>();
+        const query = this.#build().stream<T>();
 
         for await (const frame of query) {
             yield frame;
@@ -164,10 +183,6 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
             retry,
         } = this.#options;
 
-        if (version) {
-            throw new ExpressionError("The VERSION clause is not supported by RELATE statements");
-        }
-
         const isMultiple = Array.isArray(from) || Array.isArray(to);
 
         if (isMultiple && what instanceof RecordId) {
@@ -194,7 +209,12 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
             query.append(surql` TIMEOUT ${_timeout(timeout)}`);
         }
 
+        if (version) {
+            query.append(surql` VERSION ${version}`);
+        }
+
         return new Query(this.#connection, {
+            credential: this.#options.credential,
             retry,
             query,
             transaction,

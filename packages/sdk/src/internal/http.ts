@@ -9,6 +9,10 @@ export interface FetchSurrealOptions {
     headers?: Record<string, string>;
     method?: string;
     /**
+     * A token to present for this request only, instead of the one of the session.
+     */
+    token?: Token;
+    /**
      * Whether to present the credential resolved for each request, if the connection
      * resolves credentials that way. Disabled for requests which establish credentials
      * themselves. Defaults to true.
@@ -40,16 +44,17 @@ export async function fetchSurreal(
 
     endpoint.protocol = endpoint.protocol.replace("ws", "http");
 
-    // A credential which is resolved for a request is only ever presented to the connection it
-    // was resolved for, and never follows a redirect elsewhere.
-    const source = options.resolve !== false ? state.credentials : undefined;
-    const scoped = source !== undefined;
+    // A credential which is decided for a single request is only ever presented to the
+    // connection it was resolved for, and never follows a redirect elsewhere.
+    const source =
+        options.token === undefined && options.resolve !== false ? state.credentials : undefined;
+    const scoped = options.token !== undefined || source !== undefined;
 
     if (scoped && endpoint.origin !== originOf(state.url)) {
         throw new SurrealError("Request credentials are only sent to the origin of the connection");
     }
 
-    let token = session.accessToken;
+    let token = options.token ?? session.accessToken;
 
     if (source) {
         token = await source.token(session.id);

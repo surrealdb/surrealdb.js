@@ -11,7 +11,7 @@ import {
     UnsupportedFeatureError,
     UnsupportedVersionError,
 } from "../errors";
-import { invokeProvider, parseAuthentication } from "../internal/auth-provider";
+import { assertCredential, invokeProvider, parseAuthentication } from "../internal/auth-provider";
 import type { Feature } from "../internal/feature";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { ReconnectContext } from "../internal/reconnect";
@@ -22,6 +22,7 @@ import type {
     AccessRecordAuth,
     AnyAuth,
     AuthCallable,
+    AuthOrToken,
     ConnectionSession,
     ConnectionState,
     ConnectionStatus,
@@ -467,6 +468,32 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
                 yield* engine.query<T>(query, session, txn);
             },
         };
+    }
+
+    /**
+     * Run a query as a different identity than the one of the session, for this query only.
+     *
+     * A call made as someone else must never silently run as the session. It is refused unless
+     * the engine declares that it presents credentials with every request, and implements the
+     * method which does so, which an engine, or something wrapping one, may not.
+     */
+    queryAs<T>(
+        query: BoundQuery,
+        session: Session,
+        txn: Uuid | undefined,
+        credential: AuthOrToken,
+    ): AsyncIterable<QueryChunk<T>> {
+        const engine = this.#engine;
+        if (!engine) throw new ConnectionUnavailableError();
+
+        this.assertFeature(Features.PerRequestAuth);
+        assertCredential(credential);
+
+        if (typeof engine.queryAs !== "function") {
+            throw new UnsupportedFeatureError(Features.PerRequestAuth);
+        }
+
+        return engine.queryAs<T>(query, session, txn, credential);
     }
 
     liveQuery(id: Uuid): AsyncIterable<LiveMessage> {

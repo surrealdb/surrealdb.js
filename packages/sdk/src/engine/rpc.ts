@@ -282,6 +282,13 @@ export abstract class RpcEngine implements SurrealProtocol {
             options,
         );
 
+        yield* this.toChunks<T>(responses);
+    }
+
+    /**
+     * Translate the statement results of a `query` request into chunks
+     */
+    protected *toChunks<T>(responses: RpcQueryResult[]): Iterable<QueryChunk<T>> {
         let index = 0;
 
         for (const response of responses) {

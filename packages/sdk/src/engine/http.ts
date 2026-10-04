@@ -1,3 +1,4 @@
+import type { Uuid } from "@surrealdb/sqon";
 import {
     ConnectionUnavailableError,
     MissingNamespaceDatabaseError,
@@ -5,13 +6,22 @@ import {
     UnexpectedServerResponseError,
     UnsupportedFeatureError,
 } from "../errors";
+import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal } from "../internal/http";
 import { parseRpcError } from "../internal/parse-error";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
+import type { AnyAuth, AuthOrToken, RpcQueryResult } from "../types";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
-import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
+import type {
+    ConnectionState,
+    EngineEvents,
+    QueryChunk,
+    Session,
+    SurrealEngine,
+} from "../types/surreal";
+import type { BoundQuery } from "../utils";
 import { Features } from "../utils";
 import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
@@ -38,6 +48,13 @@ const NEVER_RESOLVE = new Set([
     "version",
     "health",
 ]);
+
+interface SendOptions {
+    /** Present this credential with the request, in place of the one of the session */
+    credential?: AuthOrToken;
+    /** Present no credential with the request, not even the one of the session */
+    anonymous?: boolean;
+}
 
 /**
  * An engine that communicates by sending individual HTTP requests
@@ -76,8 +93,48 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         // No-op for HTTP engine - no pending calls to resend
     }
 
+    /**
+     * Run a query as someone else. The credential is presented with this request alone, and
+     * the session is neither used for authentication nor changed.
+     */
+    async *queryAs<T>(
+        query: BoundQuery,
+        session: Session,
+        txn: Uuid | undefined,
+        credential: AuthOrToken,
+    ): AsyncIterable<QueryChunk<T>> {
+        const responses: RpcQueryResult[] = await this.send(
+            {
+                method: "query",
+                params: [query.query, query.bindings],
+                session,
+                txn,
+            },
+            { credential },
+        );
+
+        yield* this.toChunks<T>(responses);
+    }
+
+    /**
+     * Exchange authentication details for a token, with nothing but the details to go on.
+     */
+    async #exchange(auth: AnyAuth, session: Session, state: ConnectionState): Promise<string> {
+        const response = await this.send(
+            {
+                method: "signin",
+                params: [buildRpcAuth(getSessionFromState(state, session), auth)],
+                session,
+            },
+            { anonymous: true },
+        );
+
+        return this.parseTokens(response).access;
+    }
+
     override async send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,
+        options?: SendOptions,
     ): Promise<Result> {
         const state = this._state;
 
@@ -121,12 +178,27 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             }
         }
 
+        // The credential of a single request is neither stored nor sent in the body of the
+        // request. Authentication details are exchanged for a token without touching the session,
+        // and without presenting the credential of the session while doing so.
+        let token: string | undefined;
+
+        if (options?.anonymous) {
+            token = "";
+        } else if (options?.credential !== undefined) {
+            token =
+                typeof options.credential === "string"
+                    ? options.credential
+                    : await this.#exchange(options.credential, request.session, state);
+        }
+
         const id = this._context.uniqueId();
         const res = await fetchSurreal(this._context, state, session, {
             body: {
                 id,
                 ...request,
             },
+            token,
             resolve: !NEVER_RESOLVE.has(request.method),
         });
 

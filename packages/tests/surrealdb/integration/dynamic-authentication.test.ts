@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { AuthResolverError, type Diagnostic, RecordId, ServerError, surql } from "surrealdb";
+import {
+    AuthResolverError,
+    type Diagnostic,
+    RecordId,
+    ServerError,
+    surql,
+    Table,
+    UnsupportedFeatureError,
+} from "surrealdb";
 import {
     createIdleSurreal,
     createSurreal,
@@ -33,8 +41,11 @@ const isRemote = SURREAL_BACKEND === "remote";
 const isHttp = SURREAL_PROTOCOL === "http";
 const isWebSocket = SURREAL_PROTOCOL === "ws";
 
+type Note = { id: RecordId<"note">; owner: RecordId<"user"> };
+
 const alice = new RecordId("user", "alice");
 const bob = new RecordId("user", "bob");
+const notes = new Table("note");
 
 beforeEach(async () => {
     if (!isRemote) return;
@@ -72,6 +83,11 @@ async function tokenFor(id: string, access = "user"): Promise<string> {
     const { access: token } = await surreal.signin({ access, variables: { id } });
 
     return token;
+}
+
+/** What the connection can see, which is not the same for every identity */
+async function visibleNotes(call: PromiseLike<Note[]>): Promise<string[]> {
+    return (await call).map((note) => note.id.id as string).sort();
 }
 
 describe.skipIf(!isRemote)("record access from a callback", () => {
@@ -472,5 +488,118 @@ describe.skipIf(!isRemote)("authentication resolved per request", () => {
 
             expect(await surreal.auth<{ id: RecordId }>()).toMatchObject({ id: alice });
         });
+    });
+});
+
+describe.skipIf(!isRemote || !isHttp)("a call made as someone else, over HTTP", () => {
+    test("sees what that identity is permitted to see, and the session does not change", async () => {
+        const forAlice = await tokenFor("alice");
+        const forBob = await tokenFor("bob");
+        const surreal = await createSurreal();
+        const rootToken = surreal.accessToken;
+
+        expect(await visibleNotes(surreal.select<Note>(notes))).toEqual(["one", "two"]);
+        expect(await visibleNotes(surreal.select<Note>(notes).as(forAlice))).toEqual(["one"]);
+        expect(await visibleNotes(surreal.select<Note>(notes).as(forBob))).toEqual(["two"]);
+
+        // The session still is what it was, and the call which followed ran as it
+        expect(surreal.accessToken).toBe(rootToken);
+        expect(await visibleNotes(surreal.select<Note>(notes))).toEqual(["one", "two"]);
+    });
+
+    test("serves identities side by side on one connection", async () => {
+        const forAlice = await tokenFor("alice");
+        const forBob = await tokenFor("bob");
+        const surreal = await createSurreal();
+
+        const [asAlice, asBob, asRoot, again] = await Promise.all([
+            visibleNotes(surreal.select<Note>(notes).as(forAlice)),
+            visibleNotes(surreal.select<Note>(notes).as(forBob)),
+            visibleNotes(surreal.select<Note>(notes)),
+            visibleNotes(surreal.select<Note>(notes).as(forAlice)),
+        ]);
+
+        expect(asAlice).toEqual(["one"]);
+        expect(asBob).toEqual(["two"]);
+        expect(asRoot).toEqual(["one", "two"]);
+        expect(again).toEqual(["one"]);
+    });
+
+    test("works for queries", async () => {
+        const forAlice = await tokenFor("alice");
+        const surreal = await createSurreal();
+
+        const [rows] = await surreal.query<[Note[]]>("SELECT * FROM note").as(forAlice).collect();
+
+        expect(rows.map((note) => note.id.id)).toEqual(["one"]);
+    });
+
+    test("tells who is calling", async () => {
+        const forBob = await tokenFor("bob");
+        const surreal = await createSurreal();
+
+        expect(await surreal.auth<{ id: RecordId }>().as(forBob)).toMatchObject({ id: bob });
+    });
+
+    test("signs in with authentication details for the call alone", async () => {
+        const surreal = await createSurreal();
+        const rootToken = surreal.accessToken;
+
+        const visible = await visibleNotes(
+            surreal.select<Note>(notes).as({ access: "user", variables: { id: "alice" } }),
+        );
+
+        expect(visible).toEqual(["one"]);
+        expect(surreal.accessToken).toBe(rootToken);
+    });
+
+    test("is refused when the token is not valid, rather than run as the session", async () => {
+        const surreal = await createSurreal();
+
+        const error = await rejection(surreal.select<Note>(notes).as("not-a-token"));
+
+        expect(error.status).toBe(401);
+    });
+
+    test("overrides a resolver which is evaluated for each request", async () => {
+        const forAlice = await tokenFor("alice");
+        const forBob = await tokenFor("bob");
+        const { surreal, connect } = await createIdleSurreal({ auth: "none" });
+        const resolve = mock(() => forBob);
+
+        await connect({ authentication: { resolve, when: "request" } });
+
+        expect(await visibleNotes(surreal.select<Note>(notes).as(forAlice))).toEqual(["one"]);
+        expect(resolve).toBeCalledTimes(0);
+        expect(await visibleNotes(surreal.select<Note>(notes))).toEqual(["two"]);
+        expect(resolve).toBeCalledTimes(1);
+    });
+});
+
+describe.skipIf(!isRemote || !isWebSocket)("a call made as someone else, over WebSocket", () => {
+    test("is refused, rather than run as the session", async () => {
+        const forAlice = await tokenFor("alice");
+        const surreal = await createSurreal();
+        const created = new RecordId("note", "refused");
+
+        const error = await rejection(
+            surreal.create(created).content({ owner: alice }).as(forAlice),
+        );
+
+        expect(error).toBeInstanceOf(UnsupportedFeatureError);
+        expect(await surreal.select(created)).toBeUndefined();
+    });
+
+    test.skipIf(!is3x)("is what a session of its own is for", async () => {
+        const forAlice = await tokenFor("alice");
+        const surreal = await createSurreal();
+        const session = await surreal.forkSession();
+
+        await session.authenticate(forAlice);
+
+        expect(await visibleNotes(session.select<Note>(notes))).toEqual(["one"]);
+        expect(await visibleNotes(surreal.select<Note>(notes))).toEqual(["one", "two"]);
+
+        await session.closeSession();
     });
 });
