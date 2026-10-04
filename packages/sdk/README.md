@@ -272,7 +272,7 @@ await scoped.select<Person>(personTable).signal(AbortSignal.timeout(500));
 const txn = await scoped.beginTransaction();
 ```
 
-The view is a cheap object which shares the connection and the session it was made from and does not change them, so make one for every request on a connection which is shared by all of them. It can be made from a session (`db`, or one from `forkSession()`), and from a transaction. Only queries are bound to the signal: a live query started through it is not, as it outlives the request which started it, and neither is the `commit()` of a transaction, so that abandoning a request can never leave the outcome of a commit in doubt.
+The view is a cheap object (a `SurrealRequestScope`) which shares the connection and the session it was made from and does not change them, so make one for every request on a connection which is shared by all of them. It can be made from a session (`db`, or one from `forkSession()`), and from a transaction. Only queries are bound to the signal. **`live()` and `liveOf()` subscriptions made through a view are not bound to it**: they are not killed when the signal aborts and keep running until you kill them or the connection closes, so a handler which subscribes has to kill the subscription itself, for example with `signal.addEventListener("abort", () => subscription.kill())`. Nor is the `commit()` of a transaction, so that abandoning a request can never leave the outcome of a commit in doubt.
 
 **Cloudflare Workers**, or anywhere else a handler receives a `Request`:
 

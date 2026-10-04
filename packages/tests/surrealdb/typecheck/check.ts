@@ -8,6 +8,7 @@ import {
     RecordIdRange,
     StringRecordId,
     Surreal,
+    type SurrealRequestScope,
     Table,
     Uuid,
 } from "surrealdb";
@@ -100,7 +101,7 @@ async function _main() {
     }
 
     // A view of the session bound to the signal of a request, with the same API
-    const scoped = db.withSignal(signal);
+    const scoped: SurrealRequestScope = db.withSignal(signal);
     const _scopedPeople: Person[] = await scoped.select<Person>(table);
     const _scopedCreated = await scoped.create<Person>(table).content({ name: "Tobie", age: 30 });
     const [_scopedResult] = await scoped.query("SELECT * FROM person").collect<[Person[]]>();

@@ -26,13 +26,15 @@ import { SurrealTransaction } from "./transaction";
  * nothing, and does not need to be closed. It does not change the session, so it is safe to make
  * one per request on a connection shared between requests.
  *
- * Only queries are bound to the signal. The subscriptions of `live()` and `liveOf()` are not, as
- * they outlive the request that started them; kill them when the signal aborts if that is what is
- * wanted. Neither are the calls which change the session, such as `use()` and `signin()`, which a
- * scope does not offer, or the `commit()` and `cancel()` of a transaction, which are left alone so
- * that a request which is being abandoned cannot leave the outcome of a commit in doubt.
+ * Only queries are bound to the signal. **`live()` and `liveOf()` are not**: a subscription made
+ * through a scope is not killed when the signal aborts, and keeps running until it is killed or the
+ * connection closes. Kill it yourself, for example with
+ * `signal.addEventListener("abort", () => subscription.kill())`. Neither are the calls which
+ * change the session, such as `use()` and `signin()`, which a scope does not offer, or the
+ * `commit()` and `cancel()` of a transaction, which are left alone so that a request which is being
+ * abandoned cannot leave the outcome of a commit in doubt.
  */
-export class SurrealScope extends SurrealQueryable {
+export class SurrealRequestScope extends SurrealQueryable {
     readonly #connection: ConnectionController;
     readonly #session: Session;
     readonly #signals: readonly AbortSignal[];
@@ -54,8 +56,8 @@ export class SurrealScope extends SurrealQueryable {
      *
      * @param signal The signal to add. Without one, the view is bound to the same signals as this.
      */
-    withSignal(signal: AbortSignal | undefined): SurrealScope {
-        return new SurrealScope(
+    withSignal(signal: AbortSignal | undefined): SurrealRequestScope {
+        return new SurrealRequestScope(
             this.#connection,
             this.#session,
             addSignal(this.#signals, signal) ?? [],

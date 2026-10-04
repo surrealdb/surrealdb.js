@@ -35,7 +35,7 @@ export class SurrealTransaction extends SurrealQueryable {
      *
      * The handle commits and cancels the transaction just as this one does. Only queries are bound
      * to the signal: `commit()` and `cancel()` are not, so a request which is being abandoned cannot
-     * leave the outcome of a commit in doubt. See `SurrealScope`.
+     * leave the outcome of a commit in doubt. See `SurrealRequestScope`.
      *
      * @param signal The signal to add. Without one, the handle is bound to the same signals as this.
      */

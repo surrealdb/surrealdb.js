@@ -6,6 +6,7 @@ import {
     RecordId,
     Surreal,
     SurrealError,
+    SurrealRequestScope,
     Table,
     Uuid,
 } from "surrealdb";
@@ -932,6 +933,15 @@ describe("withSignal", () => {
 
         await caught(first);
         expect((await second) as unknown).toEqual(["done"]);
+    });
+
+    test("a scope is a SurrealRequestScope, and so is one made from it", async () => {
+        const { db } = await connect();
+        const controller = new AbortController();
+        const scope = db.withSignal(controller.signal);
+
+        expect(scope).toBeInstanceOf(SurrealRequestScope);
+        expect(scope.withSignal(undefined)).toBeInstanceOf(SurrealRequestScope);
     });
 
     test("a scope without a signal is a plain session", async () => {

@@ -14,7 +14,7 @@ import type {
 } from "../types";
 import { Publisher } from "../utils";
 import { SurrealQueryable } from "./queryable";
-import { SurrealScope } from "./scope";
+import { SurrealRequestScope } from "./request-scope";
 import { SurrealTransaction } from "./transaction";
 
 export type SessionEvents = {
@@ -180,8 +180,8 @@ export class SurrealSession extends SurrealQueryable {
      * @param signal The signal which abandons the work. Without one, the view is not bound to any.
      * @returns A view of this session bound to the signal
      */
-    withSignal(signal: AbortSignal | undefined): SurrealScope {
-        return new SurrealScope(this.#connection, this.#session, signal ? [signal] : []);
+    withSignal(signal: AbortSignal | undefined): SurrealRequestScope {
+        return new SurrealRequestScope(this.#connection, this.#session, signal ? [signal] : []);
     }
 
     // =========================================================== //
