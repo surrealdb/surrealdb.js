@@ -273,6 +273,37 @@ export interface RetryOptions {
     retryable?: (error: unknown) => boolean;
 }
 
+/**
+ * A query builder, such as the one returned by `select()`, `create()`, `update()`,
+ * `upsert()`, `delete()`, `insert()`, `relate()`, `run()`, `auth()` or `api()`, which can
+ * be compiled into the {@link BoundQuery} it would send.
+ */
+export interface CompilableQuery {
+    compile(): BoundQuery;
+}
+
+/**
+ * A query which exposes the {@link BoundQuery} it will send as `inner`, such as the `Query`
+ * returned by `query()`.
+ */
+export interface InnerQuery {
+    readonly inner: BoundQuery;
+}
+
+/**
+ * Anything which can be combined with other queries by `query([...])` or `transaction([...])`.
+ *
+ * - A `string` of SurrealQL, which carries no bindings
+ * - A {@link BoundQuery}, such as one created by the `surql` template tag
+ * - A query builder, which contributes the statement it compiles to
+ * - A `Query` returned by `query()`, which contributes its inner query
+ *
+ * Only the statements and their bindings are taken from an input. Anything configured on a
+ * builder or `Query` itself, such as `.json()` or `.retry()`, is ignored in favor of the
+ * combined query's own configuration.
+ */
+export type QueryLike = string | BoundQuery | CompilableQuery | InnerQuery;
+
 export interface ConnectionSession {
     id: Session;
     namespace: string | undefined;

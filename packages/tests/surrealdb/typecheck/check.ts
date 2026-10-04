@@ -1,13 +1,16 @@
 import {
     BoundExcluded,
     BoundIncluded,
+    BoundQuery,
     DateTime,
     Decimal,
     Duration,
+    type QueryLike,
     RecordId,
     RecordIdRange,
     StringRecordId,
     Surreal,
+    surql,
     Table,
     Uuid,
 } from "surrealdb";
@@ -90,4 +93,64 @@ async function _main() {
             console.log(value);
         }
     }
+}
+
+async function _batch() {
+    const db = new Surreal();
+    const table = new Table("person");
+
+    // A list of queries is typed by a tuple of statement results, like a single query is.
+    const [_everyone, _adults] = await db
+        .query<[Person[], Person[]]>([
+            db.select<Person>(table),
+            surql`SELECT * FROM person WHERE age >= ${18}`,
+        ])
+        .collect();
+
+    const _people: Person[] = _everyone;
+    const _grownups: Person[] = _adults;
+
+    // Which defaults to untyped results
+    const _untyped: unknown[] = await db.query(["RETURN 1", "RETURN 2"]);
+
+    // Strings, bound queries, query builders and queries can all be combined, from a mutable
+    // or a readonly list, and any of them can be kept as a QueryLike.
+    const _input: QueryLike = "RETURN 1";
+    const _inputs: readonly QueryLike[] = [
+        _input,
+        new BoundQuery("RETURN $a", { a: 1 }),
+        db.select<Person>(table),
+        db.create<Person>(table),
+        db.run<number>("fn::count"),
+        db.query("RETURN 2"),
+        db.query<[number]>("RETURN 3").json(),
+        db.select<Person>(table).json(),
+    ];
+
+    await db.query(_inputs);
+    await db.query(["RETURN 1"] as const);
+
+    // The query which comes back can be configured and consumed as any other
+    const [_count] = await db.query<[number]>(["RETURN 1"]).json().retry().collect();
+    const [_response] = await db.query<[number]>(["RETURN 1"]).responses();
+
+    if (_response.success) {
+        const _result: number = _response.result;
+    }
+
+    for await (const frame of db.query(["RETURN 1", "RETURN 2"]).stream<number>()) {
+        if (frame.isValueOf(1)) {
+            const _value: number = frame.value;
+        }
+    }
+
+    // @ts-expect-error A list holds queries, not numbers
+    db.query([1, 2]);
+
+    // @ts-expect-error The bindings belong to each query of the list
+    db.query(["RETURN $a"], { a: 1 });
+
+    // A list of queries is available inside of an interactive transaction as well
+    const txn = await db.beginTransaction();
+    await txn.query<[number, number]>(["RETURN 1", "RETURN 2"]);
 }

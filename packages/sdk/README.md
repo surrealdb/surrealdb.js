@@ -188,23 +188,40 @@ let [created] = await db
     .collect<[Person]>();
 ```
 
-#### ISO GQL queries
+#### Running several queries at once
 
-In addition to SurrealQL, you can run [ISO GQL](https://www.iso.org/standard/76120.html)
-(ISO/IEC 39075) queries with the `gql` method. It behaves exactly like `query`
-— returning the same awaitable `Query` instance — but executes the string with
-the server's GQL engine. A namespace and database must be selected first.
+Pass a list to `query` to run several queries in a single request. Each item can be a string,
+a `surql` template, or a query builder such as `select()` and `create()`. The result is the same
+`Query` you would get from a single string, so `.collect()`, `.responses()` and `.stream()` all work.
 
 ```ts
-// Run a GQL query and collect the results
-const [people] = await db.gql<[{ name: string }[]]>(
-    "MATCH (p:person) WHERE p.age > $min RETURN p.name AS name ORDER BY name",
-    { min: 21 },
-);
+import { surql, Table } from "surrealdb";
+
+const [people, adults] = await db
+    .query<[Person[], Person[]]>([
+        db.select<Person>(personTable),
+        surql`SELECT * FROM person WHERE age >= ${18}`,
+    ])
+    .collect();
 ```
 
-> GQL is served by remote (WebSocket/HTTP) engines connected to a SurrealDB
-> instance with GQL enabled.
+A list of queries is a **batch**, not a transaction. It behaves exactly as if the statements had
+been written one after another in a single query: nothing is atomic, a failing statement does not
+stop the ones after it, and whatever the others did stays done. Use `.responses()` to see which
+statements failed without losing the results of the rest:
+
+```ts
+const [first, second] = await db.query(["RETURN 1", "THROW 'oops'"]).responses();
+
+first.success; // true
+second.success; // false
+```
+
+Results are positional **per statement**, not per item. An item holding several statements, such as
+`"CREATE a; CREATE b"`, takes several slots in the results and moves the results of the items after
+it, while a query builder always takes exactly one. An item cannot be empty, and two items cannot
+bind the same parameter name (the `surql` template and query builders generate unique names, so
+this only concerns a `BoundQuery` you wrote by hand).
 
 ### Subscribing to live queries
 
@@ -297,7 +314,7 @@ When using the embedded engine, call `.close()` when you are done to shut down t
 | Area | Key exports |
 | --- | --- |
 | Client | `Surreal`, `SurrealSession`, `SurrealTransaction` |
-| Query API | `.query()`, `.gql()`, `.select()`, `.create()`, `.update()`, `.delete()`, `.insert()`, `.upsert()`, `.relate()`, `.live()` |
+| Query API | `.query()`, `.select()`, `.create()`, `.update()`, `.delete()`, `.insert()`, `.upsert()`, `.relate()`, `.live()` |
 | Remote engines | `createRemoteEngines()`, `WebSocketEngine`, `HttpEngine` |
 | Bound queries | `surql`, `BoundQuery`, `expr`, comparison and logical operators |
 | Value types | `RecordId`, `Table`, `DateTime`, `Decimal`, `Uuid`, and more (from `@surrealdb/sqon`) |
