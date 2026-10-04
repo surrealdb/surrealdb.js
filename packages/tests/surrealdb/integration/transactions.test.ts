@@ -175,7 +175,8 @@ describe("transaction()", async () => {
 
         events.length = 0;
 
-        await surreal.transaction(["RETURN 1"]);
+        // A bare expression rather than a RETURN, which servers before 3.0 do not allow
+        await surreal.transaction(["1"]);
 
         expect(events.filter((e) => e.type === "query" && e.phase === "before")).toHaveLength(1);
     });
