@@ -44,20 +44,44 @@ function upload(chunks: string[], options: { delay?: number; end?: boolean } = {
 }
 
 async function populate(surreal: Awaited<ReturnType<typeof createSurreal>>) {
-    // Enough rows that exporting them takes noticeably longer than a request does
+    // A few hundred rows. A server removes the data of a database asynchronously, and a 2.x server
+    // refuses to define the next test's database again until it is done, so it must not be much.
     await surreal.query(
-        /* surql */ `DEFINE TABLE person SCHEMALESS; CREATE |person:40000| SET text = rand::string(64);`,
+        /* surql */ `DEFINE TABLE person SCHEMALESS; CREATE |person:300| SET text = rand::string(64);`,
     );
+}
+
+/**
+ * A `fetch` which takes its time to send a request, so that a request is in flight for as long as a
+ * test needs, whatever the server is. Everything else about it is the real thing.
+ */
+function slowFetch(milliseconds: number): typeof fetch {
+    return (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+        await Bun.sleep(milliseconds);
+
+        return fetch(input, init);
+    }) as typeof fetch;
+}
+
+/** A connection whose import and export requests take a hundred milliseconds to be sent. */
+async function connectSlow(options: { requestTimeout?: number } = {}) {
+    const { surreal, connect } = await createIdleSurreal({
+        driverOptions: { fetchImpl: slowFetch(100) },
+    });
+
+    await connect(options);
+
+    return surreal;
 }
 
 describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")("export and signals", () => {
     test("an export is abandoned mid-flight with the reason of the signal", async () => {
-        const surreal = await createSurreal();
+        const surreal = await connectSlow();
         await populate(surreal);
 
         const reason = new Error("the client went away");
         const controller = new AbortController();
-        setTimeout(() => controller.abort(reason), 1);
+        setTimeout(() => controller.abort(reason), 20);
 
         const started = performance.now();
         const error = await caught(Promise.resolve(surreal.export().signal(controller.signal)));
@@ -69,11 +93,28 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")("export an
         expect((await surreal.export()).length).toBeGreaterThan(1000);
     });
 
-    test("a timeout is reported as a TimeoutError", async () => {
+    test("an export abandoned the moment it is requested does not reach the server", async () => {
         const surreal = await createSurreal();
         await populate(surreal);
 
-        const error = (await caught(Promise.resolve(surreal.export().requestTimeout(1)))) as Error;
+        const reason = new Error("the client went away");
+        const controller = new AbortController();
+        const exporting = Promise.resolve(surreal.export().signal(controller.signal));
+
+        // Only microtasks have run, so no answer can have come back from the network yet
+        await Promise.resolve();
+        await Promise.resolve();
+        controller.abort(reason);
+
+        expect(await caught(exporting)).toBe(reason);
+        expect((await surreal.export()).length).toBeGreaterThan(1000);
+    });
+
+    test("a timeout is reported as a TimeoutError", async () => {
+        const surreal = await connectSlow();
+        await populate(surreal);
+
+        const error = (await caught(Promise.resolve(surreal.export().requestTimeout(20)))) as Error;
 
         expect(error.name).toBe("TimeoutError");
     });
@@ -125,12 +166,12 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")("export an
     });
 
     test("a request scope abandons an export with its signal", async () => {
-        const surreal = await createSurreal();
+        const surreal = await connectSlow();
         await populate(surreal);
 
         const reason = new Error("the request went away");
         const controller = new AbortController();
-        setTimeout(() => controller.abort(reason), 1);
+        setTimeout(() => controller.abort(reason), 20);
 
         expect(await caught(Promise.resolve(surreal.withSignal(controller.signal).export()))).toBe(
             reason,
@@ -138,13 +179,12 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "http")("export an
     });
 
     test("the connection's requestTimeout does not apply to an export", async () => {
-        const { surreal, connect } = await createIdleSurreal();
-        await connect({ requestTimeout: 1 });
+        // Every request takes 100ms to be sent, which a limit of 20ms would not allow a query
+        const surreal = await connectSlow({ requestTimeout: 20 });
         await surreal
-            .query(/* surql */ `DEFINE TABLE person SCHEMALESS; CREATE |person:20000|;`)
+            .query(/* surql */ `DEFINE TABLE person SCHEMALESS; CREATE |person:300|;`)
             .requestTimeout(0);
 
-        // A limit this tight would stop any query, and an export which takes longer than it
         expect((await surreal.export()).length).toBeGreaterThan(1000);
     });
 });
