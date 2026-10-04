@@ -265,6 +265,26 @@ async function _main() {
     await boundTransaction.query("SELECT * FROM person").signal(signal);
     await boundTransaction.cancel();
 
+    // Import and export take a signal and a limit too, which is theirs alone: no connection default
+    await db.export().signal(signal).requestTimeout(60_000);
+    const _exported: string = await db.export({ tables: true }).signal(signal);
+    const _rawExport: Response = await db.export().raw().signal(signal).requestTimeout(0);
+    const _model: Uint8Array = await db.exportModel("model", "1.0.0").signal(signal);
+    const _rawModel: Response = await db.exportModel("model", "1.0.0").raw().signal(signal);
+    await db.import("OPTION IMPORT; CREATE person:one;").signal(signal).requestTimeout(60_000);
+    await db.import(new ReadableStream()).signal(AbortSignal.timeout(5_000));
+
+    // And so does a view bound to a signal
+    await scoped.export();
+    await scoped.exportModel("model", "1.0.0").raw();
+    await scoped.import(new Blob(["OPTION IMPORT;"])).signal(signal);
+
+    // @ts-expect-error a request timeout is a number of milliseconds
+    db.export().requestTimeout("1m");
+
+    // @ts-expect-error a signal is an AbortSignal
+    db.import("OPTION IMPORT;").signal(5);
+
     // Options: a default limit for the connection, and extras for `fetch`
     await db.connect("ws://localhost:8000", { requestTimeout: 5_000 });
     const _driver = new Surreal({
