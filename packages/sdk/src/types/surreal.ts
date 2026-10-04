@@ -225,6 +225,31 @@ export interface ConnectOptions {
      * @default false
      */
     retry?: boolean | Partial<RetryOptions>;
+    /**
+     * The longest, in milliseconds, to wait for the answer to a query before giving up on it.
+     *
+     * This is a client side limit: it stops the SDK from waiting, and nothing more. The server is
+     * not told, and may well carry on and apply a write the SDK has stopped waiting for. To have
+     * the server stop a query itself, use the `TIMEOUT` clause, which the query builders expose as
+     * `.timeout()`.
+     *
+     * A query which exceeds the limit fails with the `TimeoutError` `DOMException` of
+     * `AbortSignal.timeout()`, so that it can be told apart from an abort requested through a
+     * signal, which fails with the reason of that signal.
+     *
+     * The limit applies to each request separately, so a query retried after a transaction
+     * conflict gets a fresh one for every attempt, and to queries only: it does not apply to
+     * signing in, selecting a namespace, transaction control, import or export. It starts when
+     * the request is sent, and does not include waiting for a connection to be established. To
+     * bound the whole of an operation, including retries and connection waits, pass
+     * `AbortSignal.timeout()` to `.signal()` instead.
+     *
+     * A query can override the limit with `.requestTimeout()`, which is the only way to allow
+     * one longer than the default. `0` disables it.
+     *
+     * @default 0 (no limit)
+     */
+    requestTimeout?: number;
 }
 
 /**
@@ -314,6 +339,7 @@ export interface ConnectionState {
     url: URL;
     reconnect: ReconnectContext;
     retry: RetryOptions;
+    requestTimeout?: number;
     rootSession: ConnectionSession;
     sessions: Map<Uuid, ConnectionSession>;
 }
