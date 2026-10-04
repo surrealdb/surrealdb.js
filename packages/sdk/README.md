@@ -243,7 +243,7 @@ await db.query("SELECT * FROM report").requestTimeout(60_000);
 await db.query("SELECT * FROM backfill").requestTimeout(0);
 ```
 
-A query which takes longer fails with the `TimeoutError` of `AbortSignal.timeout()`. The limit applies to each request separately, so a query which is retried gets the full time for every attempt. It starts when the request is sent, and does not include the time spent waiting for a connection; to bound the whole of an operation, including retries, pass `AbortSignal.timeout()` to `.signal()` instead. It applies to queries, and not to signing in, selecting a namespace, transaction control, import or export.
+A query which takes longer fails with the `TimeoutError` of `AbortSignal.timeout()`. The limit applies to each request separately, so a query which is retried gets the full time for every attempt. It starts when the request is sent, and does not include the time spent waiting for a connection; to bound the whole of an operation, including retries, pass `AbortSignal.timeout()` to `.signal()` instead. It applies to queries, which includes a list of queries and an atomic `transaction()`, and not to signing in, selecting a namespace, the `begin` and `commit` of an interactive transaction, import or export.
 
 `.requestTimeout()` is the way to _extend_ the default for a query. A signal can only ever shorten it, as the query is abandoned when the first of them fires.
 
@@ -254,6 +254,31 @@ This is not the `TIMEOUT` clause, which the query builders expose as `.timeout()
 | Enforced by | The server, as a `TIMEOUT` clause in the query | The client, which stops waiting |
 | Takes | A `Duration` | Milliseconds |
 | On expiry | The server stops the query and reports a `QueryError` | The query fails with a `TimeoutError` and the server is not told |
+
+#### Lists of queries and atomic transactions
+
+A list of queries given to `query()` is a query like any other, so it takes `.signal()` and `.requestTimeout()`. `transaction()` takes the same as options, next to `retry`:
+
+```ts
+await db
+    .query(["SELECT * FROM report", surql`SELECT * FROM person WHERE age >= ${18}`])
+    .signal(request.signal)
+    .collect();
+
+await db.transaction(
+    [
+        surql`UPDATE ONLY ${fromId} SET balance -= ${amount}`,
+        surql`UPDATE ONLY ${toId} SET balance += ${amount}`,
+    ],
+    { retry: true, signal: request.signal, requestTimeout: 5_000 },
+);
+```
+
+- A transaction is a single request, so a signal or a `requestTimeout` abandons all of it at once. A signal which has already aborted sends nothing, and a transaction which is waiting to be retried is not retried again.
+- The `requestTimeout` of the connection applies to a transaction as it does to any query, to each attempt in turn, and the option overrides it, with `0` for no limit.
+- **An abandoned transaction may or may not have been committed.** The server is not told, and may well carry on to commit it. It is still atomic, so either all of its changes were applied or none was, but the client has to check which.
+- When a transaction does fail, it is still the error which made it fail that is thrown, and not one of the "not executed" errors reported for its other statements, whether or not a signal is involved. A signal which aborts first wins, and its reason is thrown.
+- `.signal()` and `.requestTimeout()` on the items of a list are ignored, like anything else configured on them: abandon the combined query, or call it on a view made with `withSignal()`.
 
 #### Scoping a request handler to its request
 
@@ -267,6 +292,10 @@ const [report] = await scoped.query("SELECT * FROM report").collect<[Report[]]>(
 
 // A signal for one call is combined with the one of the scope
 await scoped.select<Person>(personTable).signal(AbortSignal.timeout(500));
+
+// Lists of queries and atomic transactions are bound to the signal as well
+await scoped.query(["SELECT * FROM report", "SELECT * FROM person"]).collect();
+await scoped.transaction([surql`UPDATE counter:visits SET count += 1`], { retry: true });
 
 // Transactions begun on the view are bound to the signal too
 const txn = await scoped.beginTransaction();
