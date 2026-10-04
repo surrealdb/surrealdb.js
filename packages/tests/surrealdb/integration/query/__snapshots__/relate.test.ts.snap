@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`relate() compile: query-http 1`] = `"RELATE  ONLY $bind__3->$bind__4->$bind__5 RETURN DIFF TIMEOUT 1s VERSION $bind__6"`;
+exports[`relate() compile: query-http 1`] = `"RELATE  ONLY $bind__3->$bind__4->$bind__5 RETURN DIFF TIMEOUT 1s"`;
 
 exports[`relate() compile: bindings-http 1`] = `
 {
@@ -16,14 +16,10 @@ exports[`relate() compile: bindings-http 1`] = `
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
-  "bind__6": DateTime {
-    [Symbol(surrealdb.DateTime)]: true,
-    [Symbol(surrealdb.Value)]: true,
-  },
 }
 `;
 
-exports[`relate() compile: query-ws 1`] = `"RELATE  ONLY $bind__4->$bind__5->$bind__6 RETURN DIFF TIMEOUT 1s VERSION $bind__7"`;
+exports[`relate() compile: query-ws 1`] = `"RELATE  ONLY $bind__4->$bind__5->$bind__6 RETURN DIFF TIMEOUT 1s"`;
 
 exports[`relate() compile: bindings-ws 1`] = `
 {
@@ -39,14 +35,10 @@ exports[`relate() compile: bindings-ws 1`] = `
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
-  "bind__7": DateTime {
-    [Symbol(surrealdb.DateTime)]: true,
-    [Symbol(surrealdb.Value)]: true,
-  },
 }
 `;
 
-exports[`relate() compile: query-mem 1`] = `"RELATE  ONLY $bind__3->$bind__4->$bind__5 RETURN DIFF TIMEOUT 1s VERSION $bind__6"`;
+exports[`relate() compile: query-mem 1`] = `"RELATE  ONLY $bind__3->$bind__4->$bind__5 RETURN DIFF TIMEOUT 1s"`;
 
 exports[`relate() compile: bindings-mem 1`] = `
 {
@@ -60,10 +52,6 @@ exports[`relate() compile: bindings-mem 1`] = `
   },
   "bind__5": RecordId {
     [Symbol(surrealdb.RecordId)]: true,
-    [Symbol(surrealdb.Value)]: true,
-  },
-  "bind__6": DateTime {
-    [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
 }

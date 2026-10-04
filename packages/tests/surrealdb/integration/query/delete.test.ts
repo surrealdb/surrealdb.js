@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { DateTime, Duration, RecordId, StringRecordId } from "surrealdb";
+import { DateTime, Duration, ExpressionError, RecordId, StringRecordId } from "surrealdb";
 import { createSurreal, insertMockRecords, type Person, personTable, proto } from "../__helpers__";
 
 describe("delete()", async () => {
@@ -51,12 +51,26 @@ describe("delete()", async () => {
         const builder = surreal
             .delete<Person>(personTable)
             .output("diff")
-            .timeout(Duration.seconds(1))
-            .version(new DateTime(0));
+            .timeout(Duration.seconds(1));
 
         const { query, bindings } = builder.compile();
 
         expect(query).toMatchSnapshot(proto("query"));
         expect(bindings).toMatchSnapshot(proto("bindings"));
+    });
+
+    // SurrealDB has no VERSION clause for DELETE statements
+    test("version() is not supported", async () => {
+        const surreal = await createSurreal();
+        await insertMockRecords(surreal);
+
+        const builder = surreal.delete<Person>(personTable).version(new DateTime(0));
+
+        expect(() => builder.compile()).toThrow(ExpressionError);
+        expect(() => builder.compile()).toThrow("VERSION clause is not supported by DELETE");
+        await expect(Promise.resolve(builder)).rejects.toThrow(ExpressionError);
+
+        // Nothing was deleted
+        expect(await surreal.select<Person>(personTable)).toBeArrayOfSize(2);
     });
 });

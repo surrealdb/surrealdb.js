@@ -1,5 +1,6 @@
 import type { DateTime, Duration, RecordIdRange, Table, Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
+import { ExpressionError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
@@ -94,8 +95,11 @@ export class DeletePromise<T, J extends boolean = false> extends DispatchedPromi
     }
 
     /**
-     * Configure a custom version of the data being created. This is used
-     * alongside version enabled storage engines such as SurrealKV.
+     * Configure a custom version of the data being deleted.
+     *
+     * @deprecated SurrealDB has no `VERSION` clause for `DELETE` statements, so
+     * a query using this method fails with an `ExpressionError` when it is
+     * compiled or executed, before anything is sent to the server.
      */
     version(version: DateTime): DeletePromise<T, J> {
         return new DeletePromise<T, J>(this.#connection, {
@@ -134,6 +138,10 @@ export class DeletePromise<T, J extends boolean = false> extends DispatchedPromi
     #build(): Query<[T], J> {
         const { what, transaction, session, json, output, timeout, version, retry } = this.#options;
 
+        if (version) {
+            throw new ExpressionError("The VERSION clause is not supported by DELETE statements");
+        }
+
         const query = surql`DELETE ${_only(what)}`;
 
         if (output) {
@@ -142,10 +150,6 @@ export class DeletePromise<T, J extends boolean = false> extends DispatchedPromi
 
         if (timeout) {
             query.append(surql` TIMEOUT ${_timeout(timeout)}`);
-        }
-
-        if (version) {
-            query.append(surql` VERSION ${version}`);
         }
 
         return new Query(this.#connection, {
