@@ -219,6 +219,18 @@ How the credential is presented depends on the protocol:
 
 A credential belongs to the session, not to a request. Over HTTP `"none"` sends each request with what was resolved for it, so `resolve` may decide on the identity of each one. Over WebSocket requests which share a session share an identity, as a session holds one, so what was resolved for each request is applied to it one request after the other. Calling `db.invalidate()` discards the credential, and the next request resolves a new one.
 
+Resolving a credential is something a request waits for, so it is [cancelled and limited](#cancelling-queries-and-setting-timeouts) like the rest of the request:
+
+- When the signal of the request aborts, or its `requestTimeout` (or the one of the connection) runs out, while `resolve` is working, while authentication details are being exchanged for a token, or while the request is waiting for a `401` to be answered with a new credential, the request rejects at once with the reason of the signal, and nothing more is sent for it. When the resolver fails at the same moment, the abort is what is reported, and not the failure.
+- A signal which has aborted already does not call `resolve`.
+- Abandoning a request does not abandon the work which was begun for it. `resolve` is not told, so it runs to the end, and what it resolves is kept as the cache says for the requests which follow and which share it, and are not abandoned by it. Over WebSocket a credential which was being applied to the session is applied in full, rather than left half done, and a resolution which was queued behind another and had not begun when its request was abandoned never begins.
+- A request which is abandoned while the credential is being resolved is never sent with a credential which was not resolved for it, or without one.
+- The transactions of `transaction()` are a request like any other, and so they are resolved for, authenticated, and abandoned in the same way. `beginTransaction()` waits for the session to be authenticated before it begins, so that the identity of the transaction does not change in the middle of it, and one which a signal abandons while it is waiting is cancelled when it does begin.
+
+A resolver which never settles holds up the requests which queue behind it over WebSocket. Give those requests a `requestTimeout`, or a signal, to be rid of them, and make `resolve` give up by itself.
+
+On a connection which resolves credentials for each request, `.as()` and the `as` option of `transaction()` take precedence over the resolver for that call, which is not asked for a credential.
+
 #### Running a call as someone else
 
 Over HTTP a single call can be run as a different identity, without changing the session which other calls share. Chain `.as()` to a query or any of the query builders with an access token, or with anything `signin()` accepts:
@@ -234,6 +246,40 @@ const me = await db.auth().as({ access: "account", variables: { email, password 
 The credential is the `Authorization` header of that request only. The selected namespace and database stay as they are, and the session does not authenticate with it, so concurrent calls for different users can share one connection. Authentication details are exchanged for a token first, which costs one more request. A token is not checked until the server sees it, and a call which is refused is not sent again.
 
 This needs an engine which presents credentials with every request. On a WebSocket connection `.as()` rejects the call with an `UnsupportedFeatureError`, rather than running it as the session, which would be the wrong identity. There, create a session for the identity with `db.forkSession()` and call `authenticate()` on it.
+
+`.as()` goes together with the way a call is [cancelled and limited](#cancelling-queries-and-setting-timeouts), on `.query()` and on every query builder, in whichever order they are chained, and through a view made with `withSignal()`. The identity of the call is the one the request is made as, and the signal and the timeout are the ones it is abandoned by:
+
+```ts
+const notes = await db
+    .select(new Table("note"))
+    .as(userToken)
+    .signal(request.signal)
+    .requestTimeout(5_000);
+
+// The same, for everything which a request handler does, as someone else or not
+const scoped = db.withSignal(request.signal);
+
+await scoped.select(new Table("note")).as(userToken);
+await scoped.select(new Table("note")); // as the session
+
+// An atomic transaction is a single request, and so it is run as one identity as a whole
+await db.transaction([surql`CREATE note SET owner = ${userId}`], {
+    as: userToken,
+    signal: request.signal,
+});
+```
+
+Authentication details which are exchanged for a token are part of what the call waits for, so a call which is abandoned while that is going on rejects with the reason of the signal at once, and is not sent afterwards.
+
+A list of queries is run as a single request, as one identity, so `.as()` is called on the combined query, and not on the items of the list. An item which was given an identity of its own is refused when the list is made, with an `ExpressionError`, rather than run as the session, which would be a different identity from the one it was given.
+
+```ts
+// Run the whole list as the user
+await db.query([db.select(table), "RETURN 1"]).as(userToken);
+
+// An item which asks for an identity of its own is refused, and nothing is sent
+db.query([db.select(table).as(userToken), "RETURN 1"]); // throws an ExpressionError
+```
 
 ### Sending queries
 
@@ -425,6 +471,7 @@ const [report] = await db
 - When a signal aborts, the query stops waiting and rejects with the signal's `reason`, as it is. That is an `AbortError` for `controller.abort()` and a `TimeoutError` for `AbortSignal.timeout()`, so `error.name` tells a timeout from an abort the way it does for `fetch`. They are not wrapped in an SDK error, and they are not `SurrealError`s.
 - A stream ends with the reason, and lets go of what it holds. A query which is waiting to be retried is not retried again.
 - `.signal()` can be called more than once, and the query is abandoned when any of the signals aborts.
+- A query which waits for credentials, because [they are resolved for each request](#resolving-credentials-for-each-request) or because it is [run as someone else](#running-a-call-as-someone-else), is abandoned while it waits for them as well.
 
 **Aborting means "stop waiting", and nothing more.** The SDK stops waiting, and over HTTP the request is cancelled, but a SurrealDB server which has been sent a query may well carry on executing it. Over WebSocket there is no way to tell the server to stop, so it runs the query to the end and the answer is thrown away when it arrives. **A write which was sent before the signal aborted may or may not have been applied**, and a caller which needs to know has to check, for example by reading the record back or by making the write idempotent. Abandoned queries keep using resources on the server until they finish.
 
@@ -477,7 +524,7 @@ await db.transaction(
 - The `requestTimeout` of the connection applies to a transaction as it does to any query, to each attempt in turn, and the option overrides it, with `0` for no limit.
 - **An abandoned transaction may or may not have been committed.** The server is not told, and may well carry on to commit it. It is still atomic, so either all of its changes were applied or none was, but the client has to check which.
 - When a transaction does fail, it is still the error which made it fail that is thrown, and not one of the "not executed" errors reported for its other statements, whether or not a signal is involved. A signal which aborts first wins, and its reason is thrown.
-- `.signal()` and `.requestTimeout()` on the items of a list are ignored, like anything else configured on them: abandon the combined query, or call it on a view made with `withSignal()`.
+- `.signal()` and `.requestTimeout()` on the items of a list are ignored, like anything else configured on them: abandon the combined query, or call it on a view made with `withSignal()`. `.as()` on an item is not ignored, but refused with an `ExpressionError`, as a list is run as one identity: [call it on the combined query, or give `transaction()` the `as` option](#running-a-call-as-someone-else).
 
 #### Scoping a request handler to its request
 
