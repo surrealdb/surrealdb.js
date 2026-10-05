@@ -34,7 +34,26 @@ export type MockHandler = (request: MockRequest) => MockReply | Promise<MockRepl
 export function createMockFetch(handler: MockHandler) {
     const requests: MockRequest[] = [];
 
-    const fetchImpl = (async (input: string | URL | Request, init: RequestInit = {}) => {
+    const fetchImpl = ((input: string | URL | Request, init: RequestInit = {}) => {
+        const respond = () => answer(input, init);
+        const signal = init.signal;
+
+        if (!signal) return respond();
+
+        // As a runtime provides it: a request which is aborted rejects with the reason of its
+        // signal, however slow the server is
+        return new Promise<Response>((resolve, reject) => {
+            if (signal.aborted) {
+                reject(signal.reason);
+                return;
+            }
+
+            signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+            respond().then(resolve, reject);
+        });
+    }) as typeof fetch;
+
+    const answer = async (input: string | URL | Request, init: RequestInit): Promise<Response> => {
         const headers: Record<string, string> = {};
 
         for (const [name, value] of Object.entries(init.headers ?? {})) {
@@ -70,7 +89,7 @@ export function createMockFetch(handler: MockHandler) {
         const payload = new Uint8Array(codec.encode({ id: rpc?.id, ...reply }));
 
         return new Response(payload, { status: 200 });
-    }) as typeof fetch;
+    };
 
     return {
         fetchImpl,
