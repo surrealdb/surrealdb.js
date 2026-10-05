@@ -194,6 +194,29 @@ export abstract class RpcEngine implements SurrealProtocol {
     }
 
     async importSql(data: string | Blob | ReadableStream, request?: RequestOptions): Promise<void> {
+        await this.importWith(data, request);
+    }
+
+    async exportSql(
+        options: Partial<SqlExportOptions>,
+        request?: RequestOptions,
+    ): Promise<Response> {
+        return this.exportWith(options, request);
+    }
+
+    async exportMlModel(options: MlExportOptions, request?: RequestOptions): Promise<Response> {
+        return this.exportMlModelWith(options, request);
+    }
+
+    /**
+     * Import, presenting a token for this import alone when there is one, and otherwise the
+     * credential of the connection, as it is for every request.
+     */
+    protected async importWith(
+        data: string | Blob | ReadableStream,
+        request: RequestOptions | undefined,
+        token?: Token,
+    ): Promise<void> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
@@ -209,13 +232,18 @@ export abstract class RpcEngine implements SurrealProtocol {
             headers: {
                 Accept: "application/json",
             },
+            token,
             signal: request?.signal,
         });
     }
 
-    async exportSql(
+    /**
+     * Export, presenting a token for this export alone when there is one. See `importWith()`.
+     */
+    protected async exportWith(
         options: Partial<SqlExportOptions>,
-        request?: RequestOptions,
+        request: RequestOptions | undefined,
+        token?: Token,
     ): Promise<Response> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
@@ -232,11 +260,20 @@ export abstract class RpcEngine implements SurrealProtocol {
             headers: {
                 Accept: "plain/text",
             },
+            token,
             signal: request?.signal,
         });
     }
 
-    async exportMlModel(options: MlExportOptions, request?: RequestOptions): Promise<Response> {
+    /**
+     * Export a model, presenting a token for this export alone when there is one. See
+     * `importWith()`.
+     */
+    protected async exportMlModelWith(
+        options: MlExportOptions,
+        request: RequestOptions | undefined,
+        token?: Token,
+    ): Promise<Response> {
         if (!this._state) {
             throw new ConnectionUnavailableError();
         }
@@ -249,6 +286,7 @@ export abstract class RpcEngine implements SurrealProtocol {
         return fetchSurreal(this._context, this._state, this._state.rootSession, {
             url: endpoint,
             method: "GET",
+            token,
             signal: request?.signal,
         });
     }

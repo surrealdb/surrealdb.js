@@ -1,15 +1,10 @@
 import type { ConnectionController } from "../controller";
-import {
-    type AbortOptions,
-    abortScope,
-    addSignal,
-    assertTimeout,
-    raceAbort,
-    throwIfAborted,
-} from "../internal/abort";
+import { abortScope, addSignal, assertTimeout, raceAbort, throwIfAborted } from "../internal/abort";
+import { assertCredential } from "../internal/auth-provider";
+import type { TransferOptions } from "../internal/credentialed";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { readBytes, readText, releaseResponse } from "../internal/http";
-import type { MlExportOptions, SqlExportOptions } from "../types";
+import type { AuthOrToken, MlExportOptions, SqlExportOptions } from "../types";
 import { Features } from "../utils";
 
 type ExportResult<T, R extends boolean> = R extends true ? Response : T;
@@ -23,13 +18,13 @@ export class ExportPromise<R extends boolean = false> extends DispatchedPromise<
     #connection: ConnectionController;
     #options: Partial<SqlExportOptions>;
     #raw: boolean;
-    #abort: AbortOptions;
+    #abort: TransferOptions;
 
     constructor(
         connection: ConnectionController,
         options: Partial<SqlExportOptions>,
         raw: boolean,
-        abort: AbortOptions = {},
+        abort: TransferOptions = {},
     ) {
         super();
         this.#connection = connection;
@@ -88,6 +83,28 @@ export class ExportPromise<R extends boolean = false> extends DispatchedPromise<
         });
     }
 
+    /**
+     * Run this export as a different identity than the one of the connection, for this export
+     * only: it is what the server lets that identity export. The connection is neither
+     * authenticated, changed, or looked at, and the credential of the connection is not resolved.
+     * See `Query.as()`.
+     *
+     * Pass an access token, or the authentication details accepted by `signin()`, which are
+     * exchanged for a token first. Only engines which present credentials with every request
+     * support this, which is the HTTP engine: other engines reject the export with an
+     * `UnsupportedFeatureError` rather than run it as the connection.
+     *
+     * @param credential An access token or authentication details to run this export as
+     */
+    as(credential: AuthOrToken): ExportPromise<R> {
+        assertCredential(credential);
+
+        return new ExportPromise<R>(this.#connection, this.#options, this.#raw, {
+            ...this.#abort,
+            credential,
+        });
+    }
+
     protected async dispatch(): Promise<ExportResult<string, R>> {
         const scope = abortScope(this.#abort.signals ?? [], this.#abort.requestTimeout);
 
@@ -99,8 +116,13 @@ export class ExportPromise<R extends boolean = false> extends DispatchedPromise<
                 this.#connection.assertFeature(Features.ExportImportRaw);
             }
 
+            const { credential } = this.#abort;
+            const request = scope.signal && { signal: scope.signal };
+
             const result = await raceAbort(
-                this.#connection.exportSql(this.#options, scope.signal && { signal: scope.signal }),
+                credential === undefined
+                    ? this.#connection.exportSql(this.#options, request)
+                    : this.#connection.exportSqlAs(this.#options, { ...request, credential }),
                 scope.signal,
                 (late) => {
                     if (typeof late !== "string") releaseResponse(late);
@@ -133,13 +155,13 @@ export class ExportModelPromise<R extends boolean = false> extends DispatchedPro
     #connection: ConnectionController;
     #options: MlExportOptions;
     #raw: boolean;
-    #abort: AbortOptions;
+    #abort: TransferOptions;
 
     constructor(
         connection: ConnectionController,
         options: MlExportOptions,
         raw: boolean,
-        abort: AbortOptions = {},
+        abort: TransferOptions = {},
     ) {
         super();
         this.#connection = connection;
@@ -195,6 +217,21 @@ export class ExportModelPromise<R extends boolean = false> extends DispatchedPro
         });
     }
 
+    /**
+     * Run this export as a different identity than the one of the connection, for this export
+     * only. See `ExportPromise.as()`.
+     *
+     * @param credential An access token or authentication details to run this export as
+     */
+    as(credential: AuthOrToken): ExportModelPromise<R> {
+        assertCredential(credential);
+
+        return new ExportModelPromise<R>(this.#connection, this.#options, this.#raw, {
+            ...this.#abort,
+            credential,
+        });
+    }
+
     protected async dispatch(): Promise<ExportResult<Uint8Array, R>> {
         const scope = abortScope(this.#abort.signals ?? [], this.#abort.requestTimeout);
 
@@ -208,11 +245,13 @@ export class ExportModelPromise<R extends boolean = false> extends DispatchedPro
                 this.#connection.assertFeature(Features.ExportImportRaw);
             }
 
+            const { credential } = this.#abort;
+            const request = scope.signal && { signal: scope.signal };
+
             const result = await raceAbort(
-                this.#connection.exportMlModel(
-                    this.#options,
-                    scope.signal && { signal: scope.signal },
-                ),
+                credential === undefined
+                    ? this.#connection.exportMlModel(this.#options, request)
+                    : this.#connection.exportMlModelAs(this.#options, { ...request, credential }),
                 scope.signal,
                 (late) => {
                     if (!(late instanceof Uint8Array)) releaseResponse(late);

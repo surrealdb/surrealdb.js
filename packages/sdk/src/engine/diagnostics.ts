@@ -40,6 +40,11 @@ export class DiagnosticsEngine implements SurrealEngine {
      */
     queryAs?: SurrealEngine["queryAs"];
 
+    /** Likewise for import and export, which are refused as well when the engine cannot */
+    importSqlAs?: SurrealEngine["importSqlAs"];
+    exportSqlAs?: SurrealEngine["exportSqlAs"];
+    exportMlModelAs?: SurrealEngine["exportMlModelAs"];
+
     constructor(delegate: SurrealEngine, callback: DiagnosticsCallback) {
         this.#delegate = delegate;
         this.#callback = callback;
@@ -62,6 +67,36 @@ export class DiagnosticsEngine implements SurrealEngine {
                         queryAs.call(delegate, query, session, txn, options) as AsyncIterable<
                             QueryChunk<T>
                         >,
+                );
+        }
+
+        // The credential is passed on in the same way, and never reported
+        const { importSqlAs, exportSqlAs, exportMlModelAs } = delegate;
+
+        if (typeof importSqlAs === "function") {
+            this.importSqlAs = (data, request) =>
+                this.#diagnose(
+                    "importSql",
+                    () => importSqlAs.call(delegate, data, request),
+                    () => undefined,
+                );
+        }
+
+        if (typeof exportSqlAs === "function") {
+            this.exportSqlAs = (options, request) =>
+                this.#diagnose(
+                    "exportSql",
+                    () => exportSqlAs.call(delegate, options, request),
+                    () => undefined,
+                );
+        }
+
+        if (typeof exportMlModelAs === "function") {
+            this.exportMlModelAs = (options, request) =>
+                this.#diagnose(
+                    "exportMlModel",
+                    () => exportMlModelAs.call(delegate, options, request),
+                    () => undefined,
                 );
         }
     }

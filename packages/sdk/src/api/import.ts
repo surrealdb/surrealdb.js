@@ -1,13 +1,9 @@
 import type { ConnectionController } from "../controller";
-import {
-    type AbortOptions,
-    abortScope,
-    addSignal,
-    assertTimeout,
-    raceAbort,
-    throwIfAborted,
-} from "../internal/abort";
+import { abortScope, addSignal, assertTimeout, raceAbort, throwIfAborted } from "../internal/abort";
+import { assertCredential } from "../internal/auth-provider";
+import type { TransferOptions } from "../internal/credentialed";
 import { DispatchedPromise } from "../internal/dispatched-promise";
+import type { AuthOrToken } from "../types";
 
 /**
  * A configurable `Promise` for import operations.
@@ -17,12 +13,12 @@ import { DispatchedPromise } from "../internal/dispatched-promise";
 export class ImportPromise extends DispatchedPromise<void> {
     #connection: ConnectionController;
     #input: string | Blob | ReadableStream;
-    #abort: AbortOptions;
+    #abort: TransferOptions;
 
     constructor(
         connection: ConnectionController,
         input: string | Blob | ReadableStream,
-        abort: AbortOptions = {},
+        abort: TransferOptions = {},
     ) {
         super();
         this.#connection = connection;
@@ -71,14 +67,41 @@ export class ImportPromise extends DispatchedPromise<void> {
         });
     }
 
+    /**
+     * Run this import as a different identity than the one of the connection, for this import
+     * only. The connection is neither authenticated, changed, or looked at, and the credential
+     * of the connection is not resolved. See `Query.as()`.
+     *
+     * Pass an access token, or the authentication details accepted by `signin()`, which are
+     * exchanged for a token first. Only engines which present credentials with every request
+     * support this, which is the HTTP engine: other engines reject the import with an
+     * `UnsupportedFeatureError` rather than run it as the connection. A stream is uploaded once
+     * and never sent again, so a token which the server refuses fails the import.
+     *
+     * @param credential An access token or authentication details to run this import as
+     */
+    as(credential: AuthOrToken): ImportPromise {
+        assertCredential(credential);
+
+        return new ImportPromise(this.#connection, this.#input, {
+            ...this.#abort,
+            credential,
+        });
+    }
+
     protected async dispatch(): Promise<void> {
         const scope = abortScope(this.#abort.signals ?? [], this.#abort.requestTimeout);
 
         try {
             throwIfAborted(scope.signal);
             await raceAbort(this.#connection.ready(), scope.signal);
+            const { credential } = this.#abort;
+            const request = scope.signal && { signal: scope.signal };
+
             await raceAbort(
-                this.#connection.importSql(this.#input, scope.signal && { signal: scope.signal }),
+                credential === undefined
+                    ? this.#connection.importSql(this.#input, request)
+                    : this.#connection.importSqlAs(this.#input, { ...request, credential }),
                 scope.signal,
             );
         } finally {
