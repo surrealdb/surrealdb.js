@@ -1,24 +1,33 @@
 import {
+    type ConnectionOptions,
+    type NotificationReceiver,
+    SurrealNodeEngine,
+} from "@surrealdb/node-native";
+import {
+    type BoundQuery,
     ChannelIterator,
     type ConnectionState,
     ConnectionUnavailableError,
     type DriverContext,
     type EngineEvents,
     Features,
+    framesToChunks,
     type LiveAction,
     LiveDispatcher,
     type LiveMessage,
     Publisher,
     parseRpcError,
+    type QueryChunk,
+    type QueryStreamFrame,
     type RecordId,
     RpcEngine,
     type RpcRequest,
+    type Session,
     type SqlExportOptions,
     type SurrealEngine,
     UnexpectedConnectionError,
     type Uuid,
 } from "surrealdb";
-import { type ConnectionOptions, type NotificationReceiver, SurrealNodeEngine } from "../napi";
 import { wrapSqonError } from "./wrap-sqon-error";
 
 interface LivePayload {
@@ -29,8 +38,8 @@ interface LivePayload {
 }
 
 /**
- * The engine implementation responsible for communicating with an embedded
- * WebAssembly build of SurrealDB.
+ * The engine implementation responsible for communicating with a SurrealDB
+ * instance embedded in the host JavaScript runtime through a NAPI addon.
  */
 export class NodeEngine extends RpcEngine implements SurrealEngine {
     #engine: SurrealNodeEngine | undefined;
@@ -46,7 +55,10 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         this.#options = options;
     }
 
-    features = new Set([
+    // Annotated through `SurrealEngine` rather than left to inference: the
+    // SDK's `Feature` class is not exported, so a declaration naming it
+    // directly cannot be emitted.
+    features: SurrealEngine["features"] = new Set([
         Features.LiveQueries,
         Features.Sessions,
         Features.Transactions,
@@ -128,6 +140,74 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         }
 
         return decoded as Result;
+    }
+
+    /**
+     * Run a query, yielding each batch of rows as the engine produces it.
+     *
+     * The base implementation awaits the whole answer and then hands it over in
+     * one piece, which for an embedded engine means holding an entire `SELECT`
+     * in memory before JavaScript sees a single row. The addon can stream, so
+     * this drives that instead: time-to-first-row becomes the cost of one batch
+     * rather than of the whole result.
+     *
+     * Pulling a frame is what drives the query inside the engine, so a consumer
+     * that stops iterating stops the scan, and one that abandons it releases the
+     * query outright. What the query had already done stands, though — the
+     * executor runs ahead by a bounded buffer, so abandoning is not a way to undo
+     * a statement that writes.
+     */
+    override query<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+    ): AsyncIterable<QueryChunk<T>> {
+        return framesToChunks<T>(this.#queryFrames(query, session, txn));
+    }
+
+    async *#queryFrames(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+    ): AsyncIterable<QueryStreamFrame> {
+        if (!this.#active || !this.#engine) {
+            throw new ConnectionUnavailableError();
+        }
+
+        const id = this._context.uniqueId();
+        const payload = wrapSqonError(() =>
+            this._context.codecs.cbor.encode({
+                id,
+                method: "query_stream",
+                params: [query.query, query.bindings],
+                session,
+                txn,
+            }),
+        );
+
+        // A failure before execution begins — a denied capability, a parse
+        // error, an unknown transaction — rejects here rather than arriving as
+        // a frame, because there is no statement to attribute it to.
+        const stream = await this.#engine.queryStream(payload);
+
+        try {
+            for (;;) {
+                const encoded = await stream.next();
+                if (encoded === null) break;
+                yield wrapSqonError(() =>
+                    this._context.codecs.cbor.decode<QueryStreamFrame>(encoded),
+                );
+            }
+        } finally {
+            // Reached on an early `break` as well as on the last frame, and it is
+            // what tells the addon a consumer that walked away is gone. Without it
+            // the release waits on a collection, which JavaScript never promises.
+            //
+            // Swallowed because this runs while another error may be propagating:
+            // closing an engine that is already gone reports that rather than
+            // panicking, and that report must not replace the real failure.
+            await stream.close().catch(() => {});
+        }
     }
 
     override async importSql(data: string | Blob | ReadableStream): Promise<void> {

@@ -88,6 +88,18 @@ export class ConnectionError extends AgentMemoryError {
 }
 
 /**
+ * The server reported a failure part-way through a stream (status 0).
+ *
+ * A streaming `chat` opens with `200`, so a failure after the headers arrives as
+ * an `error` frame on the stream itself rather than as an HTTP status. Raised by
+ * the stream parser so a mid-flight failure is caught where a request failure
+ * would be, instead of ending the stream as though the reply were complete.
+ */
+export class StreamError extends AgentMemoryError {
+    override readonly name: string = "StreamError";
+}
+
+/**
  * The caller aborted the request through the `signal` they supplied (status 0).
  *
  * Distinct from {@link ConnectionError} so a deliberate cancellation can be told

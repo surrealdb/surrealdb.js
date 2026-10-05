@@ -1,8 +1,13 @@
+import type { ConnectionOptions } from "@surrealdb/wasm-native";
 import { ConnectionUnavailableError } from "surrealdb";
-import { getIncrementalID } from "../../../sdk/src/internal/get-incremental-id";
-import type { ConnectionOptions } from "../../wasm/surrealdb";
 import type { EngineBroker } from "../common";
-import { RequestType, ResponseType, type WorkerMessage } from "./worker-contract";
+import {
+    type FrameReply,
+    type FrameRequest,
+    RequestType,
+    ResponseType,
+    type WorkerMessage,
+} from "./worker-contract";
 
 export interface WasmWorkerOptions extends ConnectionOptions {
     createWorker?: () => Worker;
@@ -13,11 +18,72 @@ type PromiseResolver<T> = {
     reject: (error: Error) => void;
 };
 
+/**
+ * The frames of one query, pulled over `port` a frame at a time.
+ *
+ * Nothing arrives on the channel until this asks for it, so the reader's pace is
+ * the query's pace rather than the worker's: the next frame is requested only
+ * once the previous one has been taken. Cancelling asks the worker to abandon the
+ * query, which is what a consumer walking away amounts to.
+ */
+function frameStream(port: MessagePort): ReadableStream<Uint8Array> {
+    // The handler is installed once rather than per pull: reinstalling it would
+    // allocate a closure per frame on the hot path, and would leave the previous
+    // one live to settle a promise that already settled. `pending` is the pull
+    // waiting on the next frame, and is the only thing a reply may resolve.
+    let pending: { resolve: () => void; reject: (error: Error) => void } | undefined;
+
+    return new ReadableStream<Uint8Array>({
+        start(controller) {
+            port.onmessage = (event: MessageEvent) => {
+                const reply = event.data as FrameReply;
+                const settle = pending;
+                pending = undefined;
+
+                if ("error" in reply) {
+                    port.close();
+                    settle?.reject(reply.error);
+                    return;
+                }
+
+                if ("done" in reply) {
+                    port.close();
+                    controller.close();
+                } else {
+                    controller.enqueue(reply.value);
+                }
+
+                settle?.resolve();
+            };
+        },
+        pull() {
+            return new Promise<void>((resolve, reject) => {
+                pending = { resolve, reject };
+                port.postMessage({ pull: true } satisfies FrameRequest);
+            });
+        },
+        cancel() {
+            pending = undefined;
+            port.postMessage({ cancel: true } satisfies FrameRequest);
+            port.close();
+        },
+    });
+}
+
 export class WorkerEngineBroker implements EngineBroker {
     #worker: Worker | undefined;
     #ready: Promise<void> = Promise.resolve();
     #markReady: (() => void) | undefined;
     #promiseResolvers = new Map<string, PromiseResolver<unknown>>();
+
+    /**
+     * Correlates a reply with the request that asked for it.
+     *
+     * Only has to be unique among the requests this broker has outstanding to
+     * its worker, which is why it is a counter of its own rather than the
+     * SDK's: these ids never leave the pair.
+     */
+    #nextRequestId = 0;
     #handleNotification: ((data: Uint8Array) => void) | undefined;
 
     get isConnected() {
@@ -67,6 +133,27 @@ export class WorkerEngineBroker implements EngineBroker {
             },
             [payload.buffer as ArrayBuffer],
         );
+    }
+
+    async queryStream(payload: Uint8Array): Promise<ReadableStream<Uint8Array>> {
+        if (!this.#worker) {
+            throw new ConnectionUnavailableError();
+        }
+
+        const { port1, port2 } = new MessageChannel();
+
+        // Resolves once the query has opened, so a failure from before execution
+        // began rejects here rather than arriving as a frame, and a stream is
+        // only handed out for a query that is running.
+        await this.#send<void>(
+            {
+                type: RequestType.QUERY_STREAM,
+                data: { payload, port: port2 },
+            },
+            [payload.buffer as ArrayBuffer, port2],
+        );
+
+        return frameStream(port1);
     }
 
     async importSql(data: string): Promise<void> {
@@ -141,7 +228,8 @@ export class WorkerEngineBroker implements EngineBroker {
     ): Promise<T> {
         await this.#ready;
 
-        const id = getIncrementalID();
+        this.#nextRequestId += 1;
+        const id = String(this.#nextRequestId);
         const message = { id, ...request };
 
         this.#worker?.postMessage(message, transfer ? { transfer } : undefined);

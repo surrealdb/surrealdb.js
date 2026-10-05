@@ -62,6 +62,8 @@ export class Session {
     async context(options: { query: string }): Promise<SessionContextResponseJson> {
         const body = await this.transport.requestJson("POST", `${this.base}/context`, {
             body: { query: options.query },
+            // A read behind a POST; safe to replay.
+            idempotent: true,
         });
         return body as SessionContextResponseJson;
     }

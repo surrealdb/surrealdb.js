@@ -1,5 +1,13 @@
-import init, { type ConnectionOptions, type SurrealWasmEngine } from "../wasm/surrealdb";
+import init, { type ConnectionOptions, type SurrealWasmEngine } from "@surrealdb/wasm-native";
 
+/**
+ * The handle a {@link WebAssemblyEngine} drives the WebAssembly module through.
+ *
+ * The module can be instantiated in the page or in a Web Worker, and those
+ * differ only in how a call reaches it and how notifications come back. Both
+ * implementations present this same surface, so the engine itself is unaware of
+ * which one it holds.
+ */
 export interface EngineBroker {
     isConnected: boolean;
     connect(
@@ -8,6 +16,14 @@ export interface EngineBroker {
         onNotification: (data: Uint8Array) => void,
     ): Promise<void>;
     execute(payload: Uint8Array): Promise<Uint8Array>;
+    /**
+     * Run a query, answering with a stream of frames rather than one response.
+     *
+     * The reader sets the pace: frames are buffered one at a time inside the
+     * module, so a reader that stops reading stops the scan, and cancelling the
+     * stream is how a consumer walks away from a query it no longer wants.
+     */
+    queryStream(payload: Uint8Array): Promise<ReadableStream<Uint8Array>>;
     importSql(data: string): Promise<void>;
     exportSql(options: Uint8Array): Promise<string>;
     close(): Promise<void>;
@@ -68,12 +84,15 @@ let initPromise: ReturnType<typeof init> | undefined;
 /**
  * Initialize the WebAssembly module. Safe to call multiple times; the module
  * is only initialized once and subsequent calls return the same promise.
+ *
+ * The module is left to resolve itself. `@surrealdb/wasm-native` locates it
+ * beside its own loader, which is the one place that knows where it is: a
+ * bundler rewrites that reference to the asset it emitted, and a plain
+ * `<script type="module">` fetches it from the package.
  */
 export async function initializeLibrary(): Promise<void> {
     if (initPromise === undefined) {
-        const wasmUrl = new URL("../wasm/surrealdb_bg.wasm", import.meta.url);
-        const wasmCode = await (await fetch(wasmUrl)).arrayBuffer();
-        initPromise = init({ module_or_path: wasmCode });
+        initPromise = init();
     }
     await initPromise;
 }
