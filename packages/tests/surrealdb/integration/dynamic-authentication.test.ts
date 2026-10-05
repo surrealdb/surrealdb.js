@@ -90,6 +90,9 @@ beforeEach(async () => {
             SIGNIN ( SELECT * FROM ${record}('user', $id) )
             DURATION FOR TOKEN 2s;
 
+        -- Slow for whoever calls it, which the SLEEP statement is not allowed to everyone
+        DEFINE FUNCTION fn::slow() { RETURN sleep(5s); };
+
         CREATE user:alice;
         CREATE user:bob;
         CREATE note:one SET owner = user:alice;
@@ -851,6 +854,507 @@ describe.skipIf(isRemote || !is3x)(
             expect(await visibleNotes(surreal.select<Note>(notes))).toEqual(["one", "two"]);
 
             await session.closeSession();
+        });
+    },
+);
+
+// How the identity of a call, the credentials of requests, and the signals which abandon a request
+// work together. The slowness is the server's own, and what is asked of the SDK is that it stops
+// waiting, whichever of the things it is waiting for is the slow one. It is a function which
+// takes as long as it takes, as the SLEEP statement is not one which every identity may run.
+const SLOW = "fn::slow()";
+
+// How long something which is abandoned after a fraction of a second is allowed to take to report
+// it. Far below SLOW, and generous enough for a loaded machine.
+const PROMPT = 2000;
+
+/** How long something takes, and what it returned */
+async function timed<T>(run: () => Promise<T>): Promise<{ ms: number; value: T }> {
+    const started = performance.now();
+    const value = await run();
+
+    return { ms: performance.now() - started, value };
+}
+
+describe.skipIf(!isRemote || !isHttp)("a call made as someone else, which is abandoned", () => {
+    test("is made as that identity whichever order the signal and the identity are given in", async () => {
+        const forAlice = await tokenFor("alice");
+        const surreal = await createSurreal();
+        const controller = new AbortController();
+
+        expect(
+            await visibleNotes(surreal.select<Note>(notes).as(forAlice).signal(controller.signal)),
+        ).toEqual(["one"]);
+        expect(
+            await visibleNotes(surreal.select<Note>(notes).signal(controller.signal).as(forAlice)),
+        ).toEqual(["one"]);
+        expect(
+            await visibleNotes(
+                surreal
+                    .select<Note>(notes)
+                    .requestTimeout(10_000)
+                    .as(forAlice)
+                    .signal(controller.signal),
+            ),
+        ).toEqual(["one"]);
+        expect(
+            await visibleNotes(
+                surreal.withSignal(controller.signal).select<Note>(notes).as(forAlice),
+            ),
+        ).toEqual(["one"]);
+    });
+
+    test("is abandoned promptly with the reason of the signal, and the connection answers the next", async () => {
+        const forAlice = await tokenFor("alice");
+        const surreal = await createSurreal();
+        const controller = new AbortController();
+        const reason = new Error("the client went away");
+
+        setTimeout(() => controller.abort(reason), 100);
+
+        const { ms, value } = await timed(() =>
+            rejection(surreal.query(SLOW).as(forAlice).signal(controller.signal)),
+        );
+
+        expect(value).toBe(reason);
+        expect(ms).toBeLessThan(PROMPT);
+        expect(await visibleNotes(surreal.select<Note>(notes).as(forAlice))).toEqual(["one"]);
+    });
+
+    test("is abandoned promptly by a request timeout, as a TimeoutError", async () => {
+        const forAlice = await tokenFor("alice");
+        const surreal = await createSurreal();
+
+        const { ms, value } = await timed(() =>
+            rejection(surreal.query(SLOW).as(forAlice).requestTimeout(150)),
+        );
+
+        expect(value.name).toBe("TimeoutError");
+        expect(ms).toBeLessThan(PROMPT);
+    });
+
+    test("is abandoned promptly through a scope which is bound to a signal", async () => {
+        const forAlice = await tokenFor("alice");
+        const surreal = await createSurreal();
+        const controller = new AbortController();
+        const reason = new Error("the client went away");
+
+        setTimeout(() => controller.abort(reason), 100);
+
+        const { ms, value } = await timed(() =>
+            rejection(surreal.withSignal(controller.signal).query(SLOW).as(forAlice)),
+        );
+
+        expect(value).toBe(reason);
+        expect(ms).toBeLessThan(PROMPT);
+    });
+
+    test("is not run at all by a signal which has aborted already", async () => {
+        const forAlice = await tokenFor("alice");
+        const surreal = await createSurreal();
+        const created = new RecordId("note", "never");
+        const controller = new AbortController();
+        const reason = new Error("never started");
+
+        controller.abort(reason);
+
+        const error = await rejection(
+            surreal
+                .create(created)
+                .content({ owner: alice })
+                .as(forAlice)
+                .signal(controller.signal),
+        );
+
+        expect(error).toBe(reason);
+        expect(await surreal.select(created)).toBeUndefined();
+    });
+
+    test("is exchanged for a token, which can be abandoned as well", async () => {
+        const surreal = await createSurreal();
+
+        const visible = await visibleNotes(
+            surreal
+                .select<Note>(notes)
+                .as({ access: "user", variables: { id: "alice" } })
+                .signal(AbortSignal.timeout(10_000)),
+        );
+
+        expect(visible).toEqual(["one"]);
+    });
+});
+
+describe.skipIf(!isRemote || !isHttp)("a transaction as someone else, over HTTP", () => {
+    test("is committed as that identity", async () => {
+        const forAlice = await tokenFor("alice");
+        const surreal = await createSurreal();
+
+        await surreal.transaction(
+            [
+                surql`CREATE note:txn1 SET owner = ${alice}`,
+                surql`CREATE note:txn2 SET owner = ${alice}`,
+            ],
+            { as: forAlice },
+        );
+
+        expect(await visibleNotes(surreal.select<Note>(notes).as(forAlice))).toEqual([
+            "one",
+            "txn1",
+            "txn2",
+        ]);
+        expect(await visibleNotes(surreal.select<Note>(notes))).toEqual([
+            "one",
+            "two",
+            "txn1",
+            "txn2",
+        ]);
+    });
+
+    test("is not given more than that identity is permitted", async () => {
+        const forAlice = await tokenFor("alice");
+        const surreal = await createSurreal();
+
+        // The permissions are those of the identity of the transaction, not of the session, which
+        // is root and may create notes for anyone. What is not permitted is not created, whether
+        // or not the server says so
+        await surreal
+            .transaction([surql`CREATE note:theft SET owner = ${bob}`], { as: forAlice })
+            .catch(() => {});
+
+        expect(await surreal.select(new RecordId("note", "theft"))).toBeUndefined();
+    });
+
+    test("is abandoned promptly with the reason of the signal", async () => {
+        const forAlice = await tokenFor("alice");
+        const surreal = await createSurreal();
+        const controller = new AbortController();
+        const reason = new Error("the client went away");
+
+        setTimeout(() => controller.abort(reason), 100);
+
+        const { ms, value } = await timed(() =>
+            rejection(surreal.transaction([SLOW], { as: forAlice, signal: controller.signal })),
+        );
+
+        expect(value).toBe(reason);
+        expect(ms).toBeLessThan(PROMPT);
+        expect(await visibleNotes(surreal.select<Note>(notes).as(forAlice))).toEqual(["one"]);
+    });
+
+    test("is abandoned promptly by a request timeout, through a scope as well", async () => {
+        const forAlice = await tokenFor("alice");
+        const surreal = await createSurreal();
+
+        const { ms, value } = await timed(() =>
+            rejection(surreal.transaction([SLOW], { as: forAlice, requestTimeout: 150 })),
+        );
+
+        expect(value.name).toBe("TimeoutError");
+        expect(ms).toBeLessThan(PROMPT);
+
+        const scoped = await rejection(
+            surreal.withSignal(AbortSignal.timeout(150)).transaction([SLOW], { as: forAlice }),
+        );
+
+        expect(scoped.name).toBe("TimeoutError");
+    });
+});
+
+describe.skipIf(!isRemote || !isWebSocket)("a transaction as someone else, over WebSocket", () => {
+    test("is refused, rather than run as the session", async () => {
+        const forAlice = await tokenFor("alice");
+        const surreal = await createSurreal();
+
+        const error = await rejection(
+            surreal.transaction([surql`CREATE note:refused SET owner = ${alice}`], {
+                as: forAlice,
+            }),
+        );
+
+        expect(error).toBeInstanceOf(UnsupportedFeatureError);
+        expect(await surreal.select(new RecordId("note", "refused"))).toBeUndefined();
+    });
+});
+
+describe.skipIf(!isRemote)("a credential resolved for requests, which is abandoned", () => {
+    const asAlice = { access: "user", variables: { id: "alice" } };
+
+    test("is not waited for any longer than the request is willing to wait", async () => {
+        const { surreal, connect } = await createIdleSurreal({ auth: "none" });
+        let calls = 0;
+        const resolve = mock(async () => {
+            if (++calls === 1) await Bun.sleep(800);
+            return asAlice;
+        });
+
+        await connect({ authentication: { resolve, when: "request" } });
+
+        const { ms, value } = await timed(() =>
+            rejection(surreal.select<Note>(notes).requestTimeout(150)),
+        );
+
+        expect(value.name).toBe("TimeoutError");
+        expect(ms).toBeLessThan(PROMPT);
+
+        // What the abandoned request left going finishes, and does not get in the way of the next
+        expect(await visibleNotes(surreal.select<Note>(notes))).toEqual(["one"]);
+    });
+
+    test("is not waited for by a request which a signal abandons, and the request is not run", async () => {
+        const { surreal, connect } = await createIdleSurreal({ auth: "none" });
+        const created = new RecordId("note", "abandoned");
+        const controller = new AbortController();
+        const reason = new Error("the client went away");
+        const resolve = mock(async () => {
+            await Bun.sleep(300);
+            return asAlice;
+        });
+
+        await connect({ authentication: { resolve, when: "request" } });
+
+        setTimeout(() => controller.abort(reason), 50);
+
+        const { ms, value } = await timed(() =>
+            rejection(surreal.create(created).content({ owner: alice }).signal(controller.signal)),
+        );
+
+        expect(value).toBe(reason);
+        expect(ms).toBeLessThan(PROMPT);
+
+        // The next request is the first to be run, and it is run as who the resolver says
+        expect(await surreal.select(created)).toBeUndefined();
+        expect(await surreal.auth<{ id: RecordId }>()).toMatchObject({ id: alice });
+    });
+
+    test("does not stop a query which has begun from being abandoned", async () => {
+        const { surreal, connect } = await createIdleSurreal({ auth: "none" });
+        const controller = new AbortController();
+        const reason = new Error("the client went away");
+
+        await connect({ authentication: { resolve: () => asAlice, when: "request" } });
+        setTimeout(() => controller.abort(reason), 100);
+
+        const { ms, value } = await timed(() =>
+            rejection(surreal.query(SLOW).signal(controller.signal)),
+        );
+
+        expect(value).toBe(reason);
+        expect(ms).toBeLessThan(PROMPT);
+        expect(await visibleNotes(surreal.select<Note>(notes))).toEqual(["one"]);
+    });
+
+    test("is a failure of the resolver, as before, when nothing aborts", async () => {
+        const { surreal, connect } = await createIdleSurreal({ auth: "none" });
+        const failure = new Error("vault is sealed");
+        const controller = new AbortController();
+
+        await connect({
+            authentication: {
+                resolve: () => {
+                    throw failure;
+                },
+                when: "request",
+            },
+        });
+
+        const error = await rejection(surreal.select<Note>(notes).signal(controller.signal));
+
+        expect(error).toBeInstanceOf(AuthResolverError);
+        expect(error.cause).toBe(failure);
+    });
+
+    test("is used by a transaction, which is run as who the resolver says", async () => {
+        const { surreal, connect } = await createIdleSurreal({ auth: "none" });
+        const resolve = mock(() => asAlice);
+
+        await connect({ authentication: { resolve, when: "request", cache: "until-expiry" } });
+
+        await surreal.transaction([
+            surql`CREATE note:txn1 SET owner = ${alice}`,
+            surql`CREATE note:txn2 SET owner = ${alice}`,
+        ]);
+
+        expect(await visibleNotes(surreal.select<Note>(notes))).toEqual(["one", "txn1", "txn2"]);
+        expect(resolve).toBeCalledTimes(1);
+    });
+
+    test("is used by a transaction which is not given more than the identity is permitted", async () => {
+        const { surreal, connect } = await createIdleSurreal({ auth: "none" });
+        const root = await createSurreal();
+
+        await connect({ authentication: { resolve: () => asAlice, when: "request" } });
+
+        await surreal.transaction([surql`CREATE note:theft SET owner = ${bob}`]).catch(() => {});
+
+        expect(await root.select(new RecordId("note", "theft"))).toBeUndefined();
+    });
+
+    test("is waited for by a transaction, no longer than the transaction is willing to wait", async () => {
+        const { surreal, connect } = await createIdleSurreal({ auth: "none" });
+        let calls = 0;
+        const resolve = mock(async () => {
+            if (++calls === 1) await Bun.sleep(800);
+            return asAlice;
+        });
+
+        await connect({ authentication: { resolve, when: "request" } });
+
+        const { ms, value } = await timed(() =>
+            rejection(
+                surreal.transaction([surql`CREATE note:late SET owner = ${alice}`], {
+                    requestTimeout: 150,
+                }),
+            ),
+        );
+
+        expect(value.name).toBe("TimeoutError");
+        expect(ms).toBeLessThan(PROMPT);
+
+        await Bun.sleep(1000);
+
+        // Nothing was committed on behalf of the transaction which was abandoned
+        expect(await visibleNotes(surreal.select<Note>(notes))).toEqual(["one"]);
+    });
+
+    test.skipIf(!isWebSocket)(
+        "is applied to the session in full, when the request which asked for it went away",
+        async () => {
+            const { surreal, connect } = await createIdleSurreal({ auth: "none" });
+            const resolve = mock(async () => {
+                await Bun.sleep(300);
+                return asAlice;
+            });
+
+            await connect({
+                authentication: { resolve, when: "request", cache: "until-expiry" },
+            });
+
+            const error = await rejection(surreal.auth().requestTimeout(50));
+
+            expect(error.name).toBe("TimeoutError");
+
+            // Once what was left going is finished, the session is who it was resolved as
+            await until(() => surreal.accessToken !== undefined);
+
+            expect(await surreal.auth<{ id: RecordId }>()).toMatchObject({ id: alice });
+            expect(resolve).toBeCalledTimes(1);
+        },
+    );
+});
+
+describe.skipIf(isRemote || !is3x)(
+    "authentication resolved per request on an embedded engine, and signals",
+    () => {
+        const asAlice = { access: "user", variables: { id: "alice" } };
+
+        async function embedded(authentication: Record<string, unknown>) {
+            const { surreal, connect } = await createIdleSurreal({ auth: "none" });
+
+            await connect({ authentication: authentication as never });
+
+            await surreal.query(/* surql */ `
+                DEFINE TABLE user PERMISSIONS FOR select WHERE id = $auth;
+                DEFINE TABLE note PERMISSIONS FOR select, create WHERE owner = $auth;
+                DEFINE ACCESS user ON DATABASE TYPE RECORD
+                    SIGNUP ( CREATE type::record('user', $id) )
+                    SIGNIN ( SELECT * FROM type::record('user', $id) )
+                    DURATION FOR TOKEN 61s;
+
+                CREATE user:alice;
+                CREATE user:bob;
+                CREATE note:one SET owner = user:alice;
+                CREATE note:two SET owner = user:bob;
+            `);
+
+            return surreal;
+        }
+
+        test("runs a transaction as who the resolver says", async () => {
+            let identity: typeof asAlice | null = null;
+            const surreal = await embedded({ resolve: () => identity, when: "request" });
+
+            identity = asAlice;
+
+            await surreal.transaction([
+                surql`CREATE note:txn1 SET owner = ${alice}`,
+                surql`CREATE note:txn2 SET owner = ${alice}`,
+            ]);
+
+            expect(await visibleNotes(surreal.select<Note>(notes))).toEqual([
+                "one",
+                "txn1",
+                "txn2",
+            ]);
+        });
+
+        test("does not give a transaction more than who the resolver says is permitted", async () => {
+            let identity: typeof asAlice | null = null;
+            const surreal = await embedded({ resolve: () => identity, when: "request" });
+
+            identity = asAlice;
+
+            await surreal
+                .transaction([surql`CREATE note:theft SET owner = ${bob}`])
+                .catch(() => {});
+
+            expect(await surreal.select(new RecordId("note", "theft"))).toBeUndefined();
+        });
+
+        test("does not run a request which is abandoned while the credential resolves", async () => {
+            // Nobody until the engine is set up, as there is nothing to sign in to before it is
+            let identity: typeof asAlice | null = null;
+            let slow = false;
+            const surreal = await embedded({
+                resolve: async () => {
+                    if (slow) await Bun.sleep(300);
+                    return identity;
+                },
+                when: "request",
+            });
+            const created = new RecordId("note", "abandoned");
+
+            identity = asAlice;
+            slow = true;
+
+            const error = await rejection(
+                surreal.create(created).content({ owner: alice }).signal(AbortSignal.timeout(50)),
+            );
+
+            expect(error.name).toBe("TimeoutError");
+
+            slow = false;
+            await Bun.sleep(400);
+
+            expect(await surreal.select(created)).toBeUndefined();
+            expect(await visibleNotes(surreal.select<Note>(notes))).toEqual(["one"]);
+        });
+
+        test("does not run a transaction which is abandoned while the credential resolves", async () => {
+            let identity: typeof asAlice | null = null;
+            let slow = false;
+            const surreal = await embedded({
+                resolve: async () => {
+                    if (slow) await Bun.sleep(300);
+                    return identity;
+                },
+                when: "request",
+            });
+
+            identity = asAlice;
+            slow = true;
+
+            const error = await rejection(
+                surreal.transaction([surql`CREATE note:late SET owner = ${alice}`], {
+                    requestTimeout: 50,
+                }),
+            );
+
+            expect(error.name).toBe("TimeoutError");
+
+            slow = false;
+            await Bun.sleep(400);
+
+            expect(await visibleNotes(surreal.select<Note>(notes))).toEqual(["one"]);
         });
     },
 );
