@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { DateTime, Duration, RecordId } from "surrealdb";
+import { DateTime, Duration, ExpressionError, RecordId } from "surrealdb";
 import { createSurreal, graphTable, proto } from "../__helpers__";
 
 type Edge = {
@@ -64,12 +64,23 @@ describe("relate()", async () => {
             .relate(new RecordId("edge", "in"), graphTable, new RecordId("edge", "out"))
             .unique()
             .output("diff")
-            .timeout(Duration.seconds(1))
-            .version(new DateTime(0));
+            .timeout(Duration.seconds(1));
 
         const { query, bindings } = builder.compile();
 
         expect(query).toMatchSnapshot(proto("query"));
         expect(bindings).toMatchSnapshot(proto("bindings"));
+    });
+
+    // SurrealDB has no VERSION clause for RELATE statements
+    test.skipIf(skip)("version() is not supported", async () => {
+        const surreal = await createSurreal();
+        const builder = surreal
+            .relate(new RecordId("edge", "in"), graphTable, new RecordId("edge", "out"))
+            .version(new DateTime(0));
+
+        expect(() => builder.compile()).toThrow(ExpressionError);
+        expect(() => builder.compile()).toThrow("VERSION clause is not supported by RELATE");
+        await expect(Promise.resolve(builder)).rejects.toThrow(ExpressionError);
     });
 });
