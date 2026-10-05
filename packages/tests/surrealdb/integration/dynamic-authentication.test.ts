@@ -1126,6 +1126,12 @@ describe.skipIf(!isRemote)("a credential resolved for requests, which is abandon
         expect(await surreal.auth<{ id: RecordId }>()).toMatchObject({ id: alice });
     });
 
+    // Over WebSocket the server goes on running what was abandoned. In CI the request which follows
+    // timed out on 3.0.0 and on the nightly build, and not on 2.x, and not on 3.2.3 locally, which
+    // is what holding the session until the sleep ends would do to a request which signs it in
+    // again as who the resolver says (an inference, which could not be reproduced here). The SDK
+    // has stopped waiting at once, which is what is measured, so the follow up is given the time
+    // the server needs.
     test("does not stop a query which has begun from being abandoned", async () => {
         const { surreal, connect } = await createIdleSurreal({ auth: "none" });
         const controller = new AbortController();
@@ -1141,7 +1147,7 @@ describe.skipIf(!isRemote)("a credential resolved for requests, which is abandon
         expect(value).toBe(reason);
         expect(ms).toBeLessThan(PROMPT);
         expect(await visibleNotes(surreal.select<Note>(notes))).toEqual(["one"]);
-    });
+    }, 20_000);
 
     test("is a failure of the resolver, as before, when nothing aborts", async () => {
         const { surreal, connect } = await createIdleSurreal({ auth: "none" });

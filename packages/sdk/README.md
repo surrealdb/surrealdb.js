@@ -227,6 +227,8 @@ Resolving a credential is something a request waits for, so it is [cancelled and
 - A request which is abandoned while the credential is being resolved is never sent with a credential which was not resolved for it, or without one.
 - The transactions of `transaction()` are a request like any other, and so they are resolved for, authenticated, and abandoned in the same way. `beginTransaction()` waits for the session to be authenticated before it begins, so that the identity of the transaction does not change in the middle of it, and one which a signal abandons while it is waiting is cancelled when it does begin.
 
+Over WebSocket the server goes on running a query which was abandoned, and on some servers (the next request timed out after one on 3.0.0 and on the nightly build, and not on 2.x or 3.2.3, apparently because the session is held until the query has finished) the request which follows it, and which has to sign the session in again because a credential is resolved for it, is not answered before then. The request which was abandoned is not affected, it has stopped waiting.
+
 A resolver which never settles holds up the requests which queue behind it over WebSocket. Give those requests a `requestTimeout`, or a signal, to be rid of them, and make `resolve` give up by itself.
 
 On a connection which resolves credentials for each request, `.as()` and the `as` option of `transaction()` take precedence over the resolver for that call, which is not asked for a credential.
