@@ -119,7 +119,7 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
                 this.#connection,
                 this.#options.what,
                 this.#options.session,
-                this.#build(),
+                this.#build(abort.signal),
                 abort.signal ? abort : undefined,
             );
 
@@ -142,7 +142,12 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
         }
     }
 
-    #build(): Query {
+    /**
+     * @param beforeSend A signal which abandons the registration while it waits to be sent, which
+     *                   is while the credential for it is settled, but not once it is on its way: what
+     *                   the server registers is then to be killed, and only the answer says what it is.
+     */
+    #build(beforeSend?: AbortSignal): Query {
         const { what, selection, fields, cond, fetch, session } = this.#options;
 
         const query = surql`LIVE SELECT`;
@@ -172,6 +177,7 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription> {
             transaction: undefined,
             json: false,
             session,
+            beforeSend,
         });
     }
 }

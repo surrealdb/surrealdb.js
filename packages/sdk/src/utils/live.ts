@@ -285,7 +285,11 @@ export class ManagedLiveSubscription extends LiveSubscription {
             this.#stream = messageStream[Symbol.asyncIterator]();
         } catch (err: unknown) {
             const error = new LiveSubscriptionError(err);
-            this.#controller.propagateError(error);
+
+            // Nobody is left to hear of a registration which was given up on because the
+            // subscription was killed while it waited to be sent, which is not a failure
+            if (!this.#killed) this.#controller.propagateError(error);
+
             throw error;
         }
 

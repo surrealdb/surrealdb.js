@@ -28,10 +28,10 @@ interface QueryOptions extends AbortOptions {
     json: boolean;
     retry?: RetryValue;
     /**
-     * The query dialect to execute the query as. Defaults to `"sql"` (SurrealQL);
-     * `"gql"` routes the query through the ISO GQL (ISO/IEC 39075) endpoint.
+     * Abandons the query only while it waits to be sent, and not once it is on its way. See
+     * `QueryRequestOptions`.
      */
-    dialect?: "sql" | "gql";
+    beforeSend?: AbortSignal;
 }
 
 type Collect<T extends unknown[], J extends boolean> = T extends []
@@ -289,10 +289,7 @@ export class Query<
                 let records = responses[index] as unknown[];
 
                 if (!records) {
-                    // Copied rather than adopted: a statement streamed in batches would otherwise
-                    // have the rows of every later batch pushed into the first chunk's own array,
-                    // which its emitter still holds.
-                    records = [...additions];
+                    records = additions;
                     responses[index] = records;
                 } else {
                     // Appended one at a time rather than spread: a streamed
@@ -314,17 +311,9 @@ export class Query<
      * Stream the response frames of the query as they are received as an AsyncIterable.
      *
      * Each iteration yields a **value**, **error**, or **done** frame. The provided
-     * `isValue`, `isError`, and `isDone` methods can be used to check the type of frame, and
-     * `isValueOf`, `isErrorOf`, and `isDoneOf` to check the type and that the frame belongs to
-     * a specific statement, by its index.
-     *
-     * Values are provisional until the **done** frame for their statement arrives: an **error**
-     * frame for a statement retracts every value already yielded for it, and the stream itself
-     * throws when the query as a whole could not be completed. Statements are therefore counted
-     * by their **done** frames.
-     *
-     * Abandoning the stream, such as by breaking out of the loop, stops the query on servers
-     * which support it, so results which are no longer wanted are no longer produced.
+     * `isValue`, `isError`, and `isDone` methods can be used to check the type of frame.
+     * You can pass a query index to these functions to check if the frame is associated with a
+     * specific query.
      *
      * @example
      * ```ts
@@ -454,8 +443,7 @@ export class Query<
             let records = collections[index] as unknown[];
 
             if (!records) {
-                // Copied rather than adopted, for the reason given in `collect`.
-                records = [...additions];
+                records = additions;
                 collections[index] = records;
             } else {
                 // Appended one at a time rather than spread: a streamed batch
@@ -507,7 +495,7 @@ export class Query<
      * The request timeout is measured from here, once per request, so a retry starts it afresh.
      */
     #open<T = unknown>(signal: AbortSignal | undefined): AsyncIterable<QueryChunk<T>> {
-        const { query, transaction, session, credential, dialect } = this.#options;
+        const { query, transaction, session, credential, beforeSend } = this.#options;
         const timeout = this.#options.requestTimeout ?? this.#connection.requestTimeout;
         const request = abortScope(signal ? [signal] : [], timeout);
 
@@ -517,17 +505,18 @@ export class Query<
             const options = request.signal && { signal: request.signal };
 
             // A call made as someone else is never made as the session: it has a method of its
-            // own, which the connection refuses when the engine cannot present the credential.
-            // Either way the query is routed to the transport which matches its dialect.
+            // own, which the connection refuses when the engine cannot present the credential
             const chunks =
                 credential === undefined
-                    ? dialect === "gql"
-                        ? this.#connection.gql<T>(query, session, transaction, options)
-                        : this.#connection.query<T>(query, session, transaction, options)
+                    ? this.#connection.query<T>(
+                          query,
+                          session,
+                          transaction,
+                          beforeSend ? { ...options, beforeSend } : options,
+                      )
                     : this.#connection.queryAs<T>(query, session, transaction, {
                           ...options,
                           credential,
-                          dialect,
                       });
 
             return abortableIterable(chunks, request.signal, request.dispose);

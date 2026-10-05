@@ -38,7 +38,9 @@ import { SurrealTransaction } from "./transaction";
  * afterwards is a no-op. A signal which has aborted already makes `live()` and `liveOf()` reject with
  * its reason, registering and subscribing to nothing. If it aborts while the live query is being
  * registered, the call rejects with the reason, and the live query which the server registers in the
- * meantime is killed as soon as it lands.
+ * meantime is killed as soon as it lands. If it aborts while the credential for the registration is
+ * still being resolved, which is the case when the connection resolves credentials for each request,
+ * the call rejects with the reason and the registration is never sent. A live query has no `.as()`.
  *
  * ```ts
  * // A server sent events handler: stream changes until the client goes away
