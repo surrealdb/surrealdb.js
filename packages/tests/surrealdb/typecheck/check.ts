@@ -279,11 +279,31 @@ async function _main() {
     await scoped.exportModel("model", "1.0.0").raw();
     await scoped.import(new Blob(["OPTION IMPORT;"])).signal(signal);
 
+    // They can be run as someone else, in any order with the signal and the limit
+    const _exportedAs: string = await db.export().as("an.access.token").signal(signal);
+    const _rawExportAs: Response = await db.export().raw().as("an.access.token");
+    const _modelAs: Uint8Array = await db.exportModel("model", "1.0.0").signal(signal).as("token");
+    const _rawModelAs: Response = await db.exportModel("model", "1.0.0").as("token").raw();
+    await db
+        .import("OPTION IMPORT;")
+        .requestTimeout(60_000)
+        .as({ username: "root", password: "x" });
+    await db.import(new ReadableStream()).as("an.access.token").signal(signal);
+    await scoped.export().as({ access: "user", variables: { id: 1 } });
+    await scoped.import(new Blob(["OPTION IMPORT;"])).as("an.access.token");
+    await scoped.exportModel("model", "1.0.0").as("an.access.token");
+
     // @ts-expect-error a request timeout is a number of milliseconds
     db.export().requestTimeout("1m");
 
     // @ts-expect-error a signal is an AbortSignal
     db.import("OPTION IMPORT;").signal(5);
+
+    // @ts-expect-error an identity is a token or authentication details
+    db.export().as(123);
+
+    // @ts-expect-error and it is given
+    db.import("OPTION IMPORT;").as();
 
     // Options: a default limit for the connection, and extras for `fetch`
     await db.connect("ws://localhost:8000", { requestTimeout: 5_000 });
