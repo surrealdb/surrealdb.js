@@ -426,6 +426,24 @@ To run queries inside a transaction which you control, such as to read before de
 write, use `beginTransaction()` on a WebSocket connection. A list of queries can also be passed
 to `query` on the returned transaction.
 
+#### ISO GQL queries
+
+In addition to SurrealQL, you can run [ISO GQL](https://www.iso.org/standard/76120.html)
+(ISO/IEC 39075) queries with the `gql` method. It behaves exactly like `query`
+— returning the same awaitable `Query` instance — but executes the string with
+the server's GQL engine. A namespace and database must be selected first.
+
+```ts
+// Run a GQL query and collect the results
+const [people] = await db.gql<[{ name: string }[]]>(
+    "MATCH (p:person) WHERE p.age > $min RETURN p.name AS name ORDER BY name",
+    { min: 21 },
+);
+```
+
+> GQL is served by remote (WebSocket/HTTP) engines connected to a SurrealDB
+> instance with GQL enabled.
+
 ### Subscribing to live queries
 
 You can subscribe to live queries to receive updates when the data in the database changes.
@@ -762,7 +780,7 @@ When using the embedded engine, call `.close()` when you are done to shut down t
 | Area | Key exports |
 | --- | --- |
 | Client | `Surreal`, `SurrealSession`, `SurrealTransaction` |
-| Query API | `.query()`, `.select()`, `.create()`, `.update()`, `.delete()`, `.insert()`, `.upsert()`, `.relate()`, `.live()`, `.signal()`, `.requestTimeout()`, `.withSignal()` |
+| Query API | `.query()`, `.gql()`, `.select()`, `.create()`, `.update()`, `.delete()`, `.insert()`, `.upsert()`, `.relate()`, `.live()`, `.signal()`, `.requestTimeout()`, `.withSignal()` |
 | Remote engines | `createRemoteEngines()`, `WebSocketEngine`, `HttpEngine` |
 | Bound queries | `surql`, `BoundQuery`, `expr`, comparison and logical operators |
 | Value types | `RecordId`, `Table`, `DateTime`, `Decimal`, `Uuid`, and more (from `@surrealdb/sqon`) |
