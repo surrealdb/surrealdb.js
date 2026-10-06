@@ -83,6 +83,12 @@ export interface SurrealProtocol {
         txn?: Uuid,
         options?: RequestOptions,
     ): AsyncIterable<QueryChunk<T>>;
+    gql<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>>;
     liveQuery(id: Uuid): AsyncIterable<LiveMessage>;
 }
 
@@ -114,6 +120,10 @@ export interface CredentialedRequestOptions extends RequestOptions {
      * authentication details which are exchanged for one.
      */
     credential: AuthOrToken;
+    /**
+     * The dialect to run the query as, `"sql"` (SurrealQL) unless it is `"gql"` (ISO GQL).
+     */
+    dialect?: "sql" | "gql";
 }
 
 /**
@@ -198,6 +208,18 @@ export interface DriverOptions {
      * `method`, `headers`, `body` and `signal` of a request belong to the SDK and cannot be set.
      */
     fetchOptions?: FetchOptions;
+    /**
+     * Stream query results from the server as they are produced, instead of receiving
+     * them in a single response, on engines and servers which support it.
+     *
+     * Streaming lowers the time until the first result and avoids decoding one large
+     * response, and is transparent: results, errors, and statistics are the same either
+     * way. Queries sent inside a transaction created with `.begin()` are never streamed,
+     * and a server without support for streaming is detected and used as before.
+     *
+     * @default true
+     */
+    streaming?: boolean;
 }
 
 /**

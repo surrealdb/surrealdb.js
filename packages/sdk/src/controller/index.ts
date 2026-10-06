@@ -632,6 +632,16 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return engine;
     }
 
+    gql<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
+        if (!this.#engine) throw new ConnectionUnavailableError();
+        return this.#engine.gql(query, session, txn, options);
+    }
+
     liveQuery(id: Uuid): AsyncIterable<LiveMessage> {
         if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine.liveQuery(id);
