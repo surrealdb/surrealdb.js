@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { LiveDispatcher, type LiveMessage, RecordId, Uuid } from "surrealdb";
 
-function message(action: LiveMessage["action"], value: unknown): LiveMessage {
+function message(action: Exclude<LiveMessage["action"], "KILLED">, value: unknown): LiveMessage {
     return {
         queryId: Uuid.v4(),
         action,
         recordId: new RecordId("thing", 1),
-        value: value as LiveMessage["value"],
+        value: value as Record<string, unknown>,
     };
 }
 

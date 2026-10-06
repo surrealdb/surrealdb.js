@@ -29,8 +29,8 @@ interface Call<T> {
 interface LivePayload {
     id: Uuid;
     action: LiveAction;
-    result: LiveMessage;
-    record: RecordId;
+    result?: Record<string, unknown>;
+    record?: RecordId;
 }
 
 /**
@@ -197,7 +197,13 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             // Open a new connection
             const WebSocketImpl = this._context.options.websocketImpl ?? globalThis.WebSocket;
             const socket = new WebSocketImpl(this._state.url.toString(), "cbor");
-            if (socket.binaryType === "blob") socket.binaryType = "arraybuffer";
+
+            // Binary frames must arrive as something parseBuffer accepts. Assert the desired
+            // type rather than correcting one specific unwanted value: React Native leaves
+            // binaryType uninitialised, so its getter returns null and `=== "blob"` never fires.
+            if (socket.binaryType !== "arraybuffer") {
+                socket.binaryType = "arraybuffer";
+            }
 
             this.#socket = socket;
 
@@ -260,8 +266,19 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                     } else {
                         throw new UnexpectedServerResponseError(decoded);
                     }
-                } catch (detail) {
-                    socket.dispatchEvent(new CustomEvent("error", { detail }));
+                } catch (cause) {
+                    // Report malformed frames on the engine's own error channel, as
+                    // handleRpcResponse already does for unrecognised frames. Round-tripping
+                    // through a synthetic CustomEvent required a global which does not exist in
+                    // every runtime (React Native), was rejected by event-target-shim based
+                    // EventTarget implementations, and only stashed the error in caughtError -
+                    // deferring it until the socket closed and then misreporting it as the cause
+                    // of that closure.
+                    try {
+                        this.#publisher.publish("error", new UnexpectedConnectionError(cause));
+                    } catch {
+                        // A throwing subscriber must not escape the socket listener
+                    }
                 }
             });
         });
@@ -297,12 +314,18 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         }
 
         if (isLiveMessage(res.result)) {
-            this.#live.dispatch(res.result.id.toString(), {
-                queryId: res.result.id,
-                action: res.result.action,
-                recordId: res.result.record,
-                value: res.result.result,
-            });
+            const frame = res.result;
+            this.#live.dispatch(
+                frame.id.toString(),
+                frame.action === "KILLED"
+                    ? { queryId: frame.id, action: "KILLED" }
+                    : {
+                          queryId: frame.id,
+                          action: frame.action,
+                          recordId: frame.record as RecordId,
+                          value: frame.result as Record<string, unknown>,
+                      },
+            );
             return;
         }
 
@@ -313,10 +336,15 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 function isLiveMessage(v: unknown): v is LivePayload {
     if (typeof v !== "object") return false;
     if (v === null) return false;
-    if (!("id" in v && "action" in v && "result" in v && "record" in v)) return false;
+    if (!("id" in v && "action" in v)) return false;
 
     if (!(v.id instanceof Uuid)) return false;
     if (!LIVE_ACTIONS.includes(v.action as LiveAction)) return false;
+
+    // A KILLED frame terminates the subscription and carries no record or value.
+    if (v.action === "KILLED") return true;
+
+    if (!("result" in v && "record" in v)) return false;
     if (typeof v.result !== "object") return false;
     if (v.result === null) return false;
     if (!(v.record instanceof RecordId)) return false;

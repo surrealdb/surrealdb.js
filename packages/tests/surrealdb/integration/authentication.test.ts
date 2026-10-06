@@ -307,4 +307,29 @@ describe.skipIf(!isRemote || !is3x)("bearer access", async () => {
 
         expect(res.access).toBeString();
     });
+
+    test.skipIf(!is3x)("namespace bearer signin omits the database", async () => {
+        const surreal = await createSurreal({ auth: "root" });
+
+        await surreal.query(surql`
+            DEFINE ACCESS ns_bearer ON NAMESPACE TYPE BEARER FOR USER DURATION FOR GRANT 60s FOR TOKEN 60s;
+            DEFINE USER ns_tester ON NAMESPACE PASSWORD 'test' ROLES OWNER;
+        `);
+
+        const [grant] = await surreal
+            .query<[{ grant: { key: string } }]>(surql`
+                ACCESS ns_bearer ON NAMESPACE GRANT FOR USER ns_tester;
+            `)
+            .collect();
+
+        // A namespace-level bearer carries no database, so signin must omit the
+        // database rather than send a null that misroutes to the database path.
+        const res = await surreal.signin({
+            namespace: "test",
+            access: "ns_bearer",
+            key: grant.grant.key,
+        });
+
+        expect(res.access).toBeString();
+    });
 });

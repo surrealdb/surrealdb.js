@@ -4,12 +4,12 @@
     "tasks": {
         "build": {
             "dependsOn": ["^build"],
-            "outputs": ["dist/**", "target/**", "wasm/**"]
+            "outputs": ["dist/**"]
         },
         "run-tests": {
             "cache": false
         },
-        "sync": {
+        "bench": {
             "cache": false
         },
         "deploy": {

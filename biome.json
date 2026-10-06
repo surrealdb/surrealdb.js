@@ -34,13 +34,11 @@
             "!**/.vscode",
             "!**/.github",
             "!**/node_modules",
-            "!**/dist/*",
+            "!**/dist/**",
+            "!**/.expo",
+            "!demo/expo/expo-env.d.ts",
             "!**/*.js",
-            "!packages/spectron/src/types/generated.ts",
-            "!packages/wasm/wasm/*",
-            "!packages/wasm/target/*",
-            "!packages/node/napi/*",
-            "!packages/node/target/*"
+            "!packages/memory/src/types/generated.ts"
         ]
     }
 }

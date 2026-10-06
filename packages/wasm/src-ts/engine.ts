@@ -1,32 +1,37 @@
+import type { ConnectionOptions } from "@surrealdb/wasm-native";
 import {
+    type BoundQuery,
     ChannelIterator,
     type ConnectionState,
     ConnectionUnavailableError,
     type DriverContext,
     type EngineEvents,
     Features,
+    framesToChunks,
     type LiveAction,
     LiveDispatcher,
     type LiveMessage,
     Publisher,
     parseRpcError,
+    type QueryChunk,
+    type QueryStreamFrame,
     type RecordId,
     RpcEngine,
     type RpcRequest,
+    type Session,
     type SqlExportOptions,
     type SurrealEngine,
     UnexpectedConnectionError,
     type Uuid,
 } from "surrealdb";
-import type { ConnectionOptions } from "../wasm/surrealdb";
 import type { EngineBroker } from "./common";
 import { wrapSqonError } from "./wrap-sqon-error";
 
 interface LivePayload {
     id: Uuid;
     action: LiveAction;
-    result: LiveMessage;
-    record: RecordId;
+    result?: Record<string, unknown>;
+    record?: RecordId;
 }
 
 /**
@@ -126,6 +131,67 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         return decoded as Result;
     }
 
+    /**
+     * Run a query, yielding each batch of rows as the engine produces it.
+     *
+     * The base implementation awaits the whole answer and then hands it over in
+     * one piece, which for an embedded engine means holding an entire `SELECT`
+     * in memory before JavaScript sees a single row. The module can stream, so
+     * this drives that instead: time-to-first-row becomes the cost of one batch
+     * rather than of the whole result.
+     *
+     * Nothing runs ahead of this loop. Reading a frame is what drives the query
+     * inside the module, so a consumer that stops iterating stops the scan, and
+     * one that abandons it cancels the query outright.
+     */
+    override query<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+    ): AsyncIterable<QueryChunk<T>> {
+        return framesToChunks<T>(this.#queryFrames(query, session, txn));
+    }
+
+    async *#queryFrames(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+    ): AsyncIterable<QueryStreamFrame> {
+        if (!this.#broker.isConnected) {
+            throw new ConnectionUnavailableError();
+        }
+
+        const id = this._context.uniqueId();
+        const payload = wrapSqonError(() =>
+            this._context.codecs.cbor.encode({
+                id,
+                method: "query_stream",
+                params: [query.query, query.bindings],
+                session,
+                txn,
+            }),
+        );
+
+        // A failure before execution begins — a denied capability, a parse
+        // error, an unknown transaction — rejects here rather than arriving as
+        // a frame, because there is no statement to attribute it to.
+        const reader = (await this.#broker.queryStream(payload)).getReader();
+
+        try {
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                yield wrapSqonError(() =>
+                    this._context.codecs.cbor.decode<QueryStreamFrame>(value),
+                );
+            }
+        } finally {
+            // Reached on an early `break` as well as on the last frame, and it
+            // is what tells the module a consumer that walked away is gone.
+            await reader.cancel().catch(() => {});
+        }
+    }
+
     override async importSql(data: string | Blob | ReadableStream): Promise<void> {
         // NOTE We currently convert streams into strings as the
         // engine does not support streams yet.
@@ -168,12 +234,17 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
                 );
 
                 if (payload.id) {
-                    this.#live.dispatch(payload.id.toString(), {
-                        queryId: payload.id,
-                        action: payload.action,
-                        recordId: payload.record,
-                        value: payload.result,
-                    });
+                    this.#live.dispatch(
+                        payload.id.toString(),
+                        payload.action === "KILLED"
+                            ? { queryId: payload.id, action: "KILLED" }
+                            : {
+                                  queryId: payload.id,
+                                  action: payload.action,
+                                  recordId: payload.record as RecordId,
+                                  value: payload.result as Record<string, unknown>,
+                              },
+                    );
                 }
             });
 
