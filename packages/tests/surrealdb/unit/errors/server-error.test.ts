@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
     AlreadyExistsError,
     ConfigurationError,
+    Duration,
     ErrorKind,
     InternalError,
     NotAllowedError,
@@ -230,7 +231,44 @@ describe("parseRpcError (new format)", () => {
         }) as QueryError;
 
         expect(err.isTimedOut).toBe(true);
-        expect(err.timeout).toEqual({ secs: 5, nanos: 0 });
+        expect(err.timeout).toBeInstanceOf(Duration);
+        expect(err.timeout?.toString()).toBe("5s");
+    });
+
+    test("Query with TimedOut details (sub-second plain object)", () => {
+        const err = parseRpcError({
+            code: -32004,
+            kind: "Query",
+            message: "Query timed out",
+            details: { kind: "TimedOut", details: { duration: { secs: 1, nanos: 500_000_000 } } },
+        }) as QueryError;
+
+        expect(err.timeout?.equals(Duration.milliseconds(1500))).toBe(true);
+    });
+
+    test("Query with TimedOut details (Duration as decoded from the binary protocols)", () => {
+        const duration = Duration.milliseconds(200);
+        const err = parseRpcError({
+            code: -32004,
+            kind: "Query",
+            message: "Query timed out",
+            details: { kind: "TimedOut", details: { duration } },
+        }) as QueryError;
+
+        expect(err.isTimedOut).toBe(true);
+        expect(err.timeout).toBe(duration);
+    });
+
+    test("Query with TimedOut kind but no details has no timeout", () => {
+        const err = parseRpcError({
+            code: -32004,
+            kind: "Query",
+            message: "Query timed out",
+            details: { kind: "TimedOut" },
+        }) as QueryError;
+
+        expect(err.isTimedOut).toBe(true);
+        expect(err.timeout).toBeUndefined();
     });
 
     test("Query with Cancelled details", () => {
