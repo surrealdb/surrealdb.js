@@ -16,7 +16,7 @@ import type {
     Values,
 } from "../types";
 import { type BoundQuery, raw, surql } from "../utils";
-import type { Frame } from "../utils/frame";
+import type { Frame, StreamedRow } from "../utils/frame";
 import { Query } from "./query";
 
 interface UpsertOptions extends AbortOptions {
@@ -227,8 +227,8 @@ export class UpsertPromise<T, I, J extends boolean = false> extends DispatchedPr
      *
      * @returns An async iterable of query frames.
      */
-    async *stream(): AsyncIterable<Frame<T, J>> {
-        const query = this.#build().stream<T>();
+    async *stream(): AsyncIterable<Frame<StreamedRow<T>, J>> {
+        const query = this.#build().stream<StreamedRow<T>>();
 
         for await (const frame of query) {
             yield frame;

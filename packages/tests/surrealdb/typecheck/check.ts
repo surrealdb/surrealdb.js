@@ -1,15 +1,20 @@
 import {
     BoundExcluded,
     BoundIncluded,
+    BoundQuery,
     DateTime,
     Decimal,
     Duration,
+    type QueryLike,
     RecordId,
     RecordIdRange,
+    ServerError,
     StringRecordId,
     Surreal,
     type SurrealRequestScope,
+    surql,
     Table,
+    type TransactionOptions,
     Uuid,
 } from "surrealdb";
 
@@ -170,6 +175,33 @@ async function _main() {
     // @ts-expect-error the method of a fetch request belongs to the SDK
     new Surreal({ fetchOptions: { method: "GET" } });
 
+    // Streamed results: a frame of a statement which answers with a list of records carries one
+    // of those records, and one which answers with a single value carries that value.
+    for await (const frame of db.select<Person>(table).stream()) {
+        if (frame.isValue()) {
+            const _row: Person = frame.value;
+        }
+    }
+
+    for await (const frame of db.select<Person>(_stringId).stream()) {
+        if (frame.isValue()) {
+            const _only: Person | undefined = frame.value;
+        }
+    }
+
+    for await (const frame of db.insert<Person>(table, [{ name: "Tobie", age: 30 }]).stream()) {
+        if (frame.isValue()) {
+            const _inserted: Person = frame.value;
+        }
+    }
+
+    for await (const frame of db.run<number>("fn::count").stream()) {
+        if (frame.isValue()) {
+            // A `RETURN` is one value, so the frame carries the whole result.
+            const _returned: number = frame.value;
+        }
+    }
+
     // Live queries
     const stream = await db.live(table);
     for await (const { action, value } of stream) {
@@ -177,4 +209,105 @@ async function _main() {
             console.log(value);
         }
     }
+}
+
+async function _batch() {
+    const db = new Surreal();
+    const table = new Table("person");
+
+    // A list of queries is typed by a tuple of statement results, like a single query is.
+    const [_everyone, _adults] = await db
+        .query<[Person[], Person[]]>([
+            db.select<Person>(table),
+            surql`SELECT * FROM person WHERE age >= ${18}`,
+        ])
+        .collect();
+
+    const _people: Person[] = _everyone;
+    const _grownups: Person[] = _adults;
+
+    // Which defaults to untyped results
+    const _untyped: unknown[] = await db.query(["RETURN 1", "RETURN 2"]);
+
+    // Strings, bound queries, query builders and queries can all be combined, from a mutable
+    // or a readonly list, and any of them can be kept as a QueryLike.
+    const _input: QueryLike = "RETURN 1";
+    const _inputs: readonly QueryLike[] = [
+        _input,
+        new BoundQuery("RETURN $a", { a: 1 }),
+        db.select<Person>(table),
+        db.create<Person>(table),
+        db.run<number>("fn::count"),
+        db.query("RETURN 2"),
+        db.query<[number]>("RETURN 3").json(),
+        db.select<Person>(table).json(),
+    ];
+
+    await db.query(_inputs);
+    await db.query(["RETURN 1"] as const);
+
+    // The query which comes back can be configured and consumed as any other
+    const [_count] = await db.query<[number]>(["RETURN 1"]).json().retry().collect();
+    const [_response] = await db.query<[number]>(["RETURN 1"]).responses();
+
+    if (_response.success) {
+        const _result: number = _response.result;
+    }
+
+    for await (const frame of db.query(["RETURN 1", "RETURN 2"]).stream<number>()) {
+        if (frame.isValueOf(1)) {
+            const _value: number = frame.value;
+        }
+    }
+
+    // @ts-expect-error A list holds queries, not numbers
+    db.query([1, 2]);
+
+    // @ts-expect-error The bindings belong to each query of the list
+    db.query(["RETURN $a"], { a: 1 });
+
+    // A list of queries is available inside of an interactive transaction as well
+    const txn = await db.beginTransaction();
+    await txn.query<[number, number]>(["RETURN 1", "RETURN 2"]);
+}
+
+async function _transaction() {
+    const db = new Surreal();
+
+    // Atomic transactions take a list of queries, and resolve to the same tuple of results
+    const [_from, _to] = await db.transaction<[Person, Person]>(
+        [
+            db.update<Person>(new RecordId("person", "a")).merge({ age: 1 }),
+            surql`UPDATE ONLY ${new RecordId("person", "b")} SET age += ${1}`,
+        ],
+        { retry: true },
+    );
+
+    const _source: Person = _from;
+    const _target: Person = _to;
+
+    const _results: unknown[] = await db.transaction(["RETURN 1"]);
+
+    // The retry can be configured like any other
+    const _options: TransactionOptions = {
+        retry: { attempts: 3, retryable: (error) => error instanceof ServerError },
+    };
+
+    await db.transaction(["RETURN 1"], _options);
+    await db.transaction(["RETURN 1"], { retry: false });
+
+    // @ts-expect-error The callback form is not available yet
+    await db.transaction(async () => {});
+
+    // @ts-expect-error A transaction takes a list of queries, not one
+    await db.transaction("RETURN 1");
+
+    // A session can run one, but a transaction cannot start another inside itself
+    const session = await db.newSession();
+    await session.transaction(["RETURN 1"]);
+
+    const txn = await db.beginTransaction();
+
+    // @ts-expect-error Transactions do not nest
+    await txn.transaction(["RETURN 1"]);
 }

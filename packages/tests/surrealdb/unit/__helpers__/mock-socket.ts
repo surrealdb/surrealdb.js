@@ -21,9 +21,9 @@ const codec = new CborCodec({});
  * handler and lets it answer with any number of responses, or none at all.
  *
  * The engine is driven over its real transport this way: requests are encoded
- * and responses decoded by the same codec a server would use, so correlation by
- * request id and what happens to a response nobody is waiting for any longer
- * are exercised for real.
+ * and responses decoded by the same codec a server would use, so frame
+ * ordering, correlation by request id, cancellation and what happens to a
+ * response nobody is waiting for any longer are all exercised for real.
  */
 export class MockSocket {
     static readonly CONNECTING = 0;

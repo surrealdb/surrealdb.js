@@ -200,6 +200,14 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#state?.requestTimeout;
     }
 
+    /**
+     * The version reported by the server on the most recent (re)connect, or
+     * `undefined` before the first connection has been established.
+     */
+    public get serverVersion(): string | undefined {
+        return this.#cachedVersion;
+    }
+
     #instanceEngine(url: URL): SurrealEngine {
         const engineMap = this.#context.options.engines ?? createRemoteEngines();
         const protocol = url.protocol.slice(0, -1);
@@ -447,6 +455,16 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     ): AsyncIterable<QueryChunk<T>> {
         if (!this.#engine) throw new ConnectionUnavailableError();
         return this.#engine.query(query, session, txn, options);
+    }
+
+    gql<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
+        if (!this.#engine) throw new ConnectionUnavailableError();
+        return this.#engine.gql(query, session, txn, options);
     }
 
     liveQuery(id: Uuid): AsyncIterable<LiveMessage> {

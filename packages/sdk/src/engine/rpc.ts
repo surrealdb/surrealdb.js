@@ -247,7 +247,26 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
-    async *query<T>(
+    query<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
+        return this.#dispatchQuery<T>("query", query, session, txn, options);
+    }
+
+    gql<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
+        return this.#dispatchQuery<T>("gql", query, session, txn, options);
+    }
+
+    async *#dispatchQuery<T>(
+        method: "query" | "gql",
         query: BoundQuery,
         session: Session,
         txn?: Uuid,
@@ -255,7 +274,7 @@ export abstract class RpcEngine implements SurrealProtocol {
     ): AsyncIterable<QueryChunk<T>> {
         const responses: RpcQueryResult[] = await this.send(
             {
-                method: "query",
+                method,
                 params: [query.query, query.bindings],
                 session,
                 txn,
