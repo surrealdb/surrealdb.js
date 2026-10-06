@@ -215,6 +215,10 @@ export abstract class SurrealQueryable {
     /**
      * Create a new live subscription to a specific table, record id, or record id range
      *
+     * When called on a view made with `withSignal()`, the subscription is killed when the signal
+     * aborts: iteration ends, `isAlive` turns false, and the live query is killed on the server.
+     * See `SurrealRequestScope`.
+     *
      * @param what The table to subscribe to
      * @returns A new live subscription object
      */
@@ -222,6 +226,7 @@ export abstract class SurrealQueryable {
         return new ManagedLivePromise(this.#connection, {
             what,
             session: this.#session,
+            signals: this.#signals,
         });
     }
 
@@ -230,6 +235,9 @@ export abstract class SurrealQueryable {
      *
      * **NOTE:** This function is for use with live select queries that are not managed by the driver.
      *
+     * When called on a view made with `withSignal()`, the live query is killed on the server when the
+     * signal aborts, as `kill()` would, and a signal which has aborted already subscribes to nothing.
+     *
      * @param id The ID of the live subscription to subscribe to
      * @returns A new unmanaged live subscription object
      */
@@ -237,6 +245,7 @@ export abstract class SurrealQueryable {
         return new UnmanagedLivePromise(this.#connection, {
             id,
             session: this.#session,
+            signals: this.#signals,
         });
     }
 

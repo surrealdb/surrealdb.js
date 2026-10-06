@@ -28,6 +28,11 @@ interface QueryOptions extends AbortOptions {
     json: boolean;
     retry?: RetryValue;
     /**
+     * Abandons the query only while it waits to be sent, and not once it is on its way. See
+     * `QueryRequestOptions`.
+     */
+    beforeSend?: AbortSignal;
+    /**
      * The query dialect to execute the query as. Defaults to `"sql"` (SurrealQL);
      * `"gql"` routes the query through the ISO GQL (ISO/IEC 39075) endpoint.
      */
@@ -507,7 +512,7 @@ export class Query<
      * The request timeout is measured from here, once per request, so a retry starts it afresh.
      */
     #open<T = unknown>(signal: AbortSignal | undefined): AsyncIterable<QueryChunk<T>> {
-        const { query, transaction, session, credential, dialect } = this.#options;
+        const { query, transaction, session, credential, beforeSend, dialect } = this.#options;
         const timeout = this.#options.requestTimeout ?? this.#connection.requestTimeout;
         const request = abortScope(signal ? [signal] : [], timeout);
 
@@ -523,7 +528,12 @@ export class Query<
                 credential === undefined
                     ? dialect === "gql"
                         ? this.#connection.gql<T>(query, session, transaction, options)
-                        : this.#connection.query<T>(query, session, transaction, options)
+                        : this.#connection.query<T>(
+                              query,
+                              session,
+                              transaction,
+                              beforeSend ? { ...options, beforeSend } : options,
+                          )
                     : this.#connection.queryAs<T>(query, session, transaction, {
                           ...options,
                           credential,

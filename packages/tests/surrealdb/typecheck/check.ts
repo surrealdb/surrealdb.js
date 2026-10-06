@@ -194,6 +194,22 @@ async function _main() {
         .withSignal(signal)
         .select<Person>(table);
 
+    // A live subscription made through a view is killed when its signal aborts
+    const scopedLive = await scoped.live<Person>(table);
+    const _alive: boolean = scopedLive.isAlive;
+    for await (const { action } of scopedLive) {
+        console.log(action);
+    }
+    const _unmanagedLive = await scoped.liveOf(Uuid.v4());
+    await scopedLive.kill();
+
+    // A live query is registered on the session and killed as it, so it is not made as someone else
+    // @ts-expect-error a live subscription has no identity of its own
+    scoped.live<Person>(table).as("an.access.token");
+
+    // @ts-expect-error neither has one which is subscribed to by its id
+    scoped.liveOf(Uuid.v4()).as("an.access.token");
+
     // The identity of a call goes together with its signal and its timeout, in either order, on a
     // view as well, and does not change what the call resolves to
     const _asSignalled: Person[] = await db

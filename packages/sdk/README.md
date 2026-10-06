@@ -558,7 +558,7 @@ await scoped.transaction([surql`UPDATE counter:visits SET count += 1`], { retry:
 const txn = await scoped.beginTransaction();
 ```
 
-The view is a cheap object (a `SurrealRequestScope`) which shares the connection and the session it was made from and does not change them, so make one for every request on a connection which is shared by all of them. It can be made from a session (`db`, or one from `forkSession()`), and from a transaction. Only queries are bound to the signal. **`live()` and `liveOf()` subscriptions made through a view are not bound to it**: they are not killed when the signal aborts and keep running until you kill them or the connection closes, so a handler which subscribes has to kill the subscription itself, for example with `signal.addEventListener("abort", () => subscription.kill())`. Nor is the `commit()` of a transaction, so that abandoning a request can never leave the outcome of a commit in doubt.
+The view is a cheap object (a `SurrealRequestScope`) which shares the connection and the session it was made from and does not change them, so make one for every request on a connection which is shared by all of them. It can be made from a session (`db`, or one from `forkSession()`), and from a transaction. The `commit()` of a transaction is not bound to the signal, so that abandoning a request can never leave the outcome of a commit in doubt. Live subscriptions are covered under "Live queries in a request handler" below.
 
 **Cloudflare Workers**, or anywhere else a handler receives a `Request`:
 
@@ -628,6 +628,43 @@ app.get("/people", async (req, res, next) => {
 Listen on `res` rather than `req` here: on current versions of Node.js the `close` event of a request which has a body fires as soon as that body has been read, which is long before the client could go away.
 
 Whether, and when, the signal of a request aborts depends on the platform running your handler. Consult its documentation for the conditions under which it does.
+
+#### Live queries in a request handler
+
+A live query which outlives the request that started it leaks on the server, so `live()` and `liveOf()` subscriptions made through a view are **killed when its signal aborts**. Aborting is the normal end of a live stream, and not a failure: iteration ends cleanly instead of throwing the reason, `isAlive` turns false immediately, and the live query is killed on the server. That makes a server sent events handler short:
+
+```ts
+export async function GET(request: Request) {
+    const subscription = await db.withSignal(request.signal).live<Person>(personTable);
+    const encoder = new TextEncoder();
+
+    return new Response(
+        new ReadableStream({
+            async start(controller) {
+                for await (const change of subscription) {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(change)}\n\n`));
+                }
+
+                // The client went away: the subscription is already dead and killed
+                controller.close();
+            },
+        }),
+        { headers: { "Content-Type": "text/event-stream" } },
+    );
+}
+```
+
+- A signal which has already aborted makes `live()` reject with its reason, and registers no live query.
+- If it aborts while the live query is being registered, `live()` rejects with the reason, and the live query which the server registers in the meantime is killed as soon as it lands.
+- Calling `kill()` yourself afterwards, for example from a `finally` block, is fine: killing a subscription more than once is a no-op.
+- `liveOf(id)` behaves the same, and kills the live query with that id, as `kill()` does. If the signal had aborted already it subscribes to nothing, and leaves the live query alone.
+- A failure to kill the live query is reported on the connection's `error` event, unless it is only that the connection is gone, which takes the live query with it.
+
+When the connection [resolves credentials for each request](#resolving-credentials-for-each-request), registering a live query is a request like any other, and waits for the credential of the session first:
+
+- Aborting the signal during that wait rejects `live()` with its reason at once and sends nothing: no live query is registered, nothing needs killing, and giving up is not reported as a failure of the connection. Once the registration is on its way it is not abandoned, as its answer is the only thing which says what the server registered; aborting then ends the live query when it lands, as above. A resolution which was queued behind another and has not begun when the signal aborts does not begin.
+- A live query has no `.as()`. It is registered on the session, and killed as the session, so a `live()` call is not made as someone else, over HTTP or otherwise, and live queries need a WebSocket connection to begin with.
+- A subscription which is running is not affected by credentials being resolved for the requests which follow it, nor by a credential which expired being resolved again: the session takes the new one, and the subscription goes on delivering, until its signal aborts or it is killed. Nothing is renewed in the background for it. After a reconnection it is registered again, once the credential has been resolved for that request.
 
 #### Import and export
 

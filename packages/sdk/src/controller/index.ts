@@ -11,7 +11,7 @@ import {
     UnsupportedFeatureError,
     UnsupportedVersionError,
 } from "../errors";
-import { assertTimeout, throwIfAborted } from "../internal/abort";
+import { abortScope, assertTimeout, throwIfAborted } from "../internal/abort";
 import { assertCredential, invokeProvider, parseAuthentication } from "../internal/auth-provider";
 import { backoffDelay } from "../internal/backoff";
 import type { Feature } from "../internal/feature";
@@ -77,6 +77,22 @@ type ConnectionEvents = {
     auth: [Tokens | null, Session];
     using: [NamespaceDatabase, Session];
 };
+
+/**
+ * Options for a query made through the controller: those of the engine, and one more which only
+ * the controller has a use for.
+ */
+export interface QueryRequestOptions extends RequestOptions {
+    /**
+     * Abandons the query while it is waiting to be sent, which is while the credential which it
+     * is to be made with is settled, and not once it is on its way.
+     *
+     * For a request whose effect the caller learns of only from its answer, and has to undo then,
+     * which is one that registers a live query: abandoned in flight, its answer would be dropped,
+     * and nothing would be left that knows the id of what the server registered.
+     */
+    beforeSend?: AbortSignal;
+}
 
 export class ConnectionController implements SurrealProtocol, EventPublisher<ConnectionEvents> {
     #eventPublisher = new Publisher<ConnectionEvents>();
@@ -514,21 +530,33 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         query: BoundQuery,
         session: Session,
         txn?: Uuid,
-        options?: RequestOptions,
+        options?: QueryRequestOptions,
     ): AsyncIterable<QueryChunk<T>> {
         const engine = this.#engine;
         if (!engine) throw new ConnectionUnavailableError();
 
+        // What the engine is handed is what an engine knows of, and the wait is the controller's
+        const { beforeSend, ...rest } = options ?? {};
+        const request = options && (beforeSend ? rest : options);
+
         if (!this.#needsPreparation()) {
-            return engine.query(query, session, txn, options);
+            return engine.query(query, session, txn, request);
         }
 
-        const prepare = () => this.#prepare(session, options?.signal);
+        const prepare = async () => {
+            const waiting = abortScope([request?.signal, beforeSend]);
+
+            try {
+                await this.#prepare(session, waiting.signal);
+            } finally {
+                waiting.dispose();
+            }
+        };
 
         return {
             async *[Symbol.asyncIterator]() {
                 await prepare();
-                yield* engine.query<T>(query, session, txn, options);
+                yield* engine.query<T>(query, session, txn, request);
             },
         };
     }

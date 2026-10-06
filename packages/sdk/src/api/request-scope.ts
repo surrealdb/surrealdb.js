@@ -31,12 +31,29 @@ import { SurrealTransaction } from "./transaction";
  * nothing, and does not need to be closed. It does not change the session, so it is safe to make
  * one per request on a connection shared between requests.
  *
- * Only queries are bound to the signal. **`live()` and `liveOf()` are not**: a subscription made
- * through a scope is not killed when the signal aborts, and keeps running until it is killed or the
- * connection closes. Kill it yourself, for example with
- * `signal.addEventListener("abort", () => subscription.kill())`. Neither are the calls which
- * change the session, such as `use()` and `signin()`, which a scope does not offer, or the
- * `commit()` and `cancel()` of a transaction, which are left alone so that a request which is being
+ * A live subscription made through a scope, with `live()` or `liveOf()`, is killed when the signal
+ * aborts, as a live query which outlives its request would leak on the server. Aborting is the normal
+ * end of a live stream, so iteration of the subscription ends cleanly, without throwing the reason,
+ * `isAlive` turns false at once, and the live query is killed on the server. Killing it again
+ * afterwards is a no-op. A signal which has aborted already makes `live()` and `liveOf()` reject with
+ * its reason, registering and subscribing to nothing. If it aborts while the live query is being
+ * registered, the call rejects with the reason, and the live query which the server registers in the
+ * meantime is killed as soon as it lands. If it aborts while the credential for the registration is
+ * still being resolved, which is the case when the connection resolves credentials for each request,
+ * the call rejects with the reason and the registration is never sent. A live query has no `.as()`.
+ *
+ * ```ts
+ * // A server sent events handler: stream changes until the client goes away
+ * const subscription = await db.withSignal(request.signal).live(table);
+ *
+ * for await (const change of subscription) {
+ *     send(change);
+ * }
+ * // Reached when the client disconnects, with the live query already killed
+ * ```
+ *
+ * The calls which change the session, such as `use()` and `signin()`, are not offered by a scope,
+ * and the `commit()` and `cancel()` of a transaction are left alone, so that a request which is being
  * abandoned cannot leave the outcome of a commit in doubt.
  */
 export class SurrealRequestScope extends SurrealQueryable {
