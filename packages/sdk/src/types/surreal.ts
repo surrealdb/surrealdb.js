@@ -10,7 +10,7 @@ import type { ServerError } from "../errors";
 import type { Feature } from "../internal/feature";
 import type { ReconnectContext } from "../internal/reconnect";
 import type { BoundQuery } from "../utils";
-import type { AccessRecordAuth, AnyAuth, AuthProvider, Token, Tokens } from "./auth";
+import type { AccessRecordAuth, AnyAuth, AuthOrToken, AuthProvider, Token, Tokens } from "./auth";
 import type { Nullable } from "./helpers";
 import type { Prettify } from "./internal";
 import type { LiveMessage } from "./live";
@@ -105,6 +105,22 @@ export interface RequestOptions {
 }
 
 /**
+ * Options for a single request which is made as another identity than the session
+ */
+export interface CredentialedRequestOptions extends RequestOptions {
+    /**
+     * Credentials to present for this request only, instead of those of the session. The
+     * session itself is neither used for authentication nor changed. An access token, or
+     * authentication details which are exchanged for one.
+     */
+    credential: AuthOrToken;
+    /**
+     * The dialect to run the query as, `"sql"` (SurrealQL) unless it is `"gql"` (ISO GQL).
+     */
+    dialect?: "sql" | "gql";
+}
+
+/**
  * An engine responsible for communicating to a SurrealDB datastore
  */
 export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEvents> {
@@ -112,6 +128,24 @@ export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEve
     open(state: ConnectionState): void;
     close(): Promise<void>;
     ready(): void;
+
+    /**
+     * Run a query as a different identity than the one of the session, for this query only.
+     * The session is neither used for authentication nor changed.
+     *
+     * Only implemented by engines which present credentials with every request, and which
+     * declare `Features.PerRequestAuth`. A query which is to run as someone else is never
+     * run through `query()`, so an engine, or something wrapping one, which does not implement
+     * this method refuses the query rather than running it as the session. The options are those
+     * of `query()`, with the credential in addition, so that a query is abandoned by a signal the
+     * same way whoever it is run as.
+     */
+    queryAs?<T>(
+        query: BoundQuery,
+        session: Session,
+        txn: Uuid | undefined,
+        options: CredentialedRequestOptions,
+    ): AsyncIterable<QueryChunk<T>>;
 }
 
 /**
@@ -173,14 +207,63 @@ export interface ConnectOptions {
      */
     database?: string;
     /**
-     * Authentication details to use when connecting as a system user or with a token. You can provide a static value,
-     * or a function which is called to compute the authentication details. Unlike when using the `.signin()` method,
-     * the provided authentication details may be used for all sessions and will be reused when a session expires.
+     * Authentication details to use when connecting, or a function computing them. The details
+     * may be a token, or anything accepted by `.signin()`: a system user, record access
+     * `variables`, a bearer access `key`, or a system user signing in through an `access` method.
+     * Unlike when using the `.signin()` method, the provided authentication details may be used
+     * for all sessions and will be reused when a session expires.
      *
      * When a callback is specified returning a Promise, the SDK will wait with signaling the connection as connected
-     * until the Promise is resolved.
+     * until the Promise is resolved. If the callback throws, or returns something unusable, the
+     * connection fails with an `AuthResolverError`.
      *
      * When `.signin()`, `.signup()`, or `.authenticate()` is used this property will be ignored for the duration of the session.
+     *
+     * To evaluate the function as requests are made instead, so that a token which is rotated
+     * out of band is picked up, or because the connection is not long lived, pass a resolver
+     * with `when: "request"`. By default the function is evaluated for every request, which is
+     * what a resolver needs when its answer depends on who is asking. Set `cache` to reuse a
+     * credential until shortly before it expires, which suits an identity which is the same for
+     * everyone, such as a service token which is rotated, and which must then not depend on the
+     * current request. No timers are scheduled, and nothing is resolved when connecting.
+     *
+     * Over HTTP the credential is sent as the `Authorization` header of the request. Over
+     * WebSocket the session is authenticated again whenever the credential changes, before the
+     * request is sent. The credential belongs to the session, so requests which need different
+     * identities must use `.as()` (HTTP) or separate sessions (WebSocket).
+     *
+     * When renewing the session fails, the renewal is tried again with backoff until it
+     * succeeds or the token expires, and the session is invalidated then. The delays are those of
+     * `reconnect`, which can turn retrying off, and its `attempts` do not apply. The `error`
+     * event reports the first failure of a renewal, and the last one when the session is
+     * invalidated, and not every attempt in between. Signing in again, invalidating or closing the
+     * session, and closing the connection end the retries. Credentials which are resolved for each
+     * request are not renewed in the background.
+     *
+     * @example Who is asking decides the identity, so the function is evaluated for every request
+     * ```ts
+     * await db.connect("https://example.surrealdb.com", {
+     *     namespace: "app",
+     *     database: "app",
+     *     authentication: {
+     *         resolve: () => requestContext.getStore()?.token ?? null,
+     *         when: "request",
+     *     },
+     * });
+     * ```
+     *
+     * @example A service token which is rotated, the same for everyone, and reused until it expires
+     * ```ts
+     * await db.connect("https://example.surrealdb.com", {
+     *     namespace: "app",
+     *     database: "app",
+     *     authentication: {
+     *         resolve: async () => await fetchServiceToken(),
+     *         when: "request",
+     *         cache: "until-expiry",
+     *     },
+     * });
+     * ```
      */
     authentication?: AuthProvider;
     /**
@@ -202,6 +285,9 @@ export interface ConnectOptions {
      *
      * If none of these steps succeed, the session will be invalidated regardless.
      *
+     * This does not apply to credentials which are resolved for each request, as those are
+     * not renewed in the background. They are resolved again by the request which needs them.
+     *
      * @default false
      */
     invalidateOnExpiry?: boolean;
@@ -209,6 +295,9 @@ export interface ConnectOptions {
      * The amount of time in seconds before the expected expiry of the session token to attempt
      * a renewal or invalidation of the session. When the session duration is shorter than the
      * expiry margin, the margin is skipped and the token expiry is used as the delay.
+     *
+     * For credentials which are resolved for each request, it is how long before the expiry of
+     * a token it stops being reused.
      *
      * @default 60
      */
@@ -219,6 +308,9 @@ export interface ConnectOptions {
      * - When set to `false`, the driver will remain disconnected after a connection is lost.
      * - When set to `true`, the driver will attempt to reconnect using default options.
      * - When set to an object, the driver will attempt to reconnect using the provided options.
+     *
+     * The delays are also those with which a failed renewal of the session is tried again, see
+     * `authentication`.
      *
      * @default true
      */
@@ -376,6 +468,15 @@ export interface TransactionOptions {
      * attempt. As for a signal, the transaction may or may not have been committed when it expires.
      */
     requestTimeout?: number;
+    /**
+     * Run the transaction as a different identity than the one of the session, for this transaction
+     * only: an access token, or authentication details which are exchanged for one. The transaction
+     * is one request, so it is the one request which carries the credential, as `.as()` does for a
+     * query. As for `.as()`, this needs an engine which presents credentials with every request,
+     * which is HTTP, and anything else rejects the transaction rather than run it as the session.
+     * Queries which are passed to the transaction cannot be run `.as()` someone themselves.
+     */
+    as?: AuthOrToken;
 }
 
 /**
@@ -431,6 +532,28 @@ export interface ConnectionState {
     requestTimeout?: number;
     rootSession: ConnectionSession;
     sessions: Map<Uuid, ConnectionSession>;
+    /**
+     * Supplies the credential to present for each request, for engines which present
+     * credentials with every request. Only set when the connection resolves credentials
+     * per request.
+     */
+    credentials?: CredentialSource;
+}
+
+/**
+ * Supplies the credential an engine presents with a request.
+ */
+export interface CredentialSource {
+    /**
+     * Resolve the token to present for a request on a session. Resolves to undefined when
+     * the request is to be made without credentials.
+     *
+     * @param session The session the request is made on
+     * @param rejected A token which the server has just refused, which is not handed out again
+     * @param signal The signal of the request, which a resolution that has not begun yet is not
+     * run for once it has aborted
+     */
+    token(session: Session, rejected?: Token, signal?: AbortSignal): Promise<Token | undefined>;
 }
 
 export type { CodecOptions, ValueCodec };

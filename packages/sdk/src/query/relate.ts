@@ -2,10 +2,11 @@ import { type DateTime, type Duration, RecordId, type Table, type Uuid } from "@
 import type { ConnectionController } from "../controller";
 import { ExpressionError, SurrealError } from "../errors";
 import { type AbortOptions, addSignal, assertTimeout } from "../internal/abort";
+import { assertCredential } from "../internal/auth-provider";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { AnyRecordId, Output, RetryValue, Session } from "../types";
+import type { AnyRecordId, AuthOrToken, Output, RetryValue, Session } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame, StreamedRow } from "../utils/frame";
 import { Query } from "./query";
@@ -22,6 +23,7 @@ interface RelateOptions extends AbortOptions {
     transaction: Uuid | undefined;
     session: Session;
     retry?: RetryValue;
+    credential?: AuthOrToken;
     json: boolean;
 }
 
@@ -51,6 +53,26 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
         return new RelatePromise<T, true>(this.#connection, {
             ...this.#options,
             json: true,
+        });
+    }
+
+    /**
+     * Run this call as a different identity than the one of the session, for this call only.
+     * The session is neither used nor changed. Supported by engines which present credentials
+     * with every request, such as HTTP, and rejected with an `UnsupportedFeatureError` by
+     * the others.
+     *
+     * @see {@link Query.as} for details.
+     *
+     * @param credential An access token or authentication details to run this call as
+     * @returns A new `RelatePromise` which runs as the provided identity.
+     */
+    as(credential: AuthOrToken): RelatePromise<T, J> {
+        assertCredential(credential);
+
+        return new RelatePromise<T, J>(this.#connection, {
+            ...this.#options,
+            credential,
         });
     }
 
@@ -242,6 +264,7 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
         }
 
         return new Query(this.#connection, {
+            credential: this.#options.credential,
             retry,
             query,
             transaction,

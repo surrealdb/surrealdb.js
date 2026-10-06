@@ -1,10 +1,11 @@
 import type { DateTime, Duration, RecordIdRange, Table, Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { type AbortOptions, addSignal, assertTimeout } from "../internal/abort";
+import { assertCredential } from "../internal/auth-provider";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { AnyRecordId, Expr, ExprLike, Session } from "../types";
+import type { AnyRecordId, AuthOrToken, Expr, ExprLike, Session } from "../types";
 import type { Field, Selection } from "../types/internal";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame, StreamedRow } from "../utils/frame";
@@ -22,6 +23,7 @@ interface SelectOptions extends AbortOptions {
     version?: DateTime;
     transaction: Uuid | undefined;
     session: Session;
+    credential?: AuthOrToken;
     json: boolean;
 }
 
@@ -51,6 +53,26 @@ export class SelectPromise<T, I, J extends boolean = false> extends DispatchedPr
         return new SelectPromise(this.#connection, {
             ...this.#options,
             json: true,
+        });
+    }
+
+    /**
+     * Run this call as a different identity than the one of the session, for this call only.
+     * The session is neither used nor changed. Supported by engines which present credentials
+     * with every request, such as HTTP, and rejected with an `UnsupportedFeatureError` by
+     * the others.
+     *
+     * @see {@link Query.as} for details.
+     *
+     * @param credential An access token or authentication details to run this call as
+     * @returns A new `SelectPromise` which runs as the provided identity.
+     */
+    as(credential: AuthOrToken): SelectPromise<T, I, J> {
+        assertCredential(credential);
+
+        return new SelectPromise<T, I, J>(this.#connection, {
+            ...this.#options,
+            credential,
         });
     }
 
@@ -268,6 +290,7 @@ export class SelectPromise<T, I, J extends boolean = false> extends DispatchedPr
         }
 
         return new Query(this.#connection, {
+            credential: this.#options.credential,
             query,
             transaction,
             json,

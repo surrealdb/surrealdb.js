@@ -1,10 +1,20 @@
 import type { DateTime, Duration, Table, Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { type AbortOptions, addSignal, assertTimeout } from "../internal/abort";
+import { assertCredential } from "../internal/auth-provider";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _only, _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { AnyRecordId, Mutation, Output, Patch, RetryValue, Session, Values } from "../types";
+import type {
+    AnyRecordId,
+    AuthOrToken,
+    Mutation,
+    Output,
+    Patch,
+    RetryValue,
+    Session,
+    Values,
+} from "../types";
 import { type BoundQuery, raw, surql } from "../utils";
 import type { Frame, StreamedRow } from "../utils/frame";
 import { Query } from "./query";
@@ -19,6 +29,7 @@ interface CreateOptions extends AbortOptions {
     transaction: Uuid | undefined;
     session: Session;
     retry?: RetryValue;
+    credential?: AuthOrToken;
     json: boolean;
 }
 
@@ -48,6 +59,26 @@ export class CreatePromise<T, I, J extends boolean = false> extends DispatchedPr
         return new CreatePromise<T, I, true>(this.#connection, {
             ...this.#options,
             json: true,
+        });
+    }
+
+    /**
+     * Run this call as a different identity than the one of the session, for this call only.
+     * The session is neither used nor changed. Supported by engines which present credentials
+     * with every request, such as HTTP, and rejected with an `UnsupportedFeatureError` by
+     * the others.
+     *
+     * @see {@link Query.as} for details.
+     *
+     * @param credential An access token or authentication details to run this call as
+     * @returns A new `CreatePromise` which runs as the provided identity.
+     */
+    as(credential: AuthOrToken): CreatePromise<T, I, J> {
+        assertCredential(credential);
+
+        return new CreatePromise<T, I, J>(this.#connection, {
+            ...this.#options,
+            credential,
         });
     }
 
@@ -237,6 +268,7 @@ export class CreatePromise<T, I, J extends boolean = false> extends DispatchedPr
         }
 
         return new Query(this.#connection, {
+            credential: this.#options.credential,
             retry,
             query,
             transaction,

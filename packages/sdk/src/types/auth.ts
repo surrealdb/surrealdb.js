@@ -51,9 +51,74 @@ export type AnyAuth = SystemAuth | AccessAuth;
 
 export type Token = string;
 export type AuthOrToken = AnyAuth | Token;
-export type ProvidedAuth = SystemAuth | Token | null;
+
+/**
+ * The credentials an authentication provider may supply:
+ *
+ * - an access token, which is used as is,
+ * - any authentication details accepted by `signin()`, which are exchanged for a token,
+ *   including record access `variables`, a bearer access `key`, and a system user
+ *   signing in through an `access` method, or
+ * - `null` for no authentication.
+ */
+export type ProvidedAuth = AnyAuth | Token | null;
+
+/**
+ * A function computing the credentials for a session. It may be asynchronous.
+ */
 export type AuthCallable = (session: Session) => ProvidedAuth | Promise<ProvidedAuth>;
-export type AuthProvider = ProvidedAuth | AuthCallable;
+
+/**
+ * How long a credential resolved for a request may be reused instead of invoking the
+ * resolver again. The default is `"none"`.
+ *
+ * - `"none"` always invokes the resolver for a request, and concurrent requests do not share
+ *   what it resolves. This is the only policy which is safe when the resolver depends on who
+ *   is asking, such as one which reads the identity from the request being handled. Anything
+ *   which reuses a credential hands the one which was resolved first to everyone.
+ * - `"until-expiry"` reuses a token until shortly before the `exp` claim of the JWT expires, as
+ *   governed by the `expiryMargin` connect option, and concurrent requests share one call to
+ *   the resolver. A token without a known expiry, such as an opaque token, cannot be reused
+ *   safely and is resolved again for every request. **The resolver must not depend on the
+ *   current request**: the credential belongs to the session, so it is for an identity which
+ *   is the same for everyone, such as a service token which is rotated.
+ * - `{ ttl }` reuses a credential for at most `ttl` seconds, and no longer than the expiry of
+ *   a token which carries one. It is the way to bound the reuse of tokens without an expiry,
+ *   and has the same restriction as `"until-expiry"`.
+ */
+export type AuthCache = "until-expiry" | "none" | { ttl: number };
+
+/**
+ * Computes credentials when the connection is established or re-established, and again
+ * when the session is about to expire.
+ */
+export interface AuthResolverOnConnect {
+    resolve: AuthCallable;
+    when?: "connect";
+    cache?: never;
+}
+
+/**
+ * Computes credentials as requests are made, rather than when connecting.
+ */
+export interface AuthResolverOnRequest {
+    resolve: AuthCallable;
+    when: "request";
+    /**
+     * @default "none"
+     */
+    cache?: AuthCache;
+}
+
+/**
+ * An authentication resolver, which allows configuring when its function is evaluated.
+ */
+export type AuthResolver = AuthResolverOnConnect | AuthResolverOnRequest;
+
+/**
+ * Authentication details, a token, a function computing either, or a resolver.
+ */
+export type AuthProvider = ProvidedAuth | AuthCallable | AuthResolver;
 
 export type Tokens = {
     access: Token;

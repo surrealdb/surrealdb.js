@@ -1,9 +1,10 @@
 import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { type AbortOptions, addSignal, assertTimeout } from "../internal/abort";
+import { assertCredential } from "../internal/auth-provider";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { Session } from "../types";
+import type { AuthOrToken, Session } from "../types";
 import { BoundQuery } from "../utils";
 import type { Frame } from "../utils/frame";
 import { Query } from "./query";
@@ -11,6 +12,7 @@ import { Query } from "./query";
 interface AuthOptions extends AbortOptions {
     transaction: Uuid | undefined;
     session: Session;
+    credential?: AuthOrToken;
     json: boolean;
 }
 
@@ -40,6 +42,26 @@ export class AuthPromise<T, J extends boolean = false> extends DispatchedPromise
         return new AuthPromise(this.#connection, {
             ...this.#options,
             json: true,
+        });
+    }
+
+    /**
+     * Run this call as a different identity than the one of the session, for this call only.
+     * The session is neither used nor changed. Supported by engines which present credentials
+     * with every request, such as HTTP, and rejected with an `UnsupportedFeatureError` by
+     * the others.
+     *
+     * @see {@link Query.as} for details.
+     *
+     * @param credential An access token or authentication details to run this call as
+     * @returns A new `AuthPromise` which runs as the provided identity.
+     */
+    as(credential: AuthOrToken): AuthPromise<T, J> {
+        assertCredential(credential);
+
+        return new AuthPromise<T, J>(this.#connection, {
+            ...this.#options,
+            credential,
         });
     }
 
@@ -120,6 +142,7 @@ export class AuthPromise<T, J extends boolean = false> extends DispatchedPromise
         const { transaction, session, json } = this.#options;
 
         return new Query(this.#connection, {
+            credential: this.#options.credential,
             query: new BoundQuery("SELECT * FROM ONLY $auth"),
             transaction,
             session,

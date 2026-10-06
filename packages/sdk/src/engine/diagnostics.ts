@@ -4,6 +4,7 @@ import type {
     AccessRecordAuth,
     AnyAuth,
     ConnectionState,
+    CredentialedRequestOptions,
     Diagnostic,
     DiagnosticKey,
     DiagnosticResult,
@@ -33,9 +34,36 @@ export class DiagnosticsEngine implements SurrealEngine {
     readonly #delegate: SurrealEngine;
     readonly #callback: DiagnosticsCallback;
 
+    /**
+     * Only present when the engine which is wrapped runs queries as someone else, so that it
+     * is refused, rather than run as the session, when it does not.
+     */
+    queryAs?: SurrealEngine["queryAs"];
+
     constructor(delegate: SurrealEngine, callback: DiagnosticsCallback) {
         this.#delegate = delegate;
         this.#callback = callback;
+
+        const queryAs = delegate.queryAs;
+
+        if (typeof queryAs === "function") {
+            this.queryAs = <T>(
+                query: BoundQuery,
+                session: Session,
+                txn: Uuid | undefined,
+                options: CredentialedRequestOptions,
+            ) =>
+                // The credential is passed on, and never reported
+                this.#diagnoseQuery<T>(
+                    query,
+                    session,
+                    txn,
+                    () =>
+                        queryAs.call(delegate, query, session, txn, options) as AsyncIterable<
+                            QueryChunk<T>
+                        >,
+                );
+        }
     }
 
     get features(): Set<Feature> {
@@ -254,11 +282,8 @@ export class DiagnosticsEngine implements SurrealEngine {
         txn?: Uuid,
         options?: RequestOptions,
     ): AsyncIterable<QueryChunk<T>> {
-        return this.#instrumentQuery(
+        return this.#diagnoseQuery(query, session, txn, () =>
             this.#delegate.query<T>(query, session, txn, options),
-            query,
-            session,
-            txn,
         );
     }
 
@@ -268,25 +293,24 @@ export class DiagnosticsEngine implements SurrealEngine {
         txn?: Uuid,
         options?: RequestOptions,
     ): AsyncIterable<QueryChunk<T>> {
-        return this.#instrumentQuery(
+        return this.#diagnoseQuery(query, session, txn, () =>
             this.#delegate.gql<T>(query, session, txn, options),
-            query,
-            session,
-            txn,
         );
     }
 
-    #instrumentQuery<T>(
-        delegateResult: AsyncIterable<QueryChunk<T>>,
+    #diagnoseQuery<T>(
         query: BoundQuery,
         session: Session,
-        txn?: Uuid,
+        txn: Uuid | undefined,
+        run: () => AsyncIterable<QueryChunk<T>>,
     ): AsyncIterable<QueryChunk<T>> {
         const measure = Duration.measure();
         const callback = this.#callback;
         const debugKey = Uuid.v4();
 
         callback({ type: "query", key: debugKey, phase: "before" });
+
+        const delegateResult = run();
 
         return {
             async *[Symbol.asyncIterator]() {

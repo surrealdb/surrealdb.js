@@ -5,6 +5,7 @@ import type { QueryLike, QueryResponse, Session, TransactionOptions } from "../t
 import { BoundQuery } from "../utils/bound-query";
 import { isVersionSupported } from "../utils/is-version-supported";
 import { abortScope, addSignal, assertTimeout, raceAbort, throwIfAborted } from "./abort";
+import { assertCredential } from "./auth-provider";
 import { assertTransactionSafe, joinQueries, resolveQueries } from "./compose-queries";
 import { RetryContext } from "./retry";
 import { findRootCause } from "./root-cause";
@@ -97,6 +98,11 @@ export async function executeTransaction<R extends unknown[]>(
         assertTimeout(options.requestTimeout, "requestTimeout");
     }
 
+    // An unusable credential is refused, rather than ignored in favour of the session
+    if (options.as !== undefined) {
+        assertCredential(options.as);
+    }
+
     // The signals of the transaction, to which the request, and the wait to retry it, are bound
     const all = addSignal(signals, options.signal);
     const scope = abortScope(all ?? []);
@@ -128,6 +134,7 @@ export async function executeTransaction<R extends unknown[]>(
             json: false,
             signals: all,
             requestTimeout: options.requestTimeout,
+            credential: options.as,
         });
 
         const context = new RetryContext(

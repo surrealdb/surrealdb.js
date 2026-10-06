@@ -1,3 +1,4 @@
+import type { Uuid } from "@surrealdb/sqon";
 import {
     ConnectionUnavailableError,
     MissingNamespaceDatabaseError,
@@ -6,18 +7,24 @@ import {
     UnsupportedFeatureError,
 } from "../errors";
 import { throwIfAborted } from "../internal/abort";
+import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal, readBody } from "../internal/http";
 import { parseRpcError } from "../internal/parse-error";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
+import type { AnyAuth, AuthOrToken, RpcQueryResult } from "../types";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
 import type {
     ConnectionState,
+    CredentialedRequestOptions,
     EngineEvents,
+    QueryChunk,
     RequestOptions,
+    Session,
     SurrealEngine,
 } from "../types/surreal";
+import type { BoundQuery } from "../utils";
 import { Features } from "../utils";
 import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
@@ -33,6 +40,25 @@ const ALWAYS_ALLOW = new Set([
     "health",
 ]);
 
+// Requests which establish the credentials of a session, or which do not need any. These
+// never trigger the resolution of per-request credentials.
+const NEVER_RESOLVE = new Set([
+    "signin",
+    "signup",
+    "authenticate",
+    "refresh",
+    "revoke",
+    "version",
+    "health",
+]);
+
+interface SendOptions extends RequestOptions {
+    /** Present this credential with the request, in place of the one of the session */
+    credential?: AuthOrToken;
+    /** Present no credential with the request, not even the one of the session */
+    anonymous?: boolean;
+}
+
 /**
  * An engine that communicates by sending individual HTTP requests
  */
@@ -44,6 +70,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         Features.Api,
         Features.ExportImportRaw,
         Features.SurrealML,
+        Features.PerRequestAuth,
     ]);
 
     subscribe<K extends keyof EngineEvents>(
@@ -69,13 +96,59 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         // No-op for HTTP engine - no pending calls to resend
     }
 
+    /**
+     * Run a query as someone else. The credential is presented with this request alone, and
+     * the session is neither used for authentication nor changed.
+     */
+    async *queryAs<T>(
+        query: BoundQuery,
+        session: Session,
+        txn: Uuid | undefined,
+        options: CredentialedRequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
+        const responses: RpcQueryResult[] = await this.send(
+            {
+                method: options.dialect === "gql" ? "gql" : "query",
+                params: [query.query, query.bindings],
+                session,
+                txn,
+            },
+            { signal: options.signal, credential: options.credential },
+        );
+
+        yield* this.toChunks<T>(responses);
+    }
+
+    /**
+     * Exchange authentication details for a token, with nothing but the details to go on.
+     */
+    async #exchange(
+        auth: AnyAuth,
+        session: Session,
+        state: ConnectionState,
+        signal: AbortSignal | undefined,
+    ): Promise<string> {
+        const response = await this.send(
+            {
+                method: "signin",
+                params: [buildRpcAuth(getSessionFromState(state, session), auth)],
+                session,
+            },
+            { anonymous: true, signal },
+        );
+
+        return this.parseTokens(response).access;
+    }
+
     override async send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,
-        options?: RequestOptions,
+        options?: SendOptions,
     ): Promise<Result> {
         throwIfAborted(options?.signal);
 
-        if (!this._state) {
+        const state = this._state;
+
+        if (!state) {
             throw new ConnectionUnavailableError();
         }
 
@@ -96,7 +169,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             }
         }
 
-        const session = getSessionFromState(this._state, request.session);
+        const session = getSessionFromState(state, request.session);
 
         if ((!session.namespace || !session.database) && !ALWAYS_ALLOW.has(request.method)) {
             throw new MissingNamespaceDatabaseError();
@@ -116,12 +189,33 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             }
         }
 
+        // The credential of a single request is neither stored nor sent in the body of the
+        // request. Authentication details are exchanged for a token without touching the session,
+        // and without presenting the credential of the session while doing so.
+        let token: string | undefined;
+
+        if (options?.anonymous) {
+            token = "";
+        } else if (options?.credential !== undefined) {
+            token =
+                typeof options.credential === "string"
+                    ? options.credential
+                    : await this.#exchange(
+                          options.credential,
+                          request.session,
+                          state,
+                          options.signal,
+                      );
+        }
+
         const id = this._context.uniqueId();
-        const res = await fetchSurreal(this._context, this._state, session, {
+        const res = await fetchSurreal(this._context, state, session, {
             body: {
                 id,
                 ...request,
             },
+            token,
+            resolve: !NEVER_RESOLVE.has(request.method),
             signal: options?.signal,
         });
 
