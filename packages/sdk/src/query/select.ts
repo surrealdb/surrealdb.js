@@ -259,12 +259,12 @@ export class SelectPromise<T, I, J extends boolean = false> extends DispatchedPr
             query.append(surql` FETCH type::fields(${fetch})`);
         }
 
-        if (timeout) {
-            query.append(surql` TIMEOUT ${_timeout(timeout)}`);
-        }
-
         if (version) {
             query.append(surql` VERSION ${version}`);
+        }
+
+        if (timeout) {
+            query.append(surql` TIMEOUT ${_timeout(timeout)}`);
         }
 
         return new Query(this.#connection, {
