@@ -1,5 +1,6 @@
 import { type RecordId, type RecordIdRange, Table, type Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
+import { composeQueries } from "../internal/compose-queries";
 import {
     AuthPromise,
     CreatePromise,
@@ -14,7 +15,7 @@ import {
     UpdatePromise,
     UpsertPromise,
 } from "../query";
-import type { AnyRecordId, LiveResource, RecordResult, Session, Values } from "../types";
+import type { AnyRecordId, LiveResource, QueryLike, RecordResult, Session, Values } from "../types";
 import { BoundQuery } from "../utils";
 import { type DefaultPaths, SurrealApi } from "./api";
 
@@ -89,13 +90,58 @@ export abstract class SurrealQueryable {
      */
     query<R extends unknown[] = unknown[]>(query: BoundQuery<R>): Query<R>;
 
+    /**
+     * Runs a list of queries together, in a single request.
+     *
+     * This is a **batch**, not a transaction: the queries are sent as if their statements
+     * had been written one after another in a single query, and are **not** atomic. A failing
+     * statement does not stop the ones after it, and whatever the others did stays done. To
+     * run the queries atomically, use `transaction()`.
+     *
+     * Each input can be a string, a `BoundQuery` (such as one created with the `surql` template
+     * tag), a query builder (such as `select()` or `create()`) or a `Query` returned by `query()`.
+     *
+     * Results are positional **per statement**, not per input. A string holding three
+     * statements takes three slots, and shifts the position of the results which follow
+     * it. A query builder always holds exactly one statement. Use `.responses()` to
+     * see the outcome of each statement individually, including those which failed.
+     *
+     * Two inputs cannot bind the same parameter name. The `surql` template tag and query
+     * builders generate unique names, so this only concerns hand written `BoundQuery`
+     * instances.
+     *
+     * @example
+     * ```ts
+     * const [everyone, adults] = await db
+     *     .query<[Person[], Person[]]>([
+     *         db.select<Person>(new Table("person")),
+     *         surql`SELECT * FROM person WHERE age >= ${18}`,
+     *     ])
+     *     .collect();
+     * ```
+     *
+     * @param queries The queries to run, each of which can be a string, `BoundQuery`, query builder or `Query`
+     * @returns A `Query` instance which can be used to execute or configure the query
+     */
+    query<R extends unknown[] = unknown[]>(queries: readonly QueryLike[]): Query<R>;
+
     // Shadow implementation
-    query(query: string | BoundQuery, bindings?: Record<string, unknown>): Query {
+    query(
+        query: string | BoundQuery | readonly QueryLike[],
+        bindings?: Record<string, unknown>,
+    ): Query {
+        let bound: BoundQuery;
+
+        if (Array.isArray(query)) {
+            bound = composeQueries(query);
+        } else if (query instanceof BoundQuery) {
+            bound = query as unknown as BoundQuery;
+        } else {
+            bound = new BoundQuery(query as string, bindings);
+        }
+
         return new Query(this.#connection, {
-            query:
-                query instanceof BoundQuery
-                    ? (query as unknown as BoundQuery)
-                    : new BoundQuery(query as string, bindings),
+            query: bound,
             transaction: this.#transaction,
             session: this.#session,
             json: false,

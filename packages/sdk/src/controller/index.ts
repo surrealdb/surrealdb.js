@@ -188,6 +188,14 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#state.retry;
     }
 
+    /**
+     * The version reported by the server on the most recent (re)connect, or
+     * `undefined` before the first connection has been established.
+     */
+    public get serverVersion(): string | undefined {
+        return this.#cachedVersion;
+    }
+
     #instanceEngine(url: URL): SurrealEngine {
         const engineMap = this.#context.options.engines ?? createRemoteEngines();
         const protocol = url.protocol.slice(0, -1);

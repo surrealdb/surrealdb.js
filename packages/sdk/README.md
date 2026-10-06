@@ -188,6 +188,89 @@ let [created] = await db
     .collect<[Person]>();
 ```
 
+#### Running several queries at once
+
+Pass a list to `query` to run several queries in a single request. Each item can be a string,
+a `surql` template, or a query builder such as `select()` and `create()`. The result is the same
+`Query` you would get from a single string, so `.collect()`, `.responses()` and `.stream()` all work.
+
+```ts
+import { surql, Table } from "surrealdb";
+
+const [people, adults] = await db
+    .query<[Person[], Person[]]>([
+        db.select<Person>(personTable),
+        surql`SELECT * FROM person WHERE age >= ${18}`,
+    ])
+    .collect();
+```
+
+A list of queries is a **batch**, not a transaction. It behaves exactly as if the statements had
+been written one after another in a single query: nothing is atomic, a failing statement does not
+stop the ones after it, and whatever the others did stays done. Use `.responses()` to see which
+statements failed without losing the results of the rest:
+
+```ts
+const [first, second] = await db.query(["RETURN 1", "THROW 'oops'"]).responses();
+
+first.success; // true
+second.success; // false
+```
+
+Results are positional **per statement**, not per item. An item holding several statements, such as
+`"CREATE a; CREATE b"`, takes several slots in the results and moves the results of the items after
+it, while a query builder always takes exactly one. An item cannot be empty, and two items cannot
+bind the same parameter name (the `surql` template and query builders generate unique names, so
+this only concerns a `BoundQuery` you wrote by hand).
+
+#### Atomic transactions
+
+Use `transaction` to run a list of queries atomically: either every change is applied or none is.
+The queries are wrapped in `BEGIN` and `COMMIT` and sent in a single request, so unlike
+`beginTransaction()` it does not hold any state on the connection and works over HTTP as well as
+WebSockets.
+
+```ts
+const [from, to] = await db.transaction<[Account, Account]>([
+    surql`UPDATE ONLY ${fromId} SET balance -= ${amount}`,
+    surql`UPDATE ONLY ${toId} SET balance += ${amount}`,
+]);
+```
+
+It resolves to the result of each statement, in order, or rejects with the error which made the
+transaction fail. That is the error of the statement which actually failed, not one of the "not
+executed" errors the server reports for the statements it rolled back.
+
+Queries must not contain `BEGIN`, `COMMIT` or `CANCEL` statements, as `transaction` adds its own. A
+`RETURN` statement is only allowed as the last statement, because `RETURN` ends a transaction early
+in SurrealQL: the statements after it would be skipped, and the transaction would still commit.
+Use `SELECT` or a bare expression to produce a value in the middle of a transaction. A `RETURN`
+nested inside a block, such as an `IF`, ends the transaction in the same way, but cannot be
+detected, so take care with those. Before SurrealDB 3.0 a `RETURN` also replaces the results of
+the statements before it, so no `RETURN` is allowed at all.
+
+Under concurrent load a transaction can fail because another one wrote to the same data. As the
+whole transaction is sent at once it is always safe to replay, so it can opt into retrying with
+the `retry` option, which defaults to the `retry` configured when connecting:
+
+```ts
+await db.transaction(
+    [
+        surql`UPDATE counter:visits SET count += 1`,
+        surql`CREATE visit SET at = time::now()`,
+    ],
+    { retry: true },
+);
+```
+
+As with any retry, a conflict is only recognized by default when the server reports it as a structured
+`TransactionConflict`, which SurrealDB 3.1.0 and later do. For earlier versions, give a `retryable`
+predicate in the `retry` option, which is passed the error which made the transaction fail.
+
+To run queries inside a transaction which you control, such as to read before deciding what to
+write, use `beginTransaction()` on a WebSocket connection. A list of queries can also be passed
+to `query` on the returned transaction.
+
 #### ISO GQL queries
 
 In addition to SurrealQL, you can run [ISO GQL](https://www.iso.org/standard/76120.html)
