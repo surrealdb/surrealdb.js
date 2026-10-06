@@ -261,7 +261,10 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
             const subscription = await surreal.live(personTable);
             const messages: LiveMessage[] = [];
 
-            (async () => {
+            // Kept so it can be awaited below: killing the subscription ends the iteration
+            // before this has finished, and work still in flight when the test returns is torn
+            // down with the connection.
+            const writes = (async () => {
                 await Bun.sleep(100);
 
                 await surreal.create(new RecordId("person", 5)).content({
@@ -284,6 +287,8 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
                 messages.push(message);
             }
 
+            await writes;
+
             expect(messages[0].action).toEqual("CREATE");
             expect(messages[1].action).toEqual("UPDATE");
             expect(messages[2].action).toEqual("DELETE");
@@ -301,7 +306,10 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
 
                 expect(subscription.isAlive).toBeTrue();
 
-                (async () => {
+                // Kept so it can be awaited below: the KILLED notification ends the iteration
+                // before this has finished, and a query still in flight when the test returns
+                // is failed with the connection the harness then closes.
+                const removal = (async () => {
                     await Bun.sleep(100);
                     // Removing the subscribed table terminates the live query
                     // server-side, which emits a KILLED notification.
@@ -311,6 +319,8 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
                 for await (const message of subscription) {
                     messages.push(message);
                 }
+
+                await removal;
 
                 // The final message is the server-side KILLED (which carries no
                 // record), and the subscription is no longer alive afterwards.
@@ -332,7 +342,9 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
 
             let latestId: Uuid = initialId;
 
-            (async () => {
+            // Kept so it can be awaited below, like the tests above: work still in flight when
+            // the test returns is failed with the connection the harness closes.
+            const restart = (async () => {
                 await Bun.sleep(100);
 
                 // Restart server and wait for reconnection
@@ -360,6 +372,8 @@ describe.if(SURREAL_PROTOCOL === "ws" || SURREAL_PROTOCOL === "mem")(
             for await (const message of subscription) {
                 messages.push(message);
             }
+
+            await restart;
 
             expect(latestId).not.toEqual(initialId);
 

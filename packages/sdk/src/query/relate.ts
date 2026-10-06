@@ -6,7 +6,7 @@ import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
 import type { AnyRecordId, Output, RetryValue, Session } from "../types";
 import { type BoundQuery, surql } from "../utils";
-import type { Frame } from "../utils/frame";
+import type { Frame, StreamedRow } from "../utils/frame";
 import { Query } from "./query";
 
 interface RelateOptions {
@@ -131,9 +131,9 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
      *
      * @returns An async iterable of query frames.
      */
-    async *stream(): AsyncIterable<Frame<T, J>> {
+    async *stream(): AsyncIterable<Frame<StreamedRow<T>, J>> {
         await this.#connection.ready();
-        const query = this.#build().stream<T>();
+        const query = this.#build().stream<StreamedRow<T>>();
 
         for await (const frame of query) {
             yield frame;
