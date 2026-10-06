@@ -1,6 +1,6 @@
 import { type DateTime, type Duration, RecordId, type Table, type Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
-import { SurrealError } from "../errors";
+import { ExpressionError, SurrealError } from "../errors";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { _output, _timeout } from "../internal/internal-expressions";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
@@ -109,8 +109,11 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
     }
 
     /**
-     * Configure a custom version of the data being created. This is used
-     * alongside version enabled storage engines such as SurrealKV.
+     * Configure a custom version of the data being created.
+     *
+     * @deprecated SurrealDB has no `VERSION` clause for `RELATE` statements, so
+     * a query using this method fails with an `ExpressionError` when it is
+     * compiled or executed, before anything is sent to the server.
      */
     version(version: DateTime): RelatePromise<T, J> {
         return new RelatePromise<T, J>(this.#connection, {
@@ -161,6 +164,10 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
             retry,
         } = this.#options;
 
+        if (version) {
+            throw new ExpressionError("The VERSION clause is not supported by RELATE statements");
+        }
+
         const isMultiple = Array.isArray(from) || Array.isArray(to);
 
         if (isMultiple && what instanceof RecordId) {
@@ -185,10 +192,6 @@ export class RelatePromise<T, J extends boolean = false> extends DispatchedPromi
 
         if (timeout) {
             query.append(surql` TIMEOUT ${_timeout(timeout)}`);
-        }
-
-        if (version) {
-            query.append(surql` VERSION ${version}`);
         }
 
         return new Query(this.#connection, {
