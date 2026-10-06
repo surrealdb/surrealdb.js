@@ -25,7 +25,7 @@
         "paths": {
             "surrealdb": ["./packages/sdk/src"],
             "@surrealdb/sqon": ["./packages/sqon/src"],
-            "@surrealdb/spectron": ["./packages/spectron/src"]
+            "@surrealdb/memory": ["./packages/memory/src"]
         }
     },
 

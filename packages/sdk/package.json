@@ -1,6 +1,6 @@
 {
     "name": "surrealdb",
-    "version": "2.0.8",
+    "version": "2.0.10",
     "type": "module",
     "license": "Apache-2.0",
     "description": "The official SurrealDB SDK for JavaScript.",
@@ -29,7 +29,7 @@
         "tslib": "^2.6.3"
     },
     "dependencies": {
-        "@surrealdb/sqon": "workspace:*"
+        "@surrealdb/sqon": "workspace:^"
     },
     "types": "./dist/surrealdb.d.ts",
     "main": "./dist/surrealdb.mjs",

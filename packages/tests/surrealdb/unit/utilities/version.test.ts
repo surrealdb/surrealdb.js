@@ -26,7 +26,23 @@ describe("isVersionSupported()", () => {
         expect(isVersionSupported("3.99.99")).toBe(true);
     });
 
-    test("4.0.0 should be unsupported", () => {
-        expect(isVersionSupported("4.0.0")).toBe(false);
+    test("4.0.0 should be supported", () => {
+        expect(isVersionSupported("4.0.0")).toBe(true);
+    });
+
+    test("4.0.0-alpha.1 should be supported", () => {
+        expect(isVersionSupported("4.0.0-alpha.1")).toBe(true);
+    });
+
+    test("4.1.0 should be supported", () => {
+        expect(isVersionSupported("4.1.0")).toBe(true);
+    });
+
+    test("4.99.99 should be supported", () => {
+        expect(isVersionSupported("4.99.99")).toBe(true);
+    });
+
+    test("5.0.0 should be unsupported", () => {
+        expect(isVersionSupported("5.0.0")).toBe(false);
     });
 });

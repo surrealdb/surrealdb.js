@@ -1,5 +1,5 @@
 export const MINIMUM_VERSION = "2.1.0";
-export const MAXIMUM_VERSION = "4.0.0";
+export const MAXIMUM_VERSION = "5.0.0";
 
 /**
  * Returns whether a SurrealDB version is supported by the SDK.
