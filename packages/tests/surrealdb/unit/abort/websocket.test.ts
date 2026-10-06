@@ -14,7 +14,8 @@ afterEach(async () => {
 async function openEngine<E extends WebSocketEngine = WebSocketEngine>(
     options: { reconnect?: boolean; create?: (context: ReturnType<typeof mockContext>) => E } = {},
 ): Promise<E> {
-    const context = mockContext();
+    // These tests are about buffered calls, so streaming, which the mocked socket never answers, is off
+    const context = mockContext({ streaming: false });
     const opened = (options.create?.(context) ?? new WebSocketEngine(context)) as E;
 
     engine = opened;
