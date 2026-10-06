@@ -30,6 +30,31 @@ jobs:
       - name: Checking Code Quality
         run: bun run qc
 
+  # Publish SDK runs this same dry run before releasing to npm and JSR. Running it
+  # here too means an import JSR cannot publish fails the PR, not the release.
+  jsr:
+    name: JSR Dry Run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.2.21
+
+      - name: Code Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install dependencies
+        run: bun ci
+
+      # JSR reads the built @surrealdb/sqon package to resolve the SDK's imports of it.
+      - name: Build SQON
+        run: bun run build:sqon
+
+      - name: Dry run JSR publish
+        working-directory: packages/sdk
+        run: bunx jsr@0.14.3 publish --dry-run --allow-slow-types --set-version "$(jq -r .version package.json)"
+
   typecheck:
     name: Typecheck
     needs:
