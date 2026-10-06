@@ -189,3 +189,91 @@ describe("RetryContext.run", () => {
         expect(calls).toBe(2);
     });
 });
+
+describe("RetryContext with a signal", () => {
+    const slow = RetryContext.mergeOptions({
+        enabled: true,
+        retryDelay: 5000,
+        retryDelayMax: 5000,
+        retryDelayJitter: 0,
+    });
+    const conflict = () =>
+        new QueryError({
+            message: "Transaction conflict",
+            kind: "Query",
+            details: { kind: "TransactionConflict" },
+        });
+
+    test("a backoff in progress is cut short, and the reason is thrown", async () => {
+        const controller = new AbortController();
+        const reason = new Error("client went away");
+        const started = performance.now();
+        let calls = 0;
+
+        const running = new RetryContext(slow, controller.signal).run(async () => {
+            calls++;
+            throw conflict();
+        });
+
+        setTimeout(() => controller.abort(reason), 20);
+
+        await expect(running).rejects.toBe(reason);
+        expect(calls).toBe(1);
+        expect(performance.now() - started).toBeLessThan(1000);
+    });
+
+    test("a signal which aborted during an attempt stops it being retried at all", async () => {
+        const controller = new AbortController();
+        const reason = new Error("client went away");
+        const started = performance.now();
+        let calls = 0;
+
+        await expect(
+            new RetryContext(slow, controller.signal).run(async () => {
+                calls++;
+                controller.abort(reason);
+                throw conflict();
+            }),
+        ).rejects.toBe(reason);
+
+        expect(calls).toBe(1);
+        expect(performance.now() - started).toBeLessThan(1000);
+    });
+
+    test("a signal which aborted already throws the reason instead of backing off", async () => {
+        const controller = new AbortController();
+        const reason = new DOMException("The operation timed out.", "TimeoutError");
+        controller.abort(reason);
+
+        const context = new RetryContext(slow, controller.signal);
+
+        await expect(context.iterate()).rejects.toBe(reason);
+    });
+
+    test("an error which is not retried is thrown as it is, aborted or not", async () => {
+        const controller = new AbortController();
+        const error = new ValidationError({ message: "nope", kind: "Validation" });
+
+        await expect(
+            new RetryContext(slow, controller.signal).run(async () => {
+                controller.abort(new Error("client went away"));
+                throw error;
+            }),
+        ).rejects.toBe(error);
+    });
+
+    test("a signal which never aborts changes nothing", async () => {
+        const controller = new AbortController();
+        const fast = RetryContext.mergeOptions({ enabled: true, retryDelay: 0, retryDelayMax: 0 });
+        let calls = 0;
+
+        const result = await new RetryContext(fast, controller.signal).run(async () => {
+            calls++;
+            if (calls < 3) throw conflict();
+            return "ok";
+        });
+
+        expect(result).toBe("ok");
+        expect(calls).toBe(3);
+    });
+});

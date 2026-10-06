@@ -11,6 +11,7 @@ import {
     UnsupportedFeatureError,
     UnsupportedVersionError,
 } from "../errors";
+import { assertTimeout } from "../internal/abort";
 import type { Feature } from "../internal/feature";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { ReconnectContext } from "../internal/reconnect";
@@ -31,6 +32,7 @@ import type {
     NamespaceDatabase,
     Nullable,
     QueryChunk,
+    RequestOptions,
     RetryOptions,
     Session,
     SqlExportOptions,
@@ -102,6 +104,10 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     // =========================================================== //
 
     public async connect(url: URL, options: ConnectOptions): Promise<true> {
+        if (options.requestTimeout !== undefined) {
+            assertTimeout(options.requestTimeout, "requestTimeout");
+        }
+
         const engine = this.#instanceEngine(url);
 
         this.#nextEngine = engine;
@@ -126,6 +132,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             sessions: new Map(),
             reconnect: new ReconnectContext(options.reconnect),
             retry: RetryContext.mergeOptions(options.retry),
+            requestTimeout: options.requestTimeout,
             rootSession: {
                 ...this.#createSessionState(undefined),
                 namespace: options.namespace,
@@ -186,6 +193,11 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         if (!this.#state) throw new ConnectionUnavailableError();
 
         return this.#state.retry;
+    }
+
+    /** The default client side limit in milliseconds for each query request, if any */
+    public get requestTimeout(): number | undefined {
+        return this.#state?.requestTimeout;
     }
 
     /**
@@ -435,14 +447,24 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.exportMlModel(options);
     }
 
-    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
+    query<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
         if (!this.#engine) throw new ConnectionUnavailableError();
-        return this.#engine.query(query, session, txn);
+        return this.#engine.query(query, session, txn, options);
     }
 
-    gql<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
+    gql<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
         if (!this.#engine) throw new ConnectionUnavailableError();
-        return this.#engine.gql(query, session, txn);
+        return this.#engine.gql(query, session, txn, options);
     }
 
     liveQuery(id: Uuid): AsyncIterable<LiveMessage> {

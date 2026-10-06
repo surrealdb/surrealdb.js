@@ -15,6 +15,7 @@ import type {
     NamespaceDatabase,
     Nullable,
     QueryChunk,
+    RequestOptions,
     RpcQueryResult,
     RpcRequest,
     Session,
@@ -246,12 +247,22 @@ export abstract class RpcEngine implements SurrealProtocol {
         });
     }
 
-    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
-        return this.#dispatchQuery<T>("query", query, session, txn);
+    query<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
+        return this.#dispatchQuery<T>("query", query, session, txn, options);
     }
 
-    gql<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
-        return this.#dispatchQuery<T>("gql", query, session, txn);
+    gql<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
+        return this.#dispatchQuery<T>("gql", query, session, txn, options);
     }
 
     async *#dispatchQuery<T>(
@@ -259,13 +270,17 @@ export abstract class RpcEngine implements SurrealProtocol {
         query: BoundQuery,
         session: Session,
         txn?: Uuid,
+        options?: RequestOptions,
     ): AsyncIterable<QueryChunk<T>> {
-        const responses: RpcQueryResult[] = await this.send({
-            method,
-            params: [query.query, query.bindings],
-            session,
-            txn,
-        });
+        const responses: RpcQueryResult[] = await this.send(
+            {
+                method,
+                params: [query.query, query.bindings],
+                session,
+                txn,
+            },
+            options,
+        );
 
         let index = 0;
 
@@ -311,7 +326,14 @@ export abstract class RpcEngine implements SurrealProtocol {
         throw new UnexpectedServerResponseError(response);
     }
 
+    /**
+     * Send a request and resolve with its result.
+     *
+     * With a `signal` in the options, an engine stops waiting for the answer once it aborts, and
+     * rejects with the reason of the signal.
+     */
     abstract send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,
+        options?: RequestOptions,
     ): Promise<Result>;
 }

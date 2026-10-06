@@ -26,11 +26,18 @@ export abstract class SurrealQueryable {
     readonly #connection: ConnectionController;
     readonly #transaction: Uuid | undefined;
     readonly #session: Session;
+    readonly #signals: readonly AbortSignal[] | undefined;
 
-    constructor(connection: ConnectionController, session: Session, transaction?: Uuid) {
+    constructor(
+        connection: ConnectionController,
+        session: Session,
+        transaction?: Uuid,
+        signals?: readonly AbortSignal[],
+    ) {
         this.#connection = connection;
         this.#session = session;
         this.#transaction = transaction;
+        this.#signals = signals;
     }
 
     /**
@@ -61,7 +68,13 @@ export abstract class SurrealQueryable {
      * @returns A new `SurrealApi` instance.
      */
     api<TPaths = DefaultPaths>(prefix?: string): SurrealApi<TPaths> {
-        return new SurrealApi(this.#connection, this.#session, this.#transaction, prefix);
+        return new SurrealApi(
+            this.#connection,
+            this.#session,
+            this.#transaction,
+            prefix,
+            this.#signals,
+        );
     }
 
     /**
@@ -145,6 +158,7 @@ export abstract class SurrealQueryable {
             transaction: this.#transaction,
             session: this.#session,
             json: false,
+            signals: this.#signals,
         });
     }
 
@@ -194,6 +208,7 @@ export abstract class SurrealQueryable {
             transaction: this.#transaction,
             session: this.#session,
             json: false,
+            signals: this.#signals,
         });
     }
 
@@ -253,6 +268,7 @@ export abstract class SurrealQueryable {
             transaction: this.#transaction,
             session: this.#session,
             json: false,
+            signals: this.#signals,
         });
     }
 
@@ -277,6 +293,7 @@ export abstract class SurrealQueryable {
             transaction: this.#transaction,
             session: this.#session,
             json: false,
+            signals: this.#signals,
         });
     }
 
@@ -325,6 +342,7 @@ export abstract class SurrealQueryable {
             transaction: this.#transaction,
             session: this.#session,
             json: false,
+            signals: this.#signals,
         });
     }
 
@@ -352,6 +370,7 @@ export abstract class SurrealQueryable {
                 transaction: this.#transaction,
                 session: this.#session,
                 json: false,
+                signals: this.#signals,
             });
         }
 
@@ -361,6 +380,7 @@ export abstract class SurrealQueryable {
             transaction: this.#transaction,
             session: this.#session,
             json: false,
+            signals: this.#signals,
         });
     }
 
@@ -392,6 +412,7 @@ export abstract class SurrealQueryable {
             transaction: this.#transaction,
             session: this.#session,
             json: false,
+            signals: this.#signals,
         });
     }
 
@@ -432,6 +453,7 @@ export abstract class SurrealQueryable {
             transaction: this.#transaction,
             session: this.#session,
             json: false,
+            signals: this.#signals,
         });
     }
 
@@ -464,6 +486,7 @@ export abstract class SurrealQueryable {
             transaction: this.#transaction,
             session: this.#session,
             json: false,
+            signals: this.#signals,
         });
     }
 
@@ -494,6 +517,7 @@ export abstract class SurrealQueryable {
                 transaction: this.#transaction,
                 session: this.#session,
                 json: false,
+                signals: this.#signals,
             });
         }
 
@@ -504,6 +528,7 @@ export abstract class SurrealQueryable {
             transaction: this.#transaction,
             session: this.#session,
             json: false,
+            signals: this.#signals,
         });
     }
 }

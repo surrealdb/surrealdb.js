@@ -13,6 +13,7 @@ import type {
     NamespaceDatabase,
     Nullable,
     QueryChunk,
+    RequestOptions,
     Session,
     SqlExportOptions,
     SurrealEngine,
@@ -247,18 +248,28 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
+    query<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
         return this.#instrumentQuery(
-            this.#delegate.query<T>(query, session, txn),
+            this.#delegate.query<T>(query, session, txn, options),
             query,
             session,
             txn,
         );
     }
 
-    gql<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
+    gql<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
         return this.#instrumentQuery(
-            this.#delegate.gql<T>(query, session, txn),
+            this.#delegate.gql<T>(query, session, txn, options),
             query,
             session,
             txn,

@@ -7,6 +7,7 @@ import {
     UnexpectedConnectionError,
     UnexpectedServerResponseError,
 } from "../errors";
+import { abortReason } from "../internal/abort";
 import { parseRpcError } from "../internal/parse-error";
 import {
     type Abandonment,
@@ -24,7 +25,12 @@ import type {
     Session,
 } from "../types";
 import { LIVE_ACTIONS } from "../types/live";
-import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
+import type {
+    ConnectionState,
+    EngineEvents,
+    RequestOptions,
+    SurrealEngine,
+} from "../types/surreal";
 import type { BoundQuery } from "../utils";
 import { Features } from "../utils";
 import { ChannelIterator } from "../utils/channel-iterator";
@@ -219,31 +225,97 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
     override send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,
+        options?: RequestOptions,
     ): Promise<Result> {
         return new Promise((resolve, reject) => {
+            const signal = options?.signal;
+
+            // Nothing is sent for a request which has been abandoned already
+            if (signal?.aborted) {
+                reject(abortReason(signal));
+                return;
+            }
+
             if (!this.#active) {
                 reject(new ConnectionUnavailableError());
                 return;
             }
 
             const id = this._context.uniqueId();
+
+            // Whichever way the call ends - answered, terminated, or abandoned - it stops
+            // watching the signal, so a signal which outlives it does not hold on to it.
+            let unwatch = () => {};
+
             const call: Call<Result> = {
                 request: { id, ...request },
-                resolve,
-                reject,
+                resolve: (value) => {
+                    unwatch();
+                    resolve(value);
+                },
+                reject: (error) => {
+                    unwatch();
+                    reject(error);
+                },
             };
 
+            if (signal) {
+                const onAbort = () => {
+                    // Already answered or terminated, and so nothing left to give up on
+                    if (this.#calls.get(id) !== call) return;
+
+                    // Forgotten, so that a late response finds nobody waiting for it and is
+                    // dropped, and a reconnect does not send the request again.
+                    this.#calls.delete(id);
+
+                    try {
+                        this.abandon(id, call.request);
+                    } catch {
+                        // Failing to tell the server must not leave the caller waiting
+                    }
+
+                    reject(abortReason(signal));
+                };
+
+                signal.addEventListener("abort", onAbort, { once: true });
+                unwatch = () => signal.removeEventListener("abort", onAbort);
+            }
+
             this.#calls.set(id, call as Call<unknown>);
-            this.#socket?.send(
-                new Uint8Array(wrapSqonError(() => this._context.codecs.cbor.encode(call.request))),
-            );
+
+            try {
+                this.#socket?.send(
+                    new Uint8Array(
+                        wrapSqonError(() => this._context.codecs.cbor.encode(call.request)),
+                    ),
+                );
+            } catch (error) {
+                // A request which could not be written is not left waiting for an answer
+                this.#calls.delete(id);
+                unwatch();
+                throw error;
+            }
         });
     }
+
+    /**
+     * Called when a pending call is given up on because its signal aborted, once it has been
+     * forgotten by the engine and before the caller is told.
+     *
+     * By then the request has been sent, and this protocol has no way of taking it back: the server
+     * carries on, and its response is ignored when it arrives. An engine whose server can be told
+     * to stop what it is doing sends that here, with the id the request was sent under.
+     *
+     * @param _id The id the request was sent with
+     * @param _request The request as it was sent
+     */
+    protected abandon(_id: string, _request: object): void {}
 
     override query<T>(
         query: BoundQuery,
         session: Session,
         txn?: Uuid,
+        options?: RequestOptions,
     ): AsyncIterable<QueryChunk<T>> {
         // A query inside a client managed transaction is never streamed. The stream would execute
         // on that transaction while a `commit` for it can arrive on the same connection at any
@@ -258,7 +330,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             this._context.options.streaming === false ||
             !this.#socket
         ) {
-            return super.query<T>(query, session, txn);
+            return super.query<T>(query, session, txn, options);
         }
 
         // The frames are kept to hand so that leaving the chunks can act on them at once. An
@@ -267,7 +339,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         // would otherwise never be let go.
         const frames: { current?: AsyncIterableIterator<QueryStreamFrame> } = {};
         const abandonment: Abandonment = {};
-        const chunks = this.streamChunks<T>(query, session, txn, frames, abandonment);
+        const chunks = this.streamChunks<T>(query, session, txn, options, frames, abandonment);
 
         return {
             [Symbol.asyncIterator]: () => ({
@@ -294,6 +366,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         query: BoundQuery,
         session: Session,
         txn: Uuid | undefined,
+        options: RequestOptions | undefined,
         frames: { current?: AsyncIterableIterator<QueryStreamFrame> },
         abandonment: Abandonment,
     ): AsyncGenerator<QueryChunk<T>> {
@@ -321,7 +394,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 this.#streaming = false;
             }
 
-            for await (const chunk of super.query<T>(query, session, txn)) {
+            for await (const chunk of super.query<T>(query, session, txn, options)) {
                 yield chunk;
             }
         }

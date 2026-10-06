@@ -14,6 +14,7 @@ import type {
 } from "../types";
 import { Publisher } from "../utils";
 import { SurrealQueryable } from "./queryable";
+import { SurrealRequestScope } from "./request-scope";
 import { SurrealTransaction } from "./transaction";
 
 export type SessionEvents = {
@@ -152,6 +153,39 @@ export class SurrealSession extends SurrealQueryable {
 
     // =========================================================== //
     //                                                             //
+    //                      Cancellation Scope                     //
+    //                                                             //
+    // =========================================================== //
+
+    /**
+     * Create a view of this session in which every query is bound to an `AbortSignal`, which is how
+     * the work of a request handler is tied to the signal of the request without passing it to every
+     * call. A query made through the view is abandoned when the signal aborts, as if `.signal()` had
+     * been called on it, and a signal given to `.signal()` in addition is combined with this one.
+     *
+     * The view offers the same query methods as the session and `beginTransaction()`, whose
+     * transactions are bound to the signal too. It shares this session and does not change it, so one
+     * can be made per request on a connection which is shared between requests.
+     *
+     * Aborting stops waiting and does not undo anything: the server may carry on, and a write which
+     * was sent before the signal aborted may or may not have been applied.
+     *
+     * @example
+     * ```ts
+     * // Cloudflare Workers, Next.js route handlers, Hono: the request has a signal
+     * const scoped = db.withSignal(request.signal);
+     * const people = await scoped.select(new Table("person"));
+     * ```
+     *
+     * @param signal The signal which abandons the work. Without one, the view is not bound to any.
+     * @returns A view of this session bound to the signal
+     */
+    withSignal(signal: AbortSignal | undefined): SurrealRequestScope {
+        return new SurrealRequestScope(this.#connection, this.#session, signal ? [signal] : []);
+    }
+
+    // =========================================================== //
+    //                                                             //
     //                     Transaction Methods                     //
     //                                                             //
     // =========================================================== //
@@ -194,6 +228,13 @@ export class SurrealSession extends SurrealQueryable {
      * SurrealDB 3.1.0 and later report a conflict in a way which the default retry recognizes:
      * for earlier versions, provide a `retryable` predicate as for `query().retry()`. It is given
      * the error which made the transaction fail, whichever version it is.
+     *
+     * The options also take a `signal` and a `requestTimeout`, as the query builders do with
+     * `.signal()` and `.requestTimeout()`: the transaction is abandoned when the signal aborts, or
+     * when the server has not answered in time, and a retry is not made once it is. As the
+     * transaction is a single request which the server may carry on to run, **an abandoned
+     * transaction may or may not have been committed**. Use `withSignal()` to bind every transaction
+     * of a request handler to the signal of the request.
      *
      * @example
      * ```ts

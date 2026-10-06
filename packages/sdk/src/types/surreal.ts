@@ -71,9 +71,37 @@ export interface SurrealProtocol {
     exportMlModel(options: MlExportOptions): Promise<Response | Uint8Array>;
 
     // Query operations
-    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>>;
-    gql<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>>;
+    query<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>>;
+    gql<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>>;
     liveQuery(id: Uuid): AsyncIterable<LiveMessage>;
+}
+
+/**
+ * Options for a single request made to an engine
+ */
+export interface RequestOptions {
+    /**
+     * Abandon the request when this signal aborts.
+     *
+     * An engine honouring it stops waiting for the answer, releases what the request holds,
+     * and fails with the reason of the signal. Whether the server also stops executing is up
+     * to the protocol: where it has no way of being told, it carries on and the answer is
+     * discarded on arrival.
+     *
+     * Engines are free to ignore it. The SDK stops waiting on its own either way, so an
+     * engine which does only misses the chance to release resources early.
+     */
+    signal?: AbortSignal;
 }
 
 /**
@@ -106,6 +134,14 @@ export interface DriverOptions {
     websocketImpl?: typeof WebSocket;
     fetchImpl?: typeof fetch;
     /**
+     * Extra options merged into the `init` of every request the HTTP engine makes with `fetch`,
+     * such as `cache`, `priority`, `credentials` or `keepalive`.
+     *
+     * Unlike `fetchImpl`, which replaces `fetch` altogether, these only add to the request. The
+     * `method`, `headers`, `body` and `signal` of a request belong to the SDK and cannot be set.
+     */
+    fetchOptions?: FetchOptions;
+    /**
      * Stream query results from the server as they are produced, instead of receiving
      * them in a single response, on engines and servers which support it.
      *
@@ -118,6 +154,11 @@ export interface DriverOptions {
      */
     streaming?: boolean;
 }
+
+/**
+ * Options which can be merged into the `init` of a `fetch` request made by the SDK
+ */
+export type FetchOptions = Omit<RequestInit, "method" | "headers" | "body" | "signal">;
 
 /**
  * Options used to customize a specific connection to a SurrealDB datastore
@@ -202,6 +243,32 @@ export interface ConnectOptions {
      * @default false
      */
     retry?: boolean | Partial<RetryOptions>;
+    /**
+     * The longest, in milliseconds, to wait for the answer to a query before giving up on it.
+     *
+     * This is a client side limit: it stops the SDK from waiting, and nothing more. The server is
+     * not told, and may well carry on and apply a write the SDK has stopped waiting for. To have
+     * the server stop a query itself, use the `TIMEOUT` clause, which the query builders expose as
+     * `.timeout()`.
+     *
+     * A query which exceeds the limit fails with the `TimeoutError` `DOMException` of
+     * `AbortSignal.timeout()`, so that it can be told apart from an abort requested through a
+     * signal, which fails with the reason of that signal.
+     *
+     * The limit applies to each request separately, so a query retried after a transaction
+     * conflict gets a fresh one for every attempt, and to queries only, which includes a list of
+     * queries and an atomic `transaction()`: it does not apply to signing in, selecting a
+     * namespace, the `begin` and `commit` of an interactive transaction, import or export. It starts when
+     * the request is sent, and does not include waiting for a connection to be established. To
+     * bound the whole of an operation, including retries and connection waits, pass
+     * `AbortSignal.timeout()` to `.signal()` instead.
+     *
+     * A query can override the limit with `.requestTimeout()`, which is the only way to allow
+     * one longer than the default. `0` disables it.
+     *
+     * @default 0 (no limit)
+     */
+    requestTimeout?: number;
 }
 
 /**
@@ -288,6 +355,27 @@ export interface TransactionOptions {
      * give a `retryable` predicate, which is passed the error which made the transaction fail.
      */
     retry?: RetryValue;
+    /**
+     * Abandon the transaction when this signal aborts.
+     *
+     * If the signal has already aborted, nothing is sent. If it aborts later, the transaction stops
+     * waiting for the server and fails with the `reason` of the signal, as it is, and a transaction
+     * waiting to be retried is not retried again. Combined with the signal of the view it is called
+     * on, if it was made with `withSignal()`: the transaction is abandoned when either aborts.
+     *
+     * Aborting means "stop waiting", and nothing more. The transaction was sent as a single request,
+     * which the server may well carry on to run, and **it may or may not have been committed**.
+     */
+    signal?: AbortSignal;
+    /**
+     * How long to wait for the server to answer, in milliseconds, before giving up with a
+     * `TimeoutError`, as for `requestTimeout` of the connection, which is the default. `0` waits
+     * without limit.
+     *
+     * It applies to each attempt, so a transaction which is retried gets the full time for every
+     * attempt. As for a signal, the transaction may or may not have been committed when it expires.
+     */
+    requestTimeout?: number;
 }
 
 /**
@@ -316,8 +404,9 @@ export interface InnerQuery {
  * - A `Query` returned by `query()`, which contributes its inner query
  *
  * Only the statements and their bindings are taken from an input. Anything configured on a
- * builder or `Query` itself, such as `.json()` or `.retry()`, is ignored in favor of the
- * combined query's own configuration.
+ * builder or `Query` itself, such as `.json()`, `.retry()`, `.signal()` or `.requestTimeout()`, is
+ * ignored in favor of the combined query's own configuration: to abandon the combined query, call
+ * `.signal()` on it, or call `query()` on a view made with `withSignal()`.
  */
 export type QueryLike = string | BoundQuery | CompilableQuery | InnerQuery;
 
@@ -339,6 +428,7 @@ export interface ConnectionState {
     url: URL;
     reconnect: ReconnectContext;
     retry: RetryOptions;
+    requestTimeout?: number;
     rootSession: ConnectionSession;
     sessions: Map<Uuid, ConnectionSession>;
 }
