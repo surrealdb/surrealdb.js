@@ -51,6 +51,25 @@ describe("isSecondaryError", () => {
         expect(isSecondaryError(legacy("An error occurred: boom"))).toBe(false);
     });
 
+    // What SurrealDB 3.0.0 reports for a conflict, as recorded from its CI run: unstructured, and
+    // worded like a "not executed" error, yet it is the failure itself and what a retry needs.
+    test("a conflict from SurrealDB 3.0.0 is a failure, although it says the query was not executed", () => {
+        const conflict30 = new InternalError({
+            kind: "Internal",
+            message:
+                "Query not executed: Transaction conflict: Resource busy: . This transaction can be retried",
+        });
+        const secondary = new InternalError({
+            kind: "Internal",
+            message: "The query was not executed due to a failed transaction",
+        });
+
+        expect(isSecondaryError(conflict30)).toBe(false);
+
+        // Among the errors of a transaction, it is the one which is found
+        expect(findRootCause([secondary, conflict30])).toBe(conflict30);
+    });
+
     test("does not read the message of an error which is structured", () => {
         const lookalike = new ThrownError({
             kind: "Thrown",

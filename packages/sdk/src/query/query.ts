@@ -5,7 +5,7 @@ import { DispatchedPromise } from "../internal/dispatched-promise";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
 import { RetryContext } from "../internal/retry";
 import { findRootCause, isSecondaryError } from "../internal/root-cause";
-import type { QueryResponse, RetryValue, Session } from "../types";
+import type { QueryChunk, QueryResponse, RetryValue, Session } from "../types";
 import type { BoundQuery } from "../utils";
 import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../utils/frame";
 
@@ -15,6 +15,11 @@ interface QueryOptions {
     session: Session;
     json: boolean;
     retry?: RetryValue;
+    /**
+     * The query dialect to execute the query as. Defaults to `"sql"` (SurrealQL);
+     * `"gql"` routes the query through the ISO GQL (ISO/IEC 39075) endpoint.
+     */
+    dialect?: "sql" | "gql";
 }
 
 type Collect<T extends unknown[], J extends boolean> = T extends []
@@ -46,6 +51,18 @@ export class Query<
      */
     get inner(): BoundQuery {
         return this.#options.query;
+    }
+
+    /**
+     * Obtain the stream of response chunks for this query, routing to the
+     * transport that matches the configured dialect.
+     */
+    #chunks<T = unknown>(): AsyncIterable<QueryChunk<T>> {
+        const { query, transaction, session, dialect } = this.#options;
+
+        return dialect === "gql"
+            ? this.#connection.gql<T>(query, session, transaction)
+            : this.#connection.query<T>(query, session, transaction);
     }
 
     /**
@@ -122,8 +139,8 @@ export class Query<
         const context = new RetryContext(options);
 
         return context.run(async () => {
-            const { query, transaction, session, json } = this.#options;
-            const chunks = this.#connection.query(query, session, transaction);
+            const { json } = this.#options;
+            const chunks = this.#chunks();
             const responses: unknown[] = [];
             const failures: ServerError[] = [];
             const queryIndexes =
@@ -153,7 +170,10 @@ export class Query<
                 let records = responses[index] as unknown[];
 
                 if (!records) {
-                    records = additions;
+                    // Copied rather than adopted: a statement streamed in batches would otherwise
+                    // have the rows of every later batch pushed into the first chunk's own array,
+                    // which its emitter still holds.
+                    records = [...additions];
                     responses[index] = records;
                 } else {
                     // Appended one at a time rather than spread: a streamed
@@ -175,9 +195,17 @@ export class Query<
      * Stream the response frames of the query as they are received as an AsyncIterable.
      *
      * Each iteration yields a **value**, **error**, or **done** frame. The provided
-     * `isValue`, `isError`, and `isDone` methods can be used to check the type of frame.
-     * You can pass a query index to these functions to check if the frame is associated with a
-     * specific query.
+     * `isValue`, `isError`, and `isDone` methods can be used to check the type of frame, and
+     * `isValueOf`, `isErrorOf`, and `isDoneOf` to check the type and that the frame belongs to
+     * a specific statement, by its index.
+     *
+     * Values are provisional until the **done** frame for their statement arrives: an **error**
+     * frame for a statement retracts every value already yielded for it, and the stream itself
+     * throws when the query as a whole could not be completed. Statements are therefore counted
+     * by their **done** frames.
+     *
+     * Abandoning the stream, such as by breaking out of the loop, stops the query on servers
+     * which support it, so results which are no longer wanted are no longer produced.
      *
      * @example
      * ```ts
@@ -195,8 +223,8 @@ export class Query<
     async *stream<T = unknown>(): AsyncIterable<Frame<T, J>> {
         await this.#connection.ready();
 
-        const { query, transaction, session, json } = this.#options;
-        const chunks = this.#connection.query(query, session, transaction);
+        const { json } = this.#options;
+        const chunks = this.#chunks<T>();
 
         for await (const chunk of chunks) {
             if (chunk.error) {
@@ -247,8 +275,8 @@ export class Query<
     async responses<T extends unknown[] = R>(...queries: number[]): Promise<Responses<T, J>> {
         await this.#connection.ready();
 
-        const { query, transaction, session, json } = this.#options;
-        const chunks = this.#connection.query(query, session, transaction);
+        const { json } = this.#options;
+        const chunks = this.#chunks();
         const collections: unknown[] = [];
         const responses: QueryResponse[] = [];
         const queryIndexes =
@@ -288,7 +316,8 @@ export class Query<
             let records = collections[index] as unknown[];
 
             if (!records) {
-                records = additions;
+                // Copied rather than adopted, for the reason given in `collect`.
+                records = [...additions];
                 collections[index] = records;
             } else {
                 // Appended one at a time rather than spread: a streamed batch
