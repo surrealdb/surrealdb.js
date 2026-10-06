@@ -189,12 +189,12 @@ export class InsertPromise<T, J extends boolean = false> extends DispatchedPromi
             query.append(surql` RETURN ${_output(output)}`);
         }
 
-        if (timeout) {
-            query.append(surql` TIMEOUT ${_timeout(timeout)}`);
-        }
-
         if (version) {
             query.append(surql` VERSION ${version}`);
+        }
+
+        if (timeout) {
+            query.append(surql` TIMEOUT ${_timeout(timeout)}`);
         }
 
         return new Query(this.#connection, {
