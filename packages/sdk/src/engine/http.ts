@@ -12,7 +12,13 @@ import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal, readBody } from "../internal/http";
 import { parseRpcError } from "../internal/parse-error";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
-import type { AnyAuth, AuthOrToken, RpcQueryResult } from "../types";
+import type {
+    AnyAuth,
+    AuthOrToken,
+    MlExportOptions,
+    RpcQueryResult,
+    SqlExportOptions,
+} from "../types";
 import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
 import type {
@@ -120,6 +126,67 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
     }
 
     /**
+     * Import as someone else. As for a query, the credential is presented with this request alone,
+     * and the connection is neither used for authentication nor changed.
+     */
+    async importSqlAs(
+        data: string | Blob | ReadableStream,
+        request: CredentialedRequestOptions,
+    ): Promise<void> {
+        await this.importWith(data, request, await this.#tokenFor(request));
+    }
+
+    /**
+     * Export as someone else. See `importSqlAs()`.
+     */
+    async exportSqlAs(
+        options: Partial<SqlExportOptions>,
+        request: CredentialedRequestOptions,
+    ): Promise<Response> {
+        return this.exportWith(options, request, await this.#tokenFor(request));
+    }
+
+    /**
+     * Export a model as someone else. See `importSqlAs()`.
+     */
+    async exportMlModelAs(
+        options: MlExportOptions,
+        request: CredentialedRequestOptions,
+    ): Promise<Response> {
+        return this.exportMlModelWith(options, request, await this.#tokenFor(request));
+    }
+
+    /**
+     * The token which presents the credential of an import or export, for as long as it is wanted.
+     */
+    async #tokenFor(request: CredentialedRequestOptions): Promise<string> {
+        const state = this._state;
+
+        if (!state) {
+            throw new ConnectionUnavailableError();
+        }
+
+        throwIfAborted(request.signal);
+
+        return this.#present(request.credential, undefined, state, request.signal);
+    }
+
+    /**
+     * The token which presents a credential: a token as it is, and authentication details
+     * exchanged for one.
+     */
+    async #present(
+        credential: AuthOrToken,
+        session: Session,
+        state: ConnectionState,
+        signal: AbortSignal | undefined,
+    ): Promise<string> {
+        return typeof credential === "string"
+            ? credential
+            : this.#exchange(credential, session, state, signal);
+    }
+
+    /**
      * Exchange authentication details for a token, with nothing but the details to go on.
      */
     async #exchange(
@@ -197,15 +264,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         if (options?.anonymous) {
             token = "";
         } else if (options?.credential !== undefined) {
-            token =
-                typeof options.credential === "string"
-                    ? options.credential
-                    : await this.#exchange(
-                          options.credential,
-                          request.session,
-                          state,
-                          options.signal,
-                      );
+            token = await this.#present(options.credential, request.session, state, options.signal);
         }
 
         const id = this._context.uniqueId();

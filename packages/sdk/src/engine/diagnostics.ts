@@ -40,6 +40,11 @@ export class DiagnosticsEngine implements SurrealEngine {
      */
     queryAs?: SurrealEngine["queryAs"];
 
+    /** Likewise for import and export, which are refused as well when the engine cannot */
+    importSqlAs?: SurrealEngine["importSqlAs"];
+    exportSqlAs?: SurrealEngine["exportSqlAs"];
+    exportMlModelAs?: SurrealEngine["exportMlModelAs"];
+
     constructor(delegate: SurrealEngine, callback: DiagnosticsCallback) {
         this.#delegate = delegate;
         this.#callback = callback;
@@ -62,6 +67,36 @@ export class DiagnosticsEngine implements SurrealEngine {
                         queryAs.call(delegate, query, session, txn, options) as AsyncIterable<
                             QueryChunk<T>
                         >,
+                );
+        }
+
+        // The credential is passed on in the same way, and never reported
+        const { importSqlAs, exportSqlAs, exportMlModelAs } = delegate;
+
+        if (typeof importSqlAs === "function") {
+            this.importSqlAs = (data, request) =>
+                this.#diagnose(
+                    "importSql",
+                    () => importSqlAs.call(delegate, data, request),
+                    () => undefined,
+                );
+        }
+
+        if (typeof exportSqlAs === "function") {
+            this.exportSqlAs = (options, request) =>
+                this.#diagnose(
+                    "exportSql",
+                    () => exportSqlAs.call(delegate, options, request),
+                    () => undefined,
+                );
+        }
+
+        if (typeof exportMlModelAs === "function") {
+            this.exportMlModelAs = (options, request) =>
+                this.#diagnose(
+                    "exportMlModel",
+                    () => exportMlModelAs.call(delegate, options, request),
+                    () => undefined,
                 );
         }
     }
@@ -252,26 +287,32 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async importSql(data: string | ReadableStream): Promise<void> {
+    async importSql(data: string | ReadableStream, request?: RequestOptions): Promise<void> {
         return this.#diagnose(
             "importSql",
-            () => this.#delegate.importSql(data),
+            () => this.#delegate.importSql(data, request),
             () => undefined,
         );
     }
 
-    async exportSql(options: Partial<SqlExportOptions>): Promise<Response | string> {
+    async exportSql(
+        options: Partial<SqlExportOptions>,
+        request?: RequestOptions,
+    ): Promise<Response | string> {
         return this.#diagnose(
             "exportSql",
-            () => this.#delegate.exportSql(options),
+            () => this.#delegate.exportSql(options, request),
             () => undefined,
         );
     }
 
-    async exportMlModel(options: MlExportOptions): Promise<Response | Uint8Array> {
+    async exportMlModel(
+        options: MlExportOptions,
+        request?: RequestOptions,
+    ): Promise<Response | Uint8Array> {
         return this.#diagnose(
             "exportMlModel",
-            () => this.#delegate.exportMlModel(options),
+            () => this.#delegate.exportMlModel(options, request),
             () => undefined,
         );
     }

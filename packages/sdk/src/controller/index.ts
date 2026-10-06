@@ -24,6 +24,7 @@ import type {
     AccessRecordAuth,
     AnyAuth,
     AuthCallable,
+    AuthOrToken,
     ConnectionSession,
     ConnectionState,
     ConnectionStatus,
@@ -470,25 +471,43 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.cancel(txn, session);
     }
 
-    importSql(data: string | Blob | ReadableStream): Promise<void> {
+    importSql(data: string | Blob | ReadableStream, request?: RequestOptions): Promise<void> {
         const engine = this.#engine;
         if (!engine) throw new ConnectionUnavailableError();
         if (data instanceof ReadableStream || data instanceof Blob) {
             this.assertFeature(Features.ExportImportRaw);
         }
-        return this.#whenAuthenticated(undefined, () => engine.importSql(data));
+        return this.#whenAuthenticated(
+            undefined,
+            () => engine.importSql(data, request),
+            request?.signal,
+        );
     }
 
-    exportSql(options: Partial<SqlExportOptions>): Promise<Response | string> {
+    exportSql(
+        options: Partial<SqlExportOptions>,
+        request?: RequestOptions,
+    ): Promise<Response | string> {
         const engine = this.#engine;
         if (!engine) throw new ConnectionUnavailableError();
-        return this.#whenAuthenticated(undefined, () => engine.exportSql(options));
+        return this.#whenAuthenticated(
+            undefined,
+            () => engine.exportSql(options, request),
+            request?.signal,
+        );
     }
 
-    exportMlModel(options: MlExportOptions): Promise<Response | Uint8Array> {
+    exportMlModel(
+        options: MlExportOptions,
+        request?: RequestOptions,
+    ): Promise<Response | Uint8Array> {
         const engine = this.#engine;
         if (!engine) throw new ConnectionUnavailableError();
-        return this.#whenAuthenticated(undefined, () => engine.exportMlModel(options));
+        return this.#whenAuthenticated(
+            undefined,
+            () => engine.exportMlModel(options, request),
+            request?.signal,
+        );
     }
 
     query<T>(
@@ -540,6 +559,77 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         }
 
         return engine.queryAs<T>(query, session, txn, options);
+    }
+
+    /**
+     * Import as a different identity than the one of the connection, for this import only. As for
+     * `queryAs()`, it is refused rather than run as the connection when the engine cannot present
+     * the credential.
+     */
+    importSqlAs(
+        data: string | Blob | ReadableStream,
+        request: CredentialedRequestOptions,
+    ): Promise<void> {
+        const engine = this.#credentialedEngine(request.credential);
+
+        if (typeof engine.importSqlAs !== "function") {
+            throw new UnsupportedFeatureError(Features.PerRequestAuth);
+        }
+
+        if (data instanceof ReadableStream || data instanceof Blob) {
+            this.assertFeature(Features.ExportImportRaw);
+        }
+
+        return engine.importSqlAs(data, request);
+    }
+
+    /**
+     * Export as a different identity than the one of the connection, for this export only. See
+     * `importSqlAs()`.
+     */
+    exportSqlAs(
+        options: Partial<SqlExportOptions>,
+        request: CredentialedRequestOptions,
+    ): Promise<Response | string> {
+        const engine = this.#credentialedEngine(request.credential);
+
+        if (typeof engine.exportSqlAs !== "function") {
+            throw new UnsupportedFeatureError(Features.PerRequestAuth);
+        }
+
+        return engine.exportSqlAs(options, request);
+    }
+
+    /**
+     * Export a model as a different identity than the one of the connection, for this export
+     * only. See `importSqlAs()`.
+     */
+    exportMlModelAs(
+        options: MlExportOptions,
+        request: CredentialedRequestOptions,
+    ): Promise<Response | Uint8Array> {
+        const engine = this.#credentialedEngine(request.credential);
+
+        if (typeof engine.exportMlModelAs !== "function") {
+            throw new UnsupportedFeatureError(Features.PerRequestAuth);
+        }
+
+        return engine.exportMlModelAs(options, request);
+    }
+
+    /**
+     * The engine for a call which is made as someone else, which must never be made as the
+     * connection instead: it is refused unless the engine declares that it presents credentials
+     * with every request.
+     */
+    #credentialedEngine(credential: AuthOrToken): SurrealEngine {
+        const engine = this.#engine;
+        if (!engine) throw new ConnectionUnavailableError();
+
+        this.assertFeature(Features.PerRequestAuth);
+        assertCredential(credential);
+
+        return engine;
     }
 
     gql<T>(
@@ -668,10 +758,19 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return !!this.#requestAuth && !this.#engine?.features.has(Features.PerRequestAuth);
     }
 
-    #whenAuthenticated<T>(session: Session, run: () => Promise<T>): Promise<T> {
+    /**
+     * Run a request once the session holds a current credential, for as long as it is wanted:
+     * when the signal of the request aborts while the credential is being settled, the request is
+     * not made, and fails with the reason of the signal.
+     */
+    #whenAuthenticated<T>(
+        session: Session,
+        run: () => Promise<T>,
+        signal?: AbortSignal,
+    ): Promise<T> {
         if (!this.#needsPreparation()) return run();
 
-        return this.#prepare(session).then(run);
+        return this.#prepare(session, signal).then(run);
     }
 
     /**

@@ -7,7 +7,7 @@ import type {
     DriverContext,
     Session,
 } from "../types/surreal";
-import { raceAbort, throwIfAborted } from "./abort";
+import { abortReason, raceAbort, throwIfAborted } from "./abort";
 import { wrapSqonError } from "./wrap-sqon-error";
 
 export interface FetchSurrealOptions {
@@ -39,8 +39,91 @@ export function readBody(response: Response, signal?: AbortSignal): Promise<Arra
     return raceAbort(response.arrayBuffer(), signal);
 }
 
+/**
+ * Read a response body in full, cancelling the stream if the signal aborts first.
+ *
+ * Unlike `readBody`, which is for the small answer of an RPC call and leaves the stream to `fetch`,
+ * this reads a body which may be very large and is likely to be streamed, so what it holds is let go
+ * of when the signal aborts, whatever `fetch` did with it. The reason of the signal is thrown.
+ */
+async function readChunks(
+    response: Response,
+    signal: AbortSignal,
+    onChunk: (chunk: Uint8Array) => void,
+): Promise<void> {
+    throwIfAborted(signal);
+
+    if (!response.body) {
+        onChunk(new Uint8Array(await raceAbort(response.arrayBuffer(), signal)));
+        return;
+    }
+
+    const reader = response.body.getReader();
+    const cancel = () => {
+        reader.cancel(abortReason(signal)).catch(() => {});
+    };
+
+    signal.addEventListener("abort", cancel, { once: true });
+
+    try {
+        for (;;) {
+            const { done, value } = await reader.read();
+
+            // A cancelled stream reads as finished, which is not the whole of the body
+            throwIfAborted(signal);
+
+            if (done) return;
+            onChunk(value);
+        }
+    } finally {
+        signal.removeEventListener("abort", cancel);
+        reader.releaseLock();
+    }
+}
+
+/**
+ * Read a response as text, cancelling the stream if the signal aborts first.
+ */
+export async function readText(response: Response, signal?: AbortSignal): Promise<string> {
+    if (!signal) return response.text();
+
+    const decoder = new TextDecoder();
+    let text = "";
+
+    await readChunks(response, signal, (chunk) => {
+        text += decoder.decode(chunk, { stream: true });
+    });
+
+    return text + decoder.decode();
+}
+
+/**
+ * Read a response as bytes, cancelling the stream if the signal aborts first.
+ */
+export async function readBytes(response: Response, signal?: AbortSignal): Promise<Uint8Array> {
+    if (!signal) return new Uint8Array(await response.arrayBuffer());
+
+    const parts: Uint8Array[] = [];
+    let length = 0;
+
+    await readChunks(response, signal, (chunk) => {
+        parts.push(chunk);
+        length += chunk.byteLength;
+    });
+
+    const bytes = new Uint8Array(length);
+    let offset = 0;
+
+    for (const part of parts) {
+        bytes.set(part, offset);
+        offset += part.byteLength;
+    }
+
+    return bytes;
+}
+
 /** Release a response nobody is going to read */
-function discardResponse(response: Response): void {
+export function releaseResponse(response: Response): void {
     response.body?.cancel().catch(() => {});
 }
 
@@ -81,13 +164,22 @@ export async function fetchSurreal(
         throw new SurrealError("Request credentials are only sent to the origin of the connection");
     }
 
+    // A stream which is uploaded is taken over before anything is waited for, so that abandoning the
+    // request while its credential is being resolved lets go of the stream of the caller just as
+    // abandoning it during the upload does, and the wait is not what leaves it open.
+    const encodedBody = encodeBody(context, options.body, options.signal);
+
     let token = options.token ?? session.accessToken;
 
     if (source) {
-        token = await resolveToken(source, session.id, undefined, options.signal);
+        try {
+            token = await resolveToken(source, session.id, undefined, options.signal);
+        } catch (error) {
+            discardBody(encodedBody, error);
+            throw error;
+        }
     }
 
-    const encodedBody = encodeBody(context, options.body);
     const attempt = (bearer: Token | undefined): Promise<Response> => {
         const headers = bearer ? { ...headerMap, Authorization: `Bearer ${bearer}` } : headerMap;
 
@@ -103,7 +195,7 @@ export async function fetchSurreal(
                 duplex: "half",
             }),
             options.signal,
-            discardResponse,
+            releaseResponse,
         );
     };
 
@@ -118,7 +210,7 @@ export async function fetchSurreal(
         const renewed = await resolveToken(source, session.id, token, options.signal);
 
         if (renewed && renewed !== token) {
-            discardResponse(response);
+            releaseResponse(response);
             response = await attempt(renewed);
         }
     }
@@ -160,6 +252,17 @@ async function resolveToken(
     }
 }
 
+/**
+ * Let go of a stream which was to be uploaded, but will not be, because the request failed before
+ * anything was sent. It is cancelled with the reason, which a stream that has been cancelled
+ * already, by the abort which caused the failure, takes no further notice of.
+ */
+function discardBody(body: BodyInit | undefined, reason: unknown): void {
+    if (body instanceof ReadableStream) {
+        body.cancel(reason).catch(() => {});
+    }
+}
+
 function originOf(url: URL): string {
     const normalized = new URL(url);
 
@@ -182,8 +285,80 @@ export function parseEndpoint(value: string | URL): URL {
     return url;
 }
 
-function encodeBody(context: DriverContext, body?: unknown): BodyInit | undefined {
-    if (body instanceof ReadableStream || body instanceof Blob) {
+/**
+ * Pass a stream on, until a signal aborts: the stream is then cancelled with the reason of the
+ * signal, and what it was passed to is errored with it.
+ *
+ * This is written out rather than done with `pipeThrough(transform, { signal })`, whose `signal`
+ * option is not honoured by every runtime. Some, among them older versions of Bun, leave the source
+ * open when it aborts, which is exactly what this is here to prevent.
+ */
+function abortableStream(source: ReadableStream, signal: AbortSignal): ReadableStream {
+    const reader = source.getReader();
+    let onAbort: (() => void) | undefined;
+
+    const unwatch = () => {
+        if (onAbort) signal.removeEventListener("abort", onAbort);
+        onAbort = undefined;
+    };
+
+    return new ReadableStream({
+        start(controller) {
+            onAbort = () => {
+                const reason = abortReason(signal);
+
+                onAbort = undefined;
+                reader.cancel(reason).catch(() => {});
+                controller.error(reason);
+            };
+
+            signal.addEventListener("abort", onAbort, { once: true });
+        },
+
+        async pull(controller) {
+            try {
+                const { done, value } = await reader.read();
+
+                // Reading ended because the abort cancelled the source, which is not the end of it
+                if (signal.aborted) return;
+
+                if (done) {
+                    unwatch();
+                    controller.close();
+                    return;
+                }
+
+                controller.enqueue(value);
+            } catch (error) {
+                unwatch();
+                controller.error(error);
+            }
+        },
+
+        // Whatever the stream was passed to has had enough, so the source is told so. When that is
+        // `fetch` giving up because of the signal, it may well be asking before the abort event
+        // reaches the listener above, since a runtime runs its own abort steps first, and does not
+        // always say why. The signal does.
+        cancel(reason) {
+            unwatch();
+            return reader.cancel(signal.aborted ? abortReason(signal) : reason);
+        },
+    });
+}
+
+function encodeBody(
+    context: DriverContext,
+    body?: unknown,
+    signal?: AbortSignal,
+): BodyInit | undefined {
+    // A stream being uploaded is handed over through one which the signal tears down, so that
+    // aborting cancels the stream of the caller with the reason of the signal, rather than relying
+    // on `fetch` to do so, which a `fetchImpl` which ignores signals will not.
+    if (body instanceof ReadableStream) {
+        return signal ? abortableStream(body, signal) : body;
+    }
+
+    if (body instanceof Blob) {
         return body;
     }
 

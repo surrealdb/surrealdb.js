@@ -2,7 +2,9 @@ import type { ConnectionController } from "../controller";
 import { ExpressionError } from "../errors";
 import { abortScope, addSignal, raceAbort, throwIfAborted } from "../internal/abort";
 import { executeTransaction } from "../internal/transaction";
-import type { QueryLike, Session, TransactionOptions } from "../types";
+import type { QueryLike, Session, SqlExportOptions, TransactionOptions } from "../types";
+import { ExportModelPromise, ExportPromise } from "./export";
+import { ImportPromise } from "./import";
 import { SurrealQueryable } from "./queryable";
 import { SurrealTransaction } from "./transaction";
 
@@ -65,6 +67,44 @@ export class SurrealRequestScope extends SurrealQueryable {
             this.#session,
             addSignal(this.#signals, signal) ?? [],
         );
+    }
+
+    /**
+     * Import an existing export into the database, abandoned when the signals of this scope abort.
+     * See `Surreal.import()`.
+     *
+     * Like on `Surreal`, this acts on the connection and its default session: it does not use the
+     * namespace, database or authentication of a session this scope was made from.
+     *
+     * @param input The data to import
+     */
+    import(input: string | Blob | ReadableStream): ImportPromise {
+        return new ImportPromise(this.#connection, input, { signals: this.#signals });
+    }
+
+    /**
+     * Export the database as SurrealQL, abandoned when the signals of this scope abort. See
+     * `Surreal.export()`, and the note on `import()` about sessions.
+     *
+     * @param options Optional export options
+     */
+    export(options?: Partial<SqlExportOptions>): ExportPromise {
+        return new ExportPromise(this.#connection, options ?? {}, false, {
+            signals: this.#signals,
+        });
+    }
+
+    /**
+     * Export a SurrealML model, abandoned when the signals of this scope abort. See
+     * `Surreal.exportModel()`, and the note on `import()` about sessions.
+     *
+     * @param name The name of the ML model to export
+     * @param version The version of the ML model to export
+     */
+    exportModel(name: string, version: string): ExportModelPromise {
+        return new ExportModelPromise(this.#connection, { name, version }, false, {
+            signals: this.#signals,
+        });
     }
 
     /**

@@ -273,6 +273,15 @@ await db.transaction([surql`CREATE note SET owner = ${userId}`], {
 
 Authentication details which are exchanged for a token are part of what the call waits for, so a call which is abandoned while that is going on rejects with the reason of the signal at once, and is not sent afterwards.
 
+`import()`, `export()` and `exportModel()` take `.as()` too, together with `.signal()` and `.requestTimeout()` and through a view made with `withSignal()`, and are run as that identity or are refused in the same way. What is exported or imported is what the server lets that identity do, which for an export is a privilege, so an identity without it is refused with an `HttpConnectionError`:
+
+```ts
+// Export as the identity of the user the request is for, if they are allowed to
+const sql = await db.export().as(userToken).signal(request.signal);
+
+await db.withSignal(request.signal).import(sql).as(adminToken);
+```
+
 A list of queries is run as a single request, as one identity, so `.as()` is called on the combined query, and not on the items of the list. An item which was given an identity of its own is refused when the list is made, with an `ExpressionError`, rather than run as the session, which would be a different identity from the one it was given.
 
 ```ts
@@ -491,7 +500,7 @@ await db.query("SELECT * FROM report").requestTimeout(60_000);
 await db.query("SELECT * FROM backfill").requestTimeout(0);
 ```
 
-A query which takes longer fails with the `TimeoutError` of `AbortSignal.timeout()`. The limit applies to each request separately, so a query which is retried gets the full time for every attempt. It starts when the request is sent, and does not include the time spent waiting for a connection; to bound the whole of an operation, including retries, pass `AbortSignal.timeout()` to `.signal()` instead. It applies to queries, which includes a list of queries and an atomic `transaction()`, and not to signing in, selecting a namespace, the `begin` and `commit` of an interactive transaction, import or export.
+A query which takes longer fails with the `TimeoutError` of `AbortSignal.timeout()`. The limit applies to each request separately, so a query which is retried gets the full time for every attempt. It starts when the request is sent, and does not include the time spent waiting for a connection; to bound the whole of an operation, including retries, pass `AbortSignal.timeout()` to `.signal()` instead. It applies to queries, which includes a list of queries and an atomic `transaction()`, and not to signing in, selecting a namespace, the `begin` and `commit` of an interactive transaction, nor to import and export (see below).
 
 `.requestTimeout()` is the way to _extend_ the default for a query. A signal can only ever shorten it, as the query is abandoned when the first of them fires.
 
@@ -619,6 +628,31 @@ app.get("/people", async (req, res, next) => {
 Listen on `res` rather than `req` here: on current versions of Node.js the `close` event of a request which has a body fires as soon as that body has been read, which is long before the client could go away.
 
 Whether, and when, the signal of a request aborts depends on the platform running your handler. Consult its documentation for the conditions under which it does.
+
+#### Import and export
+
+`import()`, `export()` and `exportModel()` take a signal as well, with the same meaning, and so do the views made by `withSignal()`:
+
+```ts
+// Stop an export when the request which asked for it goes away
+const sql = await db.export().signal(request.signal);
+
+// Stop uploading a stream. The stream is cancelled with the reason of the signal
+await db.import(stream).signal(AbortSignal.timeout(60_000));
+
+// A raw export keeps being governed by the signal while its body is read
+const response = await db.export().raw().signal(request.signal);
+```
+
+An export which is abandoned has its response stream cancelled, and an import which is abandoned cancels the stream it was uploading, so nothing keeps downloading or reading. As elsewhere, **the server may carry on**: an import which had been received in full may or may not have been applied.
+
+The `requestTimeout` of the connection does **not** apply to them, as imports and exports are long running and streamed, and a limit meant for queries would cut them short. `.requestTimeout(ms)` on the call sets a limit for the whole transfer when you want one.
+
+Like the other query methods, `import()` does nothing until it is awaited.
+
+They present the credential of the connection like every other request, including one which is [resolved for each request](#resolving-credentials-for-each-request), and they are abandoned at every wait, the wait for that credential among them: a call which is abandoned while its credential is being resolved, or exchanged for a token, rejects at once with the reason of the signal, nothing is sent, and a stream which was to be uploaded is cancelled with the reason rather than left open. A stream is uploaded once and cannot be uploaded again, so when the server answers an import of one with a `401` for its credential, the import fails with it instead of being sent again with a renewed credential, as an export, or an import of a string or a `Blob`, is.
+
+Over HTTP they can also be run as someone else, like a query, with `.as()`. See [running a call as someone else](#running-a-call-as-someone-else).
 
 #### Runtimes
 

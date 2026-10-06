@@ -66,9 +66,15 @@ export interface SurrealProtocol {
     cancel(txn: Uuid, session: Session): Promise<void>;
 
     // Data management operations
-    importSql(data: string | Blob | ReadableStream): Promise<void>;
-    exportSql(options: Partial<SqlExportOptions>): Promise<Response | string>;
-    exportMlModel(options: MlExportOptions): Promise<Response | Uint8Array>;
+    importSql(data: string | Blob | ReadableStream, request?: RequestOptions): Promise<void>;
+    exportSql(
+        options: Partial<SqlExportOptions>,
+        request?: RequestOptions,
+    ): Promise<Response | string>;
+    exportMlModel(
+        options: MlExportOptions,
+        request?: RequestOptions,
+    ): Promise<Response | Uint8Array>;
 
     // Query operations
     query<T>(
@@ -146,6 +152,33 @@ export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEve
         txn: Uuid | undefined,
         options: CredentialedRequestOptions,
     ): AsyncIterable<QueryChunk<T>>;
+
+    /**
+     * Import as a different identity than the one of the connection, for this import only, as
+     * `queryAs()` does for a query. Implemented by the same engines, and refused by the rest.
+     */
+    importSqlAs?(
+        data: string | Blob | ReadableStream,
+        request: CredentialedRequestOptions,
+    ): Promise<void>;
+
+    /**
+     * Export as a different identity than the one of the connection, for this export only. See
+     * `importSqlAs()`.
+     */
+    exportSqlAs?(
+        options: Partial<SqlExportOptions>,
+        request: CredentialedRequestOptions,
+    ): Promise<Response | string>;
+
+    /**
+     * Export a SurrealML model as a different identity than the one of the connection, for this
+     * export only. See `importSqlAs()`.
+     */
+    exportMlModelAs?(
+        options: MlExportOptions,
+        request: CredentialedRequestOptions,
+    ): Promise<Response | Uint8Array>;
 }
 
 /**
@@ -350,7 +383,9 @@ export interface ConnectOptions {
      * The limit applies to each request separately, so a query retried after a transaction
      * conflict gets a fresh one for every attempt, and to queries only, which includes a list of
      * queries and an atomic `transaction()`: it does not apply to signing in, selecting a
-     * namespace, the `begin` and `commit` of an interactive transaction, import or export. It starts when
+     * namespace, the `begin` and `commit` of an interactive transaction, nor to import and export,
+     * which are long running and streamed, and take a limit of their own with `.requestTimeout()`.
+     * It starts when
      * the request is sent, and does not include waiting for a connection to be established. To
      * bound the whole of an operation, including retries and connection waits, pass
      * `AbortSignal.timeout()` to `.signal()` instead.
