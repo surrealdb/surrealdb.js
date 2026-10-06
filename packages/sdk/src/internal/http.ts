@@ -1,6 +1,13 @@
 import { HttpConnectionError, SurrealError } from "../errors";
 import type { Token } from "../types/auth";
-import type { ConnectionSession, ConnectionState, DriverContext } from "../types/surreal";
+import type {
+    ConnectionSession,
+    ConnectionState,
+    CredentialSource,
+    DriverContext,
+    Session,
+} from "../types/surreal";
+import { raceAbort, throwIfAborted } from "./abort";
 import { wrapSqonError } from "./wrap-sqon-error";
 
 export interface FetchSurrealOptions {
@@ -18,6 +25,23 @@ export interface FetchSurrealOptions {
      * themselves. Defaults to true.
      */
     resolve?: boolean;
+    /** Abandons the request, and the reading of its response, when it aborts */
+    signal?: AbortSignal;
+}
+
+/**
+ * Read a response body in full, without waiting on it beyond what the signal allows.
+ *
+ * A `fetch` given the signal errors the body itself when it aborts. This does not rely on it, so
+ * that a `fetchImpl` which ignores signals cannot keep the caller waiting for the rest of a body.
+ */
+export function readBody(response: Response, signal?: AbortSignal): Promise<ArrayBuffer> {
+    return raceAbort(response.arrayBuffer(), signal);
+}
+
+/** Release a response nobody is going to read */
+function discardResponse(response: Response): void {
+    response.body?.cancel().catch(() => {});
 }
 
 export async function fetchSurreal(
@@ -44,6 +68,9 @@ export async function fetchSurreal(
 
     endpoint.protocol = endpoint.protocol.replace("ws", "http");
 
+    // Nothing is sent for a request which has been abandoned already
+    throwIfAborted(options.signal);
+
     // A credential which is decided for a single request is only ever presented to the
     // connection it was resolved for, and never follows a redirect elsewhere.
     const source =
@@ -57,21 +84,27 @@ export async function fetchSurreal(
     let token = options.token ?? session.accessToken;
 
     if (source) {
-        token = await source.token(session.id);
+        token = await resolveToken(source, session.id, undefined, options.signal);
     }
 
     const encodedBody = encodeBody(context, options.body);
     const attempt = (bearer: Token | undefined): Promise<Response> => {
         const headers = bearer ? { ...headerMap, Authorization: `Bearer ${bearer}` } : headerMap;
 
-        return fetchImpl(endpoint, {
-            method: options.method ?? "POST",
-            headers,
-            body: encodedBody,
-            ...(scoped ? { redirect: "manual" as const } : {}),
-            // @ts-expect-error TS is dumb
-            duplex: "half",
-        });
+        return raceAbort(
+            fetchImpl(endpoint, {
+                ...context.options.fetchOptions,
+                method: options.method ?? "POST",
+                headers,
+                body: encodedBody,
+                ...(scoped ? { redirect: "manual" as const } : {}),
+                signal: options.signal,
+                // @ts-expect-error TS is dumb
+                duplex: "half",
+            }),
+            options.signal,
+            discardResponse,
+        );
     };
 
     let response = await attempt(token);
@@ -79,12 +112,13 @@ export async function fetchSurreal(
     // The server answers 401 to a token it does not accept, such as one which has expired, before
     // it executes anything. This is the one rejection which is known to not have been applied, so
     // it is safe to ask for a new credential and send the request again, once, whatever the
-    // request does. A body which has been streamed out cannot be sent again.
+    // request does. A body which has been streamed out cannot be sent again. Abandoning the
+    // request ends the wait for the new credential, and the replay, like anything else.
     if (response.status === 401 && source && token && !(encodedBody instanceof ReadableStream)) {
-        const renewed = await source.token(session.id, token);
+        const renewed = await resolveToken(source, session.id, token, options.signal);
 
         if (renewed && renewed !== token) {
-            await response.body?.cancel().catch(() => {});
+            discardResponse(response);
             response = await attempt(renewed);
         }
     }
@@ -93,7 +127,7 @@ export async function fetchSurreal(
         return response;
     }
 
-    const buffer = await response.arrayBuffer();
+    const buffer = await readBody(response, options.signal);
 
     throw new HttpConnectionError(
         new TextDecoder("utf-8").decode(buffer),
@@ -101,6 +135,29 @@ export async function fetchSurreal(
         response.statusText,
         buffer,
     );
+}
+
+/**
+ * Ask the connection for the credential of a request, for as long as the request is wanted.
+ *
+ * What is waited for is the resolver of the application, which cannot be stopped, so an abort ends
+ * the wait with the reason of the signal and what the resolver comes up with is left to the
+ * connection, which keeps it for the requests which follow. An abort wins over a resolver which
+ * fails at the same moment: a request which has been abandoned is not told that its credential
+ * could not be resolved.
+ */
+async function resolveToken(
+    source: CredentialSource,
+    session: Session,
+    rejected: Token | undefined,
+    signal: AbortSignal | undefined,
+): Promise<Token | undefined> {
+    try {
+        return await raceAbort(source.token(session, rejected, signal), signal);
+    } catch (error) {
+        throwIfAborted(signal);
+        throw error;
+    }
 }
 
 function originOf(url: URL): string {

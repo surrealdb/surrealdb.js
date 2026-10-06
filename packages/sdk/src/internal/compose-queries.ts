@@ -2,6 +2,7 @@ import { ExpressionError } from "../errors";
 import { ManagedLivePromise } from "../query/live";
 import type { CompilableQuery, InnerQuery, QueryLike } from "../types";
 import { BoundQuery } from "../utils/bound-query";
+import { isCredentialed } from "./credentialed";
 import { scanStatements } from "./scan-statements";
 
 /**
@@ -64,6 +65,14 @@ function toBoundQuery(input: unknown, index: number, name: string): BoundQuery {
     } else {
         throw new ExpressionError(
             `${name}[${index}] is not a query: expected a string, a BoundQuery, a query builder or a Query, but received ${describe(input)}`,
+        );
+    }
+
+    // What is combined is sent as one request, as one identity, so the identity of a part of it
+    // cannot be honoured, and it is not ignored in favour of the session's either
+    if (isCredentialed(query)) {
+        throw new ExpressionError(
+            `${name}[${index}] runs as another identity with .as(), which cannot be combined with other queries. Call .as() on the combined query instead`,
         );
     }
 

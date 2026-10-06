@@ -3,8 +3,8 @@ import type { Feature } from "../internal/feature";
 import type {
     AccessRecordAuth,
     AnyAuth,
-    AuthOrToken,
     ConnectionState,
+    CredentialedRequestOptions,
     Diagnostic,
     DiagnosticKey,
     DiagnosticResult,
@@ -14,6 +14,7 @@ import type {
     NamespaceDatabase,
     Nullable,
     QueryChunk,
+    RequestOptions,
     Session,
     SqlExportOptions,
     SurrealEngine,
@@ -50,7 +51,7 @@ export class DiagnosticsEngine implements SurrealEngine {
                 query: BoundQuery,
                 session: Session,
                 txn: Uuid | undefined,
-                credential: AuthOrToken,
+                options: CredentialedRequestOptions,
             ) =>
                 // The credential is passed on, and never reported
                 this.#diagnoseQuery<T>(
@@ -58,7 +59,7 @@ export class DiagnosticsEngine implements SurrealEngine {
                     session,
                     txn,
                     () =>
-                        queryAs.call(delegate, query, session, txn, credential) as AsyncIterable<
+                        queryAs.call(delegate, query, session, txn, options) as AsyncIterable<
                             QueryChunk<T>
                         >,
                 );
@@ -275,9 +276,25 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
+    query<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
         return this.#diagnoseQuery(query, session, txn, () =>
-            this.#delegate.query<T>(query, session, txn),
+            this.#delegate.query<T>(query, session, txn, options),
+        );
+    }
+
+    gql<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
+        return this.#diagnoseQuery(query, session, txn, () =>
+            this.#delegate.gql<T>(query, session, txn, options),
         );
     }
 

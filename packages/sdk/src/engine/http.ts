@@ -6,9 +6,10 @@ import {
     UnexpectedServerResponseError,
     UnsupportedFeatureError,
 } from "../errors";
+import { throwIfAborted } from "../internal/abort";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { getSessionFromState } from "../internal/get-session-from-state";
-import { fetchSurreal } from "../internal/http";
+import { fetchSurreal, readBody } from "../internal/http";
 import { parseRpcError } from "../internal/parse-error";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
 import type { AnyAuth, AuthOrToken, RpcQueryResult } from "../types";
@@ -16,8 +17,10 @@ import type { LiveMessage } from "../types/live";
 import type { RpcRequest, RpcResponse } from "../types/rpc";
 import type {
     ConnectionState,
+    CredentialedRequestOptions,
     EngineEvents,
     QueryChunk,
+    RequestOptions,
     Session,
     SurrealEngine,
 } from "../types/surreal";
@@ -49,7 +52,7 @@ const NEVER_RESOLVE = new Set([
     "health",
 ]);
 
-interface SendOptions {
+interface SendOptions extends RequestOptions {
     /** Present this credential with the request, in place of the one of the session */
     credential?: AuthOrToken;
     /** Present no credential with the request, not even the one of the session */
@@ -101,16 +104,16 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         query: BoundQuery,
         session: Session,
         txn: Uuid | undefined,
-        credential: AuthOrToken,
+        options: CredentialedRequestOptions,
     ): AsyncIterable<QueryChunk<T>> {
         const responses: RpcQueryResult[] = await this.send(
             {
-                method: "query",
+                method: options.dialect === "gql" ? "gql" : "query",
                 params: [query.query, query.bindings],
                 session,
                 txn,
             },
-            { credential },
+            { signal: options.signal, credential: options.credential },
         );
 
         yield* this.toChunks<T>(responses);
@@ -119,14 +122,19 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
     /**
      * Exchange authentication details for a token, with nothing but the details to go on.
      */
-    async #exchange(auth: AnyAuth, session: Session, state: ConnectionState): Promise<string> {
+    async #exchange(
+        auth: AnyAuth,
+        session: Session,
+        state: ConnectionState,
+        signal: AbortSignal | undefined,
+    ): Promise<string> {
         const response = await this.send(
             {
                 method: "signin",
                 params: [buildRpcAuth(getSessionFromState(state, session), auth)],
                 session,
             },
-            { anonymous: true },
+            { anonymous: true, signal },
         );
 
         return this.parseTokens(response).access;
@@ -136,6 +144,8 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         request: RpcRequest<Method, Params>,
         options?: SendOptions,
     ): Promise<Result> {
+        throwIfAborted(options?.signal);
+
         const state = this._state;
 
         if (!state) {
@@ -166,7 +176,8 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         }
 
         switch (request.method) {
-            case "query": {
+            case "query":
+            case "gql": {
                 request.params = [
                     request.params?.[0],
                     {
@@ -189,7 +200,12 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             token =
                 typeof options.credential === "string"
                     ? options.credential
-                    : await this.#exchange(options.credential, request.session, state);
+                    : await this.#exchange(
+                          options.credential,
+                          request.session,
+                          state,
+                          options.signal,
+                      );
         }
 
         const id = this._context.uniqueId();
@@ -200,9 +216,10 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
             },
             token,
             resolve: !NEVER_RESOLVE.has(request.method),
+            signal: options?.signal,
         });
 
-        const buffer = await res.arrayBuffer();
+        const buffer = await readBody(res, options?.signal);
 
         let response: RpcResponse<Result>;
 

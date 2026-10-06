@@ -11,6 +11,7 @@ import {
     UnsupportedFeatureError,
     UnsupportedVersionError,
 } from "../errors";
+import { assertTimeout, throwIfAborted } from "../internal/abort";
 import { assertCredential, invokeProvider, parseAuthentication } from "../internal/auth-provider";
 import { backoffDelay } from "../internal/backoff";
 import type { Feature } from "../internal/feature";
@@ -23,11 +24,11 @@ import type {
     AccessRecordAuth,
     AnyAuth,
     AuthCallable,
-    AuthOrToken,
     ConnectionSession,
     ConnectionState,
     ConnectionStatus,
     ConnectOptions,
+    CredentialedRequestOptions,
     DriverContext,
     EventPublisher,
     LiveMessage,
@@ -36,6 +37,7 @@ import type {
     Nullable,
     ProvidedAuth,
     QueryChunk,
+    RequestOptions,
     RetryOptions,
     Session,
     SqlExportOptions,
@@ -121,6 +123,10 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     // =========================================================== //
 
     public async connect(url: URL, options: ConnectOptions): Promise<true> {
+        if (options.requestTimeout !== undefined) {
+            assertTimeout(options.requestTimeout, "requestTimeout");
+        }
+
         const authentication = parseAuthentication(options.authentication);
         const engine = this.#instanceEngine(url);
 
@@ -155,6 +161,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             sessions: new Map(),
             reconnect: new ReconnectContext(options.reconnect),
             retry: RetryContext.mergeOptions(options.retry),
+            requestTimeout: options.requestTimeout,
             rootSession: {
                 ...this.#createSessionState(undefined),
                 namespace: options.namespace,
@@ -166,7 +173,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         // than having them applied to a session
         if (this.#requestAuth && engine.features.has(Features.PerRequestAuth)) {
             this.#state.credentials = {
-                token: (session, rejected) => this.#requestToken(session, rejected),
+                token: (session, rejected, signal) => this.#requestToken(session, rejected, signal),
             };
         }
 
@@ -223,6 +230,19 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         if (!this.#state) throw new ConnectionUnavailableError();
 
         return this.#state.retry;
+    }
+
+    /** The default client side limit in milliseconds for each query request, if any */
+    public get requestTimeout(): number | undefined {
+        return this.#state?.requestTimeout;
+    }
+
+    /**
+     * The version reported by the server on the most recent (re)connect, or
+     * `undefined` before the first connection has been established.
+     */
+    public get serverVersion(): string | undefined {
+        return this.#cachedVersion;
     }
 
     #instanceEngine(url: URL): SurrealEngine {
@@ -429,9 +449,13 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     begin(session: Session): Promise<Uuid> {
-        if (!this.#engine) throw new ConnectionUnavailableError();
+        const engine = this.#engine;
+        if (!engine) throw new ConnectionUnavailableError();
         this.assertFeature(Features.Transactions);
-        return this.#engine.begin(session);
+
+        // A transaction is begun as the identity of the session, so that is settled first rather
+        // than by the first query in it, which would change it in the middle of the transaction
+        return this.#whenAuthenticated(session, () => engine.begin(session));
     }
 
     commit(txn: Uuid, session: Session): Promise<void> {
@@ -467,20 +491,25 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#whenAuthenticated(undefined, () => engine.exportMlModel(options));
     }
 
-    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
+    query<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
         const engine = this.#engine;
         if (!engine) throw new ConnectionUnavailableError();
 
         if (!this.#needsPreparation()) {
-            return engine.query(query, session, txn);
+            return engine.query(query, session, txn, options);
         }
 
-        const prepare = () => this.#prepare(session);
+        const prepare = () => this.#prepare(session, options?.signal);
 
         return {
             async *[Symbol.asyncIterator]() {
                 await prepare();
-                yield* engine.query<T>(query, session, txn);
+                yield* engine.query<T>(query, session, txn, options);
             },
         };
     }
@@ -490,25 +519,37 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
      *
      * A call made as someone else must never silently run as the session. It is refused unless
      * the engine declares that it presents credentials with every request, and implements the
-     * method which does so, which an engine, or something wrapping one, may not.
+     * method which does so, which an engine, or something wrapping one, may not. The options
+     * are those of `query()`, so that the query is abandoned by a signal the same way, and the
+     * credential which is resolved for requests of the session is not asked for.
      */
     queryAs<T>(
         query: BoundQuery,
         session: Session,
         txn: Uuid | undefined,
-        credential: AuthOrToken,
+        options: CredentialedRequestOptions,
     ): AsyncIterable<QueryChunk<T>> {
         const engine = this.#engine;
         if (!engine) throw new ConnectionUnavailableError();
 
         this.assertFeature(Features.PerRequestAuth);
-        assertCredential(credential);
+        assertCredential(options.credential);
 
         if (typeof engine.queryAs !== "function") {
             throw new UnsupportedFeatureError(Features.PerRequestAuth);
         }
 
-        return engine.queryAs<T>(query, session, txn, credential);
+        return engine.queryAs<T>(query, session, txn, options);
+    }
+
+    gql<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
+        if (!this.#engine) throw new ConnectionUnavailableError();
+        return this.#engine.gql(query, session, txn, options);
     }
 
     liveQuery(id: Uuid): AsyncIterable<LiveMessage> {
@@ -635,44 +676,78 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     /**
      * Make sure the session holds a current credential before a request is sent on it.
+     *
+     * The request is only waiting for it. When its signal aborts, the wait ends with the reason of
+     * the signal, which wins over a resolver which fails at the same moment, and nothing which has
+     * begun is undone: a credential which is being applied to the session is applied in full,
+     * for the next request, and one which has not begun to be resolved is not resolved for a
+     * request which is no longer there.
      */
-    async #prepare(session: Session): Promise<void> {
+    async #prepare(session: Session, signal?: AbortSignal): Promise<void> {
         const requestAuth = this.#requestAuth;
         const resolver = this.#requestResolver;
+
+        throwIfAborted(signal);
 
         if (!requestAuth || !resolver) return;
 
         // The user took over authentication of this session
         if (this.getSession(session).authOverriden) return;
 
-        await requestAuth.get(session, async () => {
-            const provided = await invokeProvider(resolver, session);
-            const sessionState = this.getSession(session);
+        try {
+            await this.#applyResolved(requestAuth, resolver, session, signal);
+        } catch (error) {
+            throwIfAborted(signal);
+            throw error;
+        }
+    }
 
-            if (provided === null) {
-                if (sessionState.accessToken) await this.invalidate(session);
-                return undefined;
-            }
+    async #applyResolved(
+        requestAuth: RequestCredentials,
+        resolver: AuthCallable,
+        session: Session,
+        signal: AbortSignal | undefined,
+    ): Promise<void> {
+        await requestAuth.get(
+            session,
+            async () => {
+                const provided = await invokeProvider(resolver, session);
+                const sessionState = this.getSession(session);
 
-            if (typeof provided === "string") {
-                // Nothing to tell the server when the session already presents this very token
-                if (provided !== sessionState.accessToken) {
-                    await this.authenticate(provided, session, true);
+                if (provided === null) {
+                    if (sessionState.accessToken) await this.invalidate(session);
+                    return undefined;
                 }
 
-                return provided;
-            }
+                if (typeof provided === "string") {
+                    // Nothing to tell the server when the session already presents this very token
+                    if (provided !== sessionState.accessToken) {
+                        await this.authenticate(provided, session, true);
+                    }
 
-            return (await this.signin(provided, session, true)).access;
-        });
+                    return provided;
+                }
+
+                return (await this.signin(provided, session, true)).access;
+            },
+            undefined,
+            signal,
+        );
     }
 
     /**
      * Resolve the token a request on a session presents, for engines which present
      * credentials with every request. Nothing is applied to the session and no timers are
      * started, so a request which is the only thing alive does not keep the process running.
+     *
+     * The request which asks may be abandoned meanwhile, which is for it to handle, in
+     * `fetchSurreal`: it stops waiting, and what is resolved is kept for the requests which follow.
      */
-    async #requestToken(session: Session, rejected?: string): Promise<string | undefined> {
+    async #requestToken(
+        session: Session,
+        rejected?: string,
+        signal?: AbortSignal,
+    ): Promise<string | undefined> {
         const requestAuth = this.#requestAuth;
         const resolver = this.#requestResolver;
         const engine = this.#engine;
@@ -698,6 +773,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
                 return (await engine.signin(provided, session)).access;
             },
             rejected,
+            signal,
         );
     }
 

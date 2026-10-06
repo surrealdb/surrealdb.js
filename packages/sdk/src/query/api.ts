@@ -1,6 +1,7 @@
 import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { SurrealError, UnsuccessfulApiError } from "../errors";
+import { type AbortOptions, addSignal, assertTimeout } from "../internal/abort";
 import { assertCredential } from "../internal/auth-provider";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
@@ -21,7 +22,7 @@ export interface ApiResponse<T> {
 type Result<Res, V extends boolean> = V extends true ? Res : ApiResponse<Res>;
 type Collect<Res, V extends boolean, J extends boolean> = MaybeJsonify<Result<Res, V>, J>;
 
-interface ApiOptions<Req> {
+interface ApiOptions<Req> extends AbortOptions {
     path: string;
     body?: Req;
     method: string;
@@ -125,6 +126,54 @@ export class ApiPromise<
     }
 
     /**
+     * Configure the query to be abandoned when a signal aborts.
+     *
+     * If the signal has already aborted, the query is not sent and fails straight away. If it aborts
+     * later, the query stops waiting for the server and fails with the `reason` of the signal, as it
+     * is: an `AbortError`, or the `TimeoutError` of `AbortSignal.timeout()`. This holds for awaiting
+     * the query as well as for `.stream()`, which ends its iteration with the reason.
+     *
+     * Aborting means "stop waiting", and nothing more. The server may keep executing the query, and
+     * **a write which was sent before the signal aborted may or may not have been applied**.
+     *
+     * Can be called more than once, and in addition to a signal inherited from `withSignal()`: the
+     * query is abandoned when any of them aborts. See {@link Query.signal}.
+     *
+     * @example
+     * ```ts
+     * const result = await db.api().get("/report").signal(request.signal);
+     * ```
+     *
+     * @param signal The signal which abandons the query. Without one, nothing changes.
+     */
+    signal(signal: AbortSignal | undefined): ApiPromise<Req, Res, V, J> {
+        return new ApiPromise<Req, Res, V, J>(this.#connection, {
+            ...this.#options,
+            signals: addSignal(this.#options.signals, signal),
+        });
+    }
+
+    /**
+     * Configure how long to wait for the server to answer the query, in milliseconds, before giving
+     * up on it with a `TimeoutError`. Overrides the `requestTimeout` of the connection for this
+     * query, so it can also allow a query longer than that default, or `0` to wait without limit.
+     *
+     * This is a limit on the client, and not the `TIMEOUT` clause which the server enforces and
+     * which is set with `.timeout()`. The server is not told the client has given up, so **a write
+     * which timed out may or may not have been applied**. See {@link Query.requestTimeout}.
+     *
+     * @param milliseconds The time to wait for an answer, or `0` for no limit.
+     */
+    requestTimeout(milliseconds: number): ApiPromise<Req, Res, V, J> {
+        assertTimeout(milliseconds, "requestTimeout");
+
+        return new ApiPromise<Req, Res, V, J>(this.#connection, {
+            ...this.#options,
+            requestTimeout: milliseconds,
+        });
+    }
+
+    /**
      * Compile this qurery into a BoundQuery
      */
     compile(): BoundQuery<[ApiResponse<Res>]> {
@@ -137,7 +186,6 @@ export class ApiPromise<
      * @returns An async iterable of query frames.
      */
     async *stream(): AsyncIterable<Frame<ApiResponse<Res>, J>> {
-        await this.#connection.ready();
         const query = this.#build().stream<ApiResponse<Res>>();
 
         for await (const frame of query) {
@@ -146,7 +194,6 @@ export class ApiPromise<
     }
 
     protected async dispatch(): Promise<Collect<Res, V, J>> {
-        await this.#connection.ready();
         const [result] = await this.#build().collect();
 
         if (!("body" in result) || typeof result.status !== "number") {
@@ -178,6 +225,8 @@ export class ApiPromise<
                 headers,
                 query,
             }})`,
+            signals: this.#options.signals,
+            requestTimeout: this.#options.requestTimeout,
         });
     }
 }

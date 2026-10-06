@@ -1,5 +1,6 @@
 import { SurrealError } from "../errors";
 import type { AuthCache, Session, Token } from "../types";
+import { raceAbort, throwIfAborted } from "./abort";
 import { renewalDelay, tokenExpiry } from "./tokens";
 
 interface Entry {
@@ -76,16 +77,24 @@ export class RequestCredentials {
      * @param load Resolves a new credential
      * @param rejected A token the server refused. It is not returned from the cache, but a
      * different token resolved in the meantime is.
+     * @param signal The signal of the request which is waiting. The wait ends with its reason when
+     * it aborts, and the resolution goes on without it, for the requests which share it and for
+     * those which follow. A resolution which is queued and has not begun by then does not begin.
      */
     async get(
         session: Session,
         load: () => Promise<Token | undefined>,
         rejected?: Token,
+        signal?: AbortSignal,
     ): Promise<Token | undefined> {
         const key = keyOf(session);
 
+        throwIfAborted(signal);
+
         if (this.#cache === "none") {
-            return this.#serialize ? this.#enqueue(key, load) : load();
+            return this.#serialize
+                ? raceAbort(this.#enqueue(key, load, signal), signal)
+                : raceAbort(load(), signal);
         }
 
         const entry = this.#entries.get(key);
@@ -101,7 +110,7 @@ export class RequestCredentials {
         const pending = this.#inflight.get(key);
 
         if (pending) {
-            return pending;
+            return raceAbort(pending, signal);
         }
 
         const epoch = this.#epoch;
@@ -115,15 +124,26 @@ export class RequestCredentials {
 
         this.#inflight.set(key, resolution);
 
-        return resolution;
+        return raceAbort(resolution, signal);
     }
 
     /**
      * Run `load` after the resolutions which were asked for before it, for the same session
      */
-    #enqueue(key: string, load: () => Promise<Token | undefined>): Promise<Token | undefined> {
+    #enqueue(
+        key: string,
+        load: () => Promise<Token | undefined>,
+        signal: AbortSignal | undefined,
+    ): Promise<Token | undefined> {
         const previous = this.#queues.get(key);
-        const run = previous ? previous.then(() => load()) : load();
+
+        // When it is its turn, a resolution which nobody is waiting for any more does not begin
+        const turn = () => {
+            throwIfAborted(signal);
+            return load();
+        };
+
+        const run = previous ? previous.then(turn) : turn();
         const tail: Promise<void> = run
             .then(
                 () => undefined,

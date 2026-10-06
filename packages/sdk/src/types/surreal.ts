@@ -105,6 +105,22 @@ export interface RequestOptions {
 }
 
 /**
+ * Options for a single request which is made as another identity than the session
+ */
+export interface CredentialedRequestOptions extends RequestOptions {
+    /**
+     * Credentials to present for this request only, instead of those of the session. The
+     * session itself is neither used for authentication nor changed. An access token, or
+     * authentication details which are exchanged for one.
+     */
+    credential: AuthOrToken;
+    /**
+     * The dialect to run the query as, `"sql"` (SurrealQL) unless it is `"gql"` (ISO GQL).
+     */
+    dialect?: "sql" | "gql";
+}
+
+/**
  * An engine responsible for communicating to a SurrealDB datastore
  */
 export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEvents> {
@@ -120,15 +136,15 @@ export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEve
      * Only implemented by engines which present credentials with every request, and which
      * declare `Features.PerRequestAuth`. A query which is to run as someone else is never
      * run through `query()`, so an engine, or something wrapping one, which does not implement
-     * this method refuses the query rather than running it as the session.
-     *
-     * @param credential An access token, or authentication details which are exchanged for one
+     * this method refuses the query rather than running it as the session. The options are those
+     * of `query()`, with the credential in addition, so that a query is abandoned by a signal the
+     * same way whoever it is run as.
      */
     queryAs?<T>(
         query: BoundQuery,
         session: Session,
         txn: Uuid | undefined,
-        credential: AuthOrToken,
+        options: CredentialedRequestOptions,
     ): AsyncIterable<QueryChunk<T>>;
 }
 
@@ -452,6 +468,15 @@ export interface TransactionOptions {
      * attempt. As for a signal, the transaction may or may not have been committed when it expires.
      */
     requestTimeout?: number;
+    /**
+     * Run the transaction as a different identity than the one of the session, for this transaction
+     * only: an access token, or authentication details which are exchanged for one. The transaction
+     * is one request, so it is the one request which carries the credential, as `.as()` does for a
+     * query. As for `.as()`, this needs an engine which presents credentials with every request,
+     * which is HTTP, and anything else rejects the transaction rather than run it as the session.
+     * Queries which are passed to the transaction cannot be run `.as()` someone themselves.
+     */
+    as?: AuthOrToken;
 }
 
 /**
@@ -525,8 +550,10 @@ export interface CredentialSource {
      *
      * @param session The session the request is made on
      * @param rejected A token which the server has just refused, which is not handed out again
+     * @param signal The signal of the request, which a resolution that has not begun yet is not
+     * run for once it has aborted
      */
-    token(session: Session, rejected?: Token): Promise<Token | undefined>;
+    token(session: Session, rejected?: Token, signal?: AbortSignal): Promise<Token | undefined>;
 }
 
 export type { CodecOptions, ValueCodec };
