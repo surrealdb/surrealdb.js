@@ -514,7 +514,7 @@ describe("websocket query streaming", () => {
         await expect(attempt).rejects.toBeInstanceOf(UnexpectedServerResponseError);
     });
 
-    test("a query which lost its socket before any frame is re-sent on the next one", async () => {
+    test("a query which lost its socket before any frame is failed, never sent again", async () => {
         const started = await openEngine({ reconnect: true });
         const first = MockSocket.current;
 
@@ -524,8 +524,9 @@ describe("websocket query streaming", () => {
         MockSocket.handler = (socket, request) => {
             if (request.method !== "query_stream") return;
 
-            // The first socket dies with the request written and nothing framed; the second
-            // answers it.
+            // The socket dies with the request written and nothing framed. The server enqueues
+            // `begin` ahead of executing, so a frame which never arrived does not show that the
+            // query never started - and sending it again would run it twice.
             if (socket === first) {
                 queueMicrotask(() => socket.close());
                 return;
@@ -534,24 +535,25 @@ describe("websocket query streaming", () => {
             respondWithFrames(socket, request, ROWS_THEN_VALUE);
         };
 
-        const chunks = await collect(
-            started.query(new BoundQuery("SELECT * FROM person"), undefined),
+        const reconnected = nextConnection(started);
+        const outcome = collect(started.query(new BoundQuery("CREATE person"), undefined)).then(
+            () => "resolved",
+            (error: Error) => error.constructor.name,
         );
 
+        expect(await Promise.race([outcome, Bun.sleep(2_000).then(() => "still waiting")])).toBe(
+            "CallTerminatedError",
+        );
+
+        await reconnected;
         controller();
 
-        // Nothing had been framed, so the query never ran and the same request is simply asked
-        // again - not turned into a buffered query, and not answered twice.
-        expect(chunks.map((chunk) => chunk.kind)).toEqual(["batched", "batched-final", "single"]);
-        expect(MockSocket.sockets.length).toBeGreaterThan(1);
-        expect(MockSocket.current.requestsFor("query")).toBeEmpty();
+        // Once the connection is back nothing is sent for it: not as a stream, and not turned
+        // into a buffered query either.
+        const requests = MockSocket.sockets.flatMap((socket) => socket.requests);
 
-        const ids = MockSocket.sockets.flatMap((socket) =>
-            socket.requestsFor("query_stream").map((request) => request.id),
-        );
-
-        expect(ids).toHaveLength(2);
-        expect(new Set(ids).size).toBe(1);
+        expect(requests.filter((request) => request.method === "query_stream")).toHaveLength(1);
+        expect(requests.filter((request) => request.method === "query")).toBeEmpty();
     });
 
     test("closing fails a query in flight, streamed or buffered alike", async () => {
