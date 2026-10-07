@@ -1,5 +1,6 @@
 import { Duration, Uuid } from "@surrealdb/sqon";
 import type { Feature } from "../internal/feature";
+import { relayIterable } from "../internal/relay";
 import type {
     AccessRecordAuth,
     AnyAuth,
@@ -353,53 +354,48 @@ export class DiagnosticsEngine implements SurrealEngine {
 
         const delegateResult = run();
 
-        return {
-            async *[Symbol.asyncIterator]() {
-                try {
-                    for await (const chunk of delegateResult) {
-                        callback({
-                            type: "query",
-                            key: debugKey,
-                            phase: "progress",
-                            result: {
-                                query: query.query,
-                                params: query.bindings,
-                                transaction: txn,
-                                chunk: chunk,
-                                session,
-                            },
-                        });
-
-                        yield chunk as QueryChunk<T>;
-                    }
-
-                    callback({
-                        type: "query",
-                        key: debugKey,
-                        phase: "after",
-                        success: true,
-                        duration: measure(),
-                        result: {
-                            query: query.query,
-                            params: query.bindings,
-                            transaction: txn,
-                            session,
-                        },
-                    });
-                } catch (error) {
-                    callback({
-                        type: "query",
-                        key: debugKey,
-                        phase: "after",
-                        success: false,
-                        duration: measure(),
-                        error: error as Error,
-                    });
-
-                    throw error;
-                }
-            },
-        };
+        // Not a generator: one cannot be returned while parked on an await, which would hold
+        // back the cancel of a stream which is waiting on the server
+        return relayIterable<QueryChunk<T>>(() => delegateResult, {
+            value: (chunk) =>
+                callback({
+                    type: "query",
+                    key: debugKey,
+                    phase: "progress",
+                    result: {
+                        query: query.query,
+                        params: query.bindings,
+                        transaction: txn,
+                        chunk: chunk,
+                        session,
+                    },
+                }),
+            end: (error) =>
+                callback(
+                    error === undefined
+                        ? {
+                              type: "query",
+                              key: debugKey,
+                              phase: "after",
+                              success: true,
+                              duration: measure(),
+                              result: {
+                                  query: query.query,
+                                  params: query.bindings,
+                                  transaction: txn,
+                                  session,
+                              },
+                          }
+                        : {
+                              type: "query",
+                              key: debugKey,
+                              phase: "after",
+                              success: false,
+                              duration: measure(),
+                              error: error as Error,
+                          },
+                ),
+        });
     }
 
     liveQuery(id: Uuid): AsyncIterable<LiveMessage> {
