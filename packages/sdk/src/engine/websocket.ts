@@ -2,6 +2,7 @@ import { RecordId, Uuid } from "@surrealdb/sqon";
 import {
     CallTerminatedError,
     ConnectionUnavailableError,
+    NotAllowedError,
     ReconnectExhaustionError,
     ServerError,
     UnexpectedConnectionError,
@@ -404,10 +405,18 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 throw error;
             }
 
-            // Absent or denied is a property of the server rather than of this query, so it is
-            // remembered for as long as the socket lasts.
+            // That this server cannot stream is a property of the server rather than of this
+            // query, so it is remembered for as long as the socket lasts - but only when it is
+            // that which was refused. A denial is also how a server turns away one identity: it
+            // answers with the same code, naming `query` instead of `query_stream`, and what is
+            // refused then is the caller, who may sign in as someone else on this very socket.
+            // Learning that as the server being unable would silently buffer every query after it,
+            // explicit streams included, until the connection is remade.
             const cannotStream =
-                error.code === METHOD_NOT_FOUND || error.code === METHOD_NOT_ALLOWED;
+                error.code === METHOD_NOT_FOUND ||
+                (error.code === METHOD_NOT_ALLOWED &&
+                    error instanceof NotAllowedError &&
+                    error.methodName === STREAM_METHOD);
 
             if (cannotStream) {
                 this.#streaming = false;
@@ -478,7 +487,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 wrapSqonError(() =>
                     this._context.codecs.cbor.encode({
                         id,
-                        method: "query_stream",
+                        method: STREAM_METHOD,
                         params: [query.query, query.bindings],
                         session,
                         // Only when there is one: a stream inside a transaction is run on it.
@@ -833,6 +842,9 @@ function releaseOf(version: string): [number, number, number] | undefined {
 
     return match ? [Number(match[1]), Number(match[2]), Number(match[3] ?? 0)] : undefined;
 }
+
+/** The method a server is asked to stream a query with. */
+const STREAM_METHOD = "query_stream";
 
 /** The wire code for a method a server does not serve. */
 const METHOD_NOT_FOUND = -32601;

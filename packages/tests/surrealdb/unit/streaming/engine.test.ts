@@ -18,6 +18,25 @@ afterEach(async () => {
     MockSocket.reset();
 });
 
+/** What a server answers a request for `method` with when it does not serve it. */
+function absent(): { code: number; message: string; kind: string } {
+    return { code: -32601, message: "Method not found", kind: "NotFound" };
+}
+
+/**
+ * What a server answers with when it turns a request away as not allowed, naming what was refused.
+ * Denying `query_stream` is the server declining to stream; denying `query` is how it turns away
+ * one identity, and refuses the buffered method too.
+ */
+function denied(name: string): object {
+    return {
+        code: -32602,
+        message: "Method not allowed",
+        kind: "NotAllowed",
+        details: { kind: "Method", details: { name } },
+    };
+}
+
 /** Opens an engine against the mocked socket and waits until it is connected. */
 async function openEngine(
     options: {
@@ -163,11 +182,11 @@ describe("websocket query streaming", () => {
     });
 
     test.each([
-        [-32601, "Method not found"],
-        [-32602, "Method not allowed"],
+        ["absent", absent()],
+        ["denied", denied("query_stream")],
     ])(
-        "a server which answers %p for the streaming method is used as before",
-        async (code, message) => {
+        "a server which says the streaming method is %s is used as before",
+        async (_what, refusal) => {
             const started = await openEngine();
 
             MockSocket.handler = (socket, request) => {
@@ -175,7 +194,7 @@ describe("websocket query streaming", () => {
                     queueMicrotask(() =>
                         socket.respond({
                             id: request.id,
-                            error: { code, message },
+                            error: refusal,
                         }),
                     );
                 }
@@ -432,26 +451,94 @@ describe("websocket query streaming", () => {
         });
 
         test.each([
-            [-32601, "Method not found"],
-            [-32602, "Method not allowed"],
-        ])("is answered, buffered, by a server which cannot stream (%p)", async (code, message) => {
+            ["absent", absent()],
+            ["denied", denied("query_stream")],
+        ])(
+            "is answered, buffered, by a server which cannot stream (%s)",
+            async (_what, refusal) => {
+                const started = await openEngine();
+
+                serve(refusal as { code: number; message: string });
+
+                const first = await collect(
+                    started.query(
+                        new BoundQuery("SELECT * FROM person"),
+                        undefined,
+                        undefined,
+                        WANT,
+                    ),
+                );
+
+                // The stream is a way of receiving the answer, and the answer is still wanted.
+                expect(first).toHaveLength(1);
+                expect(first[0]).toMatchObject({ kind: "batched-final", result: [{ n: 1 }] });
+
+                // And what the server cannot do is learned, so it is not asked again.
+                await collect(
+                    started.query(new BoundQuery("RETURN 1"), undefined, undefined, WANT),
+                );
+
+                expect(MockSocket.current.requestsFor("query_stream")).toHaveLength(1);
+                expect(MockSocket.current.requestsFor("query")).toHaveLength(2);
+            },
+        );
+
+        test("a caller turned away is not the server being unable to stream", async () => {
             const started = await openEngine();
 
-            serve({ code, message });
+            // `query` is refused for this identity, and so is the buffered method.
+            serve(denied("query") as { code: number; message: string });
 
-            const first = await collect(
-                started.query(new BoundQuery("SELECT * FROM person"), undefined, undefined, WANT),
+            const outcome = collect(
+                started.query(new BoundQuery("RETURN 1"), undefined, undefined, WANT),
+            ).then(
+                () => "resolved",
+                (error: Error) => error.constructor.name,
             );
 
-            // The stream is a way of receiving the answer, and the answer is still wanted.
-            expect(first).toHaveLength(1);
-            expect(first[0]).toMatchObject({ kind: "batched-final", result: [{ n: 1 }] });
+            // Told so, rather than quietly served the same refusal from the buffered method.
+            expect(await outcome).toBe("NotAllowedError");
+            expect(MockSocket.current.requestsFor("query")).toBeEmpty();
 
-            // And what the server cannot do is learned, so it is not asked again.
-            await collect(started.query(new BoundQuery("RETURN 1"), undefined, undefined, WANT));
+            // The caller signs in as someone else on the same socket, who is allowed.
+            serve();
 
-            expect(MockSocket.current.requestsFor("query_stream")).toHaveLength(1);
-            expect(MockSocket.current.requestsFor("query")).toHaveLength(2);
+            const next = await collect(
+                started.query(new BoundQuery("RETURN 1"), undefined, undefined, WANT),
+            );
+
+            // It was asked of the server again, and streamed: nothing was learned about the server.
+            expect(next).toHaveLength(3);
+            expect(MockSocket.current.requestsFor("query_stream")).toHaveLength(2);
+            expect(MockSocket.current.requestsFor("query")).toBeEmpty();
+        });
+
+        test("nor is it learned for a query which was simply awaited", async () => {
+            const started = await openEngine();
+
+            serve(denied("query") as { code: number; message: string });
+
+            // Buffered afterwards, which is refused in its own right.
+            await collect(started.query(new BoundQuery("RETURN 1"), undefined));
+
+            serve();
+
+            const next = await collect(started.query(new BoundQuery("RETURN 1"), undefined));
+
+            expect(next).toHaveLength(3);
+            expect(MockSocket.current.requestsFor("query_stream")).toHaveLength(2);
+        });
+
+        test("a denial which does not say what was denied is not learned either", async () => {
+            const started = await openEngine();
+
+            serve({ code: -32602, message: "Method not allowed" });
+
+            await collect(started.query(new BoundQuery("RETURN 1"), undefined));
+            await collect(started.query(new BoundQuery("RETURN 2"), undefined));
+
+            // Asked every time, which costs a refused request each, and is never wrong.
+            expect(MockSocket.current.requestsFor("query_stream")).toHaveLength(2);
         });
 
         test("an ordinary query is still buffered at the limit, for that query alone", async () => {

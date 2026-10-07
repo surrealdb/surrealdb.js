@@ -1,10 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import getPort from "get-port";
-import { CborCodec, type QueryChunk, RecordId, Surreal, Table } from "surrealdb";
+import {
+    CborCodec,
+    createRemoteEngines,
+    type QueryChunk,
+    RecordId,
+    Surreal,
+    Table,
+} from "surrealdb";
 import {
     createSurreal,
     getEngines,
     METHOD_NOT_ALLOWED,
+    METHOD_NOT_FOUND,
     probe,
     SURREAL_BACKEND,
     SURREAL_EXECUTABLE_PATH,
@@ -182,39 +190,7 @@ describe.if(SURREAL_PROTOCOL === "ws")("asking for a stream", () => {
             // Only meaningful where the method exists to be denied.
             if (!(await serverStreams())) return;
 
-            const port = await getPort();
-            const server = Bun.spawn(
-                // The path comes first: `--deny-rpc` takes a list, and would take it for another method.
-                [SURREAL_EXECUTABLE_PATH, "start", "memory", "--deny-rpc", "query_stream"],
-                {
-                    stdout: "ignore",
-                    stderr: "ignore",
-                    env: {
-                        ...process.env,
-                        SURREAL_BIND: `127.0.0.1:${port}`,
-                        SURREAL_USER,
-                        SURREAL_PASS,
-                        SURREAL_CAPS_ALLOW_EXPERIMENTAL: "*",
-                    },
-                },
-            );
-
-            try {
-                const startedAt = Date.now();
-
-                for (;;) {
-                    try {
-                        if ((await fetch(`http://127.0.0.1:${port}/health`)).ok) break;
-                    } catch {
-                        // Not up yet.
-                    }
-
-                    if (Date.now() - startedAt > 15_000)
-                        throw new Error("the server did not start");
-
-                    await Bun.sleep(100);
-                }
-
+            await serving(["--deny-rpc", "query_stream"], async (port) => {
                 // The premise, asked of the server rather than assumed: it denies the method, which
                 // is not the same as not having it.
                 expect(await probe(port)).toBe(METHOD_NOT_ALLOWED);
@@ -259,10 +235,117 @@ describe.if(SURREAL_PROTOCOL === "ws")("asking for a stream", () => {
                 } finally {
                     await surreal.close();
                 }
-            } finally {
-                server.kill();
-                await server.exited;
-            }
+            });
+        });
+    });
+
+    describe.if(SURREAL_BACKEND === "remote")("on a server which turns a caller away", () => {
+        test("a caller refused is not the server being unable, and may sign in and stream", async () => {
+            if (!(await serverStreams())) return;
+
+            // Unauthenticated callers may not run queries, while the method itself is served.
+            await serving(["--deny-arbitrary-query", "guest"], async (port) => {
+                const sent: string[] = [];
+                const codec = new CborCodec({});
+
+                class Recording extends WebSocket {
+                    override send(data: Parameters<WebSocket["send"]>[0]) {
+                        const request = codec.decode<{ method?: string }>(
+                            new Uint8Array(data as ArrayBuffer),
+                        );
+
+                        if (request.method) sent.push(request.method);
+
+                        super.send(data);
+                    }
+                }
+
+                const surreal = new Surreal({
+                    engines: createRemoteEngines(),
+                    websocketImpl: Recording,
+                });
+
+                try {
+                    await surreal.connect(`ws://127.0.0.1:${port}/rpc`);
+
+                    // The premise: it is not the method which is denied to everyone, but the guest.
+                    expect(await probe(port)).not.toBe(METHOD_NOT_FOUND);
+
+                    sent.length = 0;
+
+                    const refused = (async () => {
+                        for await (const _ of surreal.query("RETURN 1").stream()) {
+                            // Nothing arrives: the guest is refused.
+                        }
+                    })();
+
+                    await expect(refused).rejects.toMatchObject({ name: "NotAllowedError" });
+
+                    // Asked for as a stream, and not turned into a buffered query behind its back.
+                    expect(sent).toContain("query_stream");
+                    expect(sent).not.toContain("query");
+
+                    // The same socket, as someone who is allowed.
+                    await surreal.signin({ username: SURREAL_USER, password: SURREAL_PASS });
+
+                    sent.length = 0;
+
+                    const rows: unknown[] = [];
+
+                    for await (const frame of surreal.query("RETURN 2").stream()) {
+                        if (frame.isValue()) rows.push(frame.value);
+                    }
+
+                    // Nothing was learned about the server from refusing someone: it still streams.
+                    expect(rows).toEqual([2]);
+                    expect(sent).toContain("query_stream");
+                    expect(sent).not.toContain("query");
+                } finally {
+                    await surreal.close();
+                }
+            });
         });
     });
 });
+
+/**
+ * Runs `body` against a server of its own, started with `flags`, which is stopped afterwards.
+ *
+ * The path comes first, as flags such as `--deny-rpc` take a list and would take it for one more
+ * item of it.
+ */
+async function serving(flags: string[], body: (port: number) => Promise<void>): Promise<void> {
+    const port = await getPort();
+    const server = Bun.spawn([SURREAL_EXECUTABLE_PATH, "start", "memory", ...flags], {
+        stdout: "ignore",
+        stderr: "ignore",
+        env: {
+            ...process.env,
+            SURREAL_BIND: `127.0.0.1:${port}`,
+            SURREAL_USER,
+            SURREAL_PASS,
+            SURREAL_CAPS_ALLOW_EXPERIMENTAL: "*",
+        },
+    });
+
+    try {
+        const startedAt = Date.now();
+
+        for (;;) {
+            try {
+                if ((await fetch(`http://127.0.0.1:${port}/health`)).ok) break;
+            } catch {
+                // Not up yet.
+            }
+
+            if (Date.now() - startedAt > 15_000) throw new Error("the server did not start");
+
+            await Bun.sleep(100);
+        }
+
+        await body(port);
+    } finally {
+        server.kill();
+        await server.exited;
+    }
+}
