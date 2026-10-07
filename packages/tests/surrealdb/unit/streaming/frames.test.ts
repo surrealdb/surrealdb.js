@@ -64,9 +64,12 @@ describe("query stream frames", () => {
         expect(chunks[0]).toMatchObject({ query: 0, kind: "single", result: [42] });
     });
 
-    test("a single statement which sent no value produced NONE", async () => {
+    test("a value which is NONE is still sent, and still a value", async () => {
+        // The server emits a value frame for every result which is not a list, NONE included, so
+        // a statement such as `LET $a = 1` is a single value whose value is NONE.
         const chunks = await collectChunks([
             { stream: "begin", statements: 1 },
+            { stream: "value", index: 0, value: undefined },
             { stream: "finished", index: 0, time: "1ms", type: "other", single: true },
             { stream: "end", results: 1, time: "1ms" },
         ]);
@@ -74,6 +77,31 @@ describe("query stream frames", () => {
         expect(chunks).toHaveLength(1);
         expect(chunks[0]?.kind).toBe("single");
         expect(chunks[0]?.result).toEqual([undefined]);
+    });
+
+    test("a single statement which sent no value has lost it, and fails the query", async () => {
+        // Reading it as NONE would be a wrong answer, silently.
+        const attempt = collectChunks([
+            { stream: "begin", statements: 1 },
+            { stream: "finished", index: 0, time: "1ms", type: "other", single: true },
+            { stream: "end", results: 1, time: "1ms" },
+        ]);
+
+        await expect(attempt).rejects.toBeInstanceOf(StreamProtocolError);
+        await expect(attempt).rejects.toThrow("no value was sent");
+    });
+
+    test("a value frame for a statement which finishes as a list fails the query", async () => {
+        // Taking `single` at its word would throw away the value which was sent.
+        const attempt = collectChunks([
+            { stream: "begin", statements: 1 },
+            { stream: "value", index: 0, value: 42 },
+            { stream: "finished", index: 0, time: "1ms", type: "other", single: false },
+            { stream: "end", results: 1, time: "1ms" },
+        ]);
+
+        await expect(attempt).rejects.toBeInstanceOf(StreamProtocolError);
+        await expect(attempt).rejects.toThrow("finished as a list of rows");
     });
 
     test("statements keep their own batch numbering while interleaved", async () => {
