@@ -14,6 +14,7 @@ import {
     METHOD_NOT_ALLOWED,
     METHOD_NOT_FOUND,
     probe,
+    requestVersion,
     SURREAL_BACKEND,
     SURREAL_EXECUTABLE_PATH,
     SURREAL_PASS,
@@ -21,6 +22,9 @@ import {
     SURREAL_USER,
     serverStreams,
 } from "../__helpers__";
+
+// Transactions held by the client need 3.0.0 or later
+const { is3x } = await requestVersion();
 
 /**
  * A query which is simply awaited is streamed only where that is invisible. One which asks for a
@@ -74,45 +78,48 @@ describe.if(SURREAL_PROTOCOL === "ws")("asking for a stream", () => {
         return { rows, batches: chunks.filter((chunk) => chunk.kind === "batched").length };
     }
 
-    test("is streamed inside a transaction, where a query merely awaited is not", async () => {
-        const { surreal, chunks } = await observed();
-        const transaction = await surreal.beginTransaction();
+    test.skipIf(!is3x)(
+        "is streamed inside a transaction, where a query merely awaited is not",
+        async () => {
+            const { surreal, chunks } = await observed();
+            const transaction = await surreal.beginTransaction();
 
-        // Accepted: buffered, so one chunk carrying the whole statement.
-        chunks.length = 0;
-        const [awaited] = await transaction.query("SELECT * FROM wide ORDER BY id").collect();
+            // Accepted: buffered, so one chunk carrying the whole statement.
+            chunks.length = 0;
+            const [awaited] = await transaction.query("SELECT * FROM wide ORDER BY id").collect();
 
-        expect(awaited).toBeArrayOfSize(RECORDS);
-        expect(chunks).toHaveLength(1);
+            expect(awaited).toBeArrayOfSize(RECORDS);
+            expect(chunks).toHaveLength(1);
 
-        // Asked for: the same answer, delivered in batches wherever the server can.
-        const asked = await readStream(
-            transaction.query("SELECT * FROM wide ORDER BY id").stream(),
-            chunks,
-        );
+            // Asked for: the same answer, delivered in batches wherever the server can.
+            const asked = await readStream(
+                transaction.query("SELECT * FROM wide ORDER BY id").stream(),
+                chunks,
+            );
 
-        expect(asked.rows).toBe(RECORDS);
+            expect(asked.rows).toBe(RECORDS);
 
-        if (await serverStreams()) {
-            expect(asked.batches).toBeGreaterThan(0);
-        } else {
-            expect(asked.batches).toBe(0);
-        }
+            if (await serverStreams()) {
+                expect(asked.batches).toBeGreaterThan(0);
+            } else {
+                expect(asked.batches).toBe(0);
+            }
 
-        // And what a stream inside a transaction wrote is what the transaction commits, once the
-        // stream has ended.
-        for await (const _ of transaction.query("UPDATE wide SET seen = true").stream()) {
-            // Read to the end before committing: committing mid-stream commits a prefix.
-        }
+            // And what a stream inside a transaction wrote is what the transaction commits, once the
+            // stream has ended.
+            for await (const _ of transaction.query("UPDATE wide SET seen = true").stream()) {
+                // Read to the end before committing: committing mid-stream commits a prefix.
+            }
 
-        await transaction.commit();
+            await transaction.commit();
 
-        const [seen] = await surreal
-            .query("SELECT count() FROM wide WHERE seen = true GROUP ALL")
-            .collect();
+            const [seen] = await surreal
+                .query("SELECT count() FROM wide WHERE seen = true GROUP ALL")
+                .collect();
 
-        expect(seen).toEqual([{ count: RECORDS }]);
-    });
+            expect(seen).toEqual([{ count: RECORDS }]);
+        },
+    );
 
     test("is streamed in spite of the driver being configured not to", async () => {
         const { surreal, chunks } = await observed({ streaming: false });
