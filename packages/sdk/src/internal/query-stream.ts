@@ -155,7 +155,8 @@ export function isQueryStreamFrame(value: unknown): value is QueryStreamFrame {
  *   delivered for that statement.
  * - A statement contributes rows or one single value, never both, and only its `finished` frame
  *   says which it was. A single value is therefore held back until then, as the chunk consumers
- *   distinguish the two by the chunk kind.
+ *   distinguish the two by the chunk kind. A `finished` frame which contradicts what was sent -
+ *   a single value with no value frame, or a value frame for a list - fails the stream.
  * - An `end` frame carrying an error retracts every statement which never finished and fails the
  *   whole query, so a stream which was stopped rather than answered is never mistaken for a
  *   complete one.
@@ -239,7 +240,8 @@ export async function* queryStreamChunks<T>(
             case "finished": {
                 const index = frameIndex(frame.index);
                 const stats = frameStats(frame.time);
-                const single = singles.has(index) ? [singles.get(index) as T] : undefined;
+                const sentValue = singles.has(index);
+                const single = sentValue ? [singles.get(index) as T] : undefined;
 
                 unfinished.delete(index);
                 singles.delete(index);
@@ -257,6 +259,23 @@ export async function* queryStreamChunks<T>(
                     break;
                 }
 
+                // A statement which is one bare value sends it, `NONE` included: the server emits
+                // a `value` frame for every result which is not a list. So a `single` statement
+                // with none has lost its value, and reading that as `NONE` would hand over a wrong
+                // answer silently. The converse is as loud, and for the same reason: taking
+                // `single` at its word would throw the value which was sent away.
+                if (frame.single && !sentValue) {
+                    throw new StreamProtocolError(
+                        `Statement ${index} finished as a single value, but no value was sent for it.`,
+                    );
+                }
+
+                if (!frame.single && sentValue) {
+                    throw new StreamProtocolError(
+                        `Statement ${index} sent a single value, but finished as a list of rows.`,
+                    );
+                }
+
                 yield {
                     query: index,
                     batch: nextBatch(batches, index),
@@ -266,9 +285,8 @@ export async function* queryStreamChunks<T>(
                     // an ordinary statement: the consumers of a chunk are what settle on a
                     // default, and a streamed chunk must not differ from a buffered one.
                     type: frame.type,
-                    // A single statement which sent no value frame produced NONE, and a statement
-                    // which streamed rows has already delivered them.
-                    result: frame.single ? (single ?? ([undefined] as T[])) : (single ?? []),
+                    // A statement which streamed rows has already delivered them.
+                    result: single ?? [],
                 };
 
                 break;
