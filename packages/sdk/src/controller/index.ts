@@ -17,6 +17,7 @@ import { backoffDelay } from "../internal/backoff";
 import type { Feature } from "../internal/feature";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { ReconnectContext } from "../internal/reconnect";
+import { relayIterable } from "../internal/relay";
 import { RequestCredentials } from "../internal/request-credentials";
 import { RetryContext } from "../internal/retry";
 import { fastParseJwt, renewalDelay, tokenExpiry } from "../internal/tokens";
@@ -553,12 +554,12 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             }
         };
 
-        return {
-            async *[Symbol.asyncIterator]() {
-                await prepare();
-                yield* engine.query<T>(query, session, txn, request);
-            },
-        };
+        // Not a generator: one cannot be returned while parked on an await, which would hold
+        // back the cancel of a stream which is waiting on the server
+        return relayIterable(async () => {
+            await prepare();
+            return engine.query<T>(query, session, txn, request);
+        });
     }
 
     /**
