@@ -446,4 +446,37 @@ describe("a renewal which fails", () => {
         expect(calls()).toBe(1);
         expect(errors).toHaveLength(0);
     });
+
+    test("clamps long renewal delays to 1 day and re-arms until due", async () => {
+        const THREE_DAYS = 3 * 24 * 60 * 60;
+        const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+        const { calls } = await renewing({
+            life: THREE_DAYS,
+            margin: 60,
+            script: () => "ok",
+        });
+
+        expect(calls()).toBe(1);
+        expect(timers()).toBe(1);
+
+        // After 1 day, it re-arms without firing renewal yet
+        await advance(ONE_DAY_MS);
+        expect(calls()).toBe(1);
+        expect(timers()).toBe(1);
+
+        // After 2 days, re-arms again
+        await advance(ONE_DAY_MS);
+        expect(calls()).toBe(1);
+        expect(timers()).toBe(1);
+
+        // Advance to just before the renewal is due
+        const remainingToDue = (THREE_DAYS - 60) * 1000 - 2 * ONE_DAY_MS;
+        await advance(remainingToDue - 1);
+        expect(calls()).toBe(1);
+
+        // Advance 1ms to reach the renewal time
+        await advance(1);
+        expect(calls()).toBe(2);
+    });
 });

@@ -58,6 +58,8 @@ import {
     Publisher,
 } from "../utils";
 
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
 /**
  * A run of attempts at renewing the credentials of a session, from the first, which is
  * scheduled when the credentials change, until one succeeds or the cycle is replaced
@@ -940,7 +942,33 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         const cycle: RenewalCycle = { retries: 0, failure: undefined };
 
         this.#renewals.set(sessionState, cycle);
-        sessionState.authRenewal = setTimeout(() => this.#renew(session, cycle), delay * 1000);
+        this.#scheduleRenewalTimer(session, cycle, delay * 1000, () => this.#renew(session, cycle));
+    }
+
+    #scheduleRenewalTimer(
+        session: Session,
+        cycle: RenewalCycle,
+        delayMs: number,
+        action: () => void,
+    ): void {
+        const sessionState = this.getSession(session);
+        const targetTime = Date.now() + Math.max(delayMs, 0);
+
+        const tick = () => {
+            if (!this.#isCurrentRenewal(session, cycle)) return;
+
+            const remaining = targetTime - Date.now();
+            if (remaining > 0) {
+                const nextDelay = Math.min(remaining, ONE_DAY_MS);
+                sessionState.authRenewal = setTimeout(tick, nextDelay);
+            } else {
+                sessionState.authRenewal = undefined;
+                action();
+            }
+        };
+
+        const firstDelay = Math.min(Math.max(delayMs, 0), ONE_DAY_MS);
+        sessionState.authRenewal = setTimeout(tick, firstDelay);
     }
 
     #isCurrentRenewal(session: Session, cycle: RenewalCycle): boolean {
@@ -1003,15 +1031,14 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         // No further attempt fits in what is left of the token
         if (delay >= remaining) {
-            sessionState.authRenewal = setTimeout(
-                () => this.#giveUpRenewal(session, cycle),
-                remaining,
+            this.#scheduleRenewalTimer(session, cycle, remaining, () =>
+                this.#giveUpRenewal(session, cycle),
             );
             return;
         }
 
         cycle.retries++;
-        sessionState.authRenewal = setTimeout(() => this.#renew(session, cycle), delay);
+        this.#scheduleRenewalTimer(session, cycle, delay, () => this.#renew(session, cycle));
     }
 
     #giveUpRenewal(session: Session, cycle: RenewalCycle): void {
