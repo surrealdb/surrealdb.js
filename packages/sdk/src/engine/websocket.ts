@@ -106,6 +106,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         Features.Api,
         Features.ExportImportRaw,
         Features.SurrealML,
+        Features.QueryStreaming,
     ]);
 
     subscribe<K extends keyof EngineEvents>(
@@ -127,8 +128,9 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 const error = await this.createSocket(() => {
                     this.#active = true;
                     // Whether streaming is served is a property of the server, and a reconnect
-                    // can land on a different one, so each socket is asked again.
-                    this.#streaming = this._context.options.streaming !== false;
+                    // can land on a different one, so each socket is asked again. What the driver
+                    // was configured to do is a separate matter, read when a query is made.
+                    this.#streaming = true;
                     reconnect.reset();
 
                     this.#publisher.publish("connected");
@@ -205,7 +207,14 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         }
     }
 
-    ready(): void {
+    ready(version?: string): void {
+        // A server known to predate streaming would only be asked, and refuse, on the first query
+        // of every connection. Only a version which is known to be older skips the question; one
+        // which is not known, or not understood, is asked, as asking is what decides.
+        if (version !== undefined && predatesStreaming(version)) {
+            this.#streaming = false;
+        }
+
         for (const { request } of this.#calls.values()) {
             this.#socket?.send(
                 new Uint8Array(wrapSqonError(() => this._context.codecs.cbor.encode(request))),
@@ -314,10 +323,18 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         // Nor is one streamed with no socket to write to, which is where a reconnect cooldown
         // leaves the engine: a buffered call is queued and re-sent once the connection returns,
         // where a stream would be waiting on a request that was never written.
+        //
+        // Both of those, and the driver's `streaming: false`, are about a query which is streamed
+        // because it can be. A caller who asked for a stream has said that it wants one, so for it
+        // they do not apply: it streams inside a transaction, and in spite of the driver's wish.
+        // What it cannot be given is a stream from a server which cannot stream, which is learned,
+        // and which still answers it buffered.
+        const requested = options?.stream === true;
+
         if (
-            txn !== undefined ||
+            (txn !== undefined && !requested) ||
+            (this._context.options.streaming === false && !requested) ||
             !this.#streaming ||
-            this._context.options.streaming === false ||
             !this.#socket
         ) {
             return super.query<T>(query, session, txn, options);
@@ -329,7 +346,15 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         // would otherwise never be let go.
         const frames: { current?: AsyncIterableIterator<QueryStreamFrame> } = {};
         const abandonment: Abandonment = {};
-        const chunks = this.streamChunks<T>(query, session, txn, options, frames, abandonment);
+        const chunks = this.streamChunks<T>(
+            query,
+            session,
+            txn,
+            options,
+            requested,
+            frames,
+            abandonment,
+        );
 
         return {
             [Symbol.asyncIterator]: () => ({
@@ -357,13 +382,14 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         session: Session,
         txn: Uuid | undefined,
         options: RequestOptions | undefined,
+        requested: boolean,
         frames: { current?: AsyncIterableIterator<QueryStreamFrame> },
         abandonment: Abandonment,
     ): AsyncGenerator<QueryChunk<T>> {
         const probe: StreamProbe = { framed: false };
 
         // Opened here rather than by `query`, so nothing is sent until the caller reads.
-        frames.current = this.streamFrames(query, session, probe);
+        frames.current = this.streamFrames(query, session, txn, probe);
 
         try {
             for await (const chunk of queryStreamChunks<T>(frames.current, abandonment)) {
@@ -380,8 +406,19 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
             // Absent or denied is a property of the server rather than of this query, so it is
             // remembered for as long as the socket lasts.
-            if (error.code === METHOD_NOT_FOUND || error.code === METHOD_NOT_ALLOWED) {
+            const cannotStream =
+                error.code === METHOD_NOT_FOUND || error.code === METHOD_NOT_ALLOWED;
+
+            if (cannotStream) {
                 this.#streaming = false;
+            }
+
+            // A caller who asked for a stream is told when the refusal is about this one - the
+            // connection being at its limit of them, say - rather than quietly served a buffered
+            // answer instead. A server which cannot stream at all is a different matter: the
+            // stream is a way of receiving the answer, and the answer is still wanted.
+            if (requested && !cannotStream) {
+                throw error;
             }
 
             for await (const chunk of super.query<T>(query, session, txn, options)) {
@@ -417,6 +454,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     private streamFrames(
         query: BoundQuery,
         session: Session,
+        txn: Uuid | undefined,
         probe: StreamProbe,
     ): AsyncIterableIterator<QueryStreamFrame> {
         // A stream is never re-sent once a socket returns, so it cannot be queued for one which is
@@ -443,6 +481,8 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                         method: "query_stream",
                         params: [query.query, query.bindings],
                         session,
+                        // Only when there is one: a stream inside a transaction is run on it.
+                        ...(txn === undefined ? {} : { txn }),
                     }),
                 ),
             ),
@@ -759,6 +799,39 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
  */
 function isRetriableAsBuffered(error: unknown): error is ServerError {
     return error instanceof ServerError;
+}
+
+/**
+ * Whether a version is known to be older than the first to serve streaming queries.
+ *
+ * "Known" is the point: a version which does not begin with numbers - or is absent - is not one
+ * that is known to be older, and is asked. Nor is this the feature's own `supports`, which
+ * compares strings, so that anything which does not begin with a digit sorts past every number,
+ * and which also refuses a version newer than the range this SDK is tested against: a bound which
+ * says nothing about streaming, as a server newer than the SDK should still be asked.
+ *
+ * A prerelease is compared by the release it leads up to, as one of the release which introduced
+ * streaming may or may not have it, and the question settles that.
+ */
+function predatesStreaming(version: string): boolean {
+    const since = Features.QueryStreaming.sinceVersion;
+    const have = releaseOf(version);
+    const first = since === undefined ? undefined : releaseOf(since);
+
+    if (!have || !first) return false;
+
+    for (let index = 0; index < 3; index++) {
+        if (have[index] !== first[index]) return have[index] < first[index];
+    }
+
+    return false;
+}
+
+/** The major, minor and patch of a version, or nothing when it does not begin with them. */
+function releaseOf(version: string): [number, number, number] | undefined {
+    const match = /^(?:surrealdb-)?v?(\d+)\.(\d+)(?:\.(\d+))?/.exec(version.trim());
+
+    return match ? [Number(match[1]), Number(match[2]), Number(match[3] ?? 0)] : undefined;
 }
 
 /** The wire code for a method a server does not serve. */

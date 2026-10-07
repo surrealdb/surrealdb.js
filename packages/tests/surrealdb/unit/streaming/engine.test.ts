@@ -323,6 +323,219 @@ describe("websocket query streaming", () => {
         expect(MockSocket.current.requestsFor("query")).toHaveLength(1);
     });
 
+    describe("a stream which was asked for", () => {
+        const WANT = { stream: true };
+
+        /** Answers streams in full and buffered queries with a single row. */
+        function serve(refuse?: { code: number; message: string }) {
+            MockSocket.handler = (socket, request) => {
+                if (request.method === "query_stream") {
+                    if (refuse) {
+                        queueMicrotask(() => socket.respond({ id: request.id, error: refuse }));
+                        return;
+                    }
+
+                    respondWithFrames(socket, request, ROWS_THEN_VALUE);
+                }
+
+                if (request.method === "query") {
+                    queueMicrotask(() => socket.respond(bufferedResponse(request, [{ n: 1 }])));
+                }
+            };
+        }
+
+        test("streams inside a transaction, which a query merely awaited does not", async () => {
+            const started = await openEngine();
+            const txn = Uuid.v4();
+
+            serve();
+
+            const asked = await collect(
+                started.query(new BoundQuery("SELECT * FROM person"), undefined, txn, WANT),
+            );
+            const accepted = await collect(
+                started.query(new BoundQuery("SELECT * FROM person"), undefined, txn),
+            );
+
+            expect(asked.map((chunk) => chunk.kind)).toEqual([
+                "batched",
+                "batched-final",
+                "single",
+            ]);
+            expect(accepted).toHaveLength(1);
+
+            const [stream] = MockSocket.current.requestsFor("query_stream");
+
+            // The stream is run on the transaction it was asked for on.
+            expect(String(stream?.txn)).toBe(txn.toString());
+            expect(MockSocket.current.requestsFor("query_stream")).toHaveLength(1);
+            expect(MockSocket.current.requestsFor("query")).toHaveLength(1);
+        });
+
+        test("carries no transaction when it is not in one", async () => {
+            const started = await openEngine();
+
+            serve();
+
+            await collect(started.query(new BoundQuery("RETURN 1"), undefined, undefined, WANT));
+
+            const [stream] = MockSocket.current.requestsFor("query_stream");
+
+            expect(stream).toBeDefined();
+            expect("txn" in (stream ?? {})).toBe(false);
+        });
+
+        test("streams in spite of the driver being configured not to", async () => {
+            const started = await openEngine({ streaming: false });
+
+            serve();
+
+            const asked = await collect(
+                started.query(new BoundQuery("RETURN 1"), undefined, undefined, WANT),
+            );
+            const accepted = await collect(
+                started.query(new BoundQuery("RETURN 1"), undefined, undefined),
+            );
+
+            expect(asked).toHaveLength(3);
+            expect(accepted).toHaveLength(1);
+            expect(MockSocket.current.requestsFor("query_stream")).toHaveLength(1);
+            expect(MockSocket.current.requestsFor("query")).toHaveLength(1);
+        });
+
+        test("is refused, not quietly buffered, when the connection is at its limit", async () => {
+            const started = await openEngine();
+
+            serve({ code: -32603, message: "Too many concurrent streaming queries" });
+
+            const outcome = collect(
+                started.query(new BoundQuery("SELECT * FROM person"), undefined, undefined, WANT),
+            ).then(
+                () => "resolved",
+                (error: Error) => `${error.constructor.name}: ${error.message}`,
+            );
+
+            expect(await outcome).toMatch(/Too many concurrent streaming queries/);
+
+            // Asked of the server once, and never turned into a buffered query behind its back.
+            expect(MockSocket.current.requestsFor("query_stream")).toHaveLength(1);
+            expect(MockSocket.current.requestsFor("query")).toBeEmpty();
+
+            // The refusal is about that stream, so it is not remembered as the server's inability.
+            serve();
+
+            expect(
+                await collect(
+                    started.query(new BoundQuery("RETURN 1"), undefined, undefined, WANT),
+                ),
+            ).toHaveLength(3);
+        });
+
+        test.each([
+            [-32601, "Method not found"],
+            [-32602, "Method not allowed"],
+        ])("is answered, buffered, by a server which cannot stream (%p)", async (code, message) => {
+            const started = await openEngine();
+
+            serve({ code, message });
+
+            const first = await collect(
+                started.query(new BoundQuery("SELECT * FROM person"), undefined, undefined, WANT),
+            );
+
+            // The stream is a way of receiving the answer, and the answer is still wanted.
+            expect(first).toHaveLength(1);
+            expect(first[0]).toMatchObject({ kind: "batched-final", result: [{ n: 1 }] });
+
+            // And what the server cannot do is learned, so it is not asked again.
+            await collect(started.query(new BoundQuery("RETURN 1"), undefined, undefined, WANT));
+
+            expect(MockSocket.current.requestsFor("query_stream")).toHaveLength(1);
+            expect(MockSocket.current.requestsFor("query")).toHaveLength(2);
+        });
+
+        test("an ordinary query is still buffered at the limit, for that query alone", async () => {
+            const started = await openEngine();
+
+            serve({ code: -32603, message: "Too many concurrent streaming queries" });
+
+            const chunks = await collect(
+                started.query(new BoundQuery("SELECT * FROM person"), undefined),
+            );
+
+            expect(chunks).toHaveLength(1);
+            expect(MockSocket.current.requestsFor("query")).toHaveLength(1);
+        });
+    });
+
+    describe("a server known to predate streaming", () => {
+        async function connectedTo(version: string | undefined): Promise<WebSocketEngine> {
+            const started = await openEngine();
+
+            started.ready(version);
+
+            MockSocket.handler = (socket, request) => {
+                if (request.method === "query_stream") {
+                    respondWithFrames(socket, request, ROWS_THEN_VALUE);
+                }
+
+                if (request.method === "query") {
+                    queueMicrotask(() => socket.respond(bufferedResponse(request, [{ n: 1 }])));
+                }
+            };
+
+            return started;
+        }
+
+        test.each([
+            "surrealdb-2.1.0",
+            "surrealdb-3.0.5",
+            "surrealdb-3.2.3",
+            "3.2.3+20260721.40522d1",
+            "3.2.99",
+        ])("is not asked at all (%p)", async (version) => {
+            const started = await connectedTo(version);
+
+            // Asked for or not, it is not asked: it is known not to be able to.
+            await collect(started.query(new BoundQuery("RETURN 1"), undefined));
+            await collect(
+                started.query(new BoundQuery("RETURN 1"), undefined, undefined, { stream: true }),
+            );
+
+            expect(MockSocket.current.requestsFor("query_stream")).toBeEmpty();
+            expect(MockSocket.current.requestsFor("query")).toHaveLength(2);
+        });
+
+        test.each([
+            "surrealdb-3.3.0",
+            "3.3.0",
+            "3.4.0-nightly+20261005.8bd73c4",
+            // A prerelease of the release which introduced it may or may not have it.
+            "3.3.0-beta.3",
+            // Newer than anything this SDK was written against says nothing against streaming.
+            "surrealdb-6.0.0",
+            "surrealdb-12.1.0",
+        ])("is asked, as asking is what decides (%p)", async (version) => {
+            const started = await connectedTo(version);
+
+            const chunks = await collect(started.query(new BoundQuery("RETURN 1"), undefined));
+
+            expect(chunks).toHaveLength(3);
+            expect(MockSocket.current.requestsFor("query_stream")).toHaveLength(1);
+        });
+
+        test.each([undefined, "", "nightly", "not a version"])(
+            "is asked when the version is not known or not understood (%p)",
+            async (version) => {
+                const started = await connectedTo(version);
+
+                await collect(started.query(new BoundQuery("RETURN 1"), undefined));
+
+                expect(MockSocket.current.requestsFor("query_stream")).toHaveLength(1);
+            },
+        );
+    });
+
     test("a long burst of frames arrives complete and in order", async () => {
         const started = await openEngine();
 
