@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { RecordId, type Surreal, Table, ThrownError } from "surrealdb";
-import { createSurreal, SURREAL_PROTOCOL, serverStreams } from "../__helpers__";
+import { RecordId, ServerError, type Surreal, Table } from "surrealdb";
+import { createSurreal, requestVersion, SURREAL_PROTOCOL, serverStreams } from "../__helpers__";
+
+// Transactions held by the client need 3.0.0 or later
+const { is3x } = await requestVersion();
 
 /**
  * `rows()` and `statements()` read a query as a stream. They are the same answer as `collect()`,
@@ -133,7 +136,7 @@ describe.if(SURREAL_PROTOCOL === "ws")("rows() and statements()", () => {
         }
 
         expect(seen).toHaveLength(3);
-        expect(thrown).toBeInstanceOf(ThrownError);
+        expect(thrown).toBeInstanceOf(ServerError);
         expect((thrown as Error).message).toContain("nope");
 
         // And the connection is not left in the middle of it.
@@ -152,7 +155,7 @@ describe.if(SURREAL_PROTOCOL === "ws")("rows() and statements()", () => {
             }
         })();
 
-        await expect(attempt).rejects.toBeInstanceOf(ThrownError);
+        await expect(attempt).rejects.toBeInstanceOf(ServerError);
         expect(seen).toEqual([0]);
     });
 
@@ -278,27 +281,30 @@ describe.if(SURREAL_PROTOCOL === "ws")("rows() and statements()", () => {
         expect(ids[0]).toMatch(/^wide:/);
     });
 
-    test("rows() inside a transaction streams, and the transaction commits what it wrote", async () => {
-        const surreal = await seeded();
-        const transaction = await surreal.beginTransaction();
+    test.skipIf(!is3x)(
+        "rows() inside a transaction streams, and the transaction commits what it wrote",
+        async () => {
+            const surreal = await seeded();
+            const transaction = await surreal.beginTransaction();
 
-        const updated: unknown[] = [];
+            const updated: unknown[] = [];
 
-        for await (const row of transaction.query("UPDATE wide SET seen = true").rows()) {
-            updated.push(row);
-        }
+            for await (const row of transaction.query("UPDATE wide SET seen = true").rows()) {
+                updated.push(row);
+            }
 
-        // Read to the end first: committing while the query still runs commits a prefix.
-        await transaction.commit();
+            // Read to the end first: committing while the query still runs commits a prefix.
+            await transaction.commit();
 
-        expect(updated).toHaveLength(RECORDS);
+            expect(updated).toHaveLength(RECORDS);
 
-        const [seen] = await surreal
-            .query("SELECT count() FROM wide WHERE seen = true GROUP ALL")
-            .collect();
+            const [seen] = await surreal
+                .query("SELECT count() FROM wide WHERE seen = true GROUP ALL")
+                .collect();
 
-        expect(seen).toEqual([{ count: RECORDS }]);
-    });
+            expect(seen).toEqual([{ count: RECORDS }]);
+        },
+    );
 
     test("rows keep statement order inside a transaction which is written in the query", async () => {
         const surreal = await seeded();
@@ -309,7 +315,7 @@ describe.if(SURREAL_PROTOCOL === "ws")("rows() and statements()", () => {
         const sql = `
             BEGIN;
             SELECT VALUE n FROM ONLY wide:1;
-            SELECT VALUE n FROM wide ORDER BY id;
+            SELECT VALUE n FROM wide;
             COMMIT;
         `;
 
