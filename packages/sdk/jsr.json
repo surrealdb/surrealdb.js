@@ -1,0 +1,10 @@
+{
+    "$schema": "https://jsr.io/schema/config-file.v1.json",
+    "name": "@surrealdb/surrealdb",
+    "license": "Apache-2.0",
+    "exports": "./src/index.ts",
+    "publish": {
+        "include": ["src/**/*.ts", "README.md", "LICENSE", "SECURITY.md"],
+        "exclude": ["src/index.server.ts", "src/inspect"]
+    }
+}

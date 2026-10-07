@@ -51,7 +51,6 @@ demo/expo/.metro-health-check*
 
 *.db
 test-db-*
-jsr.json
 junit.xml
 .env
 .turbo
