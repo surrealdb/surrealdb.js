@@ -279,7 +279,7 @@ export function App() {
     );
 }
 
-function describeLiveMessage(message: LiveMessage): string {
+function describeLiveMessage(message: LiveMessage<unknown>): string {
     if (message.action === "KILLED") {
         return "KILLED - the live query was terminated by the server";
     }

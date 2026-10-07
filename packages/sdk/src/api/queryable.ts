@@ -222,7 +222,7 @@ export abstract class SurrealQueryable {
      * @param what The table to subscribe to
      * @returns A new live subscription object
      */
-    live<T>(what: LiveResource): ManagedLivePromise<T> {
+    live<T = Record<string, unknown>>(what: LiveResource): ManagedLivePromise<T> {
         return new ManagedLivePromise(this.#connection, {
             what,
             session: this.#session,
