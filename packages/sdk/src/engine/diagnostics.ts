@@ -131,8 +131,8 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    ready(): void {
-        this.#delegate.ready();
+    ready(version?: string): void {
+        this.#delegate.ready(version);
     }
 
     async health(): Promise<void> {

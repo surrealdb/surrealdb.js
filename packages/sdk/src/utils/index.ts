@@ -8,5 +8,6 @@ export * from "./is-version-supported";
 export * from "./live";
 export * from "./live-dispatcher";
 export * from "./publisher";
+export * from "./stream-views";
 export * from "./string-prefixes";
 export * from "./tagged-template";

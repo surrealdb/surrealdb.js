@@ -108,6 +108,21 @@ export interface RequestOptions {
      * engine which does only misses the chance to release resources early.
      */
     signal?: AbortSignal;
+
+    /**
+     * Whether the caller asked for the answer to be streamed, as opposed to being content with
+     * it however it arrives.
+     *
+     * A query is streamed when the server can, which is invisible: it is answered the same either
+     * way, so a query which cannot be streamed - because it is inside a transaction, or the driver
+     * was configured not to - is quietly buffered instead. A caller who asked for a stream has
+     * said that it wants one, and an engine which can stream it honours that where it would
+     * otherwise have declined, and says so when it cannot, rather than quietly serving something
+     * else. A server which does not stream at all still answers, buffered, as it always has.
+     *
+     * Engines which do not stream ignore it.
+     */
+    stream?: boolean;
 }
 
 /**
@@ -133,7 +148,14 @@ export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEve
     features: Set<Feature>;
     open(state: ConnectionState): void;
     close(): Promise<void>;
-    ready(): void;
+
+    /**
+     * Called once a connection is established and its sessions are restored, so that what was
+     * waiting for it can be sent.
+     *
+     * @param version The version the server reported, when it is known.
+     */
+    ready(version?: string): void;
 
     /**
      * Run a query as a different identity than the one of the session, for this query only.
@@ -213,9 +235,15 @@ export interface DriverOptions {
      * them in a single response, on engines and servers which support it.
      *
      * Streaming lowers the time until the first result and avoids decoding one large
-     * response, and is transparent: results, errors, and statistics are the same either
-     * way. Queries sent inside a transaction created with `.begin()` are never streamed,
-     * and a server without support for streaming is detected and used as before.
+     * response, and is transparent for a query which is simply awaited: results, errors, and
+     * statistics are the same either way. That is the query this governs. One sent inside a
+     * transaction created with `.begin()` is not streamed, and neither is one when this is
+     * `false`; a server without support for streaming is detected and used as before.
+     *
+     * A query which asks for a stream - `.stream()`, `.rows()` or `.statements()` - is not
+     * governed by it. It is streamed inside a transaction, and in spite of this being `false`,
+     * and is answered buffered only by a server which cannot stream. To guarantee that no
+     * streaming request is ever sent, do not ask for one.
      *
      * @default true
      */
