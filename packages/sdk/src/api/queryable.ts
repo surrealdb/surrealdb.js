@@ -213,14 +213,19 @@ export abstract class SurrealQueryable {
     }
 
     /**
-     * Create a new live subscription to a specific table, record id, or record id range
+     * Create a new managed live query subscription to a table, record ID, or record ID range.
+     *
+     * Unlike `liveOf()`, which attaches to an already existing live query UUID, `live()` automatically
+     * registers the `LIVE SELECT` statement on SurrealDB, tracks the live query UUID, and transparently
+     * handles re-establishing the subscription across connection drops.
      *
      * When called on a view made with `withSignal()`, the subscription is killed when the signal
      * aborts: iteration ends, `isAlive` turns false, and the live query is killed on the server.
      * See `SurrealRequestScope`.
      *
-     * @param what The table to subscribe to
-     * @returns A new live subscription object
+     * @see {@link liveOf} for attaching an unmanaged subscriber to an existing live query ID.
+     * @param what The table, record ID, or record ID range to subscribe to
+     * @returns A new managed live subscription object
      */
     live<T = Record<string, unknown>>(what: LiveResource): ManagedLivePromise<T> {
         return new ManagedLivePromise(this.#connection, {
@@ -231,14 +236,18 @@ export abstract class SurrealQueryable {
     }
 
     /**
-     * Manually subscribe to an existing live subscription using the provided ID
+     * Manually subscribe to an existing live query using its UUID.
      *
-     * **NOTE:** This function is for use with live select queries that are not managed by the driver.
+     * **NOTE:** This function is for use with live queries that are not managed by the driver,
+     * such as those created directly via raw SurrealQL (`db.query("LIVE SELECT ...")`) or an
+     * external service. Unlike `live()`, this does not create the live query on the database or
+     * re-establish it on reconnection.
      *
      * When called on a view made with `withSignal()`, the live query is killed on the server when the
      * signal aborts, as `kill()` would, and a signal which has aborted already subscribes to nothing.
      *
-     * @param id The ID of the live subscription to subscribe to
+     * @see {@link live} for automatic, driver-managed live queries with reconnect support.
+     * @param id The UUID of the existing live query to subscribe to
      * @returns A new unmanaged live subscription object
      */
     liveOf(id: Uuid): UnmanagedLivePromise {
@@ -282,15 +291,31 @@ export abstract class SurrealQueryable {
     }
 
     /**
-     * Create a new record in the database
+     * Create a new record in the database using the SurrealQL `CREATE` statement.
      *
-     * @param recordId The record id of the record to create
+     * Use `create()` when creating a single record (with a specific `RecordId` or generated ID
+     * in a `Table`) where you want to chain mutation methods like `.content()`, `.set()`, `.merge()`,
+     * or `.patch()`. If a record with the specified ID already exists, the operation fails.
+     *
+     * For bulk inserting multiple records, or when you want to ignore duplicate conflicts with
+     * `.ignore()`, use `insert()` instead.
+     *
+     * @see {@link insert} for bulk insertion or `INSERT IGNORE` support.
+     * @param recordId The record ID of the record to create
      */
     create<T>(recordId: AnyRecordId): CreatePromise<RecordResult<T>, T>;
 
     /**
-     * Create a new record in the specified table
+     * Create a new record in the specified table using the SurrealQL `CREATE` statement.
      *
+     * Use `create()` when creating a single record (with a specific `RecordId` or generated ID
+     * in a `Table`) where you want to chain mutation methods like `.content()`, `.set()`, `.merge()`,
+     * or `.patch()`. If a record with the specified ID already exists, the operation fails.
+     *
+     * For bulk inserting multiple records, or when you want to ignore duplicate conflicts with
+     * `.ignore()`, use `insert()` instead.
+     *
+     * @see {@link insert} for bulk insertion or `INSERT IGNORE` support.
      * @param table The table to create a record in
      */
     create<T>(table: Table): CreatePromise<RecordResult<T>[], T>;
@@ -356,15 +381,37 @@ export abstract class SurrealQueryable {
     }
 
     /**
-     * Inserts one or multiple records into the database
+     * Inserts one or multiple records into the database using the SurrealQL `INSERT` statement.
      *
+     * Use `insert()` when:
+     * - Ingesting records in bulk (`Values<T>[]`).
+     * - Inserting records that already specify their own `id` field.
+     * - You want to ignore conflicts on existing records using `.ignore()` (`INSERT IGNORE`).
+     * - You want to insert graph relation records using `.relation()` (`INSERT RELATION`).
+     *
+     * Note: Unlike `create()`, `insert()` expects record data payloads as its argument (optionally
+     * preceded by a target `Table`), rather than taking a `RecordId` as a target. To create a
+     * record at a specific `RecordId`, use `db.create(recordId).content(data)`.
+     *
+     * @see {@link create} for creating a single record with mutation builders (`.content()`, `.set()`, `.patch()`).
      * @param data One or more records to insert
      */
     insert<T>(data: Values<T> | Values<T>[]): InsertPromise<RecordResult<T>[]>;
 
     /**
-     * Inserts one or multiple records into the database
+     * Inserts one or multiple records into the database using the SurrealQL `INSERT` statement.
      *
+     * Use `insert()` when:
+     * - Ingesting records in bulk (`Values<T>[]`).
+     * - Inserting records that already specify their own `id` field.
+     * - You want to ignore conflicts on existing records using `.ignore()` (`INSERT IGNORE`).
+     * - You want to insert graph relation records using `.relation()` (`INSERT RELATION`).
+     *
+     * Note: Unlike `create()`, `insert()` expects record data payloads as its argument (optionally
+     * preceded by a target `Table`), rather than taking a `RecordId` as a target. To create a
+     * record at a specific `RecordId`, use `db.create(recordId).content(data)`.
+     *
+     * @see {@link create} for creating a single record with mutation builders (`.content()`, `.set()`, `.patch()`).
      * @param table The table to insert the record into
      * @param data One or more records to insert
      */

@@ -305,7 +305,7 @@ After you have connected to a SurrealDB instance, you can send queries to the da
 const personTable = new Table("person");
 
 // Create a new person with a random id
-let created = await db.create<Person>(personTable, {
+let [created] = await db.create<Person>(personTable).content({
     title: "Founder & CEO",
     name: {
         first: "Tobie",
@@ -313,6 +313,22 @@ let created = await db.create<Person>(personTable, {
     },
     marketing: false,
 });
+
+// Create a record with a specific id
+let specific = await db.create<Person>(new RecordId("person", "tobie")).content({
+    title: "Founder & CEO",
+    name: {
+        first: "Tobie",
+        last: "Morgan Hitchcock",
+    },
+    marketing: true,
+});
+
+// Insert one or multiple records in bulk
+let inserted = await db.insert<Person>(personTable, [
+    { title: "Engineer", name: { first: "Alice", last: "Smith" }, marketing: false },
+    { title: "Designer", name: { first: "Bob", last: "Jones" }, marketing: true },
+]);
 
 // Update a person record with a specific id
 let updated = await db.update<Person>(created.id).merge({
@@ -322,6 +338,30 @@ let updated = await db.update<Person>(created.id).merge({
 // Select all people records
 let people = await db.select<Person>(personTable);
 ```
+
+##### Choosing between `create()` and `insert()`
+
+While both `create()` and `insert()` add new records to the database, they correspond to different SurrealQL statements (`CREATE` vs `INSERT`) and serve distinct use cases:
+
+| Feature | `create()` (`CREATE`) | `insert()` (`INSERT`) |
+| --- | --- | --- |
+| **Primary use case** | Creating a single record with mutation builders | Ingesting single or multiple records in bulk |
+| **Target argument** | `Table` or `RecordId`: `db.create(target)` | `Table` and records, or records directly: `db.insert(table, data)` |
+| **Bulk insertion** | No (targets a single record or table) | Yes (accepts `Values<T>[]`) |
+| **Data specification** | Chained methods: `.content()`, `.set()`, `.merge()`, `.patch()` | Passed directly as argument |
+| **Duplicate handling** | Fails if the record already exists | Fails by default, or skips conflicts with `.ignore()` (`INSERT IGNORE`) |
+| **Relations** | No (use `db.relate()`) | Yes, with `.relation()` (`INSERT RELATION`) |
+
+**Use `create()` when:**
+- You are creating an individual record and want to specify the target `RecordId` directly: `db.create(new RecordId("person", "tobie")).content(...)`.
+- You want to use mutation builders like `.set()`, `.merge()`, or `.patch()`.
+- You expect the record ID not to exist yet and want SurrealDB to reject the operation if a record with that ID already exists.
+
+**Use `insert()` when:**
+- You are inserting multiple records at once (bulk ingestion).
+- You want to skip duplicate keys without throwing an error by chaining `.ignore()`.
+- Your record data already includes its own `id` field: `db.insert([{ id: new RecordId("person", "1"), ... }])`.
+- Note: Passing a bare `RecordId` to `insert()` (e.g. `db.insert(recordId)`) throws an error because `INSERT` operates on tables or record payloads. Use `db.create(recordId).content(data)` instead.
 
 #### String based queries
 
@@ -518,6 +558,43 @@ for await (const { action, value } of subscription) {
     if (action === "CREATE") {
         console.log("A new person was created:", value);
     }
+}
+```
+
+#### Managed (`live()`) vs unmanaged (`liveOf()`) live queries
+
+The SDK provides two methods for live query subscriptions:
+
+| Feature | `live()` (Managed) | `liveOf()` (Unmanaged) |
+| --- | --- | --- |
+| **Target** | `Table`, `RecordId`, or `RecordIdRange` | Live query UUID (`Uuid`) |
+| **Query registration** | Automatically registers `LIVE SELECT` on the database | None (subscribes to an already registered query) |
+| **Reconnection** | Automatically re-registers the query and resumes streaming on reconnect | Does not re-register (lifetime tied to original socket session) |
+| **Lifecycle cleanup** | Automatically calls `KILL <uuid>` on `.kill()` or signal abort | Calls `KILL <uuid>` on `.kill()` or signal abort |
+
+**Use `live()` (recommended)** for almost all application code. It handles registering the query on SurrealDB, streaming changes via an async iterator, and transparently re-subscribing if the WebSocket connection drops and reconnects:
+
+```ts
+const subscription = await db.live(new Table("person"));
+
+for await (const { action, value } of subscription) {
+    console.log(action, value);
+}
+```
+
+**Use `liveOf()`** when you need to attach a listener to an existing live query that was initiated outside of the driver's managed query flow — such as a live query started with a raw SurrealQL query (`LIVE SELECT * FROM ...`) or a live query ID received from another service:
+
+```ts
+// Start a custom live query via raw SurrealQL
+const [liveQueryId] = await db
+    .query("LIVE SELECT * FROM person WHERE age > 18")
+    .collect<[Uuid]>();
+
+// Attach an unmanaged subscriber to receive notifications
+const subscription = db.liveOf(liveQueryId);
+
+for await (const { action, value } of subscription) {
+    console.log(action, value);
 }
 ```
 
