@@ -112,6 +112,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #expiryMargin: number = 60;
     #skipRenewal: boolean = false;
     #checkVersion: boolean = false;
+    #lastConnectionError: Error | undefined = undefined;
 
     subscribe<K extends keyof ConnectionEvents>(
         event: K,
@@ -152,6 +153,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         this.#nextEngine = engine;
         this.#status = "connecting";
+        this.#lastConnectionError = undefined;
 
         await this.disconnect();
 
@@ -200,6 +202,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#engine.subscribe("connected", () => this.#onConnected());
         this.#engine.subscribe("disconnected", () => this.#onDisconnected());
         this.#engine.subscribe("reconnecting", () => this.#onReconnecting());
+        this.#engine.subscribe("error", (error) => this.#onEngineError(error));
 
         this.#status = "connecting";
         this.#eventPublisher.publish("connecting");
@@ -220,17 +223,17 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     public async ready(): Promise<void> {
         if (this.#status === "disconnected") {
-            throw new ConnectionUnavailableError();
+            throw this.#lastConnectionError ?? new ConnectionUnavailableError();
         }
 
         if (this.#status === "connected") {
             return;
         }
 
-        const [result] = await this.#eventPublisher.subscribeFirst("connected", "error");
+        await this.#eventPublisher.subscribeFirst("connected", "disconnected");
 
-        if (result instanceof Error) {
-            throw result;
+        if ((this.#status as ConnectionStatus) === "disconnected") {
+            throw this.#lastConnectionError ?? new ConnectionUnavailableError();
         }
     }
 
@@ -706,9 +709,11 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             // Signal engine that sessions are restored and pending calls can be sent
             this.#engine?.ready(version);
 
+            this.#lastConnectionError = undefined;
             this.#status = "connected";
             this.#eventPublisher.publish("connected", version);
         } catch (err: unknown) {
+            this.#lastConnectionError = err as Error;
             this.#eventPublisher.publish("error", err as Error);
             this.#engine?.close();
             return;
@@ -731,6 +736,11 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #onReconnecting(): void {
         this.#status = "reconnecting";
         this.#eventPublisher.publish("reconnecting");
+    }
+
+    #onEngineError(error: Error): void {
+        this.#lastConnectionError = error;
+        this.#eventPublisher.publish("error", error);
     }
 
     // =========================================================== //
