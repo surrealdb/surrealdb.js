@@ -343,6 +343,62 @@ let [created] = await db
     .collect<[Person]>();
 ```
 
+#### Streaming results
+
+Against a server which supports it (SurrealDB 3.3.0 and later, over WebSocket), a query is answered
+as its results are produced instead of in one response, so the first rows are available while the
+rest of the query is still running. Nothing changes for `collect()`: it returns the same answer,
+and a server which cannot stream answers as it always has.
+
+To work with rows as they arrive, ask for them:
+
+```ts
+for await (const person of db.query<[Person[]]>("SELECT * FROM person").rows()) {
+    console.log(person.name);
+}
+
+// Query builders stream their records the same way, and a parse function is applied to each
+// row as it arrives, which is where a row can be validated before the query is held whole.
+for await (const person of db.select<Person>(table).rows(Person.parse)) {
+    console.log(person);
+}
+```
+
+For a query of several statements `rows()` yields the rows of each in turn. Use `statements()` when
+the statements need to be told apart, or when each should be received whole, once it is final:
+
+```ts
+const sql = "SELECT * FROM person; SELECT * FROM company";
+
+for await (const statement of db.query<[Person[], Company[]]>(sql).statements()) {
+    console.log(statement.index, statement.value.length);
+}
+```
+
+Rows arrive before the statement which produced them has finished, so **a row is provisional until
+iteration completes without throwing**: a statement which fails afterwards voids the rows it
+yielded, and iteration throws its error. `statements()` has no such caveat, as a statement is only
+yielded once it is complete.
+
+Leaving the loop stops the query on the server rather than leaving it to produce results nothing
+will read, so `break` is how to take the first few rows of a large table. `await using` does the
+same when the stream is not read to its end:
+
+```ts
+await using people = db.select<Person>(table).rows();
+
+const first = await people.next();
+```
+
+Two things to know. Rows which have arrived and not yet been read are held in memory, and the
+WebSocket API has no way to pause the server, so a reader which is slower than the server holds the
+difference until it catches up; leaving is how that is stopped. And a stream inside a transaction
+must be read to its end **before** you commit: requests on a connection are served concurrently, so
+a `commit` which arrives while the query is still executing commits only the part which had run.
+
+`.stream()` gives the lower level view: every value, error and completion of every statement as a
+frame, which is what to use to see one statement fail while the statements after it carry on.
+
 #### Running several queries at once
 
 Pass a list to `query` to run several queries in a single request. Each item can be a string,

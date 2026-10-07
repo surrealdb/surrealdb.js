@@ -23,6 +23,10 @@ interface Person {
     age: number;
 }
 
+interface Company {
+    title: string;
+}
+
 async function _main() {
     // Instantiation
     const db = new Surreal();
@@ -367,6 +371,52 @@ async function _main() {
             // A `RETURN` is one value, so the frame carries the whole result.
             const _returned: number = frame.value;
         }
+    }
+
+    // Rows and statements: the row type is derived from the type of the query.
+    for await (const person of db.query<[Person[]]>("SELECT * FROM person").rows()) {
+        const _person: Person = person;
+        // @ts-expect-error The rows of this query are people, not companies.
+        const _company: Company = person;
+    }
+
+    for await (const row of db
+        .query<[Person[], Company[]]>("SELECT * FROM person; SELECT * FROM company")
+        .rows()) {
+        const _either: Person | Company = row;
+        // @ts-expect-error A row may be either, so it cannot be treated as only a person.
+        const _person: Person = row;
+    }
+
+    // A parse function receives the derived row, and decides what is yielded.
+    for await (const label of db
+        .query<[Person[]]>("SELECT * FROM person")
+        .rows((person) => `${person.name} (${person.age})`)) {
+        const _label: string = label;
+    }
+
+    // Without a type for the query, rows are unknown, which is what a validator takes.
+    for await (const person of db
+        .query("SELECT * FROM person")
+        .rows((row) => ({ name: String((row as Person).name) }))) {
+        const _name: string = person.name;
+    }
+
+    for await (const person of db.select<Person>(table).rows()) {
+        const _person: Person = person;
+    }
+
+    for await (const statement of db
+        .query<[Person[], Company[]]>("SELECT * FROM person; SELECT * FROM company")
+        .statements()) {
+        const _index: number = statement.index;
+        const _single: boolean = statement.single;
+        const _value: Person[] | Company[] = statement.value;
+    }
+
+    {
+        await using rows = db.query<[Person[]]>("SELECT * FROM person").rows();
+        const _first = await rows.next();
     }
 
     // Live queries
