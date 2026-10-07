@@ -18,7 +18,13 @@ import { RetryContext } from "../internal/retry";
 import { findRootCause, isSecondaryError } from "../internal/root-cause";
 import type { AuthOrToken, QueryChunk, QueryResponse, RetryValue, Session } from "../types";
 import { BoundQuery } from "../utils";
-import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../utils/frame";
+import { DoneFrame, ErrorFrame, type Frame, type StreamedRow, ValueFrame } from "../utils/frame";
+import {
+    type ChunkSource,
+    RowStream,
+    type StatementOf,
+    StatementStream,
+} from "../utils/stream-views";
 
 interface QueryOptions extends AbortOptions {
     query: BoundQuery;
@@ -130,7 +136,8 @@ export class Query<
      *
      * Retry only applies to `.collect()` (and awaiting the query directly), as the whole query is
      * re-sent on conflict. It does not apply to `.responses()` (which exposes partial results) or
-     * `.stream()` (which yields results incrementally and cannot be safely replayed mid-stream).
+     * to `.stream()`, `.rows()` and `.statements()` (which yield results incrementally and cannot
+     * be safely replayed mid-stream).
      *
      * A transaction written into the query is retried as well. When one fails, the server reports
      * an error for each of its statements, and the conflict may be on its `COMMIT`: the error
@@ -316,7 +323,118 @@ export class Query<
     }
 
     /**
+     * Stream the rows of the query as they arrive.
+     *
+     * The first rows are available while the rest of the query is still running, and nothing is
+     * held but what has arrived and not yet been read:
+     *
+     * ```ts
+     * for await (const person of db.query<[Person[]]>("SELECT * FROM person").rows()) {
+     *     console.log(person.name);
+     * }
+     * ```
+     *
+     * The row type is derived from the type of the query. For a query of several statements these
+     * are the rows of each in turn, in the order the server produces them; a statement which is
+     * one bare value, such as `SELECT ... FROM ONLY` or `RETURN 1 + 2`, is one row, and one whose
+     * value is `NONE`, such as `LET`, is none. Use `statements()` to tell the statements apart.
+     *
+     * A `parse` function is applied to each row as it arrives, which is where a row can be
+     * validated or turned into a class without the query being held whole first:
+     *
+     * ```ts
+     * for await (const person of db.query("SELECT * FROM person").rows(Person.parse)) {
+     *     person; // Person
+     * }
+     * ```
+     *
+     * **A row is provisional until iteration completes without throwing.** Rows arrive before the
+     * statement which produced them has finished, so one which fails afterwards voids what it
+     * yielded: iteration throws its error, and what was yielded for it should be discarded. To
+     * receive each statement only once it is final, use `statements()`. To see one statement fail
+     * while the others carry on, use the frames of `stream()`.
+     *
+     * Leaving the loop - `break`, `return()`, or `await using` - stops the query on the server and
+     * releases a read which is waiting on it at once. What has arrived and not yet been read is
+     * held in memory, and the WebSocket API offers no way to pause the server, so a reader which
+     * is slower than the server holds the difference until it catches up. Leaving is how that is
+     * stopped.
+     *
+     * Like `stream()`, this asks for a stream: it streams inside a transaction, where the caution
+     * about committing before the end applies, and in spite of `streaming: false`.
+     *
+     * @param parse Applied to each row as it arrives. Without one, rows are yielded as they are.
+     * @returns A single-use async iterable of rows, which can also be disposed.
+     */
+    rows<U = MaybeJsonify<StreamedRow<R[number]>, J>>(
+        parse?: (row: MaybeJsonify<StreamedRow<R[number]>, J>) => U,
+    ): RowStream<U> {
+        return new RowStream<U>(() => this.#openView(), this.#options.json, parse);
+    }
+
+    /**
+     * Stream the statements of the query, each once it is final.
+     *
+     * Where `rows()` delivers rows as they arrive, this delivers a statement when the server has
+     * said it is complete, with all of its rows. What is yielded is never retracted, so each
+     * statement can be acted on as it arrives while the statements after it are still running:
+     *
+     * ```ts
+     * const sql = "SELECT * FROM person; SELECT * FROM company";
+     *
+     * for await (const statement of db.query<[Person[], Company[]]>(sql).statements()) {
+     *     console.log(statement.index, statement.value.length);
+     * }
+     * ```
+     *
+     * A statement's rows are held until it finishes, so the rows of a statement are no sooner than
+     * with `collect()`; what is gained is each statement as it completes, and what is spared is the
+     * decoding of one very large answer. A statement which fails throws its error and ends the
+     * iteration. To see a failure and the statements after it, use `responses()` or the frames of
+     * `stream()`.
+     *
+     * Asks for a stream, and is left the same way as `rows()`.
+     *
+     * @returns A single-use async iterable of statements, which can also be disposed.
+     */
+    statements<T extends unknown[] = R>(): StatementStream<StatementOf<T, J>> {
+        return new StatementStream<StatementOf<T, J>>(() => this.#openView(), this.#options.json);
+    }
+
+    /**
+     * Open the query as a stream for a view to read, once, when it is first read from.
+     *
+     * Everything which `stream()` does to read through the signals of the query is done here too,
+     * so a view is abandoned by a signal, or by the request timeout, the same way.
+     */
+    async #openView(): Promise<ChunkSource> {
+        // The view's own signal, besides those of the query: leaving the view is abandoning the
+        // request, which is what frees a read parked on a server which is not streaming it.
+        const leaving = new AbortController();
+        const scope = abortScope([...(this.#options.signals ?? []), leaving.signal]);
+
+        try {
+            throwIfAborted(scope.signal);
+            await raceAbort(this.#connection.ready(), scope.signal);
+
+            return {
+                chunks: this.#open(scope.signal, true),
+                abort: () => leaving.abort(),
+                dispose: scope.dispose,
+            };
+        } catch (error) {
+            scope.dispose();
+            throw error;
+        }
+    }
+
+    /**
      * Stream the response frames of the query as they are received as an AsyncIterable.
+     *
+     * This is the low level view, and almost always the wrong one to start with: use `rows()` for
+     * the rows of a query as they arrive, or `statements()` for each statement once it is final.
+     * Frames are for what neither can show, which is one statement failing while the statements
+     * after it carry on, and the completion and statistics of each statement as it happens.
      *
      * Each iteration yields a **value**, **error**, or **done** frame. The provided
      * `isValue`, `isError`, and `isDone` methods can be used to check the type of frame, and
@@ -329,7 +447,10 @@ export class Query<
      * by their **done** frames.
      *
      * Abandoning the stream, such as by breaking out of the loop, stops the query on servers
-     * which support it, so results which are no longer wanted are no longer produced.
+     * which support it, so results which are no longer wanted are no longer produced. Frames which
+     * have arrived and not yet been read are held in memory, and the WebSocket API offers no way to
+     * pause the server, so a reader which is slower than the server holds the difference until it
+     * catches up.
      *
      * Asking for a stream is asking for one. Unlike a query which is simply awaited, which is
      * streamed only where doing so is invisible, this streams inside a transaction, and in spite

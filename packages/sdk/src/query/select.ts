@@ -9,6 +9,7 @@ import type { AnyRecordId, AuthOrToken, Expr, ExprLike, Session } from "../types
 import type { Field, Selection } from "../types/internal";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame, StreamedRow } from "../utils/frame";
+import type { RowStream } from "../utils/stream-views";
 import { Query } from "./query";
 
 interface SelectOptions extends AbortOptions {
@@ -217,6 +218,23 @@ export class SelectPromise<T, I, J extends boolean = false> extends DispatchedPr
      */
     compile(): BoundQuery<[T]> {
         return this.#build().inner;
+    }
+
+    /**
+     * Stream the records of the query as they arrive.
+     *
+     * The first are available while the rest are still being produced, and nothing is held but
+     * what has arrived and not yet been read. Each is yielded as it is, or as `parse` returns it
+     * when one is given. See `Query.rows()` for the details, which apply here: a record is
+     * provisional until iteration completes without throwing, and leaving the loop stops the query.
+     *
+     * @param parse Applied to each record as it arrives. Without one, records are yielded as they are.
+     * @returns A single-use async iterable of records, which can also be disposed.
+     */
+    rows<U = MaybeJsonify<StreamedRow<T>, J>>(
+        parse?: (row: MaybeJsonify<StreamedRow<T>, J>) => U,
+    ): RowStream<U> {
+        return this.#build().rows<U>(parse);
     }
 
     /**
