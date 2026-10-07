@@ -1,15 +1,20 @@
 import type { ConnectionController } from "../controller";
+import { ExpressionError } from "../errors";
+import { executeTransaction } from "../internal/transaction";
 import type {
     AccessRecordAuth,
     AnyAuth,
     NamespaceDatabase,
     Nullable,
+    QueryLike,
     Session,
     Token,
     Tokens,
+    TransactionOptions,
 } from "../types";
 import { Publisher } from "../utils";
 import { SurrealQueryable } from "./queryable";
+import { SurrealRequestScope } from "./request-scope";
 import { SurrealTransaction } from "./transaction";
 
 export type SessionEvents = {
@@ -148,6 +153,39 @@ export class SurrealSession extends SurrealQueryable {
 
     // =========================================================== //
     //                                                             //
+    //                      Cancellation Scope                     //
+    //                                                             //
+    // =========================================================== //
+
+    /**
+     * Create a view of this session in which every query is bound to an `AbortSignal`, which is how
+     * the work of a request handler is tied to the signal of the request without passing it to every
+     * call. A query made through the view is abandoned when the signal aborts, as if `.signal()` had
+     * been called on it, and a signal given to `.signal()` in addition is combined with this one.
+     *
+     * The view offers the same query methods as the session and `beginTransaction()`, whose
+     * transactions are bound to the signal too. It shares this session and does not change it, so one
+     * can be made per request on a connection which is shared between requests.
+     *
+     * Aborting stops waiting and does not undo anything: the server may carry on, and a write which
+     * was sent before the signal aborted may or may not have been applied.
+     *
+     * @example
+     * ```ts
+     * // Cloudflare Workers, Next.js route handlers, Hono: the request has a signal
+     * const scoped = db.withSignal(request.signal);
+     * const people = await scoped.select(new Table("person"));
+     * ```
+     *
+     * @param signal The signal which abandons the work. Without one, the view is not bound to any.
+     * @returns A view of this session bound to the signal
+     */
+    withSignal(signal: AbortSignal | undefined): SurrealRequestScope {
+        return new SurrealRequestScope(this.#connection, this.#session, signal ? [signal] : []);
+    }
+
+    // =========================================================== //
+    //                                                             //
     //                     Transaction Methods                     //
     //                                                             //
     // =========================================================== //
@@ -162,6 +200,67 @@ export class SurrealSession extends SurrealQueryable {
     async beginTransaction(): Promise<SurrealTransaction> {
         const transactionId = await this.#connection.begin(this.#session);
         return new SurrealTransaction(this.#connection, this.#session, transactionId);
+    }
+
+    /**
+     * Runs a list of queries atomically, in a single request.
+     *
+     * The queries are wrapped in `BEGIN` and `COMMIT` and sent together, so either all of
+     * their changes are applied or none are. Unlike `beginTransaction()`, no state is held on
+     * the connection, which means this works over HTTP as well as WebSockets.
+     *
+     * Resolves to the results of the queries, positional **per statement** in the same way as
+     * `query([...])`: a query builder holds one statement, while a string holding three takes
+     * three slots. Rejects with the error which made the transaction fail, rather than one of
+     * the "not executed" errors which the server reports for the statements it rolled back.
+     *
+     * Each input can be a string, a `BoundQuery` (such as one created with the `surql` template
+     * tag), a query builder (such as `select()` or `create()`) or a `Query` returned by `query()`.
+     * They cannot contain `BEGIN`, `COMMIT` or `CANCEL` statements, nor a `RETURN` followed by
+     * further statements, as `RETURN` ends a transaction early in SurrealQL: use `SELECT` or a
+     * bare expression to produce a value instead. A `RETURN` nested inside a block, such as an
+     * `IF`, ends the transaction in the same way but cannot be detected. Before SurrealDB 3.0 a
+     * `RETURN` also replaces the results of the statements before it, so none is allowed at all.
+     *
+     * Because the queries are sent as one atomic request, they are safe to replay, and so a
+     * transaction can opt into retrying when it fails due to a conflict with a concurrent
+     * transaction, using the `retry` option or the `retry` configured on the connection. Only
+     * SurrealDB 3.1.0 and later report a conflict in a way which the default retry recognizes:
+     * for earlier versions, provide a `retryable` predicate as for `query().retry()`. It is given
+     * the error which made the transaction fail, whichever version it is.
+     *
+     * The options also take a `signal` and a `requestTimeout`, as the query builders do with
+     * `.signal()` and `.requestTimeout()`: the transaction is abandoned when the signal aborts, or
+     * when the server has not answered in time, and a retry is not made once it is. As the
+     * transaction is a single request which the server may carry on to run, **an abandoned
+     * transaction may or may not have been committed**. Use `withSignal()` to bind every transaction
+     * of a request handler to the signal of the request.
+     *
+     * @example
+     * ```ts
+     * const [from, to] = await db.transaction<[Account, Account]>([
+     *     surql`UPDATE ONLY ${fromId} SET balance -= ${amount}`,
+     *     surql`UPDATE ONLY ${toId} SET balance += ${amount}`,
+     * ], { retry: true });
+     * ```
+     *
+     * @param queries The queries to run, each of which can be a string, `BoundQuery`, query builder or `Query`
+     * @param options Options to configure the transaction
+     * @returns The result of each statement, in order
+     */
+    transaction<R extends unknown[] = unknown[]>(
+        queries: readonly QueryLike[],
+        options?: TransactionOptions,
+    ): Promise<R>;
+
+    // Shadow implementation. The array form is told apart by its argument type, which leaves
+    // room for an overload which takes a callback to run interactively.
+    async transaction(queries: unknown, options?: TransactionOptions): Promise<unknown[]> {
+        if (!Array.isArray(queries)) {
+            throw new ExpressionError("transaction() expects an array of queries");
+        }
+
+        return executeTransaction(this.#connection, this.#session, queries, options);
     }
 
     // =========================================================== //

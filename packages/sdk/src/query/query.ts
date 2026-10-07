@@ -1,18 +1,43 @@
 import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
+import type { ServerError } from "../errors";
+import {
+    type AbortOptions,
+    abortableIterable,
+    abortScope,
+    addSignal,
+    assertTimeout,
+    raceAbort,
+    throwIfAborted,
+} from "../internal/abort";
+import { assertCredential } from "../internal/auth-provider";
+import { isCredentialed, markCredentialed } from "../internal/credentialed";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
 import { RetryContext } from "../internal/retry";
-import type { QueryChunk, QueryResponse, RetryValue, Session } from "../types";
-import type { BoundQuery } from "../utils";
-import { DoneFrame, ErrorFrame, type Frame, ValueFrame } from "../utils/frame";
+import { findRootCause, isSecondaryError } from "../internal/root-cause";
+import type { AuthOrToken, QueryChunk, QueryResponse, RetryValue, Session } from "../types";
+import { BoundQuery } from "../utils";
+import { DoneFrame, ErrorFrame, type Frame, type StreamedRow, ValueFrame } from "../utils/frame";
+import {
+    type ChunkSource,
+    RowStream,
+    type StatementOf,
+    StatementStream,
+} from "../utils/stream-views";
 
-interface QueryOptions {
+interface QueryOptions extends AbortOptions {
     query: BoundQuery;
     transaction: Uuid | undefined;
     session: Session;
+    credential?: AuthOrToken;
     json: boolean;
     retry?: RetryValue;
+    /**
+     * Abandons the query only while it waits to be sent, and not once it is on its way. See
+     * `QueryRequestOptions`.
+     */
+    beforeSend?: AbortSignal;
     /**
      * The query dialect to execute the query as. Defaults to `"sql"` (SurrealQL);
      * `"gql"` routes the query through the ISO GQL (ISO/IEC 39075) endpoint.
@@ -41,7 +66,14 @@ export class Query<
     constructor(connection: ConnectionController, options: QueryOptions) {
         super();
         this.#connection = connection;
-        this.#options = options;
+
+        // The query of a call made as someone else is marked, on a copy so that a query which the
+        // caller made is not, for `query([...])` and `transaction([...])` to refuse it: what is
+        // combined is sent as one request as one identity, and would otherwise lose the one asked for
+        this.#options =
+            options.credential !== undefined && !isCredentialed(options.query)
+                ? { ...options, query: markCredentialed(new BoundQuery(options.query)) }
+                : options;
     }
 
     /**
@@ -49,18 +81,6 @@ export class Query<
      */
     get inner(): BoundQuery {
         return this.#options.query;
-    }
-
-    /**
-     * Obtain the stream of response chunks for this query, routing to the
-     * transport that matches the configured dialect.
-     */
-    #chunks<T = unknown>(): AsyncIterable<QueryChunk<T>> {
-        const { query, transaction, session, dialect } = this.#options;
-
-        return dialect === "gql"
-            ? this.#connection.gql<T>(query, session, transaction)
-            : this.#connection.query<T>(query, session, transaction);
     }
 
     /**
@@ -75,6 +95,39 @@ export class Query<
     }
 
     /**
+     * Run this call as a different identity than the one of the session, for this call only.
+     *
+     * The credential is presented with this request alone. The session, which other calls
+     * share, is not authenticated, changed, or looked at, and the selected namespace and
+     * database stay as they are. This is how a single connection can serve calls on behalf
+     * of different users, where they are held apart by what each of them is permitted to do.
+     *
+     * Pass an access token, or the authentication details accepted by `signin()`, which are
+     * exchanged for a token first and cost an additional request. A token is not checked
+     * until the server sees it: a token which is invalid or expired fails the call.
+     *
+     * Only engines which present credentials with every request support this, which is the
+     * HTTP engine. Other engines, such as WebSocket, reject the call with an
+     * `UnsupportedFeatureError` instead of running it as the session, which would be the
+     * wrong identity. With a WebSocket connection use `forkSession()` and then `authenticate()`
+     * on the new session, which stays authenticated for as long as you keep it.
+     *
+     * @example
+     * ```ts
+     * const [mine] = await db.query("SELECT * FROM document").as(userToken).collect();
+     * const visible = await db.select(new Table("document")).as(userToken);
+     * ```
+     *
+     * @param credential An access token or authentication details to run this call as
+     * @returns A new `Query` which runs as the provided identity.
+     */
+    as(credential: AuthOrToken): Query<R, J> {
+        assertCredential(credential);
+
+        return new Query(this.#connection, { ...this.#options, credential });
+    }
+
+    /**
      * Configure the query to automatically retry when it fails due to a transaction conflict.
      *
      * Under concurrent load a query may fail because another transaction wrote to the same data.
@@ -83,7 +136,13 @@ export class Query<
      *
      * Retry only applies to `.collect()` (and awaiting the query directly), as the whole query is
      * re-sent on conflict. It does not apply to `.responses()` (which exposes partial results) or
-     * `.stream()` (which yields results incrementally and cannot be safely replayed mid-stream).
+     * to `.stream()`, `.rows()` and `.statements()` (which yield results incrementally and cannot
+     * be safely replayed mid-stream).
+     *
+     * A transaction written into the query is retried as well. When one fails, the server reports
+     * an error for each of its statements, and the conflict may be on its `COMMIT`: the error
+     * which is checked for a conflict is the one which made the transaction fail, as it is for
+     * `.collect()`, not one of the "not executed" errors reported for the other statements.
      *
      * **NOTE:** Retrying re-sends the full query. Only use this for queries that are safe to replay,
      * such as a single statement or a query wrapped in an explicit `BEGIN`/`COMMIT` block.
@@ -105,8 +164,84 @@ export class Query<
     }
 
     /**
+     * Configure the query to be abandoned when a signal aborts.
+     *
+     * If the signal has already aborted, the query is not sent and fails straight away. If it aborts
+     * later, the query stops waiting for the server and fails with the `reason` of the signal, so an
+     * `AbortError` or a `TimeoutError` from `AbortSignal.timeout()` reaches the caller as it is. This
+     * holds for `collect()`, for `responses()` and, by ending the iteration with the reason, for
+     * `stream()`, which also lets go of what the stream holds. A query waiting to be retried is not
+     * retried again.
+     *
+     * Aborting does not undo anything: it means "stop waiting", and nothing more. Over WebSocket the
+     * server has no way of being told, so it may keep executing the query and discard the answer.
+     * **A write which was sent before the signal aborted may or may not have been applied**, and a
+     * caller which needs to know has to check. Over HTTP the request is cancelled, but a server may
+     * well complete work it has begun.
+     *
+     * Calling this more than once, or in addition to a signal inherited from `withSignal()`,
+     * combines the signals: the query is abandoned when any of them aborts.
+     *
+     * @example
+     * ```ts
+     * const people = await db
+     *     .query("SELECT * FROM person")
+     *     .signal(request.signal)
+     *     .collect<[Person[]]>();
+     *
+     * // Give up after two seconds
+     * await db.query("SELECT * FROM report").signal(AbortSignal.timeout(2000));
+     * ```
+     *
+     * @param signal The signal which abandons the query. Without one, nothing changes.
+     * @returns A new `Query` configured to be abandoned by the signal.
+     */
+    signal(signal: AbortSignal | undefined): Query<R, J> {
+        return new Query(this.#connection, {
+            ...this.#options,
+            signals: addSignal(this.#options.signals, signal),
+        });
+    }
+
+    /**
+     * Configure how long to wait for the server to answer the query, in milliseconds, before giving up
+     * on it with a `TimeoutError`. This overrides the `requestTimeout` of the connection for this query,
+     * and is the way to allow a query longer than that default, or `0` to wait without limit.
+     *
+     * This is a limit on the client. It is not the `TIMEOUT` clause, which the server enforces and
+     * the query builders expose as `.timeout()`. The server is not told that the client has given up,
+     * and may well carry on: a write which timed out may or may not have been applied. Retries each
+     * get the full time, as it applies to every request.
+     *
+     * To combine it with other reasons for abandoning a query, use `.signal()`: a timeout is no
+     * different from `.signal(AbortSignal.timeout(milliseconds))`, apart from replacing the default.
+     *
+     * @example
+     * ```ts
+     * // Give the slow report a minute, whatever the connection default is
+     * await db.query("SELECT * FROM report").requestTimeout(60_000);
+     * ```
+     *
+     * @param milliseconds The time to wait for an answer, or `0` for no limit.
+     * @returns A new `Query` configured with the request timeout.
+     */
+    requestTimeout(milliseconds: number): Query<R, J> {
+        assertTimeout(milliseconds, "requestTimeout");
+
+        return new Query(this.#connection, {
+            ...this.#options,
+            requestTimeout: milliseconds,
+        });
+    }
+
+    /**
      * Collect and return the results of all queries at once. If any of the queries fail, the promise
-     * will reject.
+     * will reject with the error of the first one which failed.
+     *
+     * When the query holds a transaction, that is the error which made the transaction fail, wherever
+     * it comes. The server also reports the transaction's other statements as errors ("not executed",
+     * "cancelled"), and those are only thrown when there is nothing else to throw. `.responses()` and
+     * `.stream()` do not choose: they report the error of every statement as the server sent it.
      *
      * You can optionally pass a list of query indexes to collect only the results of specific queries.
      *
@@ -121,21 +256,34 @@ export class Query<
      * @returns A promise that resolves to the results of all queries at once.
      */
     async collect<T extends unknown[] = R>(...queries: number[]): Promise<Collect<T, J>> {
-        await this.#connection.ready();
+        return this.#abortable((signal) => this.#collect<T>(signal, queries));
+    }
+
+    async #collect<T extends unknown[]>(
+        signal: AbortSignal | undefined,
+        queries: number[],
+    ): Promise<Collect<T, J>> {
+        throwIfAborted(signal);
+        await raceAbort(this.#connection.ready(), signal);
 
         const options = RetryContext.mergeOptions(this.#options.retry, this.#connection.retry);
-        const context = new RetryContext(options);
+        const context = new RetryContext(options, signal);
 
         return context.run(async () => {
             const { json } = this.#options;
-            const chunks = this.#chunks();
+            const chunks = this.#open(signal);
             const responses: unknown[] = [];
+            const failures: ServerError[] = [];
             const queryIndexes =
                 queries.length > 0 ? new Map(queries.map((idx, i) => [idx, i])) : undefined;
 
             for await (const chunk of chunks) {
                 if (chunk.error) {
-                    throw chunk.error;
+                    // A failed transaction reports its other statements as errors too, and the
+                    // failure itself can come after them: read on until it does.
+                    failures.push(chunk.error);
+                    if (isSecondaryError(chunk.error)) continue;
+                    break;
                 }
 
                 if (queryIndexes?.has(chunk.query) === false) {
@@ -166,12 +314,127 @@ export class Query<
                 }
             }
 
+            if (failures.length > 0) {
+                throw findRootCause(failures);
+            }
+
             return responses as Collect<T, J>;
         });
     }
 
     /**
+     * Stream the rows of the query as they arrive.
+     *
+     * The first rows are available while the rest of the query is still running, and nothing is
+     * held but what has arrived and not yet been read:
+     *
+     * ```ts
+     * for await (const person of db.query<[Person[]]>("SELECT * FROM person").rows()) {
+     *     console.log(person.name);
+     * }
+     * ```
+     *
+     * The row type is derived from the type of the query. For a query of several statements these
+     * are the rows of each in turn, in the order the server produces them; a statement which is
+     * one bare value, such as `SELECT ... FROM ONLY` or `RETURN 1 + 2`, is one row, and one whose
+     * value is `NONE`, such as `LET`, is none. Use `statements()` to tell the statements apart.
+     *
+     * A `parse` function is applied to each row as it arrives, which is where a row can be
+     * validated or turned into a class without the query being held whole first:
+     *
+     * ```ts
+     * for await (const person of db.query("SELECT * FROM person").rows(Person.parse)) {
+     *     person; // Person
+     * }
+     * ```
+     *
+     * **A row is provisional until iteration completes without throwing.** Rows arrive before the
+     * statement which produced them has finished, so one which fails afterwards voids what it
+     * yielded: iteration throws its error, and what was yielded for it should be discarded. To
+     * receive each statement only once it is final, use `statements()`. To see one statement fail
+     * while the others carry on, use the frames of `stream()`.
+     *
+     * Leaving the loop - `break`, `return()`, or `await using` - stops the query on the server and
+     * releases a read which is waiting on it at once. What has arrived and not yet been read is
+     * held in memory, and the WebSocket API offers no way to pause the server, so a reader which
+     * is slower than the server holds the difference until it catches up. Leaving is how that is
+     * stopped.
+     *
+     * Like `stream()`, this asks for a stream: it streams inside a transaction, where the caution
+     * about committing before the end applies, and in spite of `streaming: false`.
+     *
+     * @param parse Applied to each row as it arrives. Without one, rows are yielded as they are.
+     * @returns A single-use async iterable of rows, which can also be disposed.
+     */
+    rows<U = MaybeJsonify<StreamedRow<R[number]>, J>>(
+        parse?: (row: MaybeJsonify<StreamedRow<R[number]>, J>) => U,
+    ): RowStream<U> {
+        return new RowStream<U>(() => this.#openView(), this.#options.json, parse);
+    }
+
+    /**
+     * Stream the statements of the query, each once it is final.
+     *
+     * Where `rows()` delivers rows as they arrive, this delivers a statement when the server has
+     * said it is complete, with all of its rows. What is yielded is never retracted, so each
+     * statement can be acted on as it arrives while the statements after it are still running:
+     *
+     * ```ts
+     * const sql = "SELECT * FROM person; SELECT * FROM company";
+     *
+     * for await (const statement of db.query<[Person[], Company[]]>(sql).statements()) {
+     *     console.log(statement.index, statement.value.length);
+     * }
+     * ```
+     *
+     * A statement's rows are held until it finishes, so the rows of a statement are no sooner than
+     * with `collect()`; what is gained is each statement as it completes, and what is spared is the
+     * decoding of one very large answer. A statement which fails throws its error and ends the
+     * iteration. To see a failure and the statements after it, use `responses()` or the frames of
+     * `stream()`.
+     *
+     * Asks for a stream, and is left the same way as `rows()`.
+     *
+     * @returns A single-use async iterable of statements, which can also be disposed.
+     */
+    statements<T extends unknown[] = R>(): StatementStream<StatementOf<T, J>> {
+        return new StatementStream<StatementOf<T, J>>(() => this.#openView(), this.#options.json);
+    }
+
+    /**
+     * Open the query as a stream for a view to read, once, when it is first read from.
+     *
+     * Everything which `stream()` does to read through the signals of the query is done here too,
+     * so a view is abandoned by a signal, or by the request timeout, the same way.
+     */
+    async #openView(): Promise<ChunkSource> {
+        // The view's own signal, besides those of the query: leaving the view is abandoning the
+        // request, which is what frees a read parked on a server which is not streaming it.
+        const leaving = new AbortController();
+        const scope = abortScope([...(this.#options.signals ?? []), leaving.signal]);
+
+        try {
+            throwIfAborted(scope.signal);
+            await raceAbort(this.#connection.ready(), scope.signal);
+
+            return {
+                chunks: this.#open(scope.signal, true),
+                abort: () => leaving.abort(),
+                dispose: scope.dispose,
+            };
+        } catch (error) {
+            scope.dispose();
+            throw error;
+        }
+    }
+
+    /**
      * Stream the response frames of the query as they are received as an AsyncIterable.
+     *
+     * This is the low level view, and almost always the wrong one to start with: use `rows()` for
+     * the rows of a query as they arrive, or `statements()` for each statement once it is final.
+     * Frames are for what neither can show, which is one statement failing while the statements
+     * after it carry on, and the completion and statistics of each statement as it happens.
      *
      * Each iteration yields a **value**, **error**, or **done** frame. The provided
      * `isValue`, `isError`, and `isDone` methods can be used to check the type of frame, and
@@ -184,7 +447,22 @@ export class Query<
      * by their **done** frames.
      *
      * Abandoning the stream, such as by breaking out of the loop, stops the query on servers
-     * which support it, so results which are no longer wanted are no longer produced.
+     * which support it, so results which are no longer wanted are no longer produced. Frames which
+     * have arrived and not yet been read are held in memory, and the WebSocket API offers no way to
+     * pause the server, so a reader which is slower than the server holds the difference until it
+     * catches up.
+     *
+     * Asking for a stream is asking for one. Unlike a query which is simply awaited, which is
+     * streamed only where doing so is invisible, this streams inside a transaction, and in spite
+     * of `streaming: false` on the driver; and where the connection is at the limit of streams
+     * the server allows it, it fails rather than being quietly buffered. A server which does not
+     * stream at all still answers, buffered, as it always has, and so do the HTTP and embedded
+     * engines.
+     *
+     * **Inside a transaction, wait for the stream to end before committing.** Requests on a
+     * connection are served concurrently, so a `commit` which arrives while the query is still
+     * executing succeeds, and what it commits is the part of the query which had run, not the
+     * whole of it - the query then fails, but the transaction is already finished.
      *
      * @example
      * ```ts
@@ -200,10 +478,22 @@ export class Query<
      * @returns An async iterable of query frames.
      */
     async *stream<T = unknown>(): AsyncIterable<Frame<T, J>> {
-        await this.#connection.ready();
+        const scope = abortScope(this.#options.signals ?? []);
+
+        try {
+            yield* this.#frames<T>(scope.signal);
+        } finally {
+            scope.dispose();
+        }
+    }
+
+    async *#frames<T>(signal: AbortSignal | undefined): AsyncIterable<Frame<T, J>> {
+        throwIfAborted(signal);
+        await raceAbort(this.#connection.ready(), signal);
 
         const { json } = this.#options;
-        const chunks = this.#chunks<T>();
+        // Asked for, as opposed to accepted: see `stream()`.
+        const chunks = this.#open<T>(signal, true);
 
         for await (const chunk of chunks) {
             if (chunk.error) {
@@ -252,10 +542,18 @@ export class Query<
      * @returns A promise that resolves to the responses of all queries at once.
      */
     async responses<T extends unknown[] = R>(...queries: number[]): Promise<Responses<T, J>> {
-        await this.#connection.ready();
+        return this.#abortable((signal) => this.#responses<T>(signal, queries));
+    }
+
+    async #responses<T extends unknown[]>(
+        signal: AbortSignal | undefined,
+        queries: number[],
+    ): Promise<Responses<T, J>> {
+        throwIfAborted(signal);
+        await raceAbort(this.#connection.ready(), signal);
 
         const { json } = this.#options;
-        const chunks = this.#chunks();
+        const chunks = this.#open(signal);
         const collections: unknown[] = [];
         const responses: QueryResponse[] = [];
         const queryIndexes =
@@ -320,5 +618,75 @@ export class Query<
 
     async dispatch(): Promise<Collect<R, J>> {
         return this.collect();
+    }
+
+    /**
+     * Run work which is bound to the signals of this query, letting go of them once it is done.
+     */
+    async #abortable<V>(run: (signal: AbortSignal | undefined) => Promise<V>): Promise<V> {
+        const scope = abortScope(this.#options.signals ?? []);
+
+        try {
+            return await run(scope.signal);
+        } finally {
+            scope.dispose();
+        }
+    }
+
+    /**
+     * Send the query as one request, and return the chunks of its answer.
+     *
+     * This is the one place where the chunks of the engine are read through a signal. The request
+     * is bound to the signal of the caller and to the request timeout, if there is one, which is
+     * handed to the engine so it can stop the request itself. The chunks are read through
+     * `abortableIterable`, which does not rely on the engine having done so: when the signal aborts
+     * a read in progress fails with its reason at once, and the engine's iterator is returned, which
+     * is what an engine which can stop a stream on the server acts on.
+     *
+     * The request timeout is measured from here, once per request, so a retry starts it afresh.
+     */
+    #open<T = unknown>(
+        signal: AbortSignal | undefined,
+        stream = false,
+    ): AsyncIterable<QueryChunk<T>> {
+        const { query, transaction, session, credential, beforeSend, dialect } = this.#options;
+        const timeout = this.#options.requestTimeout ?? this.#connection.requestTimeout;
+        const request = abortScope(signal ? [signal] : [], timeout);
+
+        try {
+            throwIfAborted(request.signal);
+
+            const options =
+                request.signal || stream
+                    ? {
+                          ...(request.signal && { signal: request.signal }),
+                          ...(stream && { stream }),
+                      }
+                    : undefined;
+
+            // A call made as someone else is never made as the session: it has a method of its
+            // own, which the connection refuses when the engine cannot present the credential.
+            // Either way the query is routed to the transport which matches its dialect.
+            const chunks =
+                credential === undefined
+                    ? dialect === "gql"
+                        ? this.#connection.gql<T>(query, session, transaction, options)
+                        : this.#connection.query<T>(
+                              query,
+                              session,
+                              transaction,
+                              beforeSend ? { ...options, beforeSend } : options,
+                          )
+                    : this.#connection.queryAs<T>(query, session, transaction, {
+                          ...options,
+                          credential,
+                          dialect,
+                      });
+
+            return abortableIterable(chunks, request.signal, request.dispose);
+        } catch (error) {
+            request.dispose();
+            throw error;
+        }
     }
 }

@@ -75,18 +75,21 @@ export class SurrealApi<TPaths = DefaultPaths> {
     readonly #prefix: string;
     readonly #session: Session;
     readonly #headers: Record<string, string>;
+    readonly #signals: readonly AbortSignal[] | undefined;
 
     constructor(
         connection: ConnectionController,
         session: Session,
         transaction?: Uuid,
         prefix?: string,
+        signals?: readonly AbortSignal[],
     ) {
         this.#connection = connection;
         this.#session = session;
         this.#transaction = transaction;
         this.#prefix = prefix ?? "";
         this.#headers = {};
+        this.#signals = signals;
     }
 
     /**
@@ -126,6 +129,7 @@ export class SurrealApi<TPaths = DefaultPaths> {
             session: this.#session,
             value: false,
             json: false,
+            signals: this.#signals,
             headers: { ...this.#headers, ...request?.headers },
             query: request?.query ?? {},
             method: request?.method ?? "get",

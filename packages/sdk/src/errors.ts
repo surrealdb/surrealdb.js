@@ -66,6 +66,18 @@ export class UnexpectedServerResponseError extends SurrealError {
 }
 
 /**
+ * Thrown when a streamed query answer cannot be trusted, either because the server speaks a
+ * revision of the streaming protocol this SDK does not implement, or because the answer
+ * contradicts itself - for instance a stream which ends having reported a different number of
+ * statements than it delivered.
+ *
+ * A stream that fails this way has not been completed, whatever it had yielded by then.
+ */
+export class StreamProtocolError extends SurrealError {
+    override name = "StreamProtocolError";
+}
+
+/**
  * Thrown when an unexpected connection error occurs
  */
 export class UnexpectedConnectionError extends SurrealError {
@@ -569,6 +581,22 @@ export class AuthenticationError extends SurrealError {
         super();
         this.cause = cause;
     }
+}
+
+/**
+ * Thrown when the `authentication` resolver provided to `connect()` throws, or returns
+ * something which is not a token, authentication details, or `null`. The underlying
+ * problem is available as the `cause`.
+ *
+ * The message deliberately does not repeat the cause, nor anything which was returned,
+ * as either may contain credentials.
+ *
+ * When the resolver is evaluated for a request, the request is not sent and the state of
+ * the session is left as it was.
+ */
+export class AuthResolverError extends AuthenticationError {
+    override name = "AuthResolverError";
+    override message = "The authentication resolver did not provide usable credentials";
 }
 
 /**

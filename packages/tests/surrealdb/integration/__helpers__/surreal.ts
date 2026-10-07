@@ -94,7 +94,13 @@ export function createAuth(auth: PremadeAuth | SystemAuth): SystemAuth | undefin
  */
 const VERSION_REGEX = /(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)/;
 
-export async function requestVersion(): Promise<{ version: string; is2x: boolean; is3x: boolean }> {
+export async function requestVersion(): Promise<{
+    version: string;
+    is2x: boolean;
+    is3x: boolean;
+    /** Whether the version reports a transaction conflict as a structured error (3.1.0 and later) */
+    structuredConflicts: boolean;
+}> {
     let output: string;
 
     const cachedVersion = (globalThis as GlobalThis).surrealVersion;
@@ -113,11 +119,15 @@ export async function requestVersion(): Promise<{ version: string; is2x: boolean
     const version = match[1];
     const is2x = satisfies(version, ">=2.0.0-0 <3.0.0-0", { includePrerelease: true });
     const is3x = satisfies(version, ">=3.0.0-0 <4.0.0-0", { includePrerelease: true });
+    const structuredConflicts = satisfies(version, ">=3.1.0-0 <4.0.0-0", {
+        includePrerelease: true,
+    });
 
     return {
         version,
         is2x,
         is3x,
+        structuredConflicts,
     };
 }
 

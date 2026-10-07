@@ -1,5 +1,6 @@
 import { QueryError } from "../errors";
 import type { RetryOptions, RetryValue } from "../types/surreal";
+import { abortableSleep } from "./abort";
 import { rand } from "./rand";
 
 export const DEFAULT_RETRY_OPTIONS: RetryOptions = {
@@ -38,14 +39,19 @@ export function isRetryableConflict(error: unknown): boolean {
  * Stateful tracker for a single retry loop, computing backoff with jitter between attempts.
  *
  * A fresh instance must be created per retry loop, as it tracks the number of attempts made.
+ *
+ * When given a signal, the loop ends as soon as it aborts: a backoff in progress is cut short,
+ * and no further attempt is started. Either way the reason of the signal is thrown.
  */
 export class RetryContext {
     #attempts = 0;
+    #signal: AbortSignal | undefined;
 
     readonly options: RetryOptions;
 
-    constructor(options: RetryOptions) {
+    constructor(options: RetryOptions, signal?: AbortSignal) {
         this.options = options;
+        this.#signal = signal;
     }
 
     get attempts(): number {
@@ -72,7 +78,11 @@ export class RetryContext {
         return true;
     }
 
-    /** Wait for the computed backoff delay before the next attempt */
+    /**
+     * Wait for the computed backoff delay before the next attempt.
+     *
+     * Rejects with the reason of the signal, if it aborts before or during the wait.
+     */
     async iterate(): Promise<void> {
         // Bump iteration
         this.#attempts++;
@@ -88,7 +98,7 @@ export class RetryContext {
         );
 
         // Wait for the next iteration
-        await new Promise<void>((r) => setTimeout(r, nextDelay));
+        await abortableSleep(nextDelay, this.#signal);
     }
 
     /**
@@ -97,6 +107,9 @@ export class RetryContext {
      * When retry is disabled the function is executed exactly once. On a retryable error, the
      * context backs off and retries until its attempts are exhausted, at which point the last
      * error is rethrown. Non-retryable errors are rethrown immediately.
+     *
+     * If the signal aborts while waiting to retry, the wait ends and its reason is thrown in place
+     * of the error being retried. An error which is not retried is thrown as it is.
      *
      * @param fn The work to execute. Receives the zero-based attempt number.
      */

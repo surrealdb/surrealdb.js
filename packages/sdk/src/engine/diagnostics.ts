@@ -1,9 +1,11 @@
 import { Duration, Uuid } from "@surrealdb/sqon";
 import type { Feature } from "../internal/feature";
+import { relayIterable } from "../internal/relay";
 import type {
     AccessRecordAuth,
     AnyAuth,
     ConnectionState,
+    CredentialedRequestOptions,
     Diagnostic,
     DiagnosticKey,
     DiagnosticResult,
@@ -13,6 +15,7 @@ import type {
     NamespaceDatabase,
     Nullable,
     QueryChunk,
+    RequestOptions,
     Session,
     SqlExportOptions,
     SurrealEngine,
@@ -32,9 +35,71 @@ export class DiagnosticsEngine implements SurrealEngine {
     readonly #delegate: SurrealEngine;
     readonly #callback: DiagnosticsCallback;
 
+    /**
+     * Only present when the engine which is wrapped runs queries as someone else, so that it
+     * is refused, rather than run as the session, when it does not.
+     */
+    queryAs?: SurrealEngine["queryAs"];
+
+    /** Likewise for import and export, which are refused as well when the engine cannot */
+    importSqlAs?: SurrealEngine["importSqlAs"];
+    exportSqlAs?: SurrealEngine["exportSqlAs"];
+    exportMlModelAs?: SurrealEngine["exportMlModelAs"];
+
     constructor(delegate: SurrealEngine, callback: DiagnosticsCallback) {
         this.#delegate = delegate;
         this.#callback = callback;
+
+        const queryAs = delegate.queryAs;
+
+        if (typeof queryAs === "function") {
+            this.queryAs = <T>(
+                query: BoundQuery,
+                session: Session,
+                txn: Uuid | undefined,
+                options: CredentialedRequestOptions,
+            ) =>
+                // The credential is passed on, and never reported
+                this.#diagnoseQuery<T>(
+                    query,
+                    session,
+                    txn,
+                    () =>
+                        queryAs.call(delegate, query, session, txn, options) as AsyncIterable<
+                            QueryChunk<T>
+                        >,
+                );
+        }
+
+        // The credential is passed on in the same way, and never reported
+        const { importSqlAs, exportSqlAs, exportMlModelAs } = delegate;
+
+        if (typeof importSqlAs === "function") {
+            this.importSqlAs = (data, request) =>
+                this.#diagnose(
+                    "importSql",
+                    () => importSqlAs.call(delegate, data, request),
+                    () => undefined,
+                );
+        }
+
+        if (typeof exportSqlAs === "function") {
+            this.exportSqlAs = (options, request) =>
+                this.#diagnose(
+                    "exportSql",
+                    () => exportSqlAs.call(delegate, options, request),
+                    () => undefined,
+                );
+        }
+
+        if (typeof exportMlModelAs === "function") {
+            this.exportMlModelAs = (options, request) =>
+                this.#diagnose(
+                    "exportMlModel",
+                    () => exportMlModelAs.call(delegate, options, request),
+                    () => undefined,
+                );
+        }
     }
 
     get features(): Set<Feature> {
@@ -66,8 +131,8 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    ready(): void {
-        this.#delegate.ready();
+    ready(version?: string): void {
+        this.#delegate.ready(version);
     }
 
     async health(): Promise<void> {
@@ -223,53 +288,63 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
-    async importSql(data: string | ReadableStream): Promise<void> {
+    async importSql(data: string | ReadableStream, request?: RequestOptions): Promise<void> {
         return this.#diagnose(
             "importSql",
-            () => this.#delegate.importSql(data),
+            () => this.#delegate.importSql(data, request),
             () => undefined,
         );
     }
 
-    async exportSql(options: Partial<SqlExportOptions>): Promise<Response | string> {
+    async exportSql(
+        options: Partial<SqlExportOptions>,
+        request?: RequestOptions,
+    ): Promise<Response | string> {
         return this.#diagnose(
             "exportSql",
-            () => this.#delegate.exportSql(options),
+            () => this.#delegate.exportSql(options, request),
             () => undefined,
         );
     }
 
-    async exportMlModel(options: MlExportOptions): Promise<Response | Uint8Array> {
+    async exportMlModel(
+        options: MlExportOptions,
+        request?: RequestOptions,
+    ): Promise<Response | Uint8Array> {
         return this.#diagnose(
             "exportMlModel",
-            () => this.#delegate.exportMlModel(options),
+            () => this.#delegate.exportMlModel(options, request),
             () => undefined,
         );
     }
 
-    query<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
-        return this.#instrumentQuery(
-            this.#delegate.query<T>(query, session, txn),
-            query,
-            session,
-            txn,
-        );
-    }
-
-    gql<T>(query: BoundQuery, session: Session, txn?: Uuid): AsyncIterable<QueryChunk<T>> {
-        return this.#instrumentQuery(
-            this.#delegate.gql<T>(query, session, txn),
-            query,
-            session,
-            txn,
-        );
-    }
-
-    #instrumentQuery<T>(
-        delegateResult: AsyncIterable<QueryChunk<T>>,
+    query<T>(
         query: BoundQuery,
         session: Session,
         txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
+        return this.#diagnoseQuery(query, session, txn, () =>
+            this.#delegate.query<T>(query, session, txn, options),
+        );
+    }
+
+    gql<T>(
+        query: BoundQuery,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): AsyncIterable<QueryChunk<T>> {
+        return this.#diagnoseQuery(query, session, txn, () =>
+            this.#delegate.gql<T>(query, session, txn, options),
+        );
+    }
+
+    #diagnoseQuery<T>(
+        query: BoundQuery,
+        session: Session,
+        txn: Uuid | undefined,
+        run: () => AsyncIterable<QueryChunk<T>>,
     ): AsyncIterable<QueryChunk<T>> {
         const measure = Duration.measure();
         const callback = this.#callback;
@@ -277,53 +352,50 @@ export class DiagnosticsEngine implements SurrealEngine {
 
         callback({ type: "query", key: debugKey, phase: "before" });
 
-        return {
-            async *[Symbol.asyncIterator]() {
-                try {
-                    for await (const chunk of delegateResult) {
-                        callback({
-                            type: "query",
-                            key: debugKey,
-                            phase: "progress",
-                            result: {
-                                query: query.query,
-                                params: query.bindings,
-                                transaction: txn,
-                                chunk: chunk,
-                                session,
-                            },
-                        });
+        const delegateResult = run();
 
-                        yield chunk as QueryChunk<T>;
-                    }
-
-                    callback({
-                        type: "query",
-                        key: debugKey,
-                        phase: "after",
-                        success: true,
-                        duration: measure(),
-                        result: {
-                            query: query.query,
-                            params: query.bindings,
-                            transaction: txn,
-                            session,
-                        },
-                    });
-                } catch (error) {
-                    callback({
-                        type: "query",
-                        key: debugKey,
-                        phase: "after",
-                        success: false,
-                        duration: measure(),
-                        error: error as Error,
-                    });
-
-                    throw error;
-                }
-            },
-        };
+        // Not a generator: one cannot be returned while parked on an await, which would hold
+        // back the cancel of a stream which is waiting on the server
+        return relayIterable<QueryChunk<T>>(() => delegateResult, {
+            value: (chunk) =>
+                callback({
+                    type: "query",
+                    key: debugKey,
+                    phase: "progress",
+                    result: {
+                        query: query.query,
+                        params: query.bindings,
+                        transaction: txn,
+                        chunk: chunk,
+                        session,
+                    },
+                }),
+            end: (error) =>
+                callback(
+                    error === undefined
+                        ? {
+                              type: "query",
+                              key: debugKey,
+                              phase: "after",
+                              success: true,
+                              duration: measure(),
+                              result: {
+                                  query: query.query,
+                                  params: query.bindings,
+                                  transaction: txn,
+                                  session,
+                              },
+                          }
+                        : {
+                              type: "query",
+                              key: debugKey,
+                              phase: "after",
+                              success: false,
+                              duration: measure(),
+                              error: error as Error,
+                          },
+                ),
+        });
     }
 
     liveQuery(id: Uuid): AsyncIterable<LiveMessage> {

@@ -2,11 +2,13 @@ import { RecordId, Uuid } from "@surrealdb/sqon";
 import {
     CallTerminatedError,
     ConnectionUnavailableError,
+    NotAllowedError,
     ReconnectExhaustionError,
     ServerError,
     UnexpectedConnectionError,
     UnexpectedServerResponseError,
 } from "../errors";
+import { abortReason } from "../internal/abort";
 import { parseRpcError } from "../internal/parse-error";
 import {
     type Abandonment,
@@ -24,7 +26,12 @@ import type {
     Session,
 } from "../types";
 import { LIVE_ACTIONS } from "../types/live";
-import type { ConnectionState, EngineEvents, SurrealEngine } from "../types/surreal";
+import type {
+    ConnectionState,
+    EngineEvents,
+    RequestOptions,
+    SurrealEngine,
+} from "../types/surreal";
 import type { BoundQuery } from "../utils";
 import { Features } from "../utils";
 import { ChannelIterator } from "../utils/channel-iterator";
@@ -46,14 +53,10 @@ interface Call<T> {
  */
 interface Stream {
     channel: ChannelIterator<StreamEvent>;
-    /** The request which opened it, re-sent if a socket returns before it framed anything. */
-    request: object;
     /** Whether the terminal frame, or a failure standing in for it, has arrived. */
     settled: boolean;
     /** Whether the consumer stopped reading, leaving remaining frames to discard. */
     abandoned: boolean;
-    /** Whether any frame has been delivered, which is what makes a replay unsafe. */
-    probe: StreamProbe;
 }
 
 /**
@@ -62,9 +65,14 @@ interface Stream {
 type StreamEvent = { kind: "frame"; frame: QueryStreamFrame } | { kind: "error"; error: Error };
 
 /**
- * Whether a streaming query framed anything before it failed. Nothing is framed
- * until execution is about to begin, so a failure before the first frame means
- * the query never ran and can safely be asked for again in buffered form.
+ * Whether a streaming query framed anything before it failed.
+ *
+ * A *refusal* with no frame behind it proves the query never ran: the server frames `begin` only
+ * once it has accepted the request, so an error answering the request instead of a frame means
+ * nothing executed, and asking again in buffered form cannot run it twice. Nothing else is
+ * proven by the absence of a frame. In particular a connection which dies is not a refusal - the
+ * server enqueues `begin` ahead of executing, and a frame that never arrived does not mean one
+ * was never sent - so a lost socket is never a reason to ask again.
  */
 interface StreamProbe {
     framed: boolean;
@@ -99,6 +107,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         Features.Api,
         Features.ExportImportRaw,
         Features.SurrealML,
+        Features.QueryStreaming,
     ]);
 
     subscribe<K extends keyof EngineEvents>(
@@ -120,8 +129,9 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 const error = await this.createSocket(() => {
                     this.#active = true;
                     // Whether streaming is served is a property of the server, and a reconnect
-                    // can land on a different one, so each socket is asked again.
-                    this.#streaming = this._context.options.streaming !== false;
+                    // can land on a different one, so each socket is asked again. What the driver
+                    // was configured to do is a separate matter, read when a query is made.
+                    this.#streaming = true;
                     reconnect.reset();
 
                     this.#publisher.publish("connected");
@@ -134,10 +144,12 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 // under fresh ids if the connection is re-established.
                 this.#live.clear();
 
-                // A stream which had begun to answer dies with its socket: its consumer holds
-                // part of that answer already, which a replay would duplicate. One which framed
-                // nothing is left registered for `ready` to re-send.
-                this.failStreams(new CallTerminatedError(), { framedOnly: true });
+                // A stream dies with its socket, whether or not it had begun to answer. It is
+                // never re-sent: a consumer which holds part of the answer would see it twice,
+                // and one which holds none cannot tell a query which never started from one which
+                // started and was lost with the connection - re-sending the second would execute
+                // it again.
+                this.failStreams(new CallTerminatedError());
 
                 if (error) {
                     this.#publisher.publish("error", error);
@@ -196,54 +208,114 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         }
     }
 
-    ready(): void {
+    ready(version?: string): void {
+        // A server known to predate streaming would only be asked, and refuse, on the first query
+        // of every connection. Only a version which is known to be older skips the question; one
+        // which is not known, or not understood, is asked, as asking is what decides.
+        if (version !== undefined && predatesStreaming(version)) {
+            this.#streaming = false;
+        }
+
         for (const { request } of this.#calls.values()) {
             this.#socket?.send(
                 new Uint8Array(wrapSqonError(() => this._context.codecs.cbor.encode(request))),
-            );
-        }
-
-        // A stream which framed nothing never ran: the server sends its opening frame before
-        // execution begins, and whatever the old socket was doing died with it. So it is re-sent,
-        // exactly as a pending buffered call is, rather than failed.
-        for (const stream of this.#streams.values()) {
-            if (stream.settled || stream.abandoned || stream.probe.framed) continue;
-
-            this.#socket?.send(
-                new Uint8Array(
-                    wrapSqonError(() => this._context.codecs.cbor.encode(stream.request)),
-                ),
             );
         }
     }
 
     override send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,
+        options?: RequestOptions,
     ): Promise<Result> {
         return new Promise((resolve, reject) => {
+            const signal = options?.signal;
+
+            // Nothing is sent for a request which has been abandoned already
+            if (signal?.aborted) {
+                reject(abortReason(signal));
+                return;
+            }
+
             if (!this.#active) {
                 reject(new ConnectionUnavailableError());
                 return;
             }
 
             const id = this._context.uniqueId();
+
+            // Whichever way the call ends - answered, terminated, or abandoned - it stops
+            // watching the signal, so a signal which outlives it does not hold on to it.
+            let unwatch = () => {};
+
             const call: Call<Result> = {
                 request: { id, ...request },
-                resolve,
-                reject,
+                resolve: (value) => {
+                    unwatch();
+                    resolve(value);
+                },
+                reject: (error) => {
+                    unwatch();
+                    reject(error);
+                },
             };
 
+            if (signal) {
+                const onAbort = () => {
+                    // Already answered or terminated, and so nothing left to give up on
+                    if (this.#calls.get(id) !== call) return;
+
+                    // Forgotten, so that a late response finds nobody waiting for it and is
+                    // dropped, and a reconnect does not send the request again.
+                    this.#calls.delete(id);
+
+                    try {
+                        this.abandon(id, call.request);
+                    } catch {
+                        // Failing to tell the server must not leave the caller waiting
+                    }
+
+                    reject(abortReason(signal));
+                };
+
+                signal.addEventListener("abort", onAbort, { once: true });
+                unwatch = () => signal.removeEventListener("abort", onAbort);
+            }
+
             this.#calls.set(id, call as Call<unknown>);
-            this.#socket?.send(
-                new Uint8Array(wrapSqonError(() => this._context.codecs.cbor.encode(call.request))),
-            );
+
+            try {
+                this.#socket?.send(
+                    new Uint8Array(
+                        wrapSqonError(() => this._context.codecs.cbor.encode(call.request)),
+                    ),
+                );
+            } catch (error) {
+                // A request which could not be written is not left waiting for an answer
+                this.#calls.delete(id);
+                unwatch();
+                throw error;
+            }
         });
     }
+
+    /**
+     * Called when a pending call is given up on because its signal aborted, once it has been
+     * forgotten by the engine and before the caller is told.
+     *
+     * By then the request has been sent, and this protocol has no way of taking it back: the server
+     * carries on, and its response is ignored when it arrives. An engine whose server can be told
+     * to stop what it is doing sends that here, with the id the request was sent under.
+     *
+     * @param _id The id the request was sent with
+     * @param _request The request as it was sent
+     */
+    protected abandon(_id: string, _request: object): void {}
 
     override query<T>(
         query: BoundQuery,
         session: Session,
         txn?: Uuid,
+        options?: RequestOptions,
     ): AsyncIterable<QueryChunk<T>> {
         // A query inside a client managed transaction is never streamed. The stream would execute
         // on that transaction while a `commit` for it can arrive on the same connection at any
@@ -252,13 +324,21 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         // Nor is one streamed with no socket to write to, which is where a reconnect cooldown
         // leaves the engine: a buffered call is queued and re-sent once the connection returns,
         // where a stream would be waiting on a request that was never written.
+        //
+        // Both of those, and the driver's `streaming: false`, are about a query which is streamed
+        // because it can be. A caller who asked for a stream has said that it wants one, so for it
+        // they do not apply: it streams inside a transaction, and in spite of the driver's wish.
+        // What it cannot be given is a stream from a server which cannot stream, which is learned,
+        // and which still answers it buffered.
+        const requested = options?.stream === true;
+
         if (
-            txn !== undefined ||
+            (txn !== undefined && !requested) ||
+            (this._context.options.streaming === false && !requested) ||
             !this.#streaming ||
-            this._context.options.streaming === false ||
             !this.#socket
         ) {
-            return super.query<T>(query, session, txn);
+            return super.query<T>(query, session, txn, options);
         }
 
         // The frames are kept to hand so that leaving the chunks can act on them at once. An
@@ -267,7 +347,15 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         // would otherwise never be let go.
         const frames: { current?: AsyncIterableIterator<QueryStreamFrame> } = {};
         const abandonment: Abandonment = {};
-        const chunks = this.streamChunks<T>(query, session, txn, frames, abandonment);
+        const chunks = this.streamChunks<T>(
+            query,
+            session,
+            txn,
+            options,
+            requested,
+            frames,
+            abandonment,
+        );
 
         return {
             [Symbol.asyncIterator]: () => ({
@@ -294,13 +382,15 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         query: BoundQuery,
         session: Session,
         txn: Uuid | undefined,
+        options: RequestOptions | undefined,
+        requested: boolean,
         frames: { current?: AsyncIterableIterator<QueryStreamFrame> },
         abandonment: Abandonment,
     ): AsyncGenerator<QueryChunk<T>> {
         const probe: StreamProbe = { framed: false };
 
         // Opened here rather than by `query`, so nothing is sent until the caller reads.
-        frames.current = this.streamFrames(query, session, probe);
+        frames.current = this.streamFrames(query, session, txn, probe);
 
         try {
             for await (const chunk of queryStreamChunks<T>(frames.current, abandonment)) {
@@ -315,13 +405,32 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 throw error;
             }
 
-            // Absent or denied is a property of the server rather than of this query, so it is
-            // remembered for as long as the socket lasts.
-            if (error.code === METHOD_NOT_FOUND || error.code === METHOD_NOT_ALLOWED) {
+            // That this server cannot stream is a property of the server rather than of this
+            // query, so it is remembered for as long as the socket lasts - but only when it is
+            // that which was refused. A denial is also how a server turns away one identity: it
+            // answers with the same code, naming `query` instead of `query_stream`, and what is
+            // refused then is the caller, who may sign in as someone else on this very socket.
+            // Learning that as the server being unable would silently buffer every query after it,
+            // explicit streams included, until the connection is remade.
+            const cannotStream =
+                error.code === METHOD_NOT_FOUND ||
+                (error.code === METHOD_NOT_ALLOWED &&
+                    error instanceof NotAllowedError &&
+                    error.methodName === STREAM_METHOD);
+
+            if (cannotStream) {
                 this.#streaming = false;
             }
 
-            for await (const chunk of super.query<T>(query, session, txn)) {
+            // A caller who asked for a stream is told when the refusal is about this one - the
+            // connection being at its limit of them, say - rather than quietly served a buffered
+            // answer instead. A server which cannot stream at all is a different matter: the
+            // stream is a way of receiving the answer, and the answer is still wanted.
+            if (requested && !cannotStream) {
+                throw error;
+            }
+
+            for await (const chunk of super.query<T>(query, session, txn, options)) {
                 yield chunk;
             }
         }
@@ -354,10 +463,11 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     private streamFrames(
         query: BoundQuery,
         session: Session,
+        txn: Uuid | undefined,
         probe: StreamProbe,
     ): AsyncIterableIterator<QueryStreamFrame> {
-        // Unlike a buffered call, a stream is never re-sent once a socket returns, so it cannot
-        // be queued for one which is not there: it would wait for a request never written.
+        // A stream is never re-sent once a socket returns, so it cannot be queued for one which is
+        // not there: it would wait for a request never written.
         if (!this.#active || !this.#socket) {
             throw new ConnectionUnavailableError();
         }
@@ -365,22 +475,26 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         const id = this._context.uniqueId();
         const stream: Stream = {
             channel: new ChannelIterator<StreamEvent>(),
-            request: {
-                id,
-                method: "query_stream",
-                params: [query.query, query.bindings],
-                session,
-            },
             settled: false,
             abandoned: false,
-            probe,
         };
 
         // Sent before the stream is registered, so a request which never reached the socket - an
         // unencodable binding, say - leaves no registration to drain and nothing to cancel. No
         // response can arrive in between: both steps are synchronous.
         this.#socket.send(
-            new Uint8Array(wrapSqonError(() => this._context.codecs.cbor.encode(stream.request))),
+            new Uint8Array(
+                wrapSqonError(() =>
+                    this._context.codecs.cbor.encode({
+                        id,
+                        method: STREAM_METHOD,
+                        params: [query.query, query.bindings],
+                        session,
+                        // Only when there is one: a stream inside a transaction is run on it.
+                        ...(txn === undefined ? {} : { txn }),
+                    }),
+                ),
+            ),
         );
 
         this.#streams.set(id, stream);
@@ -480,15 +594,9 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
     /**
      * Fails the streaming queries in flight, as a stream cannot outlive its socket.
-     *
-     * With `framedOnly`, only those which have delivered a frame: they cannot be
-     * replayed, as their consumer holds part of the answer already. The rest are
-     * left registered for [`ready`](WebSocketEngine.ready) to re-send.
      */
-    private failStreams(error: Error, options: { framedOnly?: boolean } = {}): void {
+    private failStreams(error: Error): void {
         for (const [id, stream] of this.#streams) {
-            if (options.framedOnly && !stream.probe.framed) continue;
-
             stream.settled = true;
             this.#streams.delete(id);
 
@@ -701,6 +809,42 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 function isRetriableAsBuffered(error: unknown): error is ServerError {
     return error instanceof ServerError;
 }
+
+/**
+ * Whether a version is known to be older than the first to serve streaming queries.
+ *
+ * "Known" is the point: a version which does not begin with numbers - or is absent - is not one
+ * that is known to be older, and is asked. Nor is this the feature's own `supports`, which
+ * compares strings, so that anything which does not begin with a digit sorts past every number,
+ * and which also refuses a version newer than the range this SDK is tested against: a bound which
+ * says nothing about streaming, as a server newer than the SDK should still be asked.
+ *
+ * A prerelease is compared by the release it leads up to, as one of the release which introduced
+ * streaming may or may not have it, and the question settles that.
+ */
+function predatesStreaming(version: string): boolean {
+    const since = Features.QueryStreaming.sinceVersion;
+    const have = releaseOf(version);
+    const first = since === undefined ? undefined : releaseOf(since);
+
+    if (!have || !first) return false;
+
+    for (let index = 0; index < 3; index++) {
+        if (have[index] !== first[index]) return have[index] < first[index];
+    }
+
+    return false;
+}
+
+/** The major, minor and patch of a version, or nothing when it does not begin with them. */
+function releaseOf(version: string): [number, number, number] | undefined {
+    const match = /^(?:surrealdb-)?v?(\d+)\.(\d+)(?:\.(\d+))?/.exec(version.trim());
+
+    return match ? [Number(match[1]), Number(match[2]), Number(match[3] ?? 0)] : undefined;
+}
+
+/** The method a server is asked to stream a query with. */
+const STREAM_METHOD = "query_stream";
 
 /** The wire code for a method a server does not serve. */
 const METHOD_NOT_FOUND = -32601;
