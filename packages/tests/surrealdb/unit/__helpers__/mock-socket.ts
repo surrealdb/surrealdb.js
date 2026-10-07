@@ -108,6 +108,10 @@ export class MockSocket {
         return this.requests.filter((request) => request.method === method);
     }
 
+    emit(type: string, event: object = {}): void {
+        this.#emit(type, event);
+    }
+
     #emit(type: string, event: object): void {
         for (const listener of this.#listeners.get(type) ?? []) {
             listener(event);

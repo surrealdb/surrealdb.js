@@ -8,8 +8,10 @@
 export class FakeClock {
     readonly #realSetTimeout = globalThis.setTimeout;
     readonly #realClearTimeout = globalThis.clearTimeout;
+    readonly #realSetInterval = globalThis.setInterval;
+    readonly #realClearInterval = globalThis.clearInterval;
     readonly #realNow = Date.now;
-    readonly #timers = new Map<number, { at: number; run: () => void }>();
+    readonly #timers = new Map<number, { at: number; interval?: number; run: () => void }>();
     #now: number;
     #next = 1;
     #installed = false;
@@ -49,6 +51,29 @@ export class FakeClock {
             if (id !== undefined) this.#timers.delete(id);
         }) as unknown as typeof clearTimeout;
 
+        globalThis.setInterval = ((
+            handler: (...args: unknown[]) => void,
+            delay = 0,
+            ...args: unknown[]
+        ) => {
+            const id = this.#next;
+
+            this.#next = id + 1;
+            const step = Math.max(0, Number(delay) || 0);
+
+            this.#timers.set(id, {
+                at: this.#now + step,
+                interval: step,
+                run: () => handler(...args),
+            });
+
+            return id;
+        }) as unknown as typeof setInterval;
+
+        globalThis.clearInterval = ((id?: number) => {
+            if (id !== undefined) this.#timers.delete(id);
+        }) as unknown as typeof clearInterval;
+
         Date.now = () => this.#now;
 
         return this;
@@ -62,6 +87,8 @@ export class FakeClock {
 
         globalThis.setTimeout = this.#realSetTimeout;
         globalThis.clearTimeout = this.#realClearTimeout;
+        globalThis.setInterval = this.#realSetInterval;
+        globalThis.clearInterval = this.#realClearInterval;
         Date.now = this.#realNow;
     }
 
@@ -82,9 +109,16 @@ export class FakeClock {
 
             if (!due) break;
 
-            this.#timers.delete(due[0]);
-            this.#now = Math.max(this.#now, due[1].at);
-            due[1].run();
+            const [id, timer] = due;
+            this.#now = Math.max(this.#now, timer.at);
+
+            if (timer.interval !== undefined) {
+                timer.at += timer.interval;
+            } else {
+                this.#timers.delete(id);
+            }
+
+            timer.run();
 
             await settle();
         }

@@ -40,7 +40,11 @@ import { Publisher } from "../utils/publisher";
 import { RpcEngine } from "./rpc";
 
 type Interval = Parameters<typeof clearInterval>[0];
+type Timeout = Parameters<typeof clearTimeout>[0];
 type Response = Record<string, unknown>;
+
+const PING_INTERVAL = 3_000;
+const PONG_TIMEOUT = 6_000;
 
 interface Call<T> {
     request: object;
@@ -94,7 +98,8 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     #calls = new Map<string, Call<unknown>>();
     #streams = new Map<string, Stream>();
     #live = new LiveDispatcher();
-    #pinger: Interval;
+    #pinger: Interval | undefined;
+    #pongTimeout: Timeout | undefined;
     #active = false;
     #terminated = false;
     #streaming = true;
@@ -193,6 +198,12 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         this._state = undefined;
         this.#terminated = true;
         this.#active = false;
+        clearInterval(this.#pinger);
+        this.#pinger = undefined;
+        if (this.#pongTimeout !== undefined) {
+            clearTimeout(this.#pongTimeout);
+            this.#pongTimeout = undefined;
+        }
         this.#socket?.close();
 
         // Settled here rather than when the loop above next wakes, which a reconnect cooldown
@@ -663,20 +674,79 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             // Store connection errors
             let caughtError: Error | null = null;
 
+            // Listen for server protocol pings if supported by the socket implementation
+            const onServerPing = () => {
+                if (this.#pongTimeout !== undefined) {
+                    clearTimeout(this.#pongTimeout);
+                    this.#pongTimeout = undefined;
+                }
+            };
+
+            if ("addEventListener" in socket) {
+                try {
+                    (socket as any).addEventListener("ping", onServerPing);
+                } catch {
+                    // Ignore if runtime throws on unsupported event
+                }
+            } else if ("on" in socket && typeof (socket as any).on === "function") {
+                try {
+                    (socket as any).on("ping", onServerPing);
+                } catch {
+                    // Ignore
+                }
+            }
+
+            const clearPongTimeout = () => {
+                if (this.#pongTimeout !== undefined) {
+                    clearTimeout(this.#pongTimeout);
+                    this.#pongTimeout = undefined;
+                }
+            };
+
             // Wait for the connection to open
             socket.addEventListener("open", () => {
                 try {
                     onConnected();
 
-                    this.#pinger = setInterval(() => {
-                        try {
-                            // A ping in flight is terminated with every other call when the
-                            // connection goes, and its rejection belongs to nobody.
-                            this.send({ method: "ping" }).catch(() => {});
-                        } catch {
-                            // we are not interested in the result
+                    const sendPing = () => {
+                        const WebSocketImpl =
+                            this._context.options.websocketImpl ?? globalThis.WebSocket;
+                        if (socket.readyState !== WebSocketImpl.OPEN) {
+                            return;
                         }
-                    }, 30_000);
+
+                        // Arm pong timeout if one is not already running
+                        if (this.#pongTimeout === undefined) {
+                            this.#pongTimeout = setTimeout(() => {
+                                this.#pongTimeout = undefined;
+                                // No pong received within timeout: assume dead / half-open socket
+                                try {
+                                    socket.close();
+                                } catch {
+                                    // ignore
+                                }
+                            }, PONG_TIMEOUT);
+                        }
+
+                        this.send({ method: "ping" })
+                            .then(() => {
+                                clearPongTimeout();
+                            })
+                            .catch(() => {
+                                clearPongTimeout();
+                                const WebSocketImpl =
+                                    this._context.options.websocketImpl ?? globalThis.WebSocket;
+                                if (socket.readyState === WebSocketImpl.OPEN) {
+                                    try {
+                                        socket.close();
+                                    } catch {
+                                        // ignore
+                                    }
+                                }
+                            });
+                    };
+
+                    this.#pinger = setInterval(sendPing, PING_INTERVAL);
                 } catch (err: unknown) {
                     caughtError = err as Error;
                     socket.close();
@@ -701,6 +771,21 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             // Handle connection closure
             socket.addEventListener("close", () => {
                 clearInterval(this.#pinger);
+                this.#pinger = undefined;
+                clearPongTimeout();
+                if ("removeEventListener" in socket) {
+                    try {
+                        (socket as any).removeEventListener("ping", onServerPing);
+                    } catch {
+                        // ignore
+                    }
+                } else if ("off" in socket && typeof (socket as any).off === "function") {
+                    try {
+                        (socket as any).off("ping", onServerPing);
+                    } catch {
+                        // ignore
+                    }
+                }
                 resolve(caughtError);
             });
 
