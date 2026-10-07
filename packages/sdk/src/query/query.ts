@@ -136,7 +136,8 @@ export class Query<
      *
      * Retry only applies to `.collect()` (and awaiting the query directly), as the whole query is
      * re-sent on conflict. It does not apply to `.responses()` (which exposes partial results) or
-     * `.stream()` (which yields results incrementally and cannot be safely replayed mid-stream).
+     * to `.stream()`, `.rows()` and `.statements()` (which yield results incrementally and cannot
+     * be safely replayed mid-stream).
      *
      * A transaction written into the query is retried as well. When one fails, the server reports
      * an error for each of its statements, and the conflict may be on its `COMMIT`: the error
@@ -407,7 +408,10 @@ export class Query<
      * so a view is abandoned by a signal, or by the request timeout, the same way.
      */
     async #openView(): Promise<ChunkSource> {
-        const scope = abortScope(this.#options.signals ?? []);
+        // The view's own signal, besides those of the query: leaving the view is abandoning the
+        // request, which is what frees a read parked on a server which is not streaming it.
+        const leaving = new AbortController();
+        const scope = abortScope([...(this.#options.signals ?? []), leaving.signal]);
 
         try {
             throwIfAborted(scope.signal);
@@ -415,6 +419,7 @@ export class Query<
 
             return {
                 chunks: this.#open(scope.signal, true),
+                abort: () => leaving.abort(),
                 dispose: scope.dispose,
             };
         } catch (error) {

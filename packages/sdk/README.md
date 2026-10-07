@@ -377,12 +377,17 @@ for await (const statement of db.query<[Person[], Company[]]>(sql).statements())
 
 Rows arrive before the statement which produced them has finished, so **a row is provisional until
 iteration completes without throwing**: a statement which fails afterwards voids the rows it
-yielded, and iteration throws its error. `statements()` has no such caveat, as a statement is only
-yielded once it is complete.
+yielded, and iteration throws its error. A statement which `statements()` has yielded is never
+voided by that statement failing, as it is only yielded once it is complete; a stream which fails
+as a whole afterwards, such as by losing its connection, still throws.
+
+Streams are read, not retried: `retry()` applies to `collect()` alone, as a query cannot be sent
+again once some of its answer has been read.
 
 Leaving the loop stops the query on the server rather than leaving it to produce results nothing
-will read, so `break` is how to take the first few rows of a large table. `await using` does the
-same when the stream is not read to its end:
+will read, so `break` is how to take the first few rows of a large table. A read which is waiting
+for the server is let go of at once, and `await using` does the same when the stream is not read to
+its end:
 
 ```ts
 await using people = db.select<Person>(table).rows();

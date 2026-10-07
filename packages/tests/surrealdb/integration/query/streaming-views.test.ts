@@ -300,6 +300,153 @@ describe.if(SURREAL_PROTOCOL === "ws")("rows() and statements()", () => {
         expect(seen).toEqual([{ count: RECORDS }]);
     });
 
+    test("rows keep statement order inside a transaction which is written in the query", async () => {
+        const surreal = await seeded();
+
+        // Inside BEGIN ... COMMIT the server sends the value of a statement after the rows of the
+        // statements which follow it, once one has enough rows to be flushed. The rows are those
+        // of collect(), in its order, whichever order the server sent them in.
+        const sql = `
+            BEGIN;
+            SELECT VALUE n FROM ONLY wide:1;
+            SELECT VALUE n FROM wide ORDER BY id;
+            COMMIT;
+        `;
+
+        const collected = await surreal.query(sql).collect();
+        const expected = collected.flatMap((statement) =>
+            Array.isArray(statement) ? statement : statement === undefined ? [] : [statement],
+        );
+
+        const viaRows: unknown[] = [];
+
+        for await (const row of surreal.query(sql).rows()) viaRows.push(row);
+
+        expect(viaRows).toEqual(expected);
+        expect(viaRows[0]).toBe(1);
+        expect(viaRows).toHaveLength(1 + RECORDS);
+    });
+
+    test("reads asked for at once each take a row, in order, with done last", async () => {
+        const surreal = await createSurreal();
+
+        // Small, so that the reads which are asked for at once run past the end of each statement,
+        // which is where reads which are not kept in order lose or repeat rows.
+        await surreal.insert([1, 2, 3].map((n) => ({ id: new RecordId("tiny", n), n })));
+
+        const view = surreal
+            .query(
+                "SELECT * FROM tiny ORDER BY id; LET $a = 1; SELECT * FROM tiny ORDER BY id DESC",
+            )
+            .rows();
+
+        const results = await Promise.all(Array.from({ length: 8 }, () => view.next()));
+
+        expect(
+            results.map((result) => (result.done ? "done" : (result.value as { n: number }).n)),
+        ).toEqual([1, 2, 3, 3, 2, 1, "done", "done"]);
+
+        // And nothing turns up after it.
+        expect(await view.next()).toEqual({ value: undefined, done: true });
+    });
+
+    test("leaving a read parked on the answer is not waited out, streaming or not", async () => {
+        const surreal = await seeded();
+        const view = surreal.query("SLEEP 3s; RETURN 1;").rows();
+        const read = view.next();
+
+        await Bun.sleep(100);
+
+        const started = Bun.nanoseconds();
+        const outcome = await Promise.race([
+            Promise.all([read, view.return()]).then(() => "let go"),
+            Bun.sleep(2_500).then(() => "still waiting"),
+        ]);
+
+        // On a server which does not stream, the answer is one request which `return()` cannot
+        // reach: what frees the read is abandoning the request.
+        expect(outcome).toBe("let go");
+        expect((Bun.nanoseconds() - started) / 1e6).toBeLessThan(2_000);
+        expect(await surreal.query("RETURN 1").collect()).toEqual([1]);
+    });
+
+    describe("a builder's rows()", () => {
+        test("create, update, upsert, delete, insert and relate yield their records", async () => {
+            const surreal = await seeded();
+
+            const read = async (source: AsyncIterable<unknown>) => {
+                const seen: unknown[] = [];
+
+                for await (const row of source) seen.push(row);
+
+                return seen;
+            };
+
+            const created = await read(surreal.create(new Table("made")).content({ n: 1 }).rows());
+            expect(created).toHaveLength(1);
+            expect(created[0]).toMatchObject({ n: 1 });
+
+            const updated = await read(
+                surreal.update(new Table("wide")).merge({ seen: true }).rows(),
+            );
+            expect(updated).toHaveLength(RECORDS);
+            expect(updated[0]).toMatchObject({ seen: true });
+
+            const upserted = await read(
+                surreal.upsert(new RecordId("up", 1)).content({ n: 2 }).rows(),
+            );
+            expect(upserted).toHaveLength(1);
+            expect(upserted[0]).toMatchObject({ n: 2 });
+
+            const inserted = await read(
+                surreal.insert(new Table("ins"), [{ n: 1 }, { n: 2 }, { n: 3 }]).rows(),
+            );
+            expect(inserted).toHaveLength(3);
+
+            const related = await read(
+                surreal
+                    .relate(new RecordId("a", 1), new Table("knows"), new RecordId("b", 1))
+                    .rows(),
+            );
+            expect(related.length).toBeGreaterThan(0);
+
+            const deleted = await read(surreal.delete(new Table("ins")).rows());
+            expect(deleted).toHaveLength(3);
+        });
+
+        test("parse shapes the records of each, as it does for select", async () => {
+            const surreal = await seeded();
+
+            const seen: number[] = [];
+
+            for await (const n of surreal
+                .update<{ n: number }>(new Table("wide"))
+                .merge({ touched: true })
+                .rows((record) => record.n)) {
+                seen.push(n);
+            }
+
+            expect(seen).toHaveLength(RECORDS);
+            expect(seen[0]).toBe(1);
+        });
+    });
+
+    test("statements() in json mode makes single values JSON compatible too", async () => {
+        const surreal = await seeded();
+
+        const statements = [];
+
+        for await (const statement of surreal
+            .query("RETURN wide:1; SELECT * FROM wide ORDER BY id LIMIT 1")
+            .json()
+            .statements()) {
+            statements.push(statement);
+        }
+
+        expect(statements[0]?.value).toBe("wide:1");
+        expect(statements[1]?.value).toEqual([{ id: "wide:1", n: 1 }]);
+    });
+
     test("json() rows are made JSON compatible", async () => {
         const surreal = await seeded();
 
