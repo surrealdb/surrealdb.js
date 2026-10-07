@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { QueryChunk } from "surrealdb";
-import { CallTerminatedError, ThrownError, UnexpectedServerResponseError } from "surrealdb";
 import {
+    CallTerminatedError,
+    StreamProtocolError,
+    ThrownError,
+    UnexpectedServerResponseError,
+} from "surrealdb";
+import {
+    QUERY_STREAM_VERSION,
     type QueryStreamFrame,
     queryStreamChunks,
 } from "../../../../sdk/src/internal/query-stream";
@@ -219,6 +225,121 @@ describe("query stream frames", () => {
         ]);
 
         await expect(attempt).rejects.toBeInstanceOf(UnexpectedServerResponseError);
+    });
+
+    test("a clean end which disagrees about how many statements finished fails the query", async () => {
+        // The server says it delivered two statements and one arrived: frames were lost or
+        // misrouted, and an answer which read as complete would be missing a statement.
+        const attempt = collectChunks([
+            { stream: "begin", statements: 2 },
+            { stream: "finished", index: 0, time: "1ms", type: "other", single: false },
+            { stream: "end", results: 2, time: "1ms" },
+        ]);
+
+        await expect(attempt).rejects.toBeInstanceOf(StreamProtocolError);
+    });
+
+    test("a clean end which counts more finished statements than it delivered is also refused", async () => {
+        const attempt = collectChunks([
+            { stream: "begin", statements: 1 },
+            { stream: "finished", index: 0, time: "1ms", type: "other", single: false },
+            { stream: "finished", index: 1, time: "1ms", type: "other", single: false },
+            { stream: "end", results: 1, time: "1ms" },
+        ]);
+
+        await expect(attempt).rejects.toBeInstanceOf(StreamProtocolError);
+    });
+
+    test("an errored end is held to the failure it names, not to its count", async () => {
+        let thrown: unknown;
+
+        try {
+            await collectChunks([
+                { stream: "begin", statements: 3 },
+                { stream: "finished", index: 0, time: "1ms", type: "other", single: false },
+                {
+                    stream: "end",
+                    results: 99,
+                    time: "1ms",
+                    error: { code: -32000, message: "stopped", kind: "Internal" },
+                },
+            ]);
+        } catch (error) {
+            thrown = error;
+        }
+
+        expect(thrown).not.toBeInstanceOf(StreamProtocolError);
+        expect((thrown as Error).message).toBe("stopped");
+    });
+
+    test("an end which names no count is not held to one", async () => {
+        const chunks = await collectChunks([
+            { stream: "begin", statements: 1 },
+            { stream: "finished", index: 0, time: "1ms", type: "other", single: false },
+            { stream: "end", time: "1ms" },
+        ]);
+
+        expect(chunks).toHaveLength(1);
+    });
+
+    test("a statement which finishes twice is counted once", async () => {
+        const chunks = await collectChunks([
+            { stream: "begin", statements: 1 },
+            { stream: "finished", index: 0, time: "1ms", type: "other", single: false },
+            { stream: "finished", index: 0, time: "1ms", type: "other", single: false },
+            { stream: "end", results: 1, time: "1ms" },
+        ]);
+
+        expect(chunks).toHaveLength(1);
+    });
+
+    test("a protocol revision from the future fails the stream", async () => {
+        const attempt = collectChunks([
+            { stream: "begin", statements: 1, version: QUERY_STREAM_VERSION + 1 },
+            { stream: "finished", index: 0, time: "1ms", type: "other", single: false },
+            { stream: "end", results: 1, time: "1ms" },
+        ]);
+
+        await expect(attempt).rejects.toBeInstanceOf(StreamProtocolError);
+        await expect(attempt).rejects.toThrow("streaming: false");
+    });
+
+    test("the revision this SDK implements, or none at all, is read as usual", async () => {
+        for (const begin of [
+            { stream: "begin", statements: 1, version: QUERY_STREAM_VERSION },
+            // A server which predates the field speaks revision 1.
+            { stream: "begin", statements: 1 },
+            // Not an integer: nothing this SDK can compare, so nothing it acts on.
+            { stream: "begin", statements: 1, version: "next" as unknown as number },
+        ] as QueryStreamFrame[]) {
+            const chunks = await collectChunks([
+                begin,
+                { stream: "finished", index: 0, time: "1ms", type: "other", single: false },
+                { stream: "end", results: 1, time: "1ms" },
+            ]);
+
+            expect(chunks).toHaveLength(1);
+        }
+    });
+
+    test("a field this SDK does not read, and a tag it does not know, change nothing", async () => {
+        // Within a revision the server may add both, and a client has to ignore them for that
+        // to be compatible.
+        const chunks = await collectChunks([
+            { stream: "begin", statements: 1, flavour: "new" } as unknown as QueryStreamFrame,
+            { stream: "progress", done: 0.5 } as unknown as QueryStreamFrame,
+            {
+                stream: "finished",
+                index: 0,
+                time: "1ms",
+                type: "other",
+                single: false,
+                cost: 3,
+            } as unknown as QueryStreamFrame,
+            { stream: "end", results: 1, time: "1ms", extra: true } as unknown as QueryStreamFrame,
+        ]);
+
+        expect(chunks).toHaveLength(1);
     });
 
     test("frames running out without a terminal frame fails the query", async () => {

@@ -1,8 +1,31 @@
 import { Duration } from "@surrealdb/sqon";
-import type { ServerError } from "../errors";
-import { CallTerminatedError, UnexpectedServerResponseError } from "../errors";
+import {
+    CallTerminatedError,
+    type ServerError,
+    StreamProtocolError,
+    UnexpectedServerResponseError,
+} from "../errors";
 import type { QueryChunk, QueryStats, QueryType } from "../types";
 import { parseRpcError, type RpcErrorObject } from "./parse-error";
+
+/**
+ * The revision of the streaming protocol this SDK implements.
+ *
+ * Servers carry theirs on the `begin` frame as `version`. It changes only when a change is not
+ * backwards compatible, so a server speaking a higher revision than this one is answering in a
+ * shape this SDK cannot be trusted to read, and the stream is failed rather than guessed at. A
+ * `begin` frame with no `version` predates the field and speaks revision 1.
+ *
+ * Within a revision the server guarantees, and this SDK relies on, that:
+ *
+ * - a `stream` tag is never repurposed, so `begin`, `rows`, `value`, `finished` and `end` keep
+ *   their meanings;
+ * - new tags and new fields may be added, so a tag this SDK does not know and a field it does not
+ *   read are ignored rather than treated as errors - that is what makes adding one compatible;
+ * - every `finished` frame carries `single`, as it is all that tells a statement whose value is one
+ *   bare value from one whose value is a list when it emitted no payload frame.
+ */
+export const QUERY_STREAM_VERSION = 1;
 
 /**
  * The key which tags a streaming query frame, holding the frame's kind.
@@ -37,6 +60,8 @@ export type QueryStreamFrame =
 export interface QueryStreamBeginFrame {
     stream: "begin";
     statements: number;
+    /** The protocol revision the server speaks. Absent on servers which predate it. */
+    version?: number;
 }
 
 /**
@@ -134,6 +159,9 @@ export function isQueryStreamFrame(value: unknown): value is QueryStreamFrame {
  * - An `end` frame carrying an error retracts every statement which never finished and fails the
  *   whole query, so a stream which was stopped rather than answered is never mistaken for a
  *   complete one.
+ * - A clean `end` frame names how many statements it delivered, which must agree with how many
+ *   `finished` frames arrived; a stream which disagrees with itself is failed, not completed.
+ * - A `begin` frame announcing a protocol revision this SDK does not implement fails the stream.
  * - The stream is only complete once its `end` frame arrives. Frames running out without one means
  *   the answer was truncated, which fails the query rather than silently returning a prefix of it -
  *   unless the consumer asked to leave, in which case there is nobody the failure belongs to.
@@ -163,6 +191,23 @@ export async function* queryStreamChunks<T>(
 
         switch (frame.stream) {
             case "begin": {
+                // Read off the frame rather than trusted to be an integer: a revision this SDK
+                // cannot read is the one thing a `begin` frame can say which stops the stream.
+                const { version } = frame;
+
+                if (
+                    typeof version === "number" &&
+                    Number.isInteger(version) &&
+                    version > QUERY_STREAM_VERSION
+                ) {
+                    throw new StreamProtocolError(
+                        `The server speaks revision ${version} of the streaming query protocol, ` +
+                            `and this SDK implements revision ${QUERY_STREAM_VERSION}. A higher ` +
+                            "revision is not backwards compatible: upgrade the SDK, or set " +
+                            "`streaming: false` to receive buffered responses instead.",
+                    );
+                }
+
                 break;
             }
 
@@ -250,6 +295,18 @@ export async function* queryStreamChunks<T>(
                     }
 
                     throw error;
+                }
+
+                // The only integrity check the protocol offers: the server states how many
+                // statements it delivered a `finished` frame for, which has to agree with what
+                // was received. A mismatch means frames were lost or misrouted, and an answer
+                // which reads as complete would be missing a statement. Only a clean `end` is
+                // held to it, as an errored one is already failing the query.
+                if (typeof frame.results === "number" && frame.results !== finished.size) {
+                    throw new StreamProtocolError(
+                        `The stream ended reporting ${frame.results} statements, but ` +
+                            `${finished.size} were delivered. The answer is incomplete.`,
+                    );
                 }
 
                 return;

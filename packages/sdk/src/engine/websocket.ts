@@ -52,14 +52,10 @@ interface Call<T> {
  */
 interface Stream {
     channel: ChannelIterator<StreamEvent>;
-    /** The request which opened it, re-sent if a socket returns before it framed anything. */
-    request: object;
     /** Whether the terminal frame, or a failure standing in for it, has arrived. */
     settled: boolean;
     /** Whether the consumer stopped reading, leaving remaining frames to discard. */
     abandoned: boolean;
-    /** Whether any frame has been delivered, which is what makes a replay unsafe. */
-    probe: StreamProbe;
 }
 
 /**
@@ -68,9 +64,14 @@ interface Stream {
 type StreamEvent = { kind: "frame"; frame: QueryStreamFrame } | { kind: "error"; error: Error };
 
 /**
- * Whether a streaming query framed anything before it failed. Nothing is framed
- * until execution is about to begin, so a failure before the first frame means
- * the query never ran and can safely be asked for again in buffered form.
+ * Whether a streaming query framed anything before it failed.
+ *
+ * A *refusal* with no frame behind it proves the query never ran: the server frames `begin` only
+ * once it has accepted the request, so an error answering the request instead of a frame means
+ * nothing executed, and asking again in buffered form cannot run it twice. Nothing else is
+ * proven by the absence of a frame. In particular a connection which dies is not a refusal - the
+ * server enqueues `begin` ahead of executing, and a frame that never arrived does not mean one
+ * was never sent - so a lost socket is never a reason to ask again.
  */
 interface StreamProbe {
     framed: boolean;
@@ -140,10 +141,12 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 // under fresh ids if the connection is re-established.
                 this.#live.clear();
 
-                // A stream which had begun to answer dies with its socket: its consumer holds
-                // part of that answer already, which a replay would duplicate. One which framed
-                // nothing is left registered for `ready` to re-send.
-                this.failStreams(new CallTerminatedError(), { framedOnly: true });
+                // A stream dies with its socket, whether or not it had begun to answer. It is
+                // never re-sent: a consumer which holds part of the answer would see it twice,
+                // and one which holds none cannot tell a query which never started from one which
+                // started and was lost with the connection - re-sending the second would execute
+                // it again.
+                this.failStreams(new CallTerminatedError());
 
                 if (error) {
                     this.#publisher.publish("error", error);
@@ -206,19 +209,6 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         for (const { request } of this.#calls.values()) {
             this.#socket?.send(
                 new Uint8Array(wrapSqonError(() => this._context.codecs.cbor.encode(request))),
-            );
-        }
-
-        // A stream which framed nothing never ran: the server sends its opening frame before
-        // execution begins, and whatever the old socket was doing died with it. So it is re-sent,
-        // exactly as a pending buffered call is, rather than failed.
-        for (const stream of this.#streams.values()) {
-            if (stream.settled || stream.abandoned || stream.probe.framed) continue;
-
-            this.#socket?.send(
-                new Uint8Array(
-                    wrapSqonError(() => this._context.codecs.cbor.encode(stream.request)),
-                ),
             );
         }
     }
@@ -429,8 +419,8 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         session: Session,
         probe: StreamProbe,
     ): AsyncIterableIterator<QueryStreamFrame> {
-        // Unlike a buffered call, a stream is never re-sent once a socket returns, so it cannot
-        // be queued for one which is not there: it would wait for a request never written.
+        // A stream is never re-sent once a socket returns, so it cannot be queued for one which is
+        // not there: it would wait for a request never written.
         if (!this.#active || !this.#socket) {
             throw new ConnectionUnavailableError();
         }
@@ -438,22 +428,24 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         const id = this._context.uniqueId();
         const stream: Stream = {
             channel: new ChannelIterator<StreamEvent>(),
-            request: {
-                id,
-                method: "query_stream",
-                params: [query.query, query.bindings],
-                session,
-            },
             settled: false,
             abandoned: false,
-            probe,
         };
 
         // Sent before the stream is registered, so a request which never reached the socket - an
         // unencodable binding, say - leaves no registration to drain and nothing to cancel. No
         // response can arrive in between: both steps are synchronous.
         this.#socket.send(
-            new Uint8Array(wrapSqonError(() => this._context.codecs.cbor.encode(stream.request))),
+            new Uint8Array(
+                wrapSqonError(() =>
+                    this._context.codecs.cbor.encode({
+                        id,
+                        method: "query_stream",
+                        params: [query.query, query.bindings],
+                        session,
+                    }),
+                ),
+            ),
         );
 
         this.#streams.set(id, stream);
@@ -553,15 +545,9 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
     /**
      * Fails the streaming queries in flight, as a stream cannot outlive its socket.
-     *
-     * With `framedOnly`, only those which have delivered a frame: they cannot be
-     * replayed, as their consumer holds part of the answer already. The rest are
-     * left registered for [`ready`](WebSocketEngine.ready) to re-send.
      */
-    private failStreams(error: Error, options: { framedOnly?: boolean } = {}): void {
+    private failStreams(error: Error): void {
         for (const [id, stream] of this.#streams) {
-            if (options.framedOnly && !stream.probe.framed) continue;
-
             stream.settled = true;
             this.#streams.delete(id);
 
