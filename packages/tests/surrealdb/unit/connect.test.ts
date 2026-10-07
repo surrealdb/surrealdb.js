@@ -5,9 +5,9 @@ describe("connection refusal", () => {
     test("rejects immediately when reconnect is false", async () => {
         const db = new Surreal();
 
-        await expect(
-            db.connect("ws://127.0.0.1:48293", { reconnect: false }),
-        ).rejects.toThrow(UnexpectedConnectionError);
+        await expect(db.connect("ws://127.0.0.1:48293", { reconnect: false })).rejects.toThrow(
+            UnexpectedConnectionError,
+        );
 
         expect(db.status).toBe("disconnected");
     });
