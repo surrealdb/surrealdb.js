@@ -331,6 +331,18 @@ export class Query<
      * Abandoning the stream, such as by breaking out of the loop, stops the query on servers
      * which support it, so results which are no longer wanted are no longer produced.
      *
+     * Asking for a stream is asking for one. Unlike a query which is simply awaited, which is
+     * streamed only where doing so is invisible, this streams inside a transaction, and in spite
+     * of `streaming: false` on the driver; and where the connection is at the limit of streams
+     * the server allows it, it fails rather than being quietly buffered. A server which does not
+     * stream at all still answers, buffered, as it always has, and so do the HTTP and embedded
+     * engines.
+     *
+     * **Inside a transaction, wait for the stream to end before committing.** Requests on a
+     * connection are served concurrently, so a `commit` which arrives while the query is still
+     * executing succeeds, and what it commits is the part of the query which had run, not the
+     * whole of it - the query then fails, but the transaction is already finished.
+     *
      * @example
      * ```ts
      * const stream = this.query("SELECT * FROM person").stream();
@@ -359,7 +371,8 @@ export class Query<
         await raceAbort(this.#connection.ready(), signal);
 
         const { json } = this.#options;
-        const chunks = this.#open<T>(signal);
+        // Asked for, as opposed to accepted: see `stream()`.
+        const chunks = this.#open<T>(signal, true);
 
         for await (const chunk of chunks) {
             if (chunk.error) {
@@ -511,7 +524,10 @@ export class Query<
      *
      * The request timeout is measured from here, once per request, so a retry starts it afresh.
      */
-    #open<T = unknown>(signal: AbortSignal | undefined): AsyncIterable<QueryChunk<T>> {
+    #open<T = unknown>(
+        signal: AbortSignal | undefined,
+        stream = false,
+    ): AsyncIterable<QueryChunk<T>> {
         const { query, transaction, session, credential, beforeSend, dialect } = this.#options;
         const timeout = this.#options.requestTimeout ?? this.#connection.requestTimeout;
         const request = abortScope(signal ? [signal] : [], timeout);
@@ -519,7 +535,13 @@ export class Query<
         try {
             throwIfAborted(request.signal);
 
-            const options = request.signal && { signal: request.signal };
+            const options =
+                request.signal || stream
+                    ? {
+                          ...(request.signal && { signal: request.signal }),
+                          ...(stream && { stream }),
+                      }
+                    : undefined;
 
             // A call made as someone else is never made as the session: it has a method of its
             // own, which the connection refuses when the engine cannot present the credential.
