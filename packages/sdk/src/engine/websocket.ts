@@ -151,15 +151,13 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 // it again.
                 this.failStreams(new CallTerminatedError());
 
-                if (error) {
-                    this.#publisher.publish("error", error);
-                }
-
                 // Check if we should continue to iterate and reconnect
                 if (this.#terminated || !reconnect.enabled || !reconnect.allowed) {
                     // Propagate reconnect exhaustion
                     if (reconnect.enabled && !reconnect.allowed) {
                         this.#publisher.publish("error", new ReconnectExhaustionError());
+                    } else if (error) {
+                        this.#publisher.publish("error", error);
                     }
 
                     // No socket is coming back, so nothing in flight can be answered.
@@ -170,6 +168,10 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                     this.#publisher.publish("disconnected");
 
                     break;
+                }
+
+                if (error) {
+                    this.#publisher.publish("error", error);
                 }
 
                 // Propagate caught errors
