@@ -306,6 +306,11 @@ jobs:
     name: Test
     needs: build-sdk
     runs-on: ubuntu-latest
+    # Runs take about 4 minutes at most, so 10 leaves ample headroom. Without a
+    # limit, a SurrealDB server that fails to start leaves every test waiting out
+    # its reconnect attempts, and the job occupies a runner for hours instead of
+    # failing quickly.
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
