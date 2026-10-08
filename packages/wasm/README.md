@@ -73,8 +73,8 @@ npm i surrealdb @surrealdb/wasm @surrealdb/wasm-native@3.3.1
 // package.json
 {
     "dependencies": {
-        "surrealdb": "^2.0.1",
-        "@surrealdb/wasm": "^3.0.4",
+        "surrealdb": "^2.1.0",
+        "@surrealdb/wasm": "^3.1.0",
         // Pin exactly for reproducible builds, or use a range to follow new releases
         "@surrealdb/wasm-native": "3.3.1"
     }
