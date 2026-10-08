@@ -65,7 +65,7 @@
     },
     "packages/node": {
       "name": "@surrealdb/node",
-      "version": "3.0.4",
+      "version": "3.1.0",
       "devDependencies": {
         "@surrealdb/node-native": "3.3.0-beta.3",
         "dts-bundle-generator": "^9.5.1",
@@ -79,7 +79,7 @@
     },
     "packages/sdk": {
       "name": "surrealdb",
-      "version": "2.0.10",
+      "version": "2.1.0",
       "dependencies": {
         "@surrealdb/sqon": "workspace:^",
       },
@@ -95,7 +95,7 @@
     },
     "packages/sqon": {
       "name": "@surrealdb/sqon",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "dependencies": {
         "@surrealdb/cbor": "2.0.0-alpha.4",
         "uuidv7": "^1.0.1",
@@ -122,7 +122,7 @@
     },
     "packages/wasm": {
       "name": "@surrealdb/wasm",
-      "version": "3.0.4",
+      "version": "3.1.0",
       "devDependencies": {
         "@surrealdb/wasm-native": "3.3.0-beta.3",
         "dts-bundle-generator": "^9.5.1",

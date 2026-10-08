@@ -76,8 +76,8 @@ npm i surrealdb @surrealdb/node @surrealdb/node-native@3.3.1
 // package.json
 {
     "dependencies": {
-        "surrealdb": "^2.0.1",
-        "@surrealdb/node": "^3.0.4",
+        "surrealdb": "^2.1.0",
+        "@surrealdb/node": "^3.1.0",
         // Pin exactly for reproducible builds, or use a range to follow new releases
         "@surrealdb/node-native": "3.3.1"
     }
