@@ -66,6 +66,12 @@ exports[`diagnostics diagnostic events: events-http 1`] = `
           {
             "firstname": "John",
             "id": RecordId {
+              "_id": 1,
+              "_table": Table {
+                "_name": "person",
+                [Symbol(surrealdb.Table)]: true,
+                [Symbol(surrealdb.Value)]: true,
+              },
               [Symbol(surrealdb.RecordId)]: true,
               [Symbol(surrealdb.Value)]: true,
             },
@@ -82,6 +88,12 @@ exports[`diagnostics diagnostic events: events-http 1`] = `
       },
       "params": {
         "bind__1": RecordId {
+          "_id": 1,
+          "_table": Table {
+            "_name": "person",
+            [Symbol(surrealdb.Table)]: true,
+            [Symbol(surrealdb.Value)]: true,
+          },
           [Symbol(surrealdb.RecordId)]: true,
           [Symbol(surrealdb.Value)]: true,
         },
@@ -101,6 +113,12 @@ exports[`diagnostics diagnostic events: events-http 1`] = `
     "result": {
       "params": {
         "bind__1": RecordId {
+          "_id": 1,
+          "_table": Table {
+            "_name": "person",
+            [Symbol(surrealdb.Table)]: true,
+            [Symbol(surrealdb.Value)]: true,
+          },
           [Symbol(surrealdb.RecordId)]: true,
           [Symbol(surrealdb.Value)]: true,
         },
@@ -124,6 +142,12 @@ exports[`diagnostics extract query: query-http 1`] = `"CREATE ONLY $bind__1 CONT
 exports[`diagnostics extract query: params-http 1`] = `
 {
   "bind__1": RecordId {
+    "_id": "test",
+    "_table": Table {
+      "_name": "test",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -200,6 +224,12 @@ exports[`diagnostics diagnostic events: events-ws 1`] = `
           {
             "firstname": "John",
             "id": RecordId {
+              "_id": 1,
+              "_table": Table {
+                "_name": "person",
+                [Symbol(surrealdb.Table)]: true,
+                [Symbol(surrealdb.Value)]: true,
+              },
               [Symbol(surrealdb.RecordId)]: true,
               [Symbol(surrealdb.Value)]: true,
             },
@@ -216,6 +246,12 @@ exports[`diagnostics diagnostic events: events-ws 1`] = `
       },
       "params": {
         "bind__1": RecordId {
+          "_id": 1,
+          "_table": Table {
+            "_name": "person",
+            [Symbol(surrealdb.Table)]: true,
+            [Symbol(surrealdb.Value)]: true,
+          },
           [Symbol(surrealdb.RecordId)]: true,
           [Symbol(surrealdb.Value)]: true,
         },
@@ -235,6 +271,12 @@ exports[`diagnostics diagnostic events: events-ws 1`] = `
     "result": {
       "params": {
         "bind__1": RecordId {
+          "_id": 1,
+          "_table": Table {
+            "_name": "person",
+            [Symbol(surrealdb.Table)]: true,
+            [Symbol(surrealdb.Value)]: true,
+          },
           [Symbol(surrealdb.RecordId)]: true,
           [Symbol(surrealdb.Value)]: true,
         },
@@ -258,6 +300,12 @@ exports[`diagnostics extract query: query-ws 1`] = `"CREATE ONLY $bind__1 CONTEN
 exports[`diagnostics extract query: params-ws 1`] = `
 {
   "bind__1": RecordId {
+    "_id": "test",
+    "_table": Table {
+      "_name": "test",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -321,6 +369,12 @@ exports[`diagnostics diagnostic events: events-mem 1`] = `
           {
             "firstname": "John",
             "id": RecordId {
+              "_id": 1,
+              "_table": Table {
+                "_name": "person",
+                [Symbol(surrealdb.Table)]: true,
+                [Symbol(surrealdb.Value)]: true,
+              },
               [Symbol(surrealdb.RecordId)]: true,
               [Symbol(surrealdb.Value)]: true,
             },
@@ -337,6 +391,12 @@ exports[`diagnostics diagnostic events: events-mem 1`] = `
       },
       "params": {
         "bind__1": RecordId {
+          "_id": 1,
+          "_table": Table {
+            "_name": "person",
+            [Symbol(surrealdb.Table)]: true,
+            [Symbol(surrealdb.Value)]: true,
+          },
           [Symbol(surrealdb.RecordId)]: true,
           [Symbol(surrealdb.Value)]: true,
         },
@@ -356,6 +416,12 @@ exports[`diagnostics diagnostic events: events-mem 1`] = `
     "result": {
       "params": {
         "bind__1": RecordId {
+          "_id": 1,
+          "_table": Table {
+            "_name": "person",
+            [Symbol(surrealdb.Table)]: true,
+            [Symbol(surrealdb.Value)]: true,
+          },
           [Symbol(surrealdb.RecordId)]: true,
           [Symbol(surrealdb.Value)]: true,
         },
@@ -379,6 +445,12 @@ exports[`diagnostics extract query: query-mem 1`] = `"CREATE ONLY $bind__1 CONTE
 exports[`diagnostics extract query: params-mem 1`] = `
 {
   "bind__1": RecordId {
+    "_id": "test",
+    "_table": Table {
+      "_name": "test",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
