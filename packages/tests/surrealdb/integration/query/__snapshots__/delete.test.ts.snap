@@ -5,6 +5,7 @@ exports[`delete() compile: query-http 1`] = `"DELETE $bind__3 RETURN DIFF TIMEOU
 exports[`delete() compile: bindings-http 1`] = `
 {
   "bind__3": Table {
+    "_name": "person",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -16,6 +17,7 @@ exports[`delete() compile: query-ws 1`] = `"DELETE $bind__4 RETURN DIFF TIMEOUT 
 exports[`delete() compile: bindings-ws 1`] = `
 {
   "bind__4": Table {
+    "_name": "person",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -27,6 +29,7 @@ exports[`delete() compile: query-mem 1`] = `"DELETE $bind__3 RETURN DIFF TIMEOUT
 exports[`delete() compile: bindings-mem 1`] = `
 {
   "bind__3": Table {
+    "_name": "person",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
