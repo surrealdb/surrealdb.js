@@ -24,9 +24,9 @@ class RecordIdRange<
         return hasSymbol(instance, RECORD_ID_RANGE_SYMBOL);
     }
 
-    readonly #table: Table<Tb>;
-    readonly #beg: Bound<Id>;
-    readonly #end: Bound<Id>;
+    private readonly _table: Table<Tb>;
+    private readonly _beg: Bound<Id>;
+    private readonly _end: Bound<Id>;
 
     constructor(table: Tb | Table<Tb>, beg: Bound<Id>, end: Bound<Id>) {
         super();
@@ -35,21 +35,21 @@ class RecordIdRange<
         if (!isValidIdBound(beg)) throw new InvalidRecordIdError("Begin bound is not valid");
         if (!isValidIdBound(end)) throw new InvalidRecordIdError("End bound is not valid");
 
-        this.#table = table instanceof Table ? table : new Table(table);
-        this.#beg = beg;
-        this.#end = end;
+        this._table = table instanceof Table ? table : new Table(table);
+        this._beg = beg;
+        this._end = end;
         markSymbol(this, RECORD_ID_RANGE_SYMBOL);
     }
 
     equals(other: unknown): boolean {
         if (!(other instanceof RecordIdRange)) return false;
-        if (this.#beg?.constructor !== other.#beg?.constructor) return false;
-        if (this.#end?.constructor !== other.#end?.constructor) return false;
+        if (this._beg?.constructor !== other._beg?.constructor) return false;
+        if (this._end?.constructor !== other._end?.constructor) return false;
 
         return (
-            this.#table.equals(other.#table) &&
-            equals(this.#beg?.value, other.#beg?.value) &&
-            equals(this.#end?.value, other.#end?.value)
+            this._table.equals(other._table) &&
+            equals(this._beg?.value, other._beg?.value) &&
+            equals(this._end?.value, other._end?.value)
         );
     }
 
@@ -64,31 +64,31 @@ class RecordIdRange<
      * @returns The escaped record ID range string
      */
     toString(): string {
-        const tb = escapeIdent(this.#table.name);
-        const beg = escapeRangeBound(this.#beg);
-        const end = escapeRangeBound(this.#end);
-        return `${tb}:${beg}${getRangeJoin(this.#beg, this.#end)}${end}`;
+        const tb = escapeIdent(this._table.name);
+        const beg = escapeRangeBound(this._beg);
+        const end = escapeRangeBound(this._end);
+        return `${tb}:${beg}${getRangeJoin(this._beg, this._end)}${end}`;
     }
 
     /**
      * The table part value
      */
     get table(): Table<Tb> {
-        return this.#table;
+        return this._table;
     }
 
     /**
      * The range bound beginning
      */
     get begin(): Bound<Id> {
-        return this.#beg;
+        return this._beg;
     }
 
     /**
      * The range bound ending
      */
     get end(): Bound<Id> {
-        return this.#end;
+        return this._end;
     }
 }
 

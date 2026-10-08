@@ -20,8 +20,8 @@ export class DateTime extends Value {
         return hasSymbol(instance, DATETIME_SYMBOL);
     }
 
-    readonly #seconds: bigint;
-    readonly #nanoseconds: bigint;
+    private readonly _seconds: bigint;
+    private readonly _nanoseconds: bigint;
 
     private static loadHr =
         typeof process !== "undefined" && process.hrtime
@@ -77,11 +77,11 @@ export class DateTime extends Value {
 
         if (input === undefined) {
             const now = DateTime.now();
-            this.#seconds = now.#seconds;
-            this.#nanoseconds = now.#nanoseconds;
+            this._seconds = now._seconds;
+            this._nanoseconds = now._nanoseconds;
         } else if (input instanceof DateTime) {
-            this.#seconds = input.#seconds;
-            this.#nanoseconds = input.#nanoseconds;
+            this._seconds = input._seconds;
+            this._nanoseconds = input._nanoseconds;
         } else if (input instanceof Date) {
             const time = input.getTime();
             if (Number.isNaN(time)) {
@@ -89,32 +89,32 @@ export class DateTime extends Value {
             }
             const s = BigInt(Math.floor(time / 1000));
             const ns = BigInt((time % 1000) * 1000000);
-            this.#seconds = s;
-            this.#nanoseconds = ns;
+            this._seconds = s;
+            this._nanoseconds = ns;
         } else if (typeof input === "string") {
             const [s, ns] = DateTime.parseString(input);
-            this.#seconds = s;
-            this.#nanoseconds = ns;
+            this._seconds = s;
+            this._nanoseconds = ns;
         } else if (typeof input === "number") {
-            this.#seconds = BigInt(Math.floor(input));
-            this.#nanoseconds = 0n;
+            this._seconds = BigInt(Math.floor(input));
+            this._nanoseconds = 0n;
         } else if (typeof input === "bigint") {
-            this.#seconds = input;
-            this.#nanoseconds = 0n;
+            this._seconds = input;
+            this._nanoseconds = 0n;
         } else {
             const s = typeof input[0] === "bigint" ? input[0] : BigInt(Math.floor(input[0] ?? 0));
             const ns = typeof input[1] === "bigint" ? input[1] : BigInt(Math.floor(input[1] ?? 0));
 
             const totalSeconds = s + ns / SECOND;
-            this.#seconds = totalSeconds;
-            this.#nanoseconds = ns % SECOND;
+            this._seconds = totalSeconds;
+            this._nanoseconds = ns % SECOND;
         }
         markSymbol(this, DATETIME_SYMBOL);
     }
 
     equals(other: unknown): boolean {
         if (!(other instanceof DateTime)) return false;
-        return this.#seconds === other.#seconds && this.#nanoseconds === other.#nanoseconds;
+        return this._seconds === other._seconds && this._nanoseconds === other._nanoseconds;
     }
 
     toJSON(): unknown {
@@ -135,7 +135,7 @@ export class DateTime extends Value {
      * Converts the datetime to a tuple
      */
     toCompact(): [bigint, bigint] {
-        return [this.#seconds, this.#nanoseconds];
+        return [this._seconds, this._nanoseconds];
     }
 
     /**
@@ -143,15 +143,15 @@ export class DateTime extends Value {
      */
     toISOString(): string {
         const totalMilliseconds =
-            Number(this.#seconds) * 1000 + Number(this.#nanoseconds) / 1000000;
+            Number(this._seconds) * 1000 + Number(this._nanoseconds) / 1000000;
         const date = new Date(totalMilliseconds);
         const isoString = date.toISOString();
 
-        if (this.#nanoseconds === 0n) {
+        if (this._nanoseconds === 0n) {
             return isoString;
         }
 
-        const nanoseconds = this.#nanoseconds.toString().padStart(9, "0");
+        const nanoseconds = this._nanoseconds.toString().padStart(9, "0");
         const trimmed = nanoseconds.replace(/0+$/, "");
 
         return isoString.replace(/\.\d{3}Z$/, `.${trimmed}Z`);
@@ -162,7 +162,7 @@ export class DateTime extends Value {
      */
     toDate(): Date {
         const milliseconds =
-            Number(this.#seconds) * 1000 + Math.floor(Number(this.#nanoseconds) / 1000000);
+            Number(this._seconds) * 1000 + Math.floor(Number(this._nanoseconds) / 1000000);
         return new Date(milliseconds);
     }
 
@@ -223,8 +223,8 @@ export class DateTime extends Value {
      */
     add(duration: Duration): DateTime {
         const [durSeconds, durNanoseconds] = duration.toCompact();
-        let newSeconds = this.#seconds + (durSeconds || 0n);
-        let newNanoseconds = this.#nanoseconds + (durNanoseconds || 0n);
+        let newSeconds = this._seconds + (durSeconds || 0n);
+        let newNanoseconds = this._nanoseconds + (durNanoseconds || 0n);
 
         if (newNanoseconds >= SECOND) {
             newSeconds += 1n;
@@ -242,8 +242,8 @@ export class DateTime extends Value {
      */
     sub(duration: Duration): DateTime {
         const [durSeconds, durNanoseconds] = duration.toCompact();
-        let newSeconds = this.#seconds - (durSeconds || 0n);
-        let newNanoseconds = this.#nanoseconds - (durNanoseconds || 0n);
+        let newSeconds = this._seconds - (durSeconds || 0n);
+        let newNanoseconds = this._nanoseconds - (durNanoseconds || 0n);
 
         if (newNanoseconds < 0n) {
             newSeconds -= 1n;
@@ -259,8 +259,8 @@ export class DateTime extends Value {
      * @param other The other datetime
      */
     diff(other: DateTime): Duration {
-        const totalThis = this.#seconds * SECOND + this.#nanoseconds;
-        const totalOther = other.#seconds * SECOND + other.#nanoseconds;
+        const totalThis = this._seconds * SECOND + this._nanoseconds;
+        const totalOther = other._seconds * SECOND + other._nanoseconds;
         const diff = totalThis > totalOther ? totalThis - totalOther : totalOther - totalThis;
 
         return Duration.nanoseconds(diff);
@@ -282,7 +282,7 @@ export class DateTime extends Value {
 
     /** Total nanoseconds since Unix epoch */
     get nanoseconds(): bigint {
-        return this.#seconds * SECOND + this.#nanoseconds;
+        return this._seconds * SECOND + this._nanoseconds;
     }
 
     /** Total microseconds since Unix epoch */
@@ -297,7 +297,7 @@ export class DateTime extends Value {
 
     /** Seconds since Unix epoch */
     get seconds(): number {
-        return Number(this.#seconds);
+        return Number(this._seconds);
     }
 
     /**
