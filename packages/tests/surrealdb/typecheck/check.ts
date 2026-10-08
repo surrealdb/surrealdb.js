@@ -528,3 +528,105 @@ async function _transaction() {
     // @ts-expect-error Transactions do not nest
     await txn.transaction(["RETURN 1"]);
 }
+
+// Typed tables
+{
+    type Equal<A, B> = (<X>() => X extends A ? 1 : 2) extends <X>() => X extends B ? 1 : 2
+        ? true
+        : false;
+    const assert = <_T extends true>() => {};
+    interface User {
+        name: string;
+    }
+    interface Post {
+        title: string;
+    }
+
+    const a = new Table("users");
+    const b = new Table<"users">("users");
+    const c = new Table<User>("users");
+    const d: Table<"users", User> = new Table("users");
+    const e = new Table<"users", User>("users");
+    const f = Table.of<User>()("users");
+
+    assert<Equal<typeof a, Table<"users", unknown>>>();
+    assert<Equal<typeof b, Table<"users", unknown>>>();
+    assert<Equal<typeof c, Table<string, User>>>();
+    assert<Equal<typeof d, Table<"users", User>>>();
+    assert<Equal<typeof e, Table<"users", User>>>();
+    assert<Equal<typeof f, Table<"users", User>>>();
+
+    // @ts-expect-error: wrong table name
+    const _g: Table<"user", User> = new Table("users");
+    // @ts-expect-error: wrong record type
+    const _h: Table<"users", Post> = d;
+    // @ts-expect-error: the loose form does not carry the literal name
+    const _i: Table<"users", User> = c;
+
+    const widened: Table = c;
+    void widened;
+
+    async function _typedTables(db: Surreal) {
+        const selected = await db.select(f);
+        selected[0].name satisfies string;
+        // @ts-expect-error: not on User
+        selected[0].title;
+
+        const explicit = await db.select<Post>(new Table("posts"));
+        explicit[0].title satisfies string;
+
+        const created = await db.create(c);
+        created[0].name satisfies string;
+        const updated = await db.update(d);
+        updated[0].name satisfies string;
+        const upserted = await db.upsert(e);
+        upserted[0].name satisfies string;
+        const deleted = await db.delete(f);
+        deleted[0].name satisfies string;
+        const inserted = await db.insert(f, { name: "a" });
+        inserted[0].name satisfies string;
+
+        // Untyped tables keep working as before
+        await db.select(new Table("anything"));
+
+        // The record type flows from the table into record IDs
+        const id = new RecordId(f, "john");
+        assert<Equal<typeof id, RecordId<"users", string, User>>>();
+        assert<Equal<typeof id.table, Table<"users", User>>>();
+        const one = await db.select(id);
+        one satisfies { name: string } | undefined;
+        const made = await db.create(id);
+        made.name satisfies string;
+        const upd = await db.update(id);
+        upd.name satisfies string;
+        const ups = await db.upsert(id);
+        ups.name satisfies string;
+        const del = await db.delete(id);
+        del.name satisfies string;
+        // @ts-expect-error: not on User
+        one?.title;
+
+        // The record type flows into ranges too
+        const range = new RecordIdRange(f, new BoundIncluded(1), new BoundExcluded(5));
+        assert<Equal<typeof range, RecordIdRange<"users", number, User>>>();
+        const ranged = await db.select(range);
+        ranged[0].name satisfies string;
+        const rupd = await db.update(range);
+        rupd[0].name satisfies string;
+        const rups = await db.upsert(range);
+        rups[0].name satisfies string;
+        const rdel = await db.delete(range);
+        rdel[0].name satisfies string;
+        // @ts-expect-error: not on User
+        ranged[0].title;
+        const plainRange = new RecordIdRange("users", new BoundIncluded(1), new BoundExcluded(5));
+        await db.select<User>(plainRange);
+
+        // Untyped record IDs keep working as before
+        const plain = new RecordId("users", "john");
+        assert<Equal<typeof plain, RecordId<"users", string, unknown>>>();
+        await db.select<User>(plain);
+        // @ts-expect-error: wrong record type for the ID's table
+        const _j: RecordId<"users", string, Post> = id;
+    }
+}

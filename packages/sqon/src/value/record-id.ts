@@ -14,23 +14,33 @@ export type RecordIdValue = string | number | Uuid | bigint | unknown[] | Record
 /**
  * A SurrealQL record ID value.
  *
+ * @typeParam Tb The table name, as a string literal type
+ * @typeParam Id The type of the ID part
+ * @typeParam T The type of the records in the table. This is a compile-time annotation only, taken
+ * from the `Table` the record ID was created from. It is not validated against the data returned
+ * by the server.
+ *
  * @internal
  */
-class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdValue> extends Value {
+class RecordId<
+    Tb extends string = string,
+    Id extends RecordIdValue = RecordIdValue,
+    T = unknown,
+> extends Value {
     static override [Symbol.hasInstance](instance: unknown): boolean {
         return hasSymbol(instance, RECORD_ID_SYMBOL);
     }
 
-    private readonly _table: Table<Tb>;
+    private readonly _table: Table<Tb, T>;
     private readonly _id: Id;
 
-    constructor(table: Tb | Table<Tb>, id: Id) {
+    constructor(table: Tb | Table<Tb, T>, id: Id) {
         super();
 
         if (!isValidTable(table)) throw new InvalidRecordIdError("Table part is not valid");
         if (!isValidIdPart(id)) throw new InvalidRecordIdError("ID part is not valid");
 
-        this._table = table instanceof Table ? table : new Table(table);
+        this._table = typeof table === "string" ? new Table<Tb, T>(table) : table;
         this._id = id;
         markSymbol(this, RECORD_ID_SYMBOL);
     }
@@ -59,7 +69,7 @@ class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdVa
     /**
      * The table part value
      */
-    get table(): Table<Tb> {
+    get table(): Table<Tb, T> {
         return this._table;
     }
 
@@ -72,10 +82,10 @@ class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdVa
 }
 
 interface RecordIdConstructor {
-    new <T extends string = string, I extends RecordIdValue = RecordIdValue>(
-        table: T | Table<T>,
+    new <Tb extends string = string, I extends RecordIdValue = RecordIdValue, T = unknown>(
+        table: Tb | Table<Tb, T>,
         id: I,
-    ): RecordId<T, WidenRecordIdValue<I>>;
+    ): RecordId<Tb, WidenRecordIdValue<I>, T>;
     new <R extends RecordId<string, RecordIdValue>>(
         table: R["table"]["name"],
         id: R["id"],
@@ -85,10 +95,11 @@ interface RecordIdConstructor {
 /**
  * A SurrealQL record ID value.
  */
-type _RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdValue> = RecordId<
-    Tb,
-    Id
->;
+type _RecordId<
+    Tb extends string = string,
+    Id extends RecordIdValue = RecordIdValue,
+    T = unknown,
+> = RecordId<Tb, Id, T>;
 const _RecordId = RecordId as RecordIdConstructor;
 
 export { _RecordId as RecordId };

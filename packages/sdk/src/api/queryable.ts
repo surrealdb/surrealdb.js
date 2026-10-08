@@ -1,4 +1,10 @@
-import { type RecordId, type RecordIdRange, Table, type Uuid } from "@surrealdb/sqon";
+import {
+    type RecordId,
+    type RecordIdRange,
+    type RecordIdValue,
+    Table,
+    type Uuid,
+} from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { composeQueries } from "../internal/compose-queries";
 import {
@@ -263,6 +269,14 @@ export abstract class SurrealQueryable {
      *
      * @param recordId The record ID to select
      */
+    select<T = unknown>(
+        recordId: RecordId<string, RecordIdValue, T>,
+    ): SelectPromise<RecordResult<T> | undefined, T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.select<User>(recordId)`.
+     * Use this for record IDs that were not created from a table with a record type.
+     */
     select<T>(recordId: AnyRecordId): SelectPromise<RecordResult<T> | undefined, T>;
 
     /**
@@ -270,12 +284,26 @@ export abstract class SurrealQueryable {
      *
      * @param range The range of record IDs to select
      */
+    select<T = unknown>(
+        range: RecordIdRange<string, RecordIdValue, T>,
+    ): SelectPromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.select<User>(range)`.
+     * Use this for ranges that were not created from a table with a record type.
+     */
     select<T>(range: RecordIdRange): SelectPromise<RecordResult<T>[], T>;
 
     /**
      * Select all records present in the specified table
      *
      * @param recordId The record ID to select
+     */
+    select<T = unknown>(table: Table<string, T>): SelectPromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.select<User>(new Table("users"))`.
+     * Use this for tables that were not declared with a record type.
      */
     select<T>(table: Table): SelectPromise<RecordResult<T>[], T>;
 
@@ -303,6 +331,14 @@ export abstract class SurrealQueryable {
      * @see {@link insert} for bulk insertion or `INSERT IGNORE` support.
      * @param recordId The record ID of the record to create
      */
+    create<T = unknown>(
+        recordId: RecordId<string, RecordIdValue, T>,
+    ): CreatePromise<RecordResult<T>, T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.create<User>(recordId)`.
+     * Use this for record IDs that were not created from a table with a record type.
+     */
     create<T>(recordId: AnyRecordId): CreatePromise<RecordResult<T>, T>;
 
     /**
@@ -317,6 +353,12 @@ export abstract class SurrealQueryable {
      *
      * @see {@link insert} for bulk insertion or `INSERT IGNORE` support.
      * @param table The table to create a record in
+     */
+    create<T = unknown>(table: Table<string, T>): CreatePromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.create<User>(new Table("users"))`.
+     * Use this for tables that were not declared with a record type.
      */
     create<T>(table: Table): CreatePromise<RecordResult<T>[], T>;
 
@@ -415,6 +457,15 @@ export abstract class SurrealQueryable {
      * @param table The table to insert the record into
      * @param data One or more records to insert
      */
+    insert<T = unknown>(
+        table: Table<string, T>,
+        data: Values<T> | Values<T>[],
+    ): InsertPromise<RecordResult<T>[]>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.insert<User>(new Table("users"), data)`.
+     * Use this for tables that were not declared with a record type.
+     */
     insert<T>(table: Table, data: Values<T> | Values<T>[]): InsertPromise<RecordResult<T>[]>;
 
     // Shadow implementation
@@ -445,6 +496,14 @@ export abstract class SurrealQueryable {
      *
      * @param recordId The record ID to update
      */
+    update<T = unknown>(
+        recordId: RecordId<string, RecordIdValue, T>,
+    ): UpdatePromise<RecordResult<T>, T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.update<User>(recordId)`.
+     * Use this for record IDs that were not created from a table with a record type.
+     */
     update<T>(recordId: AnyRecordId): UpdatePromise<RecordResult<T>, T>;
 
     /**
@@ -452,12 +511,26 @@ export abstract class SurrealQueryable {
      *
      * @param range The range of record IDs to update
      */
+    update<T = unknown>(
+        range: RecordIdRange<string, RecordIdValue, T>,
+    ): UpdatePromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.update<User>(range)`.
+     * Use this for ranges that were not created from a table with a record type.
+     */
     update<T>(range: RecordIdRange): UpdatePromise<RecordResult<T>[], T>;
 
     /**
      * Updates all records present in the specified table
      *
      * @param table The table to update
+     */
+    update<T = unknown>(table: Table<string, T>): UpdatePromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.update<User>(new Table("users"))`.
+     * Use this for tables that were not declared with a record type.
      */
     update<T>(table: Table): UpdatePromise<RecordResult<T>[], T>;
 
@@ -480,6 +553,14 @@ export abstract class SurrealQueryable {
      * @param recordId The record ID to upsert
      * @param data The record data to upsert
      */
+    upsert<T = unknown>(
+        recordId: RecordId<string, RecordIdValue, T>,
+    ): UpsertPromise<RecordResult<T>, T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.upsert<User>(recordId)`.
+     * Use this for record IDs that were not created from a table with a record type.
+     */
     upsert<T>(recordId: AnyRecordId): UpsertPromise<RecordResult<T>, T>;
 
     /**
@@ -490,6 +571,14 @@ export abstract class SurrealQueryable {
      * @param range The range of record IDs to upsert
      * @param data The record data to upsert
      */
+    upsert<T = unknown>(
+        range: RecordIdRange<string, RecordIdValue, T>,
+    ): UpsertPromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.upsert<User>(range)`.
+     * Use this for ranges that were not created from a table with a record type.
+     */
     upsert<T>(range: RecordIdRange): UpsertPromise<RecordResult<T>[], T>;
 
     /**
@@ -499,6 +588,12 @@ export abstract class SurrealQueryable {
      *
      * @param table The table to upsert
      * @param data The record data to upsert
+     */
+    upsert<T = unknown>(table: Table<string, T>): UpsertPromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.upsert<User>(new Table("users"))`.
+     * Use this for tables that were not declared with a record type.
      */
     upsert<T>(table: Table): UpsertPromise<RecordResult<T>[], T>;
 
@@ -518,6 +613,14 @@ export abstract class SurrealQueryable {
      *
      * @param recordId The record ID to delete
      */
+    delete<T = unknown>(
+        recordId: RecordId<string, RecordIdValue, T>,
+    ): DeletePromise<RecordResult<T>>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.delete<User>(recordId)`.
+     * Use this for record IDs that were not created from a table with a record type.
+     */
     delete<T>(recordId: AnyRecordId): DeletePromise<RecordResult<T>>;
 
     /**
@@ -525,12 +628,26 @@ export abstract class SurrealQueryable {
      *
      * @param range The range of record IDs to delete
      */
+    delete<T = unknown>(
+        range: RecordIdRange<string, RecordIdValue, T>,
+    ): DeletePromise<RecordResult<T>[]>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.delete<User>(range)`.
+     * Use this for ranges that were not created from a table with a record type.
+     */
     delete<T>(range: RecordIdRange): DeletePromise<RecordResult<T>[]>;
 
     /**
      * Deletes all records present in the specified table
      *
      * @param table The table to delete
+     */
+    delete<T = unknown>(table: Table<string, T>): DeletePromise<RecordResult<T>[]>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.delete<User>(new Table("users"))`.
+     * Use this for tables that were not declared with a record type.
      */
     delete<T>(table: Table): DeletePromise<RecordResult<T>[]>;
 
