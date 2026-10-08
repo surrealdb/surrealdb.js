@@ -1,10 +1,12 @@
 import { describe, expect, mock, test } from "bun:test";
-import { Features, RecordId } from "surrealdb";
+import { rm } from "node:fs/promises";
+import { type Engines, Features, RecordId, Surreal } from "surrealdb";
 import {
     createIdleSurreal,
     createSurreal,
     killServer,
     requestVersion,
+    SURREAL_BACKEND,
     SURREAL_PROTOCOL,
     spawnServer,
     VERSION_CHECK,
@@ -144,6 +146,40 @@ describe("connection", async () => {
         connect();
 
         await connect();
+    });
+
+    test.if(SURREAL_BACKEND === "node")(
+        "surrealkv sequential connects release file lock on close",
+        async () => {
+            const engines = (globalThis as unknown as { embeddedEngines: Engines }).embeddedEngines;
+            const dbPath = `/tmp/test-surrealkv-${Date.now()}-${Math.random().toString(36).slice(2)}.db`;
+            const url = `surrealkv://${dbPath}`;
+
+            try {
+                const db1 = new Surreal({ engines });
+                await db1.connect(url);
+                await db1.use({ namespace: "test", database: "test" });
+                await db1.close();
+
+                const db2 = new Surreal({ engines });
+                await db2.connect(url);
+                await db2.use({ namespace: "test", database: "test" });
+                await db2.close();
+            } finally {
+                await rm(dbPath, { recursive: true, force: true }).catch(() => {});
+            }
+        },
+    );
+
+    test.if(SURREAL_BACKEND === "node")("rejects when surrealkv connect fails", async () => {
+        const engines = (globalThis as unknown as { embeddedEngines: Engines }).embeddedEngines;
+        const db = new Surreal({ engines });
+
+        await expect(
+            db.connect("surrealkv:///proc/nonexistent/cannot-create-this/db"),
+        ).rejects.toThrow();
+
+        expect(db.status).toBe("disconnected");
     });
 
     test("using event", async () => {

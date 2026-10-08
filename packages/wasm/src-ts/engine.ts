@@ -44,6 +44,7 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
     #live = new LiveDispatcher();
     #abort: AbortController | undefined;
     #options: ConnectionOptions | undefined;
+    #initPromise: Promise<void> | undefined;
 
     constructor(broker: EngineBroker, context: DriverContext, options?: ConnectionOptions) {
         super(context);
@@ -63,13 +64,15 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         this.#abort?.abort();
         this.#abort = new AbortController();
         this._state = state;
-        this.#initialize(state, this.#abort.signal);
+        this.#initPromise = this.#initialize(state, this.#abort.signal);
     }
 
     async close(): Promise<void> {
         this._state = undefined;
         this.#abort?.abort();
         this.#abort = undefined;
+        await this.#initPromise?.catch(() => {});
+        this.#initPromise = undefined;
         await this.#broker.close();
         this.#live.clear();
         this.#publisher.publish("disconnected");
@@ -249,12 +252,14 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
             });
 
             if (signal.aborted) {
+                await this.#broker.close();
                 return;
             }
 
             this.#publisher.publish("connected");
         } catch (err) {
             this.#publisher.publish("error", new UnexpectedConnectionError(err));
+            this.#publisher.publish("disconnected");
         }
     }
 }
