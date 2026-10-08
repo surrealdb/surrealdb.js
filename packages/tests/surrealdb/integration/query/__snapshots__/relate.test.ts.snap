@@ -5,14 +5,27 @@ exports[`relate() compile: query-http 1`] = `"RELATE  ONLY $bind__3->$bind__4->$
 exports[`relate() compile: bindings-http 1`] = `
 {
   "bind__3": RecordId {
+    "_id": "in",
+    "_table": Table {
+      "_name": "edge",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
   "bind__4": Table {
+    "_name": "graph",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
   "bind__5": RecordId {
+    "_id": "out",
+    "_table": Table {
+      "_name": "edge",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -24,14 +37,27 @@ exports[`relate() compile: query-ws 1`] = `"RELATE  ONLY $bind__4->$bind__5->$bi
 exports[`relate() compile: bindings-ws 1`] = `
 {
   "bind__4": RecordId {
+    "_id": "in",
+    "_table": Table {
+      "_name": "edge",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
   "bind__5": Table {
+    "_name": "graph",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
   "bind__6": RecordId {
+    "_id": "out",
+    "_table": Table {
+      "_name": "edge",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -43,14 +69,27 @@ exports[`relate() compile: query-mem 1`] = `"RELATE  ONLY $bind__3->$bind__4->$b
 exports[`relate() compile: bindings-mem 1`] = `
 {
   "bind__3": RecordId {
+    "_id": "in",
+    "_table": Table {
+      "_name": "edge",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
   "bind__4": Table {
+    "_name": "graph",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
   "bind__5": RecordId {
+    "_id": "out",
+    "_table": Table {
+      "_name": "edge",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },

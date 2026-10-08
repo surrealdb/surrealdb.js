@@ -31,8 +31,8 @@ class RecordId<
         return hasSymbol(instance, RECORD_ID_SYMBOL);
     }
 
-    readonly #table: Table<Tb, T>;
-    readonly #id: Id;
+    private readonly _table: Table<Tb, T>;
+    private readonly _id: Id;
 
     constructor(table: Tb | Table<Tb, T>, id: Id) {
         super();
@@ -40,14 +40,14 @@ class RecordId<
         if (!isValidTable(table)) throw new InvalidRecordIdError("Table part is not valid");
         if (!isValidIdPart(id)) throw new InvalidRecordIdError("ID part is not valid");
 
-        this.#table = typeof table === "string" ? new Table<Tb, T>(table) : table;
-        this.#id = id;
+        this._table = typeof table === "string" ? new Table<Tb, T>(table) : table;
+        this._id = id;
         markSymbol(this, RECORD_ID_SYMBOL);
     }
 
     equals(other: unknown): boolean {
         if (!(other instanceof RecordId)) return false;
-        return this.#table.equals(other.#table) && equals(this.#id, other.#id);
+        return this._table.equals(other._table) && equals(this._id, other._id);
     }
 
     toJSON(): unknown {
@@ -61,8 +61,8 @@ class RecordId<
      * @returns The escaped record ID string including the table name
      */
     toString(): string {
-        const tb = escapeIdent(this.#table.name);
-        const id = escapeIdPart(this.#id);
+        const tb = escapeIdent(this._table.name);
+        const id = escapeIdPart(this._id);
         return `${tb}:${id}`;
     }
 
@@ -70,14 +70,14 @@ class RecordId<
      * The table part value
      */
     get table(): Table<Tb, T> {
-        return this.#table;
+        return this._table;
     }
 
     /**
      * The ID part value
      */
     get id(): Id {
-        return this.#id;
+        return this._id;
     }
 }
 

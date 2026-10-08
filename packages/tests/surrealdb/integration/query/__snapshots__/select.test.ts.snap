@@ -10,6 +10,12 @@ exports[`select() compile: bindings-http 1`] = `
     "lastname",
   ],
   "bind__4": RecordId {
+    "_id": 1,
+    "_table": Table {
+      "_name": "person",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -20,6 +26,8 @@ exports[`select() compile: bindings-http 1`] = `
     "foo",
   ],
   "bind__9": DateTime {
+    "_nanoseconds": 0n,
+    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -31,6 +39,8 @@ exports[`select() compile: query-ws 1`] = `"SELECT type::fields($bind__4) FROM O
 exports[`select() compile: bindings-ws 1`] = `
 {
   "bind__10": DateTime {
+    "_nanoseconds": 0n,
+    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -40,6 +50,12 @@ exports[`select() compile: bindings-ws 1`] = `
     "lastname",
   ],
   "bind__5": RecordId {
+    "_id": 1,
+    "_table": Table {
+      "_name": "person",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -62,6 +78,12 @@ exports[`select() compile: bindings-mem 1`] = `
     "lastname",
   ],
   "bind__4": RecordId {
+    "_id": 1,
+    "_table": Table {
+      "_name": "person",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -72,6 +94,8 @@ exports[`select() compile: bindings-mem 1`] = `
     "foo",
   ],
   "bind__9": DateTime {
+    "_nanoseconds": 0n,
+    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },

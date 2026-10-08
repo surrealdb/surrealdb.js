@@ -37,18 +37,18 @@ class Table<Tb extends string = string, T = unknown> extends Value {
 
     declare readonly [RECORD_TYPE]?: T;
 
-    readonly #name: Tb;
+    private readonly _name: Tb;
 
     constructor(tb: Tb) {
         super();
         if (typeof tb !== "string") throw new InvalidTableError("Table must be a string");
-        this.#name = tb;
+        this._name = tb;
         markSymbol(this, TABLE_SYMBOL);
     }
 
     equals(other: unknown): boolean {
         if (!(other instanceof Table)) return false;
-        return this.#name === other.#name;
+        return this._name === other._name;
     }
 
     toJSON(): unknown {
@@ -62,14 +62,14 @@ class Table<Tb extends string = string, T = unknown> extends Value {
      * @returns The escaped table name
      */
     toString(): string {
-        return escapeIdent(this.#name);
+        return escapeIdent(this._name);
     }
 
     /**
      * The unescaped table name
      */
     get name(): Tb {
-        return this.#name;
+        return this._name;
     }
 }
 

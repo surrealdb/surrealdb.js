@@ -248,6 +248,20 @@ export interface DriverOptions {
      * @default true
      */
     streaming?: boolean;
+    /**
+     * The interval in milliseconds between keepalive ping messages sent to the server.
+     * When set to 0, automatic keepalive pings are disabled.
+     *
+     * @default 30_000 (30 seconds)
+     */
+    pingInterval?: number;
+    /**
+     * The amount of time in milliseconds to wait for a pong response before assuming
+     * the connection is dead and closing the socket.
+     *
+     * @default 10_000 (10 seconds)
+     */
+    pongTimeout?: number;
 }
 
 /**
@@ -424,6 +438,20 @@ export interface ConnectOptions {
      * @default 0 (no limit)
      */
     requestTimeout?: number;
+    /**
+     * The interval in milliseconds between keepalive ping messages sent to the server.
+     * When set to 0, automatic keepalive pings are disabled.
+     *
+     * @default 30_000 (30 seconds)
+     */
+    pingInterval?: number;
+    /**
+     * The amount of time in milliseconds to wait for a pong response before assuming
+     * the connection is dead and closing the socket.
+     *
+     * @default 10_000 (10 seconds)
+     */
+    pongTimeout?: number;
 }
 
 /**
@@ -593,6 +621,8 @@ export interface ConnectionState {
     reconnect: ReconnectContext;
     retry: RetryOptions;
     requestTimeout?: number;
+    pingInterval?: number;
+    pongTimeout?: number;
     rootSession: ConnectionSession;
     sessions: Map<Uuid, ConnectionSession>;
     /**

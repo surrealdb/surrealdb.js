@@ -10,27 +10,27 @@ export class FileRef extends Value {
         return hasSymbol(instance, FILE_REF_SYMBOL);
     }
 
-    readonly #bucket: string;
-    readonly #key: string;
+    private readonly _bucket: string;
+    private readonly _key: string;
 
     constructor(bucket: string, key: string) {
         super();
-        this.#bucket = bucket;
-        this.#key = key.startsWith("/") ? key : `/${key}`;
+        this._bucket = bucket;
+        this._key = key.startsWith("/") ? key : `/${key}`;
         markSymbol(this, FILE_REF_SYMBOL);
     }
 
     get bucket(): string {
-        return this.#bucket;
+        return this._bucket;
     }
 
     get key(): string {
-        return this.#key;
+        return this._key;
     }
 
     equals(other: unknown): boolean {
         if (!(other instanceof FileRef)) return false;
-        return this.#bucket === other.#bucket && this.#key === other.#key;
+        return this._bucket === other._bucket && this._key === other._key;
     }
 
     toJSON(): unknown {
@@ -41,7 +41,7 @@ export class FileRef extends Value {
     }
 
     toString(): string {
-        return `${fmtInner(this.#bucket, true)}:${fmtInner(this.#key, false)}`;
+        return `${fmtInner(this._bucket, true)}:${fmtInner(this._key, false)}`;
     }
 }
 

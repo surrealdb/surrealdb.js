@@ -51,8 +51,8 @@ export class Duration extends Value {
         return hasSymbol(instance, DURATION_SYMBOL);
     }
 
-    readonly #seconds: bigint;
-    readonly #nanoseconds: bigint;
+    private readonly _seconds: bigint;
+    private readonly _nanoseconds: bigint;
 
     /**
      * Constructs a new Duration by cloning an existing duration
@@ -80,25 +80,25 @@ export class Duration extends Value {
         super();
 
         if (input instanceof Duration) {
-            this.#seconds = input.#seconds;
-            this.#nanoseconds = input.#nanoseconds;
+            this._seconds = input._seconds;
+            this._nanoseconds = input._nanoseconds;
         } else if (typeof input === "string") {
             const [s, ns] = Duration.parseString(input);
-            this.#seconds = s;
-            this.#nanoseconds = ns;
+            this._seconds = s;
+            this._nanoseconds = ns;
         } else {
             const s = typeof input[0] === "bigint" ? input[0] : BigInt(Math.floor(input[0] ?? 0));
             const ns = typeof input[1] === "bigint" ? input[1] : BigInt(Math.floor(input[1] ?? 0));
             const total = s * SECOND + ns;
-            this.#seconds = total / SECOND;
-            this.#nanoseconds = total % SECOND;
+            this._seconds = total / SECOND;
+            this._nanoseconds = total % SECOND;
         }
         markSymbol(this, DURATION_SYMBOL);
     }
 
     equals(other: unknown): boolean {
         if (!(other instanceof Duration)) return false;
-        return this.#seconds === other.#seconds && this.#nanoseconds === other.#nanoseconds;
+        return this._seconds === other._seconds && this._nanoseconds === other._nanoseconds;
     }
 
     toJSON(): unknown {
@@ -112,7 +112,7 @@ export class Duration extends Value {
      * @returns Human readable duration string
      */
     toString(): string {
-        let remainingSeconds = this.#seconds;
+        let remainingSeconds = this._seconds;
         let result = "";
 
         for (const [size, unit] of Array.from(UNITS_REVERSED).reverse()) {
@@ -125,7 +125,7 @@ export class Duration extends Value {
             }
         }
 
-        let remainingNanoseconds = remainingSeconds * SECOND + this.#nanoseconds;
+        let remainingNanoseconds = remainingSeconds * SECOND + this._nanoseconds;
 
         for (const [size, unit] of Array.from(UNITS_REVERSED).reverse()) {
             if (size < SECOND) {
@@ -144,10 +144,10 @@ export class Duration extends Value {
      * Converts the duration to a tuple
      */
     toCompact(): [bigint, bigint] | [bigint] | [] {
-        return this.#nanoseconds > 0n
-            ? [this.#seconds, this.#nanoseconds]
-            : this.#seconds > 0n
-              ? [this.#seconds]
+        return this._nanoseconds > 0n
+            ? [this._seconds, this._nanoseconds]
+            : this._seconds > 0n
+              ? [this._seconds]
               : [];
     }
 
@@ -194,10 +194,10 @@ export class Duration extends Value {
      * @returns -1 if this is shorter, 0 if equal, 1 if this is longer
      */
     compare(other: Duration): number {
-        if (this.#seconds < other.#seconds) return -1;
-        if (this.#seconds > other.#seconds) return 1;
-        if (this.#nanoseconds < other.#nanoseconds) return -1;
-        if (this.#nanoseconds > other.#nanoseconds) return 1;
+        if (this._seconds < other._seconds) return -1;
+        if (this._seconds > other._seconds) return 1;
+        if (this._nanoseconds < other._nanoseconds) return -1;
+        if (this._nanoseconds > other._nanoseconds) return 1;
         return 0;
     }
 
@@ -208,8 +208,8 @@ export class Duration extends Value {
      * @returns The resulting duration
      */
     add(other: Duration): Duration {
-        let sec = this.#seconds + other.#seconds;
-        let ns = this.#nanoseconds + other.#nanoseconds;
+        let sec = this._seconds + other._seconds;
+        let ns = this._nanoseconds + other._nanoseconds;
         if (ns >= SECOND) {
             sec += 1n;
             ns -= SECOND;
@@ -224,8 +224,8 @@ export class Duration extends Value {
      * @returns The resulting duration
      */
     sub(other: Duration): Duration {
-        let sec = this.#seconds - other.#seconds;
-        let ns = this.#nanoseconds - other.#nanoseconds;
+        let sec = this._seconds - other._seconds;
+        let ns = this._nanoseconds - other._nanoseconds;
         if (ns < 0n) {
             sec -= 1n;
             ns += SECOND;
@@ -241,7 +241,7 @@ export class Duration extends Value {
      */
     mul(factor: number | bigint): Duration {
         const factorBig = typeof factor === "bigint" ? factor : BigInt(Math.floor(factor));
-        const totalNs = this.#seconds * SECOND + this.#nanoseconds;
+        const totalNs = this._seconds * SECOND + this._nanoseconds;
         const resultNs = totalNs * factorBig;
         return new Duration([resultNs / SECOND, resultNs % SECOND]);
     }
@@ -256,14 +256,14 @@ export class Duration extends Value {
     div(divisor: number | bigint): Duration;
     div(divisor: number | bigint | Duration): bigint | Duration {
         if (typeof divisor === "object" && divisor instanceof Duration) {
-            const a = this.#seconds * SECOND + this.#nanoseconds;
-            const b = divisor.#seconds * SECOND + divisor.#nanoseconds;
+            const a = this._seconds * SECOND + this._nanoseconds;
+            const b = divisor._seconds * SECOND + divisor._nanoseconds;
             if (b === 0n) throw new InvalidDurationError("Division by zero duration");
             return a / b;
         }
         const divisorBig = typeof divisor === "bigint" ? divisor : BigInt(Math.floor(divisor));
         if (divisorBig === 0n) throw new InvalidDurationError("Division by zero");
-        const totalNs = this.#seconds * SECOND + this.#nanoseconds;
+        const totalNs = this._seconds * SECOND + this._nanoseconds;
         const resultNs = totalNs / divisorBig;
         return new Duration([resultNs / SECOND, resultNs % SECOND]);
     }
@@ -275,8 +275,8 @@ export class Duration extends Value {
      * @returns The remainder duration
      */
     mod(mod: Duration): Duration {
-        const a = this.#seconds * SECOND + this.#nanoseconds;
-        const b = mod.#seconds * SECOND + mod.#nanoseconds;
+        const a = this._seconds * SECOND + this._nanoseconds;
+        const b = mod._seconds * SECOND + mod._nanoseconds;
         if (b === 0n) throw new InvalidDurationError("Modulo by zero duration");
         const resultNs = a % b;
         return new Duration([resultNs / SECOND, resultNs % SECOND]);
@@ -286,7 +286,7 @@ export class Duration extends Value {
      * Total nanoseconds in this duration
      */
     get nanoseconds(): bigint {
-        return this.#seconds * SECOND + this.#nanoseconds;
+        return this._seconds * SECOND + this._nanoseconds;
     }
 
     /**
@@ -307,42 +307,42 @@ export class Duration extends Value {
      * Whole seconds in the duration
      */
     get seconds(): bigint {
-        return this.#seconds;
+        return this._seconds;
     }
 
     /**
      * Total whole minutes in the duration
      */
     get minutes(): bigint {
-        return this.#seconds / (MINUTE / SECOND);
+        return this._seconds / (MINUTE / SECOND);
     }
 
     /**
      * Total whole hours in the duration
      */
     get hours(): bigint {
-        return this.#seconds / (HOUR / SECOND);
+        return this._seconds / (HOUR / SECOND);
     }
 
     /**
      * Total whole days in the duration
      */
     get days(): bigint {
-        return this.#seconds / (DAY / SECOND);
+        return this._seconds / (DAY / SECOND);
     }
 
     /**
      * Total whole weeks in the duration
      */
     get weeks(): bigint {
-        return this.#seconds / (WEEK / SECOND);
+        return this._seconds / (WEEK / SECOND);
     }
 
     /**
      * Total whole years in the duration
      */
     get years(): bigint {
-        return this.#seconds / (YEAR / SECOND);
+        return this._seconds / (YEAR / SECOND);
     }
 
     /**

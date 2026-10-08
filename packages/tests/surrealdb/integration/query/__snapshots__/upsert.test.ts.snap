@@ -5,6 +5,12 @@ exports[`upsert() compile: query-http 1`] = `"UPSERT ONLY $bind__3 CONTENT $bind
 exports[`upsert() compile: bindings-http 1`] = `
 {
   "bind__3": RecordId {
+    "_id": 1,
+    "_table": Table {
+      "_name": "person",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -21,6 +27,12 @@ exports[`upsert() compile: query-ws 1`] = `"UPSERT ONLY $bind__4 CONTENT $bind__
 exports[`upsert() compile: bindings-ws 1`] = `
 {
   "bind__4": RecordId {
+    "_id": 1,
+    "_table": Table {
+      "_name": "person",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -37,6 +49,12 @@ exports[`upsert() compile: query-mem 1`] = `"UPSERT ONLY $bind__3 CONTENT $bind_
 exports[`upsert() compile: bindings-mem 1`] = `
 {
   "bind__3": RecordId {
+    "_id": 1,
+    "_table": Table {
+      "_name": "person",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },

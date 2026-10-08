@@ -66,5 +66,5 @@ test("literal data shaped like a custom marker is not mistaken for a real Custom
 
     expect(enc).toEqual({ prop: { $object: { $custom: { property: "foobar" } } } });
     expect(dec).toEqual(input);
-    expect(dec.prop).not.toBeInstanceOf(Custom);
+    expect((dec as Record<string, unknown>).prop).not.toBeInstanceOf(Custom);
 });

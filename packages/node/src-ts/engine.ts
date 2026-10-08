@@ -49,6 +49,7 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
     #active = false;
     #abort: AbortController | undefined;
     #options: ConnectionOptions | undefined;
+    #initPromise: Promise<void> | undefined;
 
     constructor(context: DriverContext, options?: ConnectionOptions) {
         super(context);
@@ -71,7 +72,7 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         this.#abort = new AbortController();
         this.#active = true;
         this._state = state;
-        this.#initialize(state, this.#abort.signal);
+        this.#initPromise = this.#initialize(state, this.#abort.signal);
     }
 
     async close(): Promise<void> {
@@ -79,7 +80,9 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         this.#abort?.abort();
         this.#abort = undefined;
         this.#active = false;
-        this.#engine?.free();
+        await this.#initPromise?.catch(() => {});
+        this.#initPromise = undefined;
+        await this.#engine?.free();
         this.#engine = undefined;
         this.#notificationReceiver = undefined;
         this.#live.clear();
@@ -254,12 +257,14 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
 
     async #initialize(state: ConnectionState, signal: AbortSignal) {
         try {
-            this.#engine = await SurrealNodeEngine.connect(state.url.toString(), this.#options);
+            const engine = await SurrealNodeEngine.connect(state.url.toString(), this.#options);
 
             if (signal.aborted) {
+                await engine.free();
                 return;
             }
 
+            this.#engine = engine;
             this.#notificationReceiver = await this.#engine.notifications();
 
             (async () => {
@@ -293,6 +298,7 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
             this.#publisher.publish("connected");
         } catch (err) {
             this.#publisher.publish("error", new UnexpectedConnectionError(err));
+            this.#publisher.publish("disconnected");
         }
     }
 }
