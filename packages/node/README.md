@@ -46,7 +46,6 @@ Install it alongside [`surrealdb`](https://www.npmjs.com/package/surrealdb) and 
 ## How to install
 
 This package has peer dependencies on `surrealdb` and `@surrealdb/node-native`. The latter is the SurrealDB engine itself, so you choose which engine version you run: npm 7+ and bun install the newest compatible release automatically, or install a specific one yourself (e.g. `npm i @surrealdb/node-native@3.3.1`).
-To see which engine is loaded, call `engineVersion()` (exported by `@surrealdb/node`).
 
 Install them:
 
@@ -63,6 +62,39 @@ yarn add surrealdb @surrealdb/node
 # or using bun
 bun add surrealdb @surrealdb/node
 ```
+
+## Choosing the engine version
+
+The SurrealDB engine is a separate package, `@surrealdb/node-native`, that this package declares as a peer dependency. Its version is independent of the version of `@surrealdb/node`, so you decide which SurrealDB release runs inside your process.
+
+```sh
+# Install a specific engine release alongside the driver
+npm i surrealdb @surrealdb/node @surrealdb/node-native@3.3.1
+```
+
+```jsonc
+// package.json
+{
+    "dependencies": {
+        "surrealdb": "^2.0.1",
+        "@surrealdb/node": "^3.0.4",
+        // Pin exactly for reproducible builds, or use a range to follow new releases
+        "@surrealdb/node-native": "3.3.1"
+    }
+}
+```
+
+If you don't install the engine yourself, your package manager picks the newest release that satisfies the peer range, so two installs of the same `@surrealdb/node` can end up with different engines. Commit your lockfile, or pin the engine as above, if you need every install to match.
+
+To see which engine is actually loaded, for example when reporting a bug:
+
+```ts
+import { engineVersion } from "@surrealdb/node";
+
+console.log(engineVersion()); // "3.3.1"
+```
+
+Only engine versions inside the peer range declared by `@surrealdb/node` are supported. Installing one outside it makes your package manager report a peer dependency conflict.
 
 ## Getting started
 

@@ -78,6 +78,24 @@ await db.connect("wss://my-instance.aws-euw1.surreal.cloud");
 
 For installation options, connection setup, query examples, live queries, embedded engines, and TypeScript notes, see the [**`surrealdb` package readme**](./packages/sdk/README.md).
 
+### Choosing the embedded engine version
+
+`@surrealdb/node` and `@surrealdb/wasm` don't bundle SurrealDB. The engine ships separately as `@surrealdb/node-native` and `@surrealdb/wasm-native`, declared as peer dependencies, so you choose which SurrealDB release runs in your process. It is independent of the version of the driver package.
+
+```jsonc
+// package.json
+{
+    "dependencies": {
+        "surrealdb": "^2.0.1",
+        "@surrealdb/node": "^3.0.4",
+        // Pin exactly for reproducible builds, or use a range to follow new releases
+        "@surrealdb/node-native": "3.3.1"
+    }
+}
+```
+
+If you don't install the engine yourself, your package manager picks the newest release inside the peer range. See the [`@surrealdb/node`](./packages/node/README.md#choosing-the-engine-version) and [`@surrealdb/wasm`](./packages/wasm/README.md#choosing-the-engine-version) readmes for details.
+
 ## Contributing
 
 ### Local setup
