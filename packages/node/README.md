@@ -45,7 +45,10 @@ Install it alongside [`surrealdb`](https://www.npmjs.com/package/surrealdb) and 
 
 ## How to install
 
-This package has a peer dependency on `surrealdb`. Install both:
+This package has peer dependencies on `surrealdb` and `@surrealdb/node-native`. The latter is the SurrealDB engine itself, so you choose which engine version you run: npm 7+ and bun install the newest compatible release automatically, or install a specific one yourself (e.g. `npm i @surrealdb/node-native@3.3.1`).
+To see which engine is loaded, call `engineVersion()` (exported by `@surrealdb/node`).
+
+Install them:
 
 ```sh
 # using npm

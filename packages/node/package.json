@@ -8,10 +8,12 @@
     "devDependencies": {
         "surrealdb": "^2.0.1",
         "dts-bundle-generator": "^9.5.1",
-        "rolldown": "1.0.0-beta.31"
+        "rolldown": "1.0.0-beta.31",
+        "@surrealdb/node-native": "3.3.0-beta.3"
     },
     "peerDependencies": {
-        "surrealdb": "^2.0.1"
+        "surrealdb": "^2.0.1",
+        "@surrealdb/node-native": "^3.3.0-beta.3"
     },
     "exports": {
         ".": {
@@ -37,8 +39,5 @@
         "build": "bun run build.ts",
         "deploy": "bun run ../../scripts/publish.ts"
     },
-    "type": "module",
-    "dependencies": {
-        "@surrealdb/node-native": "3.3.0-beta.3"
-    }
+    "type": "module"
 }

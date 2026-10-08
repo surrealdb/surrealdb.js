@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { satisfies } from "semver";
+import { satisfies, valid } from "semver";
 import { resolvePackages } from "./utils/package.js";
 
 console.log("🔍 Validating package versions...");
@@ -43,6 +43,48 @@ function checkDependencies(list: Record<string, string>) {
         process.exit(1);
     }
 }
+
+// The native engines determine which SurrealDB a user runs. They are peer
+// dependencies so users can choose the engine version, and exact devDependencies
+// so we test against a known one. The pin must satisfy the advertised range, and
+// both packages must be tested against the same engine.
+const engines = [
+    [nodePackage, "@surrealdb/node-native"],
+    [wasmPackage, "@surrealdb/wasm-native"],
+] as const;
+
+const pins: string[] = [];
+
+for (const [pkg, engine] of engines) {
+    const range = pkg.peerDependencies[engine];
+    const pin = pkg.devDependencies[engine];
+
+    if (!range) {
+        console.log(`❌ ${pkg.name} must declare ${engine} as a peer dependency`);
+        process.exit(1);
+    }
+
+    if (!pin || !valid(pin)) {
+        console.log(`❌ ${pkg.name} must pin ${engine} to an exact devDependency, found: ${pin}`);
+        process.exit(1);
+    }
+
+    if (!satisfies(pin, range, { includePrerelease: true })) {
+        console.log(`❌ ${pkg.name}: tested ${engine}@${pin} does not satisfy peer range ${range}`);
+        process.exit(1);
+    }
+
+    pins.push(pin);
+}
+
+if (pins[0] !== pins[1]) {
+    console.log("❌ Node and WASM are tested against different engine versions:");
+    console.log(`   @surrealdb/node-native: ${pins[0]}`);
+    console.log(`   @surrealdb/wasm-native: ${pins[1]}`);
+    process.exit(1);
+}
+
+console.log(`✅ Both packages are tested against SurrealDB engine ${pins[0]}`);
 
 checkDependencies(nodePackage.peerDependencies);
 checkDependencies(nodePackage.devDependencies);
