@@ -492,7 +492,7 @@ jobs:
 
       - name: Load the native addon on glibc 2.34
         run: |
-          version="$(jq -r '.dependencies["@surrealdb/node-native"]' packages/node/package.json)"
+          version="$(jq -r '.devDependencies["@surrealdb/node-native"]' packages/node/package.json)"
           docker run --rm --platform linux/amd64 -e "ADDON_VERSION=$version" amazonlinux:2023 bash -euo pipefail -c '
             dnf -y install --allowerasing nodejs22 nodejs22-npm >/dev/null
             ldd --version | head -1
