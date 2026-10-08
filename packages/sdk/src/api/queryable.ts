@@ -277,6 +277,12 @@ export abstract class SurrealQueryable {
      *
      * @param recordId The record ID to select
      */
+    select<T = unknown>(table: Table<string, T>): SelectPromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.select<User>(new Table("users"))`.
+     * Use this for tables that were not declared with a record type.
+     */
     select<T>(table: Table): SelectPromise<RecordResult<T>[], T>;
 
     // Shadow implementation
@@ -317,6 +323,12 @@ export abstract class SurrealQueryable {
      *
      * @see {@link insert} for bulk insertion or `INSERT IGNORE` support.
      * @param table The table to create a record in
+     */
+    create<T = unknown>(table: Table<string, T>): CreatePromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.create<User>(new Table("users"))`.
+     * Use this for tables that were not declared with a record type.
      */
     create<T>(table: Table): CreatePromise<RecordResult<T>[], T>;
 
@@ -415,6 +427,15 @@ export abstract class SurrealQueryable {
      * @param table The table to insert the record into
      * @param data One or more records to insert
      */
+    insert<T = unknown>(
+        table: Table<string, T>,
+        data: Values<T> | Values<T>[],
+    ): InsertPromise<RecordResult<T>[]>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.insert<User>(new Table("users"), data)`.
+     * Use this for tables that were not declared with a record type.
+     */
     insert<T>(table: Table, data: Values<T> | Values<T>[]): InsertPromise<RecordResult<T>[]>;
 
     // Shadow implementation
@@ -459,6 +480,12 @@ export abstract class SurrealQueryable {
      *
      * @param table The table to update
      */
+    update<T = unknown>(table: Table<string, T>): UpdatePromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.update<User>(new Table("users"))`.
+     * Use this for tables that were not declared with a record type.
+     */
     update<T>(table: Table): UpdatePromise<RecordResult<T>[], T>;
 
     // Shadow implementation
@@ -500,6 +527,12 @@ export abstract class SurrealQueryable {
      * @param table The table to upsert
      * @param data The record data to upsert
      */
+    upsert<T = unknown>(table: Table<string, T>): UpsertPromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.upsert<User>(new Table("users"))`.
+     * Use this for tables that were not declared with a record type.
+     */
     upsert<T>(table: Table): UpsertPromise<RecordResult<T>[], T>;
 
     // Shadow implementation
@@ -531,6 +564,12 @@ export abstract class SurrealQueryable {
      * Deletes all records present in the specified table
      *
      * @param table The table to delete
+     */
+    delete<T = unknown>(table: Table<string, T>): DeletePromise<RecordResult<T>[]>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.delete<User>(new Table("users"))`.
+     * Use this for tables that were not declared with a record type.
      */
     delete<T>(table: Table): DeletePromise<RecordResult<T>[]>;
 

@@ -35,7 +35,7 @@ class RecordIdRange<
         if (!isValidIdBound(beg)) throw new InvalidRecordIdError("Begin bound is not valid");
         if (!isValidIdBound(end)) throw new InvalidRecordIdError("End bound is not valid");
 
-        this.#table = table instanceof Table ? table : new Table(table);
+        this.#table = typeof table === "string" ? new Table<Tb>(table) : table;
         this.#beg = beg;
         this.#end = end;
         markSymbol(this, RECORD_ID_RANGE_SYMBOL);

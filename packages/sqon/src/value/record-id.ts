@@ -30,7 +30,7 @@ class RecordId<Tb extends string = string, Id extends RecordIdValue = RecordIdVa
         if (!isValidTable(table)) throw new InvalidRecordIdError("Table part is not valid");
         if (!isValidIdPart(id)) throw new InvalidRecordIdError("ID part is not valid");
 
-        this.#table = table instanceof Table ? table : new Table(table);
+        this.#table = typeof table === "string" ? new Table<Tb>(table) : table;
         this.#id = id;
         markSymbol(this, RECORD_ID_SYMBOL);
     }

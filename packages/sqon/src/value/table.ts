@@ -5,12 +5,37 @@ import { hasSymbol, markSymbol, TABLE_SYMBOL } from "../utils/symbols.ts";
 import { Value } from "./value.ts";
 
 /**
- * A SurrealQL table value.
+ * Type-only key carrying a table's record type. It has no runtime presence.
  */
-export class Table<Tb extends string = string> extends Value {
+declare const RECORD_TYPE: unique symbol;
+
+/**
+ * A SurrealQL table value.
+ *
+ * @typeParam Tb The table name, as a string literal type
+ * @typeParam T The type of the records stored in the table. This is a compile-time
+ * annotation only: it is not validated against the data returned by the server.
+ *
+ * @internal
+ */
+class Table<Tb extends string = string, T = unknown> extends Value {
     static override [Symbol.hasInstance](instance: unknown): boolean {
         return hasSymbol(instance, TABLE_SYMBOL);
     }
+
+    /**
+     * Declares the record type of a table, while inferring its name.
+     *
+     * @example
+     * ```ts
+     * const users = Table.of<User>()("users"); // Table<"users", User>
+     * ```
+     */
+    static of<T>(): <Tb extends string>(tb: Tb) => Table<Tb, T> {
+        return <Tb extends string>(tb: Tb) => new Table<Tb, T>(tb);
+    }
+
+    declare readonly [RECORD_TYPE]?: T;
 
     readonly #name: Tb;
 
@@ -47,3 +72,41 @@ export class Table<Tb extends string = string> extends Value {
         return this.#name;
     }
 }
+
+interface TableConstructor {
+    /**
+     * Create a table reference, keeping the table name as a literal type.
+     *
+     * The record type can be declared with a type annotation:
+     *
+     * @example
+     * ```ts
+     * const users: Table<"users", User> = new Table("users");
+     * ```
+     */
+    // biome-ignore lint/correctness/noUnusedVariables: T is used in the return type
+    new <Tb extends string, T = unknown>(tb: Tb): Table<Tb, T>;
+
+    /**
+     * Create a table reference with a record type, as in `new Table<User>("users")`.
+     *
+     * Note that the table name is only typed as `string` in this form. To also keep
+     * the name as a literal type, use `Table.of<User>()("users")`, or pass both type
+     * arguments: `new Table<"users", User>("users")`.
+     */
+    new <T>(tb: string): Table<string, T>;
+
+    readonly of: typeof Table.of;
+}
+
+/**
+ * A SurrealQL table value.
+ *
+ * @typeParam Tb The table name, as a string literal type
+ * @typeParam T The type of the records stored in the table. This is a compile-time
+ * annotation only: it is not validated against the data returned by the server.
+ */
+type _Table<Tb extends string = string, T = unknown> = Table<Tb, T>;
+const _Table = Table as unknown as TableConstructor;
+
+export { _Table as Table };

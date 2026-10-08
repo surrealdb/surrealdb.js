@@ -30,4 +30,17 @@ describe("Table", () => {
         const table = new Table("complex-table");
         expect(table.name).toBe("complex-table");
     });
+
+    test("Table.of declares a record type and keeps the name", () => {
+        const table = Table.of<{ name: string }>()("users");
+        expect(table).toBeInstanceOf(Table);
+        expect(table.name).toBe("users");
+        expect(table.equals(new Table("users"))).toBe(true);
+    });
+
+    test("record type does not affect runtime equality", () => {
+        const typed = new Table<{ name: string }>("users");
+        expect(typed.equals(new Table("users"))).toBe(true);
+        expect(typed.toString()).toBe("users");
+    });
 });

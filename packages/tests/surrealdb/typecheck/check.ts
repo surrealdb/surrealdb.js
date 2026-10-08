@@ -528,3 +528,65 @@ async function _transaction() {
     // @ts-expect-error Transactions do not nest
     await txn.transaction(["RETURN 1"]);
 }
+
+// Typed tables
+{
+    type Equal<A, B> = (<X>() => X extends A ? 1 : 2) extends <X>() => X extends B ? 1 : 2
+        ? true
+        : false;
+    const assert = <_T extends true>() => {};
+    interface User {
+        name: string;
+    }
+    interface Post {
+        title: string;
+    }
+
+    const a = new Table("users");
+    const b = new Table<"users">("users");
+    const c = new Table<User>("users");
+    const d: Table<"users", User> = new Table("users");
+    const e = new Table<"users", User>("users");
+    const f = Table.of<User>()("users");
+
+    assert<Equal<typeof a, Table<"users", unknown>>>();
+    assert<Equal<typeof b, Table<"users", unknown>>>();
+    assert<Equal<typeof c, Table<string, User>>>();
+    assert<Equal<typeof d, Table<"users", User>>>();
+    assert<Equal<typeof e, Table<"users", User>>>();
+    assert<Equal<typeof f, Table<"users", User>>>();
+
+    // @ts-expect-error: wrong table name
+    const _g: Table<"user", User> = new Table("users");
+    // @ts-expect-error: wrong record type
+    const _h: Table<"users", Post> = d;
+    // @ts-expect-error: the loose form does not carry the literal name
+    const _i: Table<"users", User> = c;
+
+    const widened: Table = c;
+    void widened;
+
+    async function _typedTables(db: Surreal) {
+        const selected = await db.select(f);
+        selected[0].name satisfies string;
+        // @ts-expect-error: not on User
+        selected[0].title;
+
+        const explicit = await db.select<Post>(new Table("posts"));
+        explicit[0].title satisfies string;
+
+        const created = await db.create(c);
+        created[0].name satisfies string;
+        const updated = await db.update(d);
+        updated[0].name satisfies string;
+        const upserted = await db.upsert(e);
+        upserted[0].name satisfies string;
+        const deleted = await db.delete(f);
+        deleted[0].name satisfies string;
+        const inserted = await db.insert(f, { name: "a" });
+        inserted[0].name satisfies string;
+
+        // Untyped tables keep working as before
+        await db.select(new Table("anything"));
+    }
+}
