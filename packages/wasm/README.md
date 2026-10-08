@@ -60,6 +60,33 @@ yarn add surrealdb @surrealdb/wasm
 bun add surrealdb @surrealdb/wasm
 ```
 
+## Choosing the engine version
+
+The SurrealDB engine is a separate package, `@surrealdb/wasm-native`, that this package declares as a peer dependency. Its version is independent of the version of `@surrealdb/wasm`, so you decide which SurrealDB release runs inside your process.
+
+```sh
+# Install a specific engine release alongside the driver
+npm i surrealdb @surrealdb/wasm @surrealdb/wasm-native@3.3.1
+```
+
+```jsonc
+// package.json
+{
+    "dependencies": {
+        "surrealdb": "^2.0.1",
+        "@surrealdb/wasm": "^3.0.4",
+        // Pin exactly for reproducible builds, or use a range to follow new releases
+        "@surrealdb/wasm-native": "3.3.1"
+    }
+}
+```
+
+If you don't install the engine yourself, your package manager picks the newest release that satisfies the peer range, so two installs of the same `@surrealdb/wasm` can end up with different engines. Commit your lockfile, or pin the engine as above, if you need every install to match.
+
+To see which engine you have, check the installed version of `@surrealdb/wasm-native` (for example with `npm ls @surrealdb/wasm-native`) when reporting a bug.
+
+Only engine versions inside the peer range declared by `@surrealdb/wasm` are supported. Installing one outside it makes your package manager report a peer dependency conflict.
+
 ## Getting started
 
 Register the WebAssembly engine when you create a `Surreal` client, then connect to an embedded endpoint:
