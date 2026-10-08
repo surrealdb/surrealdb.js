@@ -1,4 +1,4 @@
-import { decode, encode, type Replacer, Tagged } from "@surrealdb/cbor";
+import { decode, Encoded, encode, POW_2_53, type Replacer, Tagged } from "@surrealdb/cbor";
 import type { CodecOptions, ValueCodec } from "../../types/codec.ts";
 import { BoundExcluded, BoundIncluded } from "../../utils/range.ts";
 import {
@@ -111,6 +111,17 @@ export class CborCodec implements ValueCodec<Uint8Array> {
 
     protected replacer: Replacer = (input: unknown): unknown => {
         const value = this.#encodeValue(input);
+
+        if (
+            typeof value === "number" &&
+            Number.isInteger(value) &&
+            (value > POW_2_53 || value < -POW_2_53)
+        ) {
+            const buf = new Uint8Array(9);
+            buf[0] = 251; // float64 (0xfb)
+            new DataView(buf.buffer, buf.byteOffset, 9).setFloat64(1, value, false);
+            return new Encoded(buf);
+        }
 
         if (value instanceof Date) {
             return new Tagged(TAG_CUSTOM_DATETIME, new DateTime(value).toCompact());

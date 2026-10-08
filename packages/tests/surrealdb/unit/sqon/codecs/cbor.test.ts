@@ -48,6 +48,9 @@ describe("CborCodec", () => {
             expect(roundTrip(42)).toBe(42);
             expect(roundTrip(3.14)).toBe(3.14);
             expect(roundTrip(-100)).toBe(-100);
+            expect(roundTrip(9007199254740994)).toBe(9007199254740994);
+            expect(roundTrip(-9007199254740994)).toBe(-9007199254740994);
+            expect(roundTrip(1e20)).toBe(1e20);
         });
 
         test("bigint", () => {
