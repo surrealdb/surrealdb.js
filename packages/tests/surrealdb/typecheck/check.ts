@@ -606,6 +606,22 @@ async function _transaction() {
         // @ts-expect-error: not on User
         one?.title;
 
+        // The record type flows into ranges too
+        const range = new RecordIdRange(f, new BoundIncluded(1), new BoundExcluded(5));
+        assert<Equal<typeof range, RecordIdRange<"users", number, User>>>();
+        const ranged = await db.select(range);
+        ranged[0].name satisfies string;
+        const rupd = await db.update(range);
+        rupd[0].name satisfies string;
+        const rups = await db.upsert(range);
+        rups[0].name satisfies string;
+        const rdel = await db.delete(range);
+        rdel[0].name satisfies string;
+        // @ts-expect-error: not on User
+        ranged[0].title;
+        const plainRange = new RecordIdRange("users", new BoundIncluded(1), new BoundExcluded(5));
+        await db.select<User>(plainRange);
+
         // Untyped record IDs keep working as before
         const plain = new RecordId("users", "john");
         assert<Equal<typeof plain, RecordId<"users", string, unknown>>>();

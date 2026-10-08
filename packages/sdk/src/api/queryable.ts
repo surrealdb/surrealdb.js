@@ -284,6 +284,14 @@ export abstract class SurrealQueryable {
      *
      * @param range The range of record IDs to select
      */
+    select<T = unknown>(
+        range: RecordIdRange<string, RecordIdValue, T>,
+    ): SelectPromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.select<User>(range)`.
+     * Use this for ranges that were not created from a table with a record type.
+     */
     select<T>(range: RecordIdRange): SelectPromise<RecordResult<T>[], T>;
 
     /**
@@ -503,6 +511,14 @@ export abstract class SurrealQueryable {
      *
      * @param range The range of record IDs to update
      */
+    update<T = unknown>(
+        range: RecordIdRange<string, RecordIdValue, T>,
+    ): UpdatePromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.update<User>(range)`.
+     * Use this for ranges that were not created from a table with a record type.
+     */
     update<T>(range: RecordIdRange): UpdatePromise<RecordResult<T>[], T>;
 
     /**
@@ -555,6 +571,14 @@ export abstract class SurrealQueryable {
      * @param range The range of record IDs to upsert
      * @param data The record data to upsert
      */
+    upsert<T = unknown>(
+        range: RecordIdRange<string, RecordIdValue, T>,
+    ): UpsertPromise<RecordResult<T>[], T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.upsert<User>(range)`.
+     * Use this for ranges that were not created from a table with a record type.
+     */
     upsert<T>(range: RecordIdRange): UpsertPromise<RecordResult<T>[], T>;
 
     /**
@@ -603,6 +627,14 @@ export abstract class SurrealQueryable {
      * Deletes all records based on the provided Record ID range
      *
      * @param range The range of record IDs to delete
+     */
+    delete<T = unknown>(
+        range: RecordIdRange<string, RecordIdValue, T>,
+    ): DeletePromise<RecordResult<T>[]>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.delete<User>(range)`.
+     * Use this for ranges that were not created from a table with a record type.
      */
     delete<T>(range: RecordIdRange): DeletePromise<RecordResult<T>[]>;
 
