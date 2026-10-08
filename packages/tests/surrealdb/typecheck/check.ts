@@ -588,5 +588,29 @@ async function _transaction() {
 
         // Untyped tables keep working as before
         await db.select(new Table("anything"));
+
+        // The record type flows from the table into record IDs
+        const id = new RecordId(f, "john");
+        assert<Equal<typeof id, RecordId<"users", string, User>>>();
+        assert<Equal<typeof id.table, Table<"users", User>>>();
+        const one = await db.select(id);
+        one satisfies { name: string } | undefined;
+        const made = await db.create(id);
+        made.name satisfies string;
+        const upd = await db.update(id);
+        upd.name satisfies string;
+        const ups = await db.upsert(id);
+        ups.name satisfies string;
+        const del = await db.delete(id);
+        del.name satisfies string;
+        // @ts-expect-error: not on User
+        one?.title;
+
+        // Untyped record IDs keep working as before
+        const plain = new RecordId("users", "john");
+        assert<Equal<typeof plain, RecordId<"users", string, unknown>>>();
+        await db.select<User>(plain);
+        // @ts-expect-error: wrong record type for the ID's table
+        const _j: RecordId<"users", string, Post> = id;
     }
 }

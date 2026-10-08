@@ -1,4 +1,10 @@
-import { type RecordId, type RecordIdRange, Table, type Uuid } from "@surrealdb/sqon";
+import {
+    type RecordId,
+    type RecordIdRange,
+    type RecordIdValue,
+    Table,
+    type Uuid,
+} from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { composeQueries } from "../internal/compose-queries";
 import {
@@ -263,6 +269,14 @@ export abstract class SurrealQueryable {
      *
      * @param recordId The record ID to select
      */
+    select<T = unknown>(
+        recordId: RecordId<string, RecordIdValue, T>,
+    ): SelectPromise<RecordResult<T> | undefined, T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.select<User>(recordId)`.
+     * Use this for record IDs that were not created from a table with a record type.
+     */
     select<T>(recordId: AnyRecordId): SelectPromise<RecordResult<T> | undefined, T>;
 
     /**
@@ -308,6 +322,14 @@ export abstract class SurrealQueryable {
      *
      * @see {@link insert} for bulk insertion or `INSERT IGNORE` support.
      * @param recordId The record ID of the record to create
+     */
+    create<T = unknown>(
+        recordId: RecordId<string, RecordIdValue, T>,
+    ): CreatePromise<RecordResult<T>, T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.create<User>(recordId)`.
+     * Use this for record IDs that were not created from a table with a record type.
      */
     create<T>(recordId: AnyRecordId): CreatePromise<RecordResult<T>, T>;
 
@@ -466,6 +488,14 @@ export abstract class SurrealQueryable {
      *
      * @param recordId The record ID to update
      */
+    update<T = unknown>(
+        recordId: RecordId<string, RecordIdValue, T>,
+    ): UpdatePromise<RecordResult<T>, T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.update<User>(recordId)`.
+     * Use this for record IDs that were not created from a table with a record type.
+     */
     update<T>(recordId: AnyRecordId): UpdatePromise<RecordResult<T>, T>;
 
     /**
@@ -506,6 +536,14 @@ export abstract class SurrealQueryable {
      *
      * @param recordId The record ID to upsert
      * @param data The record data to upsert
+     */
+    upsert<T = unknown>(
+        recordId: RecordId<string, RecordIdValue, T>,
+    ): UpsertPromise<RecordResult<T>, T>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.upsert<User>(recordId)`.
+     * Use this for record IDs that were not created from a table with a record type.
      */
     upsert<T>(recordId: AnyRecordId): UpsertPromise<RecordResult<T>, T>;
 
@@ -550,6 +588,14 @@ export abstract class SurrealQueryable {
      * Deletes a single record from the database based on the provided Record ID
      *
      * @param recordId The record ID to delete
+     */
+    delete<T = unknown>(
+        recordId: RecordId<string, RecordIdValue, T>,
+    ): DeletePromise<RecordResult<T>>;
+
+    /**
+     * Same as above, with the record type given explicitly, e.g. `db.delete<User>(recordId)`.
+     * Use this for record IDs that were not created from a table with a record type.
      */
     delete<T>(recordId: AnyRecordId): DeletePromise<RecordResult<T>>;
 
