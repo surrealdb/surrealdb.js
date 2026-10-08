@@ -101,7 +101,7 @@ export class FakeClock {
         const target = this.#now + milliseconds;
 
         for (;;) {
-            let due: [number, { at: number; run: () => void }] | undefined;
+            let due: [number, { at: number; interval?: number; run: () => void }] | undefined;
 
             for (const entry of this.#timers) {
                 if (entry[1].at <= target && (!due || entry[1].at < due[1].at)) due = entry;

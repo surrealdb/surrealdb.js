@@ -146,6 +146,7 @@ export function mockContext(options: Partial<DriverOptions> = {}): DriverContext
  */
 export function mockState(
     reconnect: boolean | { retryDelay?: number; retryDelayMax?: number } = false,
+    extra: Partial<ConnectionState> = {},
 ): ConnectionState {
     return {
         url: new URL("ws://localhost:8000/rpc"),
@@ -166,5 +167,6 @@ export function mockState(
             authOverriden: false,
         },
         sessions: new Map(),
+        ...extra,
     };
 }

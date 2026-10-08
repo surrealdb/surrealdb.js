@@ -43,8 +43,15 @@ type Interval = Parameters<typeof clearInterval>[0];
 type Timeout = Parameters<typeof clearTimeout>[0];
 type Response = Record<string, unknown>;
 
-const PING_INTERVAL = 3_000;
-const PONG_TIMEOUT = 6_000;
+const DEFAULT_PING_INTERVAL = 30_000;
+const DEFAULT_PONG_TIMEOUT = 10_000;
+
+interface PingEmitter {
+    addEventListener?(type: string, listener: () => void): void;
+    removeEventListener?(type: string, listener: () => void): void;
+    on?(type: string, listener: () => void): void;
+    off?(type: string, listener: () => void): void;
+}
 
 interface Call<T> {
     request: object;
@@ -682,15 +689,16 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 }
             };
 
-            if ("addEventListener" in socket) {
+            const pingSocket = socket as unknown as PingEmitter;
+            if ("addEventListener" in socket && typeof pingSocket.addEventListener === "function") {
                 try {
-                    (socket as any).addEventListener("ping", onServerPing);
+                    pingSocket.addEventListener("ping", onServerPing);
                 } catch {
                     // Ignore if runtime throws on unsupported event
                 }
-            } else if ("on" in socket && typeof (socket as any).on === "function") {
+            } else if ("on" in socket && typeof pingSocket.on === "function") {
                 try {
-                    (socket as any).on("ping", onServerPing);
+                    pingSocket.on("ping", onServerPing);
                 } catch {
                     // Ignore
                 }
@@ -708,6 +716,15 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 try {
                     onConnected();
 
+                    const pingInterval =
+                        this._state?.pingInterval ??
+                        this._context.options.pingInterval ??
+                        DEFAULT_PING_INTERVAL;
+                    const pongTimeout =
+                        this._state?.pongTimeout ??
+                        this._context.options.pongTimeout ??
+                        DEFAULT_PONG_TIMEOUT;
+
                     const sendPing = () => {
                         const WebSocketImpl =
                             this._context.options.websocketImpl ?? globalThis.WebSocket;
@@ -715,18 +732,20 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                             return;
                         }
 
-                        // Arm pong timeout if one is not already running
-                        if (this.#pongTimeout === undefined) {
-                            this.#pongTimeout = setTimeout(() => {
-                                this.#pongTimeout = undefined;
-                                // No pong received within timeout: assume dead / half-open socket
-                                try {
-                                    socket.close();
-                                } catch {
-                                    // ignore
-                                }
-                            }, PONG_TIMEOUT);
+                        // Don't send another ping while we are still awaiting a pong
+                        if (this.#pongTimeout !== undefined) {
+                            return;
                         }
+
+                        this.#pongTimeout = setTimeout(() => {
+                            this.#pongTimeout = undefined;
+                            // No pong received within timeout: assume dead / half-open socket
+                            try {
+                                socket.close();
+                            } catch {
+                                // ignore
+                            }
+                        }, pongTimeout);
 
                         this.send({ method: "ping" })
                             .then(() => {
@@ -746,7 +765,9 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                             });
                     };
 
-                    this.#pinger = setInterval(sendPing, PING_INTERVAL);
+                    if (pingInterval > 0) {
+                        this.#pinger = setInterval(sendPing, pingInterval);
+                    }
                 } catch (err: unknown) {
                     caughtError = err as Error;
                     socket.close();
@@ -773,15 +794,18 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 clearInterval(this.#pinger);
                 this.#pinger = undefined;
                 clearPongTimeout();
-                if ("removeEventListener" in socket) {
+                if (
+                    "removeEventListener" in socket &&
+                    typeof pingSocket.removeEventListener === "function"
+                ) {
                     try {
-                        (socket as any).removeEventListener("ping", onServerPing);
+                        pingSocket.removeEventListener("ping", onServerPing);
                     } catch {
                         // ignore
                     }
-                } else if ("off" in socket && typeof (socket as any).off === "function") {
+                } else if ("off" in socket && typeof pingSocket.off === "function") {
                     try {
-                        (socket as any).off("ping", onServerPing);
+                        pingSocket.off("ping", onServerPing);
                     } catch {
                         // ignore
                     }

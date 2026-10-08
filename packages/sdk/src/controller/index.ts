@@ -180,6 +180,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             reconnect: new ReconnectContext(options.reconnect),
             retry: RetryContext.mergeOptions(options.retry),
             requestTimeout: options.requestTimeout,
+            pingInterval: options.pingInterval,
+            pongTimeout: options.pongTimeout,
             rootSession: {
                 ...this.#createSessionState(undefined),
                 namespace: options.namespace,
