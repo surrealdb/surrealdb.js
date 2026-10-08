@@ -12,7 +12,7 @@ export class Uuid extends Value {
         return hasSymbol(instance, UUID_SYMBOL);
     }
 
-    readonly #inner: UUID;
+    private readonly _inner: UUID;
 
     /**
      * Constructs a new Uuid by cloning an existing uuid
@@ -40,50 +40,50 @@ export class Uuid extends Value {
         super();
 
         if (uuid instanceof ArrayBuffer || isSharedArrayBuffer(uuid)) {
-            this.#inner = UUID.ofInner(new Uint8Array(uuid));
+            this._inner = UUID.ofInner(new Uint8Array(uuid));
         } else if (uuid instanceof Uint8Array) {
-            this.#inner = UUID.ofInner(uuid);
+            this._inner = UUID.ofInner(uuid);
         } else if (uuid instanceof Uuid) {
-            this.#inner = uuid.#inner;
+            this._inner = uuid._inner;
         } else if (uuid instanceof UUID) {
-            this.#inner = uuid;
+            this._inner = uuid;
         } else {
-            this.#inner = UUID.parse(uuid);
+            this._inner = UUID.parse(uuid);
         }
         markSymbol(this, UUID_SYMBOL);
     }
 
     equals(other: unknown): boolean {
         if (!(other instanceof Uuid)) return false;
-        return this.#inner.equals(other.#inner);
+        return this._inner.equals(other._inner);
     }
 
     toJSON(): unknown {
         if (Value._useExperimentalToJson) {
             return JsonCodec.DEFAULT.encode(this);
         }
-        return this.#inner.toString();
+        return this._inner.toString();
     }
 
     /**
      * @returns The string representation of the UUID
      */
     toString(): string {
-        return this.#inner.toString();
+        return this._inner.toString();
     }
 
     /**
      * Converts the UUID to a Uint8Array
      */
     toUint8Array(): Uint8Array {
-        return this.#inner.bytes;
+        return this._inner.bytes;
     }
 
     /**
      * Converts the UUID to a ArrayBuffer
      */
     toBuffer(): ArrayBufferLike {
-        return this.#inner.bytes.buffer;
+        return this._inner.bytes.buffer;
     }
 
     /**

@@ -10,6 +10,7 @@ exports[`live() / liveOf() compile: bindings-ws 1`] = `
     "lastname",
   ],
   "bind__5": Table {
+    "_name": "person",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -30,6 +31,7 @@ exports[`live() / liveOf() compile: bindings-mem 1`] = `
     "lastname",
   ],
   "bind__4": Table {
+    "_name": "person",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },

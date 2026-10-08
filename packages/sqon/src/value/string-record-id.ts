@@ -12,17 +12,17 @@ export class StringRecordId extends Value {
         return hasSymbol(instance, STRING_RECORD_ID_SYMBOL);
     }
 
-    readonly #rid: string;
+    private readonly _rid: string;
 
     constructor(rid: string | StringRecordId | RecordId) {
         super();
 
         if (rid instanceof StringRecordId) {
-            this.#rid = rid.#rid;
+            this._rid = rid._rid;
         } else if (rid instanceof RecordId) {
-            this.#rid = rid.toString();
+            this._rid = rid.toString();
         } else if (typeof rid === "string") {
-            this.#rid = rid;
+            this._rid = rid;
         } else {
             throw new InvalidRecordIdError("String Record ID must be a string");
         }
@@ -31,20 +31,20 @@ export class StringRecordId extends Value {
 
     equals(other: unknown): boolean {
         if (!(other instanceof StringRecordId)) return false;
-        return this.#rid === other.#rid;
+        return this._rid === other._rid;
     }
 
     toJSON(): unknown {
         if (Value._useExperimentalToJson) {
             return JsonCodec.DEFAULT.encode(this);
         }
-        return this.#rid;
+        return this._rid;
     }
 
     /**
      * @returns The string representation of the record ID
      */
     toString(): string {
-        return this.#rid;
+        return this._rid;
     }
 }

@@ -8,6 +8,12 @@ exports[`insert() compile: bindings-http 1`] = `
     {
       "firstname": "John",
       "id": RecordId {
+        "_id": 3,
+        "_table": Table {
+          "_name": "person",
+          [Symbol(surrealdb.Table)]: true,
+          [Symbol(surrealdb.Value)]: true,
+        },
         [Symbol(surrealdb.RecordId)]: true,
         [Symbol(surrealdb.Value)]: true,
       },
@@ -15,6 +21,8 @@ exports[`insert() compile: bindings-http 1`] = `
     },
   ],
   "bind__4": DateTime {
+    "_nanoseconds": 0n,
+    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -29,6 +37,12 @@ exports[`insert() compile: bindings-ws 1`] = `
     {
       "firstname": "John",
       "id": RecordId {
+        "_id": 3,
+        "_table": Table {
+          "_name": "person",
+          [Symbol(surrealdb.Table)]: true,
+          [Symbol(surrealdb.Value)]: true,
+        },
         [Symbol(surrealdb.RecordId)]: true,
         [Symbol(surrealdb.Value)]: true,
       },
@@ -36,6 +50,8 @@ exports[`insert() compile: bindings-ws 1`] = `
     },
   ],
   "bind__5": DateTime {
+    "_nanoseconds": 0n,
+    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -50,6 +66,12 @@ exports[`insert() compile: bindings-mem 1`] = `
     {
       "firstname": "John",
       "id": RecordId {
+        "_id": 3,
+        "_table": Table {
+          "_name": "person",
+          [Symbol(surrealdb.Table)]: true,
+          [Symbol(surrealdb.Value)]: true,
+        },
         [Symbol(surrealdb.RecordId)]: true,
         [Symbol(surrealdb.Value)]: true,
       },
@@ -57,6 +79,8 @@ exports[`insert() compile: bindings-mem 1`] = `
     },
   ],
   "bind__4": DateTime {
+    "_nanoseconds": 0n,
+    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },

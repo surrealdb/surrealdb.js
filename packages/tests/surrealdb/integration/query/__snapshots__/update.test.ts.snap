@@ -5,6 +5,12 @@ exports[`update() compile: query-http 1`] = `"UPDATE ONLY $bind__3 CONTENT $bind
 exports[`update() compile: bindings-http 1`] = `
 {
   "bind__3": RecordId {
+    "_id": 1,
+    "_table": Table {
+      "_name": "person",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -21,6 +27,12 @@ exports[`update() compile: query-ws 1`] = `"UPDATE ONLY $bind__4 CONTENT $bind__
 exports[`update() compile: bindings-ws 1`] = `
 {
   "bind__4": RecordId {
+    "_id": 1,
+    "_table": Table {
+      "_name": "person",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -37,6 +49,12 @@ exports[`update() compile: query-mem 1`] = `"UPDATE ONLY $bind__3 CONTENT $bind_
 exports[`update() compile: bindings-mem 1`] = `
 {
   "bind__3": RecordId {
+    "_id": 1,
+    "_table": Table {
+      "_name": "person",
+      [Symbol(surrealdb.Table)]: true,
+      [Symbol(surrealdb.Value)]: true,
+    },
     [Symbol(surrealdb.RecordId)]: true,
     [Symbol(surrealdb.Value)]: true,
   },

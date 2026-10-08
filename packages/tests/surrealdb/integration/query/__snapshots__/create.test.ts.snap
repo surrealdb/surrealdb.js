@@ -5,18 +5,27 @@ exports[`create() compile: query-http 1`] = `"CREATE $bind__3 CONTENT $bind__4 R
 exports[`create() compile: bindings-http 1`] = `
 {
   "bind__3": Table {
+    "_name": "person",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
   "bind__4": {
     "firstname": "Mary",
     "id": RecordId {
+      "_id": 2,
+      "_table": Table {
+        "_name": "person",
+        [Symbol(surrealdb.Table)]: true,
+        [Symbol(surrealdb.Value)]: true,
+      },
       [Symbol(surrealdb.RecordId)]: true,
       [Symbol(surrealdb.Value)]: true,
     },
     "lastname": "Doe",
   },
   "bind__5": DateTime {
+    "_nanoseconds": 0n,
+    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -28,18 +37,27 @@ exports[`create() compile: query-ws 1`] = `"CREATE $bind__4 CONTENT $bind__5 RET
 exports[`create() compile: bindings-ws 1`] = `
 {
   "bind__4": Table {
+    "_name": "person",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
   "bind__5": {
     "firstname": "Mary",
     "id": RecordId {
+      "_id": 2,
+      "_table": Table {
+        "_name": "person",
+        [Symbol(surrealdb.Table)]: true,
+        [Symbol(surrealdb.Value)]: true,
+      },
       [Symbol(surrealdb.RecordId)]: true,
       [Symbol(surrealdb.Value)]: true,
     },
     "lastname": "Doe",
   },
   "bind__6": DateTime {
+    "_nanoseconds": 0n,
+    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
@@ -51,18 +69,27 @@ exports[`create() compile: query-mem 1`] = `"CREATE $bind__3 CONTENT $bind__4 RE
 exports[`create() compile: bindings-mem 1`] = `
 {
   "bind__3": Table {
+    "_name": "person",
     [Symbol(surrealdb.Table)]: true,
     [Symbol(surrealdb.Value)]: true,
   },
   "bind__4": {
     "firstname": "Mary",
     "id": RecordId {
+      "_id": 2,
+      "_table": Table {
+        "_name": "person",
+        [Symbol(surrealdb.Table)]: true,
+        [Symbol(surrealdb.Value)]: true,
+      },
       [Symbol(surrealdb.RecordId)]: true,
       [Symbol(surrealdb.Value)]: true,
     },
     "lastname": "Doe",
   },
   "bind__5": DateTime {
+    "_nanoseconds": 0n,
+    "_seconds": 0n,
     [Symbol(surrealdb.DateTime)]: true,
     [Symbol(surrealdb.Value)]: true,
   },

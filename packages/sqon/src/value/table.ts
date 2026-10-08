@@ -12,18 +12,18 @@ export class Table<Tb extends string = string> extends Value {
         return hasSymbol(instance, TABLE_SYMBOL);
     }
 
-    readonly #name: Tb;
+    private readonly _name: Tb;
 
     constructor(tb: Tb) {
         super();
         if (typeof tb !== "string") throw new InvalidTableError("Table must be a string");
-        this.#name = tb;
+        this._name = tb;
         markSymbol(this, TABLE_SYMBOL);
     }
 
     equals(other: unknown): boolean {
         if (!(other instanceof Table)) return false;
-        return this.#name === other.#name;
+        return this._name === other._name;
     }
 
     toJSON(): unknown {
@@ -37,13 +37,13 @@ export class Table<Tb extends string = string> extends Value {
      * @returns The escaped table name
      */
     toString(): string {
-        return escapeIdent(this.#name);
+        return escapeIdent(this._name);
     }
 
     /**
      * The unescaped table name
      */
     get name(): Tb {
-        return this.#name;
+        return this._name;
     }
 }

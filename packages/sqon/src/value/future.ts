@@ -12,17 +12,17 @@ export class Future extends Value {
         return hasSymbol(instance, FUTURE_SYMBOL);
     }
 
-    readonly #body: string;
+    private readonly _body: string;
 
     constructor(body: string) {
         super();
-        this.#body = body;
+        this._body = body;
         markSymbol(this, FUTURE_SYMBOL);
     }
 
     equals(other: unknown): boolean {
         if (!(other instanceof Future)) return false;
-        return this.#body === other.#body;
+        return this._body === other._body;
     }
 
     toJSON(): unknown {
@@ -36,13 +36,13 @@ export class Future extends Value {
      * @returns The uncomputed future notation
      */
     toString(): string {
-        return `<future> ${this.#body}`;
+        return `<future> ${this._body}`;
     }
 
     /**
      * The body of the future
      */
     get body(): string {
-        return this.#body;
+        return this._body;
     }
 }

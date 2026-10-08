@@ -13,9 +13,9 @@ export class Decimal extends Value {
         return hasSymbol(instance, DECIMAL_SYMBOL);
     }
 
-    readonly #int: bigint;
-    readonly #frac: bigint;
-    readonly #scale: number;
+    private readonly _int: bigint;
+    private readonly _frac: bigint;
+    private readonly _scale: number;
 
     /**
      * Constructs a new Decimal by cloning an existing Decimal
@@ -50,13 +50,13 @@ export class Decimal extends Value {
         super();
 
         if (input instanceof Decimal) {
-            this.#int = input.#int;
-            this.#frac = input.#frac;
-            this.#scale = input.#scale;
+            this._int = input._int;
+            this._frac = input._frac;
+            this._scale = input._scale;
         } else if (typeof input === "bigint") {
-            this.#int = input;
-            this.#frac = 0n;
-            this.#scale = 0;
+            this._int = input;
+            this._frac = 0n;
+            this._scale = 0;
         } else if (Array.isArray(input)) {
             let [int, frac, scale] = input;
             const maxFrac = 10n ** BigInt(scale);
@@ -64,14 +64,14 @@ export class Decimal extends Value {
                 int += frac / maxFrac;
                 frac %= maxFrac;
             }
-            this.#int = int;
-            this.#frac = frac;
-            this.#scale = scale;
+            this._int = int;
+            this._frac = frac;
+            this._scale = scale;
         } else if (typeof input === "string" && /e/i.test(input)) {
             const dec = Decimal.fromScientificNotation(input);
-            this.#int = dec.#int;
-            this.#frac = dec.#frac;
-            this.#scale = dec.#scale;
+            this._int = dec._int;
+            this._frac = dec._frac;
+            this._scale = dec._scale;
         } else {
             const str = input.toString().trim();
             const isNegative = str.startsWith("-");
@@ -87,9 +87,9 @@ export class Decimal extends Value {
             const absInt = BigInt(intStr);
             const absFrac = BigInt(fracStr);
 
-            this.#int = isNegative ? -absInt : absInt;
-            this.#frac = isNegative ? -absFrac : absFrac;
-            this.#scale = safeFrac.length;
+            this._int = isNegative ? -absInt : absInt;
+            this._frac = isNegative ? -absFrac : absFrac;
+            this._scale = safeFrac.length;
         }
         markSymbol(this, DECIMAL_SYMBOL);
     }
@@ -116,15 +116,15 @@ export class Decimal extends Value {
      * trailing zeros in fractional part trimmed
      */
     toString(): string {
-        const sign = this.#int < 0n || this.#frac < 0n ? "-" : "";
-        const absInt = this.#int < 0n ? -this.#int : this.#int;
-        const absFrac = this.#frac < 0n ? -this.#frac : this.#frac;
+        const sign = this._int < 0n || this._frac < 0n ? "-" : "";
+        const absInt = this._int < 0n ? -this._int : this._int;
+        const absFrac = this._frac < 0n ? -this._frac : this._frac;
 
-        if (this.#scale === 0) {
+        if (this._scale === 0) {
             return `${sign}${absInt}`;
         }
 
-        let fracStr = absFrac.toString().padStart(this.#scale, "0");
+        let fracStr = absFrac.toString().padStart(this._scale, "0");
 
         let end = fracStr.length;
         while (end > 0 && fracStr.charCodeAt(end - 1) === 48) {
@@ -137,17 +137,17 @@ export class Decimal extends Value {
 
     /** Returns the integer part of the number */
     get int(): bigint {
-        return this.#int;
+        return this._int;
     }
 
     /** Returns the fractional part of the number */
     get frac(): bigint {
-        return this.#frac;
+        return this._frac;
     }
 
     /** Returns the scale (number of decimal places) */
     get scale(): number {
-        return this.#scale;
+        return this._scale;
     }
 
     /**
@@ -256,11 +256,11 @@ export class Decimal extends Value {
      * @returns A new Decimal with non-negative components
      */
     abs(): Decimal {
-        return this.#int < 0n || this.#frac < 0n
+        return this._int < 0n || this._frac < 0n
             ? new Decimal([
-                  this.#int < 0n ? -this.#int : this.#int,
-                  this.#frac < 0n ? -this.#frac : this.#frac,
-                  this.#scale,
+                  this._int < 0n ? -this._int : this._int,
+                  this._frac < 0n ? -this._frac : this._frac,
+                  this._scale,
               ])
             : this;
     }
@@ -270,7 +270,7 @@ export class Decimal extends Value {
      * @returns A new Decimal with inverted sign
      */
     neg(): Decimal {
-        return new Decimal([-this.#int, -this.#frac, this.#scale]);
+        return new Decimal([-this._int, -this._frac, this._scale]);
     }
 
     /**
@@ -278,7 +278,7 @@ export class Decimal extends Value {
      * @returns True if both int and frac parts are zero
      */
     isZero(): boolean {
-        return this.#int === 0n && this.#frac === 0n;
+        return this._int === 0n && this._frac === 0n;
     }
 
     /**
@@ -286,7 +286,7 @@ export class Decimal extends Value {
      * @returns True if negative
      */
     isNegative(): boolean {
-        return this.#int < 0n || (this.#int === 0n && this.#frac < 0n);
+        return this._int < 0n || (this._int === 0n && this._frac < 0n);
     }
 
     /**
@@ -317,15 +317,15 @@ export class Decimal extends Value {
 
         const full = this.toBigIntWithScale();
 
-        if (this.#scale <= precision) {
-            const factor = 10n ** BigInt(precision - this.#scale);
+        if (this._scale <= precision) {
+            const factor = 10n ** BigInt(precision - this._scale);
             const newValue = full.value * factor;
             const intPart = newValue / 10n ** BigInt(precision);
             const fracPart = newValue % 10n ** BigInt(precision);
             return new Decimal([intPart, fracPart, precision]);
         }
 
-        const factor = 10n ** BigInt(this.#scale - precision);
+        const factor = 10n ** BigInt(this._scale - precision);
         const half = factor / 2n;
         const rounded =
             full.value >= 0n ? (full.value + half) / factor : (full.value - half) / factor;
@@ -366,9 +366,9 @@ export class Decimal extends Value {
      * @returns An bigint approximation (may lose precision)
      */
     toBigInt(): bigint {
-        if (this.#int >= 0n) return this.#int;
-        if (this.#frac !== 0n) return this.#int - 1n;
-        return this.#int;
+        if (this._int >= 0n) return this._int;
+        if (this._frac !== 0n) return this._int - 1n;
+        return this._int;
     }
 
     /**
@@ -377,9 +377,9 @@ export class Decimal extends Value {
      */
     toParts(): { int: bigint; frac: bigint; scale: number } {
         return {
-            int: this.#int,
-            frac: this.#frac,
-            scale: this.#scale,
+            int: this._int,
+            frac: this._frac,
+            scale: this._scale,
         };
     }
 
@@ -452,8 +452,8 @@ export class Decimal extends Value {
 
     private toBigIntWithScale(): { value: bigint; scale: number } {
         return {
-            value: this.#int * 10n ** BigInt(this.#scale) + this.#frac,
-            scale: this.#scale,
+            value: this._int * 10n ** BigInt(this._scale) + this._frac,
+            scale: this._scale,
         };
     }
 }
