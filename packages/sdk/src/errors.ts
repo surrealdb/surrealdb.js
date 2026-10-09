@@ -745,3 +745,39 @@ export class UnsuccessfulApiError extends SurrealError {
         this.response = response;
     }
 }
+
+/**
+ * Thrown when an import was executed, but some of its statements did not apply.
+ *
+ * An import is not transactional: each statement is applied on its own, and the import carries on
+ * past one which fails, so every statement which is not reported here was applied. Reported by
+ * SurrealDB 3.1 and later over HTTP and WebSocket connections, which answer an import with the
+ * statements which failed.
+ */
+export class ImportError extends SurrealError {
+    override name = "ImportError";
+
+    /** The statements which failed, as server errors, up to the first hundred */
+    readonly failures: ServerError[];
+
+    /** How many statements failed, or at least how many, when `truncated` */
+    readonly failed: number;
+
+    /** Whether the report was cut short, so that more statements may have failed than `failed` */
+    readonly truncated: boolean;
+
+    constructor(failures: ServerError[], failed: number, truncated: boolean) {
+        const count = `${truncated ? "At least " : ""}${failed} ${failed === 1 ? "statement" : "statements"}`;
+        const first = failures[0]?.message;
+
+        super(
+            first === undefined
+                ? `${count} of the import failed`
+                : `${count} of the import failed. The first failed with: ${first}`,
+            failures[0] ? { cause: failures[0] } : undefined,
+        );
+        this.failures = failures;
+        this.failed = failed;
+        this.truncated = truncated;
+    }
+}

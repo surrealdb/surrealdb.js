@@ -242,7 +242,12 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
      * Import an existing export into the database.
      *
      * Like the other query methods, the import is only started once the returned `Promise` is
-     * awaited. Chain `.signal()` to abandon it, or `.requestTimeout()` to limit it.
+     * awaited. Chain `.signal()` to abandon it, `.requestTimeout()` to limit it, or `.progress()`
+     * to follow it.
+     *
+     * An import is not transactional: a statement which fails does not stop the others. Over HTTP
+     * and WebSocket, SurrealDB 3.1 and later say which statements failed, and the import rejects
+     * with an `ImportError` listing them.
      *
      * @param input The data to import
      */

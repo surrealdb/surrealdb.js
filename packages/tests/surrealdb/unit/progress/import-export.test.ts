@@ -1,75 +1,16 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { CborCodec } from "@surrealdb/sqon";
-import { HttpConnectionError, Surreal, type TransferProgress } from "surrealdb";
+import { HttpConnectionError, type TransferProgress } from "surrealdb";
+import {
+    chunked,
+    closeTransfers,
+    connect,
+    connectInBrowser,
+    installXhr,
+    received,
+    recorder,
+} from "../__helpers__/transfer";
 
-const codec = new CborCodec({});
-
-type Handler = (init: RequestInit) => Promise<Response> | Response;
-
-interface Call {
-    path: string;
-    init: RequestInit;
-}
-
-let open: Surreal | undefined;
-const realFetch = globalThis.fetch;
-
-afterEach(async () => {
-    await open?.close();
-    open = undefined;
-    globalThis.fetch = realFetch;
-    delete (globalThis as { XMLHttpRequest?: unknown }).XMLHttpRequest;
-});
-
-const handshake = () =>
-    new Response(new Uint8Array(codec.encode({ id: "x", result: "surrealdb-3.0.0" })));
-
-/**
- * A `fetch` which answers the handshake and hands every other request to the route.
- */
-function fakeFetch(route: Handler, calls: Call[]) {
-    return (async (url: URL | string, init: RequestInit = {}) => {
-        const path = new URL(url.toString()).pathname;
-
-        if (path.endsWith("/rpc")) return handshake();
-
-        calls.push({ path, init });
-        return route(init);
-    }) as typeof fetch;
-}
-
-/** A Surreal instance on the HTTP engine, given a `fetchImpl` */
-async function connect(route: Handler) {
-    const calls: Call[] = [];
-    const db = new Surreal({ fetchImpl: fakeFetch(route, calls) });
-
-    open = db;
-    await db.connect("http://localhost:8000", { versionCheck: false });
-    await db.use({ namespace: "test", database: "test" });
-
-    return { db, calls };
-}
-
-/** Read an uploaded body as the server would, in full */
-async function received(body: BodyInit | null | undefined): Promise<string> {
-    return new Response(body).text();
-}
-
-function recorder() {
-    const events: TransferProgress[] = [];
-    return { events, callback: (progress: TransferProgress) => events.push(progress) };
-}
-
-function chunked(chunks: string[]): ReadableStream<Uint8Array> {
-    const encoder = new TextEncoder();
-
-    return new ReadableStream({
-        start(controller) {
-            for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
-            controller.close();
-        },
-    });
-}
+afterEach(closeTransfers);
 
 function expectIncreasing(events: TransferProgress[]) {
     for (let i = 1; i < events.length; i++) {
@@ -187,110 +128,6 @@ describe("import progress", () => {
     });
 });
 
-interface FakeXhrScript {
-    status?: number;
-    body?: string;
-    headers?: string;
-    /** Stall after the upload, until aborted */
-    stall?: boolean;
-}
-
-/** A browser's `XMLHttpRequest`, as far as the upload of an import uses it */
-function installXhr(script: FakeXhrScript = {}) {
-    const requests: FakeXhr[] = [];
-
-    class FakeXhr {
-        method = "";
-        url = "";
-        headers: Record<string, string> = {};
-        body: Blob | undefined;
-        aborted = false;
-        withCredentials = false;
-        responseType = "";
-        status = 0;
-        statusText = "";
-        response: ArrayBuffer | null = null;
-        readyState = 0;
-        downloaded = false;
-        upload: { onprogress?: (event: ProgressEvent) => void } = {};
-        onreadystatechange?: () => void;
-        onload?: () => void;
-        onerror?: () => void;
-        onabort?: () => void;
-
-        constructor() {
-            requests.push(this);
-        }
-
-        open(method: string, url: string) {
-            this.method = method;
-            this.url = url;
-        }
-
-        setRequestHeader(name: string, value: string) {
-            this.headers[name] = value;
-        }
-
-        getAllResponseHeaders() {
-            return script.headers ?? "content-type: application/json\r\n";
-        }
-
-        abort() {
-            this.aborted = true;
-            this.onabort?.();
-        }
-
-        send(body: Blob) {
-            this.body = body;
-
-            queueMicrotask(() => {
-                const half = Math.floor(body.size / 2);
-
-                for (const loaded of [half, body.size]) {
-                    this.upload.onprogress?.({
-                        loaded,
-                        total: body.size,
-                        lengthComputable: true,
-                    } as ProgressEvent);
-                }
-
-                if (script.stall) return;
-
-                this.status = script.status ?? 200;
-                this.statusText = this.status === 200 ? "OK" : "Unprocessable Entity";
-                this.readyState = 2;
-                this.onreadystatechange?.();
-
-                if (this.aborted) return;
-
-                this.downloaded = true;
-                this.response = new TextEncoder().encode(script.body ?? "[]").buffer as ArrayBuffer;
-                this.readyState = 4;
-                this.onreadystatechange?.();
-                this.onload?.();
-            });
-        }
-    }
-
-    (globalThis as { XMLHttpRequest?: unknown }).XMLHttpRequest = FakeXhr;
-
-    return requests;
-}
-
-/** A Surreal instance on the HTTP engine in a browser, with no `fetchImpl` */
-async function connectInBrowser() {
-    const calls: Call[] = [];
-
-    globalThis.fetch = fakeFetch(() => new Response("[]"), calls);
-
-    const db = new Surreal();
-    open = db;
-    await db.connect("http://localhost:8000", { versionCheck: false });
-    await db.use({ namespace: "test", database: "test" });
-
-    return { db, calls };
-}
-
 describe("import progress in a browser", () => {
     test("a Blob is uploaded with XMLHttpRequest, which reports its progress", async () => {
         const requests = installXhr();
@@ -325,7 +162,7 @@ describe("import progress in a browser", () => {
         await db.import("CREATE a;").progress(() => {});
 
         expect(requests[0]?.aborted).toBe(true);
-        expect(requests[0]?.downloaded).toBe(false);
+        expect(requests[0]?.downloaded).toBe(0);
     });
 
     test("an import without progress is fetched as before", async () => {

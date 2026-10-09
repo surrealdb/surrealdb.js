@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { Features, type TransferProgress } from "surrealdb";
-import { createSurreal, SURREAL_BACKEND } from "./__helpers__";
+import { satisfies } from "semver";
+import { AlreadyExistsError, Features, ImportError, type TransferProgress } from "surrealdb";
+import { createSurreal, requestVersion, SURREAL_BACKEND } from "./__helpers__";
+
+const { version } = await requestVersion();
+const isRemote = SURREAL_BACKEND === "remote";
+const reportsFailures = satisfies(version, ">=3.1.0-0", { includePrerelease: true });
 
 describe("import", async () => {
     test("basic", async () => {
@@ -78,4 +83,44 @@ describe("import", async () => {
 
         expect(count).toBe(2000);
     });
+
+    test.if(isRemote && reportsFailures)("rejects with the statements which failed", async () => {
+        const surreal = await createSurreal();
+
+        const error = await surreal
+            .import("OPTION IMPORT;\nCREATE dup:1;\nCREATE dup:1;\nCREATE dup:2;")
+            .then(
+                () => undefined,
+                (error: unknown) => error,
+            );
+
+        expect(error).toBeInstanceOf(ImportError);
+        expect((error as ImportError).failed).toBe(1);
+        expect((error as ImportError).failures[0]).toBeInstanceOf(AlreadyExistsError);
+
+        // The import is not transactional: the statements around the failure applied
+        const [ids] = await surreal
+            .query("SELECT VALUE record::id(id) FROM dup")
+            .collect<[number[]]>();
+
+        expect(ids).toEqual([1, 2]);
+    });
+
+    test.if(isRemote && reportsFailures)(
+        "rejects with a failure reported by progress too",
+        async () => {
+            const surreal = await createSurreal();
+
+            const error = await surreal
+                .import(new Blob(["OPTION IMPORT;\nCREATE (((;"]))
+                .progress(() => {})
+                .then(
+                    () => undefined,
+                    (error: unknown) => error,
+                );
+
+            expect(error).toBeInstanceOf(ImportError);
+            expect((error as ImportError).message).toContain("Parse error");
+        },
+    );
 });

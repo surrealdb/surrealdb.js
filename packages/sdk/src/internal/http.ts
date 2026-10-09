@@ -31,6 +31,10 @@ export interface FetchSurrealOptions {
     signal?: AbortSignal;
     /** Reports how much of the body has been uploaded, where the runtime lets that be seen */
     uploadProgress?: ProgressCallback;
+    /** Statuses besides `200` which answer the request, returned for the caller to read */
+    answers?: readonly number[];
+    /** Whether the body of a `200` goes unread, so need not be downloaded at all */
+    discardSuccessBody?: boolean;
 }
 
 /**
@@ -50,9 +54,9 @@ export function readBody(response: Response, signal?: AbortSignal): Promise<Arra
  * this reads a body which may be very large and is likely to be streamed, so what it holds is let go
  * of when the signal aborts, whatever `fetch` did with it. The reason of the signal is thrown.
  */
-async function readChunks(
+export async function readChunks(
     response: Response,
-    signal: AbortSignal,
+    signal: AbortSignal | undefined,
     onChunk: (chunk: Uint8Array) => void,
 ): Promise<void> {
     throwIfAborted(signal);
@@ -64,10 +68,10 @@ async function readChunks(
 
     const reader = response.body.getReader();
     const cancel = () => {
-        reader.cancel(abortReason(signal)).catch(() => {});
+        if (signal) reader.cancel(abortReason(signal)).catch(() => {});
     };
 
-    signal.addEventListener("abort", cancel, { once: true });
+    signal?.addEventListener("abort", cancel, { once: true });
 
     try {
         for (;;) {
@@ -80,7 +84,7 @@ async function readChunks(
             onChunk(value);
         }
     } finally {
-        signal.removeEventListener("abort", cancel);
+        signal?.removeEventListener("abort", cancel);
         reader.releaseLock();
     }
 }
@@ -229,6 +233,7 @@ export async function fetchSurreal(
                     credentials: context.options.fetchOptions?.credentials,
                     signal: options.signal,
                     progress: xhrProgress,
+                    discardSuccess: options.discardSuccessBody ?? false,
                 }),
                 options.signal,
                 releaseResponse,
@@ -267,7 +272,7 @@ export async function fetchSurreal(
         }
     }
 
-    if (response.status === 200) {
+    if (response.status === 200 || options.answers?.includes(response.status)) {
         return response;
     }
 
@@ -288,14 +293,17 @@ interface XhrUpload {
     credentials: RequestCredentials | undefined;
     signal: AbortSignal | undefined;
     progress: ProgressCallback;
+    discardSuccess: boolean;
 }
 
 /** Statuses whose response has no body, which a `Response` refuses to be given one for */
 const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
 
 /**
- * Upload a body with `XMLHttpRequest`, reporting its progress, and answer as `fetch` would, except
- * that the body of a `200`, which XHR would buffer and nothing reads, is not downloaded.
+ * Upload a body with `XMLHttpRequest`, reporting its progress, and answer as `fetch` would. XHR
+ * cannot stream a response, so it is taken as a `Blob`, which the browser keeps out of the page's
+ * memory and may hold on disk, and is read from there. The body of a `200` is not downloaded at all
+ * when `discardSuccess` is set.
  */
 function uploadWithXhr(url: URL, request: XhrUpload): Promise<Response> {
     const { signal, progress } = request;
@@ -313,7 +321,7 @@ function uploadWithXhr(url: URL, request: XhrUpload): Promise<Response> {
             signal?.removeEventListener("abort", onAbort);
             return true;
         };
-        const answer = (body: ArrayBuffer | null) =>
+        const answer = (body: Blob | null) =>
             new Response(NULL_BODY_STATUSES.has(xhr.status) ? null : body, {
                 status: xhr.status,
                 statusText: xhr.statusText,
@@ -321,7 +329,7 @@ function uploadWithXhr(url: URL, request: XhrUpload): Promise<Response> {
             });
 
         xhr.open(request.method, url.href);
-        xhr.responseType = "arraybuffer";
+        xhr.responseType = "blob";
         xhr.withCredentials = request.credentials === "include";
 
         for (const [name, value] of Object.entries(request.headers)) {
@@ -337,7 +345,7 @@ function uploadWithXhr(url: URL, request: XhrUpload): Promise<Response> {
 
         xhr.onreadystatechange = () => {
             // HEADERS_RECEIVED
-            if (xhr.readyState === 2 && xhr.status === 200 && settle()) {
+            if (xhr.readyState === 2 && xhr.status === 200 && request.discardSuccess && settle()) {
                 resolve(answer(null));
                 xhr.abort();
             }
