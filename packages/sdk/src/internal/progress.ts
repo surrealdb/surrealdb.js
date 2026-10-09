@@ -48,3 +48,29 @@ export function countResponse(response: Response, onProgress: ProgressCallback):
         },
     );
 }
+
+/** The UTF-8 length of a string, without encoding a copy of it */
+export function utf8Length(text: string): number {
+    let length = 0;
+
+    for (let i = 0; i < text.length; i++) {
+        const code = text.charCodeAt(i);
+
+        if (code < 0x80) {
+            length += 1;
+        } else if (code < 0x800) {
+            length += 2;
+        } else if (
+            code >= 0xd800 &&
+            code < 0xdc00 &&
+            (text.charCodeAt(i + 1) & 0xfc00) === 0xdc00
+        ) {
+            length += 4;
+            i++;
+        } else {
+            length += 3;
+        }
+    }
+
+    return length;
+}

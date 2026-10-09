@@ -117,6 +117,38 @@ describe("import progress", () => {
         ]);
     });
 
+    test("a stream is read only as fast as it is uploaded", async () => {
+        const encoder = new TextEncoder();
+        let pulled = 0;
+        const source = new ReadableStream<Uint8Array>(
+            {
+                pull(controller) {
+                    if (++pulled > 100) return controller.close();
+                    controller.enqueue(encoder.encode("CREATE a;"));
+                },
+            },
+            { highWaterMark: 0 },
+        );
+        const { events, callback } = recorder();
+        const { db } = await connect(async (init) => {
+            const reader = (init.body as ReadableStream<Uint8Array>).getReader();
+
+            await reader.read();
+            await new Promise((resolve) => setTimeout(resolve, 10));
+
+            // Nothing was read ahead into memory while the upload waited
+            expect(pulled).toBeLessThanOrEqual(3);
+            expect(events.length).toBeLessThanOrEqual(3);
+
+            while (!(await reader.read()).done) {}
+            return new Response("[]");
+        });
+
+        await db.import(source).progress(callback);
+
+        expect(events.at(-1)).toEqual({ loaded: 900, total: undefined });
+    });
+
     test("a callback which throws does not fail the import, and is rethrown on its own", async () => {
         const failure = new Error("callback failed");
         const deferred: VoidFunction[] = [];
@@ -178,7 +210,10 @@ function installXhr(script: FakeXhrScript = {}) {
         status = 0;
         statusText = "";
         response: ArrayBuffer | null = null;
+        readyState = 0;
+        downloaded = false;
         upload: { onprogress?: (event: ProgressEvent) => void } = {};
+        onreadystatechange?: () => void;
         onload?: () => void;
         onerror?: () => void;
         onabort?: () => void;
@@ -223,7 +258,15 @@ function installXhr(script: FakeXhrScript = {}) {
 
                 this.status = script.status ?? 200;
                 this.statusText = this.status === 200 ? "OK" : "Unprocessable Entity";
+                this.readyState = 2;
+                this.onreadystatechange?.();
+
+                if (this.aborted) return;
+
+                this.downloaded = true;
                 this.response = new TextEncoder().encode(script.body ?? "[]").buffer as ArrayBuffer;
+                this.readyState = 4;
+                this.onreadystatechange?.();
                 this.onload?.();
             });
         }
@@ -273,6 +316,16 @@ describe("import progress in a browser", () => {
             { loaded: 9, total: 18 },
             { loaded: 18, total: 18 },
         ]);
+    });
+
+    test("the answer to a complete import is not downloaded", async () => {
+        const requests = installXhr({ body: JSON.stringify(new Array(10_000).fill("ok")) });
+        const { db } = await connectInBrowser();
+
+        await db.import("CREATE a;").progress(() => {});
+
+        expect(requests[0]?.aborted).toBe(true);
+        expect(requests[0]?.downloaded).toBe(false);
     });
 
     test("an import without progress is fetched as before", async () => {
@@ -351,6 +404,42 @@ describe("export progress", () => {
         expect(events).toEqual([]);
         expect(await response.text()).toBe(sql);
         expect(events).toEqual([{ loaded: size, total: undefined }]);
+    });
+
+    test("a raw export is streamed to the caller as it arrives", async () => {
+        const encoder = new TextEncoder();
+        let finish: () => void = () => {};
+        const finished = new Promise<void>((resolve) => {
+            finish = resolve;
+        });
+        const { events, callback } = recorder();
+        const { db } = await connect(
+            () =>
+                new Response(
+                    new ReadableStream<Uint8Array>({
+                        async start(controller) {
+                            controller.enqueue(encoder.encode("DEFINE TABLE a;"));
+                            await finished;
+                            controller.enqueue(encoder.encode("DEFINE TABLE b;"));
+                            controller.close();
+                        },
+                    }),
+                ),
+        );
+
+        const response = await db.export().raw().progress(callback);
+        const reader = response.body?.getReader() as ReadableStreamDefaultReader<Uint8Array>;
+
+        // The first chunk is read, and counted, while the server is still sending
+        const first = await reader.read();
+        expect(new TextDecoder().decode(first.value)).toBe("DEFINE TABLE a;");
+        expect(events).toEqual([{ loaded: 15, total: undefined }]);
+
+        finish();
+
+        expect(new TextDecoder().decode((await reader.read()).value)).toBe("DEFINE TABLE b;");
+        expect((await reader.read()).done).toBe(true);
+        expect(events.at(-1)).toEqual({ loaded: 30, total: undefined });
     });
 
     test("an export with a length is counted against it", async () => {

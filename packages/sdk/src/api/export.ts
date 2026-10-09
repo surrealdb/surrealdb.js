@@ -4,7 +4,7 @@ import { assertCredential } from "../internal/auth-provider";
 import type { TransferOptions } from "../internal/credentialed";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { readBytes, readText, releaseResponse } from "../internal/http";
-import { countResponse, reportProgress } from "../internal/progress";
+import { countResponse, reportProgress, utf8Length } from "../internal/progress";
 import type { AuthOrToken, MlExportOptions, ProgressCallback, SqlExportOptions } from "../types";
 import { Features } from "../utils";
 
@@ -152,7 +152,7 @@ export class ExportPromise<R extends boolean = false> extends DispatchedPromise<
 
             if (typeof result === "string") {
                 if (progress) {
-                    const length = new TextEncoder().encode(result).byteLength;
+                    const length = utf8Length(result);
                     progress({ loaded: length, total: length });
                 }
 

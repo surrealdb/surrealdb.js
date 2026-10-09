@@ -294,7 +294,8 @@ interface XhrUpload {
 const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
 
 /**
- * Upload a body with `XMLHttpRequest`, reporting its progress, and answer as `fetch` would.
+ * Upload a body with `XMLHttpRequest`, reporting its progress, and answer as `fetch` would, except
+ * that the body of a `200`, which XHR would buffer and nothing reads, is not downloaded.
  */
 function uploadWithXhr(url: URL, request: XhrUpload): Promise<Response> {
     const { signal, progress } = request;
@@ -303,8 +304,21 @@ function uploadWithXhr(url: URL, request: XhrUpload): Promise<Response> {
         if (signal?.aborted) return reject(abortReason(signal));
 
         const xhr = new XMLHttpRequest();
+        let settled = false;
+
         const onAbort = () => xhr.abort();
-        const settle = () => signal?.removeEventListener("abort", onAbort);
+        const settle = (): boolean => {
+            if (settled) return false;
+            settled = true;
+            signal?.removeEventListener("abort", onAbort);
+            return true;
+        };
+        const answer = (body: ArrayBuffer | null) =>
+            new Response(NULL_BODY_STATUSES.has(xhr.status) ? null : body, {
+                status: xhr.status,
+                statusText: xhr.statusText,
+                headers: responseHeaders(xhr),
+            });
 
         xhr.open(request.method, url.href);
         xhr.responseType = "arraybuffer";
@@ -321,39 +335,26 @@ function uploadWithXhr(url: URL, request: XhrUpload): Promise<Response> {
             });
         };
 
-        xhr.onload = () => {
-            settle();
-
-            const headers = new Headers();
-
-            for (const line of xhr
-                .getAllResponseHeaders()
-                .trim()
-                .split(/[\r\n]+/)) {
-                const colon = line.indexOf(":");
-
-                if (colon > 0) {
-                    headers.append(line.slice(0, colon).trim(), line.slice(colon + 1).trim());
-                }
+        xhr.onreadystatechange = () => {
+            // HEADERS_RECEIVED
+            if (xhr.readyState === 2 && xhr.status === 200 && settle()) {
+                resolve(answer(null));
+                xhr.abort();
             }
+        };
 
-            resolve(
-                new Response(NULL_BODY_STATUSES.has(xhr.status) ? null : xhr.response, {
-                    status: xhr.status,
-                    statusText: xhr.statusText,
-                    headers,
-                }),
-            );
+        xhr.onload = () => {
+            if (settle()) resolve(answer(xhr.response));
         };
 
         xhr.onerror = () => {
-            settle();
-            reject(new TypeError("Failed to fetch"));
+            if (settle()) reject(new TypeError("Failed to fetch"));
         };
 
         xhr.onabort = () => {
-            settle();
-            reject(signal ? abortReason(signal) : new TypeError("The request was aborted"));
+            if (settle()) {
+                reject(signal ? abortReason(signal) : new TypeError("The request was aborted"));
+            }
         };
 
         signal?.addEventListener("abort", onAbort, { once: true });
@@ -393,6 +394,23 @@ function discardBody(body: BodyInit | undefined, reason: unknown): void {
     if (body instanceof ReadableStream) {
         body.cancel(reason).catch(() => {});
     }
+}
+
+function responseHeaders(xhr: XMLHttpRequest): Headers {
+    const headers = new Headers();
+
+    for (const line of xhr
+        .getAllResponseHeaders()
+        .trim()
+        .split(/[\r\n]+/)) {
+        const colon = line.indexOf(":");
+
+        if (colon > 0) {
+            headers.append(line.slice(0, colon).trim(), line.slice(colon + 1).trim());
+        }
+    }
+
+    return headers;
 }
 
 function originOf(url: URL): string {
