@@ -186,9 +186,7 @@ export async function fetchSurreal(
 
     const progress = options.uploadProgress;
 
-    // A browser streams a request body over HTTP/2 alone, if at all, so the upload of a whole body
-    // is followed with `XMLHttpRequest` there instead. It cannot keep a credential from following
-    // a redirect, nor is it what a `fetchImpl` asked for, so neither is given up for it.
+    // Browsers stream request bodies over HTTP/2 only, if at all, so their uploads are followed with XHR
     const xhrProgress =
         encodedBody instanceof Blob &&
         !scoped &&
@@ -197,7 +195,7 @@ export async function fetchSurreal(
             ? progress
             : undefined;
 
-    // Elsewhere the body is counted as `fetch` reads it, afresh for each attempt of a whole body
+    // Elsewhere the body is counted as `fetch` reads it, afresh for each attempt
     const bodyFor = (): BodyInit | undefined => {
         if (!progress || xhrProgress) return encodedBody;
 

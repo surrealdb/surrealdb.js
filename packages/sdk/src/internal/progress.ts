@@ -1,10 +1,6 @@
 import type { ProgressCallback } from "../types";
 
-/**
- * Wrap a progress callback so that one which throws cannot fail the transfer it reports on, which
- * may be an import that is half applied. What it throws is rethrown on its own, as it would be from
- * an event listener.
- */
+/** Keep a throwing callback from failing a half-applied import; rethrow it as a listener would */
 export function reportProgress(callback: ProgressCallback): ProgressCallback {
     return (progress) => {
         try {
@@ -17,9 +13,7 @@ export function reportProgress(callback: ProgressCallback): ProgressCallback {
     };
 }
 
-/**
- * Pass a stream on as it is, reporting the bytes read from it as they go by.
- */
+/** Pass a stream on as it is, reporting the bytes read from it as they go by */
 export function countBytes(
     source: ReadableStream<Uint8Array>,
     onProgress: ProgressCallback,
@@ -38,10 +32,7 @@ export function countBytes(
     );
 }
 
-/**
- * A response whose body reports the bytes read from it as they go by. The total is the
- * `Content-Length` of the response, when it has one.
- */
+/** A response whose body reports the bytes read from it, against its `Content-Length` if any */
 export function countResponse(response: Response, onProgress: ProgressCallback): Response {
     if (!response.body) return response;
 
