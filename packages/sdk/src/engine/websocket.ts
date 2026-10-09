@@ -229,6 +229,8 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     }
 
     ready(version?: string): void {
+        this._version = version;
+
         // A server known to predate streaming would only be asked, and refuse, on the first query
         // of every connection. Only a version which is known to be older skips the question; one
         // which is not known, or not understood, is asked, as asking is what decides.

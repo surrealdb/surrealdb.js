@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { HttpConnectionError, type TransferProgress } from "surrealdb";
+import { rejection } from "../__helpers__/mock-client";
+import { deferred } from "../__helpers__/mock-fetch";
 import {
     chunked,
     closeTransfers,
@@ -179,13 +181,7 @@ describe("import progress in a browser", () => {
         installXhr({ status: 422, body: '[{"status":"ERR","result":"bad"}]' });
         const { db } = await connectInBrowser();
 
-        const error = await db
-            .import("CREATE a;")
-            .progress(() => {})
-            .then(
-                () => undefined,
-                (error) => error,
-            );
+        const error = await rejection(db.import("CREATE a;").progress(() => {}));
 
         expect(error).toBeInstanceOf(HttpConnectionError);
         expect((error as HttpConnectionError).status).toBe(422);
@@ -198,14 +194,12 @@ describe("import progress in a browser", () => {
         const controller = new AbortController();
         const reason = new Error("client went away");
 
-        const pending = db
-            .import("CREATE a;")
-            .progress(() => {})
-            .signal(controller.signal)
-            .then(
-                () => undefined,
-                (error) => error,
-            );
+        const pending = rejection(
+            db
+                .import("CREATE a;")
+                .progress(() => {})
+                .signal(controller.signal),
+        );
 
         await new Promise((resolve) => setTimeout(resolve, 5));
         controller.abort(reason);
@@ -245,10 +239,7 @@ describe("export progress", () => {
 
     test("a raw export is streamed to the caller as it arrives", async () => {
         const encoder = new TextEncoder();
-        let finish: () => void = () => {};
-        const finished = new Promise<void>((resolve) => {
-            finish = resolve;
-        });
+        const finished = deferred<void>();
         const { events, callback } = recorder();
         const { db } = await connect(
             () =>
@@ -256,7 +247,7 @@ describe("export progress", () => {
                     new ReadableStream<Uint8Array>({
                         async start(controller) {
                             controller.enqueue(encoder.encode("DEFINE TABLE a;"));
-                            await finished;
+                            await finished.promise;
                             controller.enqueue(encoder.encode("DEFINE TABLE b;"));
                             controller.close();
                         },
@@ -272,7 +263,7 @@ describe("export progress", () => {
         expect(new TextDecoder().decode(first.value)).toBe("DEFINE TABLE a;");
         expect(events).toEqual([{ loaded: 15, total: undefined }]);
 
-        finish();
+        finished.resolve();
 
         expect(new TextDecoder().decode((await reader.read()).value)).toBe("DEFINE TABLE b;");
         expect((await reader.read()).done).toBe(true);

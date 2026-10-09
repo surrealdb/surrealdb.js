@@ -22,7 +22,7 @@ function read(text: string, size = Number.POSITIVE_INFINITY) {
 
 describe("an import report", () => {
     test("an empty list reports nothing", () => {
-        expect(read("[]")).toMatchObject({ failed: 0, failures: [], complete: true });
+        expect(read("[]")).toMatchObject({ failed: 0, failures: [], truncated: false });
     });
 
     test("the failures are read from the 3.x shape, with their kinds", () => {
@@ -40,7 +40,7 @@ describe("an import report", () => {
         );
 
         expect(report.failed).toBe(2);
-        expect(report.complete).toBe(true);
+        expect(report.truncated).toBe(false);
         expect(report.failures[0]).toBeInstanceOf(AlreadyExistsError);
         expect(report.failures[0]?.message).toBe("Database record `a:1` already exists");
         expect(report.failures[1]).toBeInstanceOf(NotFoundError);
@@ -95,12 +95,12 @@ describe("an import report", () => {
         const text = JSON.stringify([failure("first"), failure("second")]);
         const report = read(text.slice(0, text.indexOf("second") - 5));
 
-        expect(report).toMatchObject({ failed: 1, complete: false });
+        expect(report).toMatchObject({ failed: 1, truncated: true });
     });
 
     test("a body which is not a list reports nothing, and keeps its start", () => {
         const report = read("Internal Server Error");
 
-        expect(report).toMatchObject({ failed: 0, complete: false, head: "Internal Server Error" });
+        expect(report).toMatchObject({ failed: 0, truncated: true, head: "Internal Server Error" });
     });
 });

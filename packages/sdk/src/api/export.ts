@@ -4,7 +4,7 @@ import { assertCredential } from "../internal/auth-provider";
 import type { TransferOptions } from "../internal/credentialed";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { readBytes, readText, releaseResponse } from "../internal/http";
-import { countResponse, reportProgress, utf8Length } from "../internal/progress";
+import { countResponse } from "../internal/progress";
 import type { AuthOrToken, MlExportOptions, ProgressCallback, SqlExportOptions } from "../types";
 import { Features } from "../utils";
 
@@ -148,18 +148,11 @@ export class ExportPromise<R extends boolean = false> extends DispatchedPromise<
                 },
             );
 
-            const progress = this.#abort.progress && reportProgress(this.#abort.progress);
-
             if (typeof result === "string") {
-                if (progress) {
-                    const length = utf8Length(result);
-                    progress({ loaded: length, total: length });
-                }
-
                 return result as ExportResult<string, R>;
             }
 
-            const response = progress ? countResponse(result, progress) : result;
+            const response = countResponse(result, this.#abort.progress);
 
             if (this.#raw) {
                 return response as ExportResult<string, R>;
@@ -299,14 +292,11 @@ export class ExportModelPromise<R extends boolean = false> extends DispatchedPro
                 },
             );
 
-            const progress = this.#abort.progress && reportProgress(this.#abort.progress);
-
             if (result instanceof Uint8Array) {
-                progress?.({ loaded: result.byteLength, total: result.byteLength });
                 return result as ExportResult<Uint8Array, R>;
             }
 
-            const response = progress ? countResponse(result, progress) : result;
+            const response = countResponse(result, this.#abort.progress);
 
             if (this.#raw) {
                 return response as ExportResult<Uint8Array, R>;

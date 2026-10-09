@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { AlreadyExistsError, HttpConnectionError, ImportError } from "surrealdb";
+import { rejection } from "../__helpers__/mock-client";
 import {
     closeTransfers,
     connect,
@@ -19,16 +20,6 @@ const duplicate = {
 };
 
 const report = (count: number) => JSON.stringify(new Array(count).fill(duplicate));
-
-async function caught(promise: PromiseLike<unknown>): Promise<unknown> {
-    try {
-        await promise;
-    } catch (error) {
-        return error;
-    }
-
-    throw new Error("Expected the import to fail");
-}
 
 /** A server answering an import, after reading all of it, with the given status and body */
 function answering(status: number, body: string, log: { cancelled?: boolean } = {}) {
@@ -64,7 +55,7 @@ describe("an import into SurrealDB 3.1 or later", () => {
     test("whose statements failed, answered with a 200, rejects with them", async () => {
         const { db } = await connect(answering(200, report(3)), server);
 
-        const error = (await caught(db.import("OPTION IMPORT;"))) as ImportError;
+        const error = (await rejection(db.import("OPTION IMPORT;"))) as ImportError;
 
         expect(error).toBeInstanceOf(ImportError);
         expect(error.failed).toBe(3);
@@ -79,7 +70,7 @@ describe("an import into SurrealDB 3.1 or later", () => {
     test("whose statements failed, answered with a 422, rejects with them", async () => {
         const { db } = await connect(answering(422, report(1)), { version: "3.4.0-nightly" });
 
-        const error = (await caught(db.import("OPTION IMPORT;"))) as ImportError;
+        const error = (await rejection(db.import("OPTION IMPORT;"))) as ImportError;
 
         expect(error).toBeInstanceOf(ImportError);
         expect(error.message).toBe(
@@ -90,7 +81,7 @@ describe("an import into SurrealDB 3.1 or later", () => {
     test("answered with a 422 which lists nothing rejects with the answer", async () => {
         const { db } = await connect(answering(422, "Unprocessable"), server);
 
-        const error = (await caught(db.import("OPTION IMPORT;"))) as HttpConnectionError;
+        const error = (await rejection(db.import("OPTION IMPORT;"))) as HttpConnectionError;
 
         expect(error).toBeInstanceOf(HttpConnectionError);
         expect(error.status).toBe(422);
@@ -100,7 +91,7 @@ describe("an import into SurrealDB 3.1 or later", () => {
     test("which the server refuses still fails as before", async () => {
         const { db } = await connect(answering(400, "Import requires `OPTION IMPORT;`"), server);
 
-        const error = (await caught(db.import("CREATE a:1;"))) as HttpConnectionError;
+        const error = (await rejection(db.import("CREATE a:1;"))) as HttpConnectionError;
 
         expect(error).toBeInstanceOf(HttpConnectionError);
         expect(error.status).toBe(400);
@@ -129,7 +120,9 @@ describe("an import with progress in a browser", () => {
         const requests = installXhr({ body: report(20_000) });
         const { db } = await connectInBrowser({ version: "3.2.3" });
 
-        const error = (await caught(db.import("OPTION IMPORT;").progress(() => {}))) as ImportError;
+        const error = (await rejection(
+            db.import("OPTION IMPORT;").progress(() => {}),
+        )) as ImportError;
 
         expect(error).toBeInstanceOf(ImportError);
         expect(error.failed).toBe(20_000);

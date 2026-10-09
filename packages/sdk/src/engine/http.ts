@@ -98,8 +98,8 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         this.#publisher.publish("disconnected");
     }
 
-    ready(): void {
-        // No-op for HTTP engine - no pending calls to resend
+    ready(version?: string): void {
+        this._version = version;
     }
 
     /**

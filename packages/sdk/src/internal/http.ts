@@ -33,8 +33,6 @@ export interface FetchSurrealOptions {
     uploadProgress?: ProgressCallback;
     /** Statuses besides `200` which answer the request, returned for the caller to read */
     answers?: readonly number[];
-    /** Whether the body of a `200` goes unread, so need not be downloaded at all */
-    discardSuccessBody?: boolean;
 }
 
 /**
@@ -191,17 +189,18 @@ export async function fetchSurreal(
     const progress = options.uploadProgress;
 
     // Browsers stream request bodies over HTTP/2 only, if at all, so their uploads are followed with XHR
-    const xhrProgress =
+    const xhrBody =
+        progress &&
         encodedBody instanceof Blob &&
         !scoped &&
         !context.options.fetchImpl &&
         typeof XMLHttpRequest === "function"
-            ? progress
+            ? encodedBody
             : undefined;
 
     // Elsewhere the body is counted as `fetch` reads it, afresh for each attempt
     const bodyFor = (): BodyInit | undefined => {
-        if (!progress || xhrProgress) return encodedBody;
+        if (!progress) return encodedBody;
 
         if (encodedBody instanceof ReadableStream) {
             return countBytes(encodedBody, progress);
@@ -224,20 +223,15 @@ export async function fetchSurreal(
         const headers = bearer ? { ...headerMap, Authorization: `Bearer ${bearer}` } : headerMap;
         const method = options.method ?? "POST";
 
-        if (xhrProgress && encodedBody instanceof Blob) {
-            return raceAbort(
-                uploadWithXhr(endpoint, {
-                    method,
-                    headers,
-                    body: encodedBody,
-                    credentials: context.options.fetchOptions?.credentials,
-                    signal: options.signal,
-                    progress: xhrProgress,
-                    discardSuccess: options.discardSuccessBody ?? false,
-                }),
-                options.signal,
-                releaseResponse,
-            );
+        if (xhrBody && progress) {
+            return uploadWithXhr(endpoint, {
+                method,
+                headers,
+                body: xhrBody,
+                credentials: context.options.fetchOptions?.credentials,
+                signal: options.signal,
+                progress,
+            });
         }
 
         return raceAbort(
@@ -293,40 +287,33 @@ interface XhrUpload {
     credentials: RequestCredentials | undefined;
     signal: AbortSignal | undefined;
     progress: ProgressCallback;
-    discardSuccess: boolean;
 }
 
 /** Statuses whose response has no body, which a `Response` refuses to be given one for */
 const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
 
 /**
- * Upload a body with `XMLHttpRequest`, reporting its progress, and answer as `fetch` would. XHR
- * cannot stream a response, so it is taken as a `Blob`, which the browser keeps out of the page's
- * memory and may hold on disk, and is read from there. The body of a `200` is not downloaded at all
- * when `discardSuccess` is set.
+ * Upload a body with `XMLHttpRequest`, reporting its progress, and answer as `fetch` would: once the
+ * headers arrive, with a body which cancelling stops the download of. XHR cannot stream a response,
+ * so the body is read from the `Blob` it downloads into, which the browser keeps out of the page's
+ * memory.
  */
 function uploadWithXhr(url: URL, request: XhrUpload): Promise<Response> {
     const { signal, progress } = request;
+    const xhr = new XMLHttpRequest();
+    const onAbort = () => xhr.abort();
+
+    let downloaded!: { resolve: (blob: Blob) => void; reject: (reason: unknown) => void };
+    const download = new Promise<Blob>((resolve, reject) => {
+        downloaded = { resolve, reject };
+    });
+
+    // A body nobody reads leaves a failed download unobserved
+    download.catch(() => {});
 
     return new Promise((resolve, reject) => {
-        if (signal?.aborted) return reject(abortReason(signal));
-
-        const xhr = new XMLHttpRequest();
-        let settled = false;
-
-        const onAbort = () => xhr.abort();
-        const settle = (): boolean => {
-            if (settled) return false;
-            settled = true;
-            signal?.removeEventListener("abort", onAbort);
-            return true;
-        };
-        const answer = (body: Blob | null) =>
-            new Response(NULL_BODY_STATUSES.has(xhr.status) ? null : body, {
-                status: xhr.status,
-                statusText: xhr.statusText,
-                headers: responseHeaders(xhr),
-            });
+        let answered = false;
+        const fail = (reason: unknown) => (answered ? downloaded.reject(reason) : reject(reason));
 
         xhr.open(request.method, url.href);
         xhr.responseType = "blob";
@@ -345,29 +332,49 @@ function uploadWithXhr(url: URL, request: XhrUpload): Promise<Response> {
 
         xhr.onreadystatechange = () => {
             // HEADERS_RECEIVED
-            if (xhr.readyState === 2 && xhr.status === 200 && request.discardSuccess && settle()) {
-                resolve(answer(null));
-                xhr.abort();
-            }
+            if (xhr.readyState !== 2) return;
+
+            answered = true;
+            resolve(
+                new Response(NULL_BODY_STATUSES.has(xhr.status) ? null : blobBody(download, xhr), {
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                }),
+            );
         };
 
-        xhr.onload = () => {
-            if (settle()) resolve(answer(xhr.response));
-        };
-
-        xhr.onerror = () => {
-            if (settle()) reject(new TypeError("Failed to fetch"));
-        };
-
-        xhr.onabort = () => {
-            if (settle()) {
-                reject(signal ? abortReason(signal) : new TypeError("The request was aborted"));
-            }
-        };
+        xhr.onload = () => downloaded.resolve(xhr.response);
+        xhr.onerror = () => fail(new TypeError("Failed to fetch"));
+        xhr.onabort = () =>
+            fail(signal ? abortReason(signal) : new TypeError("The request was aborted"));
+        xhr.onloadend = () => signal?.removeEventListener("abort", onAbort);
 
         signal?.addEventListener("abort", onAbort, { once: true });
         xhr.send(request.body);
     });
+}
+
+/** A body read from a downloaded `Blob` a chunk at a time, whose cancelling aborts the download */
+function blobBody(download: Promise<Blob>, xhr: XMLHttpRequest): ReadableStream<Uint8Array> {
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+
+    return new ReadableStream<Uint8Array>(
+        {
+            async pull(controller) {
+                reader ??= (await download).stream().getReader();
+
+                const { done, value } = await reader.read();
+
+                if (done) controller.close();
+                else controller.enqueue(value);
+            },
+            cancel(reason) {
+                xhr.abort();
+                return reader?.cancel(reason);
+            },
+        },
+        { highWaterMark: 0 },
+    );
 }
 
 /**
@@ -402,23 +409,6 @@ function discardBody(body: BodyInit | undefined, reason: unknown): void {
     if (body instanceof ReadableStream) {
         body.cancel(reason).catch(() => {});
     }
-}
-
-function responseHeaders(xhr: XMLHttpRequest): Headers {
-    const headers = new Headers();
-
-    for (const line of xhr
-        .getAllResponseHeaders()
-        .trim()
-        .split(/[\r\n]+/)) {
-        const colon = line.indexOf(":");
-
-        if (colon > 0) {
-            headers.append(line.slice(0, colon).trim(), line.slice(colon + 1).trim());
-        }
-    }
-
-    return headers;
 }
 
 function originOf(url: URL): string {

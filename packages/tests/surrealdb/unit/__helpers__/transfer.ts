@@ -26,7 +26,7 @@ export async function closeTransfers(): Promise<void> {
 }
 
 /** A `fetch` which answers every RPC call with the version, and hands the rest to the route */
-export function fakeFetch(route: Handler, calls: Call[], options: ServerOptions = {}) {
+function fakeFetch(route: Handler, calls: Call[], options: ServerOptions = {}) {
     const answer = new Uint8Array(
         codec.encode({ id: "x", result: `surrealdb-${options.version ?? "3.0.0"}` }),
     );
@@ -91,9 +91,6 @@ export function chunked(chunks: string[]): ReadableStream<Uint8Array> {
 export interface FakeXhrScript {
     status?: number;
     body?: string;
-    headers?: string;
-    /** How many characters of the body arrive at a time */
-    chunk?: number;
     /** Stall after the upload, until aborted */
     stall?: boolean;
 }
@@ -121,17 +118,16 @@ export function installXhr(script: FakeXhrScript = {}): FakeXhr[] {
         downloaded = 0;
         withCredentials = false;
         responseType = "";
-        responseText = "";
-        response: Blob | string | null = null;
+        response: Blob | null = null;
         status = 0;
         statusText = "";
         readyState = 0;
         upload: { onprogress?: (event: ProgressEvent) => void } = {};
         onreadystatechange?: () => void;
-        onprogress?: () => void;
         onload?: () => void;
         onerror?: () => void;
         onabort?: () => void;
+        onloadend?: () => void;
 
         constructor() {
             requests.push(this);
@@ -146,16 +142,12 @@ export function installXhr(script: FakeXhrScript = {}): FakeXhr[] {
             this.headers[name] = value;
         }
 
-        getAllResponseHeaders() {
-            return script.headers ?? "content-type: application/json\r\n";
-        }
-
         abort() {
+            if (this.readyState === 4) return;
+
             this.aborted = true;
-            this.readyState = 4;
-            this.onreadystatechange?.();
             this.onabort?.();
-            this.readyState = 0;
+            this.onloadend?.();
         }
 
         send(body: Blob) {
@@ -183,29 +175,18 @@ export function installXhr(script: FakeXhrScript = {}): FakeXhr[] {
             this.readyState = 2;
             this.onreadystatechange?.();
 
-            const text = script.body ?? "[]";
-            const size = script.chunk ?? 65_536;
-
-            for (let offset = 0; offset < text.length; offset += size) {
-                await Promise.resolve();
-                if (this.aborted) return;
-
-                const piece = text.slice(offset, offset + size);
-
-                this.responseText += piece;
-                this.downloaded += piece.length;
-                this.readyState = 3;
-                this.onreadystatechange?.();
-                this.onprogress?.();
-            }
-
-            await Promise.resolve();
+            // The body arrives later, as it does over a network
+            await new Promise((resolve) => setTimeout(resolve, 0));
             if (this.aborted) return;
 
-            this.response = this.responseType === "blob" ? new Blob([text]) : text;
+            const text = script.body ?? "[]";
+
+            this.downloaded = text.length;
+            this.response = new Blob([text]);
             this.readyState = 4;
             this.onreadystatechange?.();
             this.onload?.();
+            this.onloadend?.();
         }
     }
 
