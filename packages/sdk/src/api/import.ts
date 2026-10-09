@@ -3,7 +3,8 @@ import { abortScope, addSignal, assertTimeout, raceAbort, throwIfAborted } from 
 import { assertCredential } from "../internal/auth-provider";
 import type { TransferOptions } from "../internal/credentialed";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import type { AuthOrToken } from "../types";
+import { reportProgress } from "../internal/progress";
+import type { AuthOrToken, ProgressCallback } from "../types";
 
 /**
  * A configurable `Promise` for import operations.
@@ -89,14 +90,40 @@ export class ImportPromise extends DispatchedPromise<void> {
         });
     }
 
+    /**
+     * Configure a callback to be told how much of the import has been uploaded, each time more of
+     * it has been.
+     *
+     * The server executes an import as it reads it, so what has been uploaded is close behind what
+     * has been applied. Once all of it has been, the import waits for the server to finish the last
+     * of it. The total is known for a string or a `Blob`, and not for a stream.
+     *
+     * Progress is reported by the HTTP and WebSocket engines, which upload an import. In a browser,
+     * which cannot follow the upload of a string or a `Blob` with `fetch`, it is followed with
+     * `XMLHttpRequest`, except on a connection given a `fetchImpl` or one which resolves a
+     * credential for each request, which report nothing for them. Embedded engines apply an import
+     * in one call and report nothing. Replaces a callback configured before.
+     *
+     * @param callback Called with the bytes uploaded so far, and the total when it is known
+     */
+    progress(callback: ProgressCallback): ImportPromise {
+        return new ImportPromise(this.#connection, this.#input, {
+            ...this.#abort,
+            progress: callback,
+        });
+    }
+
     protected async dispatch(): Promise<void> {
         const scope = abortScope(this.#abort.signals ?? [], this.#abort.requestTimeout);
 
         try {
             throwIfAborted(scope.signal);
             await raceAbort(this.#connection.ready(), scope.signal);
-            const { credential } = this.#abort;
-            const request = scope.signal && { signal: scope.signal };
+            const { credential, progress } = this.#abort;
+            const request = {
+                signal: scope.signal,
+                uploadProgress: progress && reportProgress(progress),
+            };
 
             await raceAbort(
                 credential === undefined

@@ -1,4 +1,4 @@
-import type { AuthOrToken } from "../types";
+import type { AuthOrToken, ProgressCallback } from "../types";
 import type { AbortOptions } from "./abort";
 
 /**
@@ -27,8 +27,10 @@ export function isCredentialed(query: object): boolean {
 
 /**
  * What an import or an export is configured with: the signals and the limit of time which abandon
- * it, and the identity it is made as, if that is not the one of the connection.
+ * it, the identity it is made as, if that is not the one of the connection, and what is told of its
+ * progress.
  */
 export interface TransferOptions extends AbortOptions {
     credential?: AuthOrToken;
+    progress?: ProgressCallback;
 }

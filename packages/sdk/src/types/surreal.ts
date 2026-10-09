@@ -123,7 +123,30 @@ export interface RequestOptions {
      * Engines which do not stream ignore it.
      */
     stream?: boolean;
+
+    /**
+     * Report how much of the body of the request has been uploaded, for a request which uploads
+     * one, such as an import.
+     *
+     * Engines which cannot tell, or which upload nothing, ignore it.
+     */
+    uploadProgress?: ProgressCallback;
 }
+
+/**
+ * How far an import or an export has got.
+ */
+export interface TransferProgress {
+    /** The number of bytes transferred so far */
+    loaded: number;
+    /** The number of bytes there are to transfer in all, when that is known */
+    total?: number;
+}
+
+/**
+ * Called each time more of an import or an export has been transferred.
+ */
+export type ProgressCallback = (progress: TransferProgress) => void;
 
 /**
  * Options for a single request which is made as another identity than the session

@@ -234,6 +234,7 @@ export abstract class RpcEngine implements SurrealProtocol {
             },
             token,
             signal: request?.signal,
+            uploadProgress: request?.uploadProgress,
         });
     }
 

@@ -5,9 +5,11 @@ import type {
     ConnectionState,
     CredentialSource,
     DriverContext,
+    ProgressCallback,
     Session,
 } from "../types/surreal";
 import { abortReason, raceAbort, throwIfAborted } from "./abort";
+import { countBytes } from "./progress";
 import { wrapSqonError } from "./wrap-sqon-error";
 
 export interface FetchSurrealOptions {
@@ -27,6 +29,8 @@ export interface FetchSurrealOptions {
     resolve?: boolean;
     /** Abandons the request, and the reading of its response, when it aborts */
     signal?: AbortSignal;
+    /** Reports how much of the body has been uploaded, where the runtime lets that be seen */
+    uploadProgress?: ProgressCallback;
 }
 
 /**
@@ -180,15 +184,65 @@ export async function fetchSurreal(
         }
     }
 
+    const progress = options.uploadProgress;
+
+    // A browser streams a request body over HTTP/2 alone, if at all, so the upload of a whole body
+    // is followed with `XMLHttpRequest` there instead. It cannot keep a credential from following
+    // a redirect, nor is it what a `fetchImpl` asked for, so neither is given up for it.
+    const xhrProgress =
+        encodedBody instanceof Blob &&
+        !scoped &&
+        !context.options.fetchImpl &&
+        typeof XMLHttpRequest === "function"
+            ? progress
+            : undefined;
+
+    // Elsewhere the body is counted as `fetch` reads it, afresh for each attempt of a whole body
+    const bodyFor = (): BodyInit | undefined => {
+        if (!progress || xhrProgress) return encodedBody;
+
+        if (encodedBody instanceof ReadableStream) {
+            return countBytes(encodedBody, progress);
+        }
+
+        if (encodedBody instanceof Blob && typeof XMLHttpRequest !== "function") {
+            const stream = encodedBody.stream();
+
+            return countBytes(
+                options.signal ? abortableStream(stream, options.signal) : stream,
+                progress,
+                encodedBody.size,
+            );
+        }
+
+        return encodedBody;
+    };
+
     const attempt = (bearer: Token | undefined): Promise<Response> => {
         const headers = bearer ? { ...headerMap, Authorization: `Bearer ${bearer}` } : headerMap;
+        const method = options.method ?? "POST";
+
+        if (xhrProgress && encodedBody instanceof Blob) {
+            return raceAbort(
+                uploadWithXhr(endpoint, {
+                    method,
+                    headers,
+                    body: encodedBody,
+                    credentials: context.options.fetchOptions?.credentials,
+                    signal: options.signal,
+                    progress: xhrProgress,
+                }),
+                options.signal,
+                releaseResponse,
+            );
+        }
 
         return raceAbort(
             fetchImpl(endpoint, {
                 ...context.options.fetchOptions,
-                method: options.method ?? "POST",
+                method,
                 headers,
-                body: encodedBody,
+                body: bodyFor(),
                 ...(scoped ? { redirect: "manual" as const } : {}),
                 signal: options.signal,
                 // @ts-expect-error TS is dumb
@@ -227,6 +281,86 @@ export async function fetchSurreal(
         response.statusText,
         buffer,
     );
+}
+
+interface XhrUpload {
+    method: string;
+    headers: Record<string, string>;
+    body: Blob;
+    credentials: RequestCredentials | undefined;
+    signal: AbortSignal | undefined;
+    progress: ProgressCallback;
+}
+
+/** Statuses whose response has no body, which a `Response` refuses to be given one for */
+const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
+
+/**
+ * Upload a body with `XMLHttpRequest`, reporting its progress, and answer as `fetch` would.
+ */
+function uploadWithXhr(url: URL, request: XhrUpload): Promise<Response> {
+    const { signal, progress } = request;
+
+    return new Promise((resolve, reject) => {
+        if (signal?.aborted) return reject(abortReason(signal));
+
+        const xhr = new XMLHttpRequest();
+        const onAbort = () => xhr.abort();
+        const settle = () => signal?.removeEventListener("abort", onAbort);
+
+        xhr.open(request.method, url.href);
+        xhr.responseType = "arraybuffer";
+        xhr.withCredentials = request.credentials === "include";
+
+        for (const [name, value] of Object.entries(request.headers)) {
+            xhr.setRequestHeader(name, value);
+        }
+
+        xhr.upload.onprogress = (event) => {
+            progress({
+                loaded: event.loaded,
+                total: event.lengthComputable ? event.total : request.body.size,
+            });
+        };
+
+        xhr.onload = () => {
+            settle();
+
+            const headers = new Headers();
+
+            for (const line of xhr
+                .getAllResponseHeaders()
+                .trim()
+                .split(/[\r\n]+/)) {
+                const colon = line.indexOf(":");
+
+                if (colon > 0) {
+                    headers.append(line.slice(0, colon).trim(), line.slice(colon + 1).trim());
+                }
+            }
+
+            resolve(
+                new Response(NULL_BODY_STATUSES.has(xhr.status) ? null : xhr.response, {
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    headers,
+                }),
+            );
+        };
+
+        xhr.onerror = () => {
+            settle();
+            reject(new TypeError("Failed to fetch"));
+        };
+
+        xhr.onabort = () => {
+            settle();
+            reject(signal ? abortReason(signal) : new TypeError("The request was aborted"));
+        };
+
+        signal?.addEventListener("abort", onAbort, { once: true });
+        xhr.send(request.body);
+    });
 }
 
 /**

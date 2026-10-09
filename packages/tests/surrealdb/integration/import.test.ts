@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { Features } from "surrealdb";
-import { createSurreal } from "./__helpers__";
+import { Features, type TransferProgress } from "surrealdb";
+import { createSurreal, SURREAL_BACKEND } from "./__helpers__";
 
 describe("import", async () => {
     test("basic", async () => {
@@ -57,5 +57,25 @@ describe("import", async () => {
         const [records] = await surreal.query(/* surql */ `SELECT * FROM trip`);
 
         expect(records).toHaveLength(1);
+    });
+
+    test.if(SURREAL_BACKEND === "remote")("reports the progress of its upload", async () => {
+        const surreal = await createSurreal();
+        const statements = Array.from(
+            { length: 2000 },
+            (_, i) => `CREATE progress:${i} CONTENT { n: ${i} };`,
+        );
+        const sql = `OPTION IMPORT;\n${statements.join("\n")}`;
+        const size = new TextEncoder().encode(sql).byteLength;
+        const events: TransferProgress[] = [];
+
+        await surreal.import(sql).progress((progress) => events.push(progress));
+
+        expect(events.length).toBeGreaterThan(0);
+        expect(events.at(-1)).toEqual({ loaded: size, total: size });
+
+        const [count] = await surreal.query("count(SELECT * FROM progress)").collect<[number]>();
+
+        expect(count).toBe(2000);
     });
 });

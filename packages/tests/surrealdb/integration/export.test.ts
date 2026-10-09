@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Surreal } from "surrealdb";
+import type { Surreal, TransferProgress } from "surrealdb";
 import { createSurreal, requestVersion } from "./__helpers__";
 
 const { is2x, is3x } = await requestVersion();
@@ -83,5 +83,16 @@ describe("export", async () => {
         const expected = await surreal.export();
 
         expect(text).toBe(expected);
+    });
+
+    test("reports the progress of its download", async () => {
+        const surreal = await createSurreal();
+        await setupExportData(surreal);
+        const events: TransferProgress[] = [];
+
+        const text = await surreal.export().progress((progress) => events.push(progress));
+
+        expect(events.length).toBeGreaterThan(0);
+        expect(events.at(-1)?.loaded).toBe(new TextEncoder().encode(text).byteLength);
     });
 });
