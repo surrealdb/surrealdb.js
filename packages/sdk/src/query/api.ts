@@ -5,7 +5,8 @@ import { type AbortOptions, addSignal, assertTimeout } from "../internal/abort";
 import { assertCredential } from "../internal/auth-provider";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { AuthOrToken, Session } from "../types";
+import { validateWith } from "../internal/standard-schema";
+import type { AuthOrToken, Session, StandardSchemaV1 } from "../types";
 import { type BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import { Query } from "./query";
@@ -33,6 +34,8 @@ interface ApiOptions<Req> extends AbortOptions {
     value: boolean;
     credential?: AuthOrToken;
     json: boolean;
+    requestSchema?: StandardSchemaV1;
+    responseSchema?: StandardSchemaV1;
 }
 
 /**
@@ -174,6 +177,50 @@ export class ApiPromise<
     }
 
     /**
+     * Check the request body against a [Standard Schema](https://standardschema.dev) (Zod,
+     * Valibot, ArkType and others) before the request is sent. When it fails, the request is not
+     * sent and the promise rejects with a `SchemaValidationError` listing every issue. What the
+     * schema produces is what is sent, so a schema which transforms or coerces changes the body.
+     *
+     * Applies when the promise is awaited, and not to `.compile()` or `.stream()`.
+     *
+     * @example
+     * ```ts
+     * await db.api().post("/users", body).request(z.object({ name: z.string() }));
+     * ```
+     *
+     * @param schema The schema the request body must satisfy.
+     */
+    request(schema: StandardSchemaV1): ApiPromise<Req, Res, V, J> {
+        return new ApiPromise<Req, Res, V, J>(this.#connection, {
+            ...this.#options,
+            requestSchema: schema,
+        });
+    }
+
+    /**
+     * Check the response body against a [Standard Schema](https://standardschema.dev) and type the
+     * promise as what the schema produces. Only the body of a successful response (status 200 to
+     * 299) is checked, because an error response carries a different body. When the body does not
+     * match, the promise rejects with a `SchemaValidationError`.
+     *
+     * @example
+     * ```ts
+     * const users = await db.api().get("/users").response(z.array(User)).value();
+     * ```
+     *
+     * @param schema The schema the response body must satisfy.
+     */
+    response<S extends StandardSchemaV1>(
+        schema: S,
+    ): ApiPromise<Req, StandardSchemaV1.InferOutput<S>, V, J> {
+        return new ApiPromise<Req, StandardSchemaV1.InferOutput<S>, V, J>(this.#connection, {
+            ...this.#options,
+            responseSchema: schema,
+        });
+    }
+
+    /**
      * Compile this qurery into a BoundQuery
      */
     compile(): BoundQuery<[ApiResponse<Res>]> {
@@ -194,10 +241,31 @@ export class ApiPromise<
     }
 
     protected async dispatch(): Promise<Collect<Res, V, J>> {
-        const [result] = await this.#build().collect();
+        const { path, method, requestSchema, responseSchema } = this.#options;
+        const label = `${method.toUpperCase()} ${path}`;
+        let options = this.#options;
+
+        if (requestSchema) {
+            const body = await validateWith(
+                requestSchema,
+                options.body,
+                `request body for ${label}`,
+            );
+            options = { ...options, body: body as Req };
+        }
+
+        const [result] = await this.#build(options).collect();
 
         if (!("body" in result) || typeof result.status !== "number") {
             throw new SurrealError("Body or status was missing from the API response");
+        }
+
+        if (responseSchema && isSuccessful(result.status)) {
+            result.body = (await validateWith(
+                responseSchema,
+                result.body,
+                `response body of ${label}`,
+            )) as typeof result.body;
         }
 
         if (this.#options.value) {
@@ -211,8 +279,8 @@ export class ApiPromise<
         return result as Collect<Res, V, J>;
     }
 
-    #build(): Query<[ApiResponse<Res>], J> {
-        const { path, body, method, headers, query, transaction, session, json } = this.#options;
+    #build(options: ApiOptions<Req> = this.#options): Query<[ApiResponse<Res>], J> {
+        const { path, body, method, headers, query, transaction, session, json } = options;
 
         return new Query(this.#connection, {
             credential: this.#options.credential,

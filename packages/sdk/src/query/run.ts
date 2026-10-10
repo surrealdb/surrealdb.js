@@ -5,7 +5,8 @@ import { type AbortOptions, addSignal, assertTimeout } from "../internal/abort";
 import { assertCredential } from "../internal/auth-provider";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { AuthOrToken, RetryValue, Session } from "../types";
+import { validateWith } from "../internal/standard-schema";
+import type { AuthOrToken, RetryValue, Session, StandardSchemaV1 } from "../types";
 import { BoundQuery, surql } from "../utils";
 import type { Frame } from "../utils/frame";
 import { Query } from "./query";
@@ -22,6 +23,8 @@ interface RunOptions extends AbortOptions {
     retry?: RetryValue;
     credential?: AuthOrToken;
     json: boolean;
+    argsSchema?: StandardSchemaV1;
+    resultSchema?: StandardSchemaV1;
 }
 
 /**
@@ -147,6 +150,48 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
     }
 
     /**
+     * Check the arguments against a [Standard Schema](https://standardschema.dev) (Zod, Valibot,
+     * ArkType and others) before the call is sent. The schema validates the array of arguments, so
+     * use a tuple schema. When it fails, the call is not sent and rejects with a
+     * `SchemaValidationError` listing every issue. What the schema produces is what is sent, so
+     * a schema which transforms or coerces changes the arguments.
+     *
+     * Applies when the promise is awaited, and not to `.compile()` or `.stream()`.
+     *
+     * @example
+     * ```ts
+     * const sum = await db.run<number>("fn::add", [1, 2]).args(z.tuple([z.number(), z.number()]));
+     * ```
+     *
+     * @param schema The schema the array of arguments must satisfy.
+     */
+    args(schema: StandardSchemaV1): RunPromise<T, J> {
+        return new RunPromise<T, J>(this.#connection, {
+            ...this.#options,
+            argsSchema: schema,
+        });
+    }
+
+    /**
+     * Check the result against a [Standard Schema](https://standardschema.dev) and type the
+     * promise as what the schema produces. When the result does not match, the promise rejects
+     * with a `SchemaValidationError`. With `.json()` the schema sees the JSON-compatible result.
+     *
+     * @example
+     * ```ts
+     * const sum = await db.run("fn::add", [1, 2]).returns(z.number()); // number
+     * ```
+     *
+     * @param schema The schema the result must satisfy.
+     */
+    returns<S extends StandardSchemaV1>(schema: S): RunPromise<StandardSchemaV1.InferOutput<S>, J> {
+        return new RunPromise<StandardSchemaV1.InferOutput<S>, J>(this.#connection, {
+            ...this.#options,
+            resultSchema: schema,
+        });
+    }
+
+    /**
      * Compile this qurery into a BoundQuery
      */
     compile(): BoundQuery<[T]> {
@@ -167,12 +212,26 @@ export class RunPromise<T, J extends boolean = false> extends DispatchedPromise<
     }
 
     protected async dispatch(): Promise<MaybeJsonify<T, J>> {
-        const [result] = await this.#build().collect();
-        return result;
+        const { name, argsSchema, resultSchema } = this.#options;
+        let options = this.#options;
+
+        if (argsSchema) {
+            const args = await validateWith(argsSchema, options.args, `arguments for ${name}`);
+            options = { ...options, args: args as unknown[] };
+        }
+
+        const [result] = await this.#build(options).collect();
+
+        return resultSchema
+            ? ((await validateWith(resultSchema, result, `result of ${name}`)) as MaybeJsonify<
+                  T,
+                  J
+              >)
+            : result;
     }
 
-    #build(): Query<[T], J> {
-        const { name, version, args, transaction, session, json, retry } = this.#options;
+    #build(options: RunOptions = this.#options): Query<[T], J> {
+        const { name, version, args, transaction, session, json, retry } = options;
 
         if (!NAME_REGEX.test(name)) {
             throw new ExpressionError("Invalid function name");
