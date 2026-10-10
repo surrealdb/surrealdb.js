@@ -13,6 +13,8 @@ export interface Call {
 export interface ServerOptions {
     /** The version the server reports */
     version?: string;
+    /** Connect as a browser does: through the global `fetch`, with no `fetchImpl` */
+    browser?: boolean;
 }
 
 const clients: Surreal[] = [];
@@ -41,25 +43,18 @@ function fakeFetch(route: Handler, calls: Call[], options: ServerOptions = {}) {
     }) as typeof fetch;
 }
 
-/** A Surreal instance on the HTTP engine, given a `fetchImpl` */
-export async function connect(route: Handler, options: ServerOptions = {}) {
+/** A Surreal instance on the HTTP engine, whose requests besides RPC calls go to the route */
+export async function connect(
+    route: Handler = () => new Response("[]"),
+    options: ServerOptions = {},
+) {
     const calls: Call[] = [];
-    const db = new Surreal({ fetchImpl: fakeFetch(route, calls, options) });
+    const fetchImpl = fakeFetch(route, calls, options);
 
-    clients.push(db);
-    await db.connect("http://localhost:8000", { versionCheck: false });
-    await db.use({ namespace: "test", database: "test" });
+    if (options.browser) globalThis.fetch = fetchImpl;
 
-    return { db, calls };
-}
+    const db = new Surreal(options.browser ? {} : { fetchImpl });
 
-/** A Surreal instance on the HTTP engine in a browser, with no `fetchImpl` */
-export async function connectInBrowser(options: ServerOptions = {}) {
-    const calls: Call[] = [];
-
-    globalThis.fetch = fakeFetch(() => new Response("[]"), calls, options);
-
-    const db = new Surreal();
     clients.push(db);
     await db.connect("http://localhost:8000", { versionCheck: false });
     await db.use({ namespace: "test", database: "test" });

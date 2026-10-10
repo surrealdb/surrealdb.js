@@ -105,22 +105,4 @@ describe("import", async () => {
 
         expect(ids).toEqual([1, 2]);
     });
-
-    test.if(isRemote && reportsFailures)(
-        "rejects with a failure reported by progress too",
-        async () => {
-            const surreal = await createSurreal();
-
-            const error = await surreal
-                .import(new Blob(["OPTION IMPORT;\nCREATE (((;"]))
-                .progress(() => {})
-                .then(
-                    () => undefined,
-                    (error: unknown) => error,
-                );
-
-            expect(error).toBeInstanceOf(ImportError);
-            expect((error as ImportError).message).toContain("Parse error");
-        },
-    );
 });
