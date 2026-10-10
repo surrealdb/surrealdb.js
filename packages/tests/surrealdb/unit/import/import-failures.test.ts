@@ -1,0 +1,127 @@
+import { afterEach, describe, expect, test } from "bun:test";
+import { AlreadyExistsError, HttpConnectionError, ImportError } from "surrealdb";
+import { rejection } from "../__helpers__/mock-client";
+import { closeTransfers, connect, installXhr, received } from "../__helpers__/transfer";
+
+afterEach(closeTransfers);
+
+const duplicate = {
+    status: "ERR",
+    time: "1µs",
+    result: "Database record `a:1` already exists",
+    kind: "AlreadyExists",
+    details: { kind: "Record", details: { id: "a:1" } },
+};
+
+const report = (count: number) => JSON.stringify(new Array(count).fill(duplicate));
+
+/** A server answering an import, after reading all of it, with the given status and body */
+function answering(status: number, body: string, log: { cancelled?: boolean } = {}) {
+    const encoder = new TextEncoder();
+
+    return async (init: RequestInit) => {
+        await received(init.body);
+
+        return new Response(
+            new ReadableStream({
+                start(controller) {
+                    controller.enqueue(encoder.encode(body));
+                    controller.close();
+                },
+                cancel() {
+                    log.cancelled = true;
+                },
+            }),
+            { status },
+        );
+    };
+}
+
+describe("an import into SurrealDB 3.1 or later", () => {
+    const server = { version: "3.2.3" };
+
+    test.each([
+        [200, "3.2.3", 3, "3 statements"],
+        [422, "3.4.0-nightly", 1, "1 statement"],
+    ])(
+        "whose statements failed, answered with a %i, rejects with them",
+        async (status, version, count, statements) => {
+            const { db } = await connect(answering(status, report(count)), { version });
+
+            const error = (await rejection(db.import("OPTION IMPORT;"))) as ImportError;
+
+            expect(error).toBeInstanceOf(ImportError);
+            expect(error.failed).toBe(count);
+            expect(error.failures[0]).toBeInstanceOf(AlreadyExistsError);
+            expect(error.cause).toBe(error.failures[0]);
+            expect(error.message).toBe(
+                `${statements} of the import failed. The first failed with: Database record \`a:1\` already exists`,
+            );
+        },
+    );
+
+    test("answered with a 422 which lists nothing rejects with the answer", async () => {
+        const { db } = await connect(answering(422, "Unprocessable"), server);
+
+        const error = (await rejection(db.import("OPTION IMPORT;"))) as HttpConnectionError;
+
+        expect(error).toBeInstanceOf(HttpConnectionError);
+        expect(error.status).toBe(422);
+    });
+
+    test("which the server refuses still fails as before", async () => {
+        const { db } = await connect(answering(400, "Import requires `OPTION IMPORT;`"), server);
+
+        const error = (await rejection(db.import("CREATE a:1;"))) as HttpConnectionError;
+
+        expect(error).toBeInstanceOf(HttpConnectionError);
+        expect(error.status).toBe(400);
+    });
+});
+
+describe("an import into an older SurrealDB", () => {
+    test("leaves the answer unread, which lists every statement, as it always has", async () => {
+        const log: { cancelled?: boolean } = {};
+        const { db } = await connect(answering(200, report(2), log), { version: "3.0.4" });
+
+        await db.import("CREATE a:1; CREATE a:1;");
+
+        expect(log.cancelled).toBe(true);
+    });
+});
+
+describe("an import with progress in a browser", () => {
+    test("takes the report as a Blob, and reads every failure from it", async () => {
+        const requests = installXhr({ body: report(20_000) });
+        const { db } = await connect(undefined, { version: "3.2.3", browser: true });
+
+        const error = (await rejection(
+            db.import("OPTION IMPORT;").progress(() => {}),
+        )) as ImportError;
+
+        expect(error).toBeInstanceOf(ImportError);
+        expect(error.failed).toBe(20_000);
+        expect(error.failures).toHaveLength(100);
+        expect(error.message.startsWith("20000 statements of the import failed.")).toBe(true);
+        expect(requests[0]?.aborted).toBe(false);
+    });
+
+    test("which applied in full resolves, having downloaded only the empty list", async () => {
+        const requests = installXhr({ body: "[]" });
+        const { db } = await connect(undefined, { version: "3.2.3", browser: true });
+
+        await db.import("OPTION IMPORT;").progress(() => {});
+
+        expect(requests[0]?.downloaded).toBe(2);
+    });
+
+    test("into an older server does not download the answer", async () => {
+        const requests = installXhr({ body: report(10) });
+        const { db } = await connect(undefined, { version: "3.0.4", browser: true });
+
+        await db.import("OPTION IMPORT;").progress(() => {});
+
+        expect(requests[0]?.aborted).toBe(true);
+        expect(requests[0]?.downloaded).toBe(0);
+    });
+});

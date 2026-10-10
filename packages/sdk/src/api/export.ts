@@ -4,7 +4,8 @@ import { assertCredential } from "../internal/auth-provider";
 import type { TransferOptions } from "../internal/credentialed";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { readBytes, readText, releaseResponse } from "../internal/http";
-import type { AuthOrToken, MlExportOptions, SqlExportOptions } from "../types";
+import { countResponse } from "../internal/progress";
+import type { AuthOrToken, MlExportOptions, ProgressCallback, SqlExportOptions } from "../types";
 import { Features } from "../utils";
 
 type ExportResult<T, R extends boolean> = R extends true ? Response : T;
@@ -105,6 +106,24 @@ export class ExportPromise<R extends boolean = false> extends DispatchedPromise<
         });
     }
 
+    /**
+     * Configure a callback to be told how much of the export has been received, each time more of
+     * it has been.
+     *
+     * The server streams an export as it generates it, without saying how large it will be, so the
+     * total is not known. Of a raw export, what is reported is what has been read of its body. An
+     * embedded engine generates the whole export before handing it over, all at once. Replaces a
+     * callback configured before.
+     *
+     * @param callback Called with the bytes received so far
+     */
+    progress(callback: ProgressCallback): ExportPromise<R> {
+        return new ExportPromise<R>(this.#connection, this.#options, this.#raw, {
+            ...this.#abort,
+            progress: callback,
+        });
+    }
+
     protected async dispatch(): Promise<ExportResult<string, R>> {
         const scope = abortScope(this.#abort.signals ?? [], this.#abort.requestTimeout);
 
@@ -129,15 +148,17 @@ export class ExportPromise<R extends boolean = false> extends DispatchedPromise<
                 },
             );
 
-            if (this.#raw) {
-                return result as ExportResult<string, R>;
-            }
-
             if (typeof result === "string") {
                 return result as ExportResult<string, R>;
             }
 
-            return (await readText(result, scope.signal)) as ExportResult<string, R>;
+            const response = countResponse(result, this.#abort.progress);
+
+            if (this.#raw) {
+                return response as ExportResult<string, R>;
+            }
+
+            return (await readText(response, scope.signal)) as ExportResult<string, R>;
         } finally {
             // The response of a raw export is read by the caller, long after this has returned, and
             // is governed by the signal for as long as it is being read
@@ -232,6 +253,19 @@ export class ExportModelPromise<R extends boolean = false> extends DispatchedPro
         });
     }
 
+    /**
+     * Configure a callback to be told how much of the model has been received, each time more of it
+     * has been. See `ExportPromise.progress()`.
+     *
+     * @param callback Called with the bytes received so far, and the total when it is known
+     */
+    progress(callback: ProgressCallback): ExportModelPromise<R> {
+        return new ExportModelPromise<R>(this.#connection, this.#options, this.#raw, {
+            ...this.#abort,
+            progress: callback,
+        });
+    }
+
     protected async dispatch(): Promise<ExportResult<Uint8Array, R>> {
         const scope = abortScope(this.#abort.signals ?? [], this.#abort.requestTimeout);
 
@@ -258,15 +292,17 @@ export class ExportModelPromise<R extends boolean = false> extends DispatchedPro
                 },
             );
 
-            if (this.#raw) {
-                return result as ExportResult<Uint8Array, R>;
-            }
-
             if (result instanceof Uint8Array) {
                 return result as ExportResult<Uint8Array, R>;
             }
 
-            return (await readBytes(result, scope.signal)) as ExportResult<Uint8Array, R>;
+            const response = countResponse(result, this.#abort.progress);
+
+            if (this.#raw) {
+                return response as ExportResult<Uint8Array, R>;
+            }
+
+            return (await readBytes(response, scope.signal)) as ExportResult<Uint8Array, R>;
         } finally {
             // As for `ExportPromise`, a raw response outlives this call
             if (!this.#raw) scope.dispose();

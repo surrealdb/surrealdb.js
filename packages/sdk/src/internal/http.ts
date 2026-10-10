@@ -5,9 +5,11 @@ import type {
     ConnectionState,
     CredentialSource,
     DriverContext,
+    ProgressCallback,
     Session,
 } from "../types/surreal";
 import { abortReason, raceAbort, throwIfAborted } from "./abort";
+import { countBytes } from "./progress";
 import { wrapSqonError } from "./wrap-sqon-error";
 
 export interface FetchSurrealOptions {
@@ -27,6 +29,10 @@ export interface FetchSurrealOptions {
     resolve?: boolean;
     /** Abandons the request, and the reading of its response, when it aborts */
     signal?: AbortSignal;
+    /** Reports how much of the body has been uploaded, where the runtime lets that be seen */
+    uploadProgress?: ProgressCallback;
+    /** Statuses besides `200` which answer the request, returned for the caller to read */
+    answers?: readonly number[];
 }
 
 /**
@@ -180,15 +186,60 @@ export async function fetchSurreal(
         }
     }
 
+    const progress = options.uploadProgress;
+
+    // Browsers stream request bodies over HTTP/2 only, if at all, so their uploads are followed with XHR
+    const xhrBody =
+        progress &&
+        encodedBody instanceof Blob &&
+        !scoped &&
+        !context.options.fetchImpl &&
+        typeof XMLHttpRequest === "function"
+            ? encodedBody
+            : undefined;
+
+    // Elsewhere the body is counted as `fetch` reads it, afresh for each attempt
+    const bodyFor = (): BodyInit | undefined => {
+        if (!progress) return encodedBody;
+
+        if (encodedBody instanceof ReadableStream) {
+            return countBytes(encodedBody, progress);
+        }
+
+        if (encodedBody instanceof Blob && typeof XMLHttpRequest !== "function") {
+            const stream = encodedBody.stream();
+
+            return countBytes(
+                options.signal ? abortableStream(stream, options.signal) : stream,
+                progress,
+                encodedBody.size,
+            );
+        }
+
+        return encodedBody;
+    };
+
     const attempt = (bearer: Token | undefined): Promise<Response> => {
         const headers = bearer ? { ...headerMap, Authorization: `Bearer ${bearer}` } : headerMap;
+        const method = options.method ?? "POST";
+
+        if (xhrBody && progress) {
+            return uploadWithXhr(endpoint, {
+                method,
+                headers,
+                body: xhrBody,
+                credentials: context.options.fetchOptions?.credentials,
+                signal: options.signal,
+                progress,
+            });
+        }
 
         return raceAbort(
             fetchImpl(endpoint, {
                 ...context.options.fetchOptions,
-                method: options.method ?? "POST",
+                method,
                 headers,
-                body: encodedBody,
+                body: bodyFor(),
                 ...(scoped ? { redirect: "manual" as const } : {}),
                 signal: options.signal,
                 // @ts-expect-error TS is dumb
@@ -215,7 +266,7 @@ export async function fetchSurreal(
         }
     }
 
-    if (response.status === 200) {
+    if (response.status === 200 || options.answers?.includes(response.status)) {
         return response;
     }
 
@@ -226,6 +277,103 @@ export async function fetchSurreal(
         response.status,
         response.statusText,
         buffer,
+    );
+}
+
+interface XhrUpload {
+    method: string;
+    headers: Record<string, string>;
+    body: Blob;
+    credentials: RequestCredentials | undefined;
+    signal: AbortSignal | undefined;
+    progress: ProgressCallback;
+}
+
+/** Statuses whose response has no body, which a `Response` refuses to be given one for */
+const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
+
+/**
+ * Upload a body with `XMLHttpRequest`, reporting its progress, and answer as `fetch` would: once the
+ * headers arrive, with a body which cancelling stops the download of. XHR cannot stream a response,
+ * so the body is read from the `Blob` it downloads into, which the browser keeps out of the page's
+ * memory.
+ */
+function uploadWithXhr(url: URL, request: XhrUpload): Promise<Response> {
+    const { signal, progress } = request;
+    const xhr = new XMLHttpRequest();
+    const onAbort = () => xhr.abort();
+
+    let downloaded!: { resolve: (blob: Blob) => void; reject: (reason: unknown) => void };
+    const download = new Promise<Blob>((resolve, reject) => {
+        downloaded = { resolve, reject };
+    });
+
+    // A body nobody reads leaves a failed download unobserved
+    download.catch(() => {});
+
+    return new Promise((resolve, reject) => {
+        let answered = false;
+        const fail = (reason: unknown) => (answered ? downloaded.reject(reason) : reject(reason));
+
+        xhr.open(request.method, url.href);
+        xhr.responseType = "blob";
+        xhr.withCredentials = request.credentials === "include";
+
+        for (const [name, value] of Object.entries(request.headers)) {
+            xhr.setRequestHeader(name, value);
+        }
+
+        xhr.upload.onprogress = (event) => {
+            progress({
+                loaded: event.loaded,
+                total: event.lengthComputable ? event.total : request.body.size,
+            });
+        };
+
+        xhr.onreadystatechange = () => {
+            // HEADERS_RECEIVED
+            if (xhr.readyState !== 2) return;
+
+            answered = true;
+            resolve(
+                new Response(NULL_BODY_STATUSES.has(xhr.status) ? null : blobBody(download, xhr), {
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                }),
+            );
+        };
+
+        xhr.onload = () => downloaded.resolve(xhr.response);
+        xhr.onerror = () => fail(new TypeError("Failed to fetch"));
+        xhr.onabort = () =>
+            fail(signal ? abortReason(signal) : new TypeError("The request was aborted"));
+        xhr.onloadend = () => signal?.removeEventListener("abort", onAbort);
+
+        signal?.addEventListener("abort", onAbort, { once: true });
+        xhr.send(request.body);
+    });
+}
+
+/** A body read from a downloaded `Blob` a chunk at a time, whose cancelling aborts the download */
+function blobBody(download: Promise<Blob>, xhr: XMLHttpRequest): ReadableStream<Uint8Array> {
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+
+    return new ReadableStream<Uint8Array>(
+        {
+            async pull(controller) {
+                reader ??= (await download).stream().getReader();
+
+                const { done, value } = await reader.read();
+
+                if (done) controller.close();
+                else controller.enqueue(value);
+            },
+            cancel(reason) {
+                xhr.abort();
+                return reader?.cancel(reason);
+            },
+        },
+        { highWaterMark: 0 },
     );
 }
 

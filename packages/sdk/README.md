@@ -829,6 +829,42 @@ They present the credential of the connection like every other request, includin
 
 Over HTTP they can also be run as someone else, like a query, with `.as()`. See [running a call as someone else](#running-a-call-as-someone-else).
 
+#### Failed import statements
+
+An import is not transactional: each statement applies on its own, and one which fails does not stop the rest. Over HTTP and WebSocket, SurrealDB 3.1 and later answer an import with the statements which failed, and `import()` rejects with an `ImportError` listing them:
+
+```ts
+try {
+    await db.import(file);
+} catch (error) {
+    if (error instanceof ImportError) {
+        console.log(`${error.failed} statements failed, the first with: ${error.failures[0]?.message}`);
+    }
+}
+```
+
+`failures` holds the first hundred as `ServerError`s, such as an `AlreadyExistsError`, and `failed` counts all of them. The answer lists only the statements which failed, so it is read whole: it is small unless very many statements failed. Older servers answer with the result of every statement, so the answer is not read and failed statements are not reported, and embedded engines report what their engine does.
+
+#### Import and export progress
+
+SurrealDB reports no progress for an import or an export, so the SDK counts the bytes as they go. Pass a callback to `.progress()` to be told how far along a transfer is:
+
+```ts
+await db.import(file).progress(({ loaded, total }) => {
+    console.log(`Uploaded ${loaded} of ${total} bytes`);
+});
+
+const sql = await db.export().progress(({ loaded }) => {
+    console.log(`Received ${loaded} bytes`);
+});
+```
+
+- An import reports the bytes uploaded so far. The server executes an import as it reads it, so this stays close behind what has been applied, and the import still waits for the last statements once the upload completes. The `total` is known for a string or a `Blob`, and not for a stream.
+- In a browser, `fetch` cannot report the upload of a string or a `Blob`, so that upload goes through `XMLHttpRequest` instead. This is skipped on a connection with a `fetchImpl`, or one which [resolves credentials for each request](#resolving-credentials-for-each-request), and progress is not reported for those.
+- Embedded engines apply an import in a single call and report no progress for it.
+- Nothing is held in memory to report progress: uploads and raw exports stay streamed.
+- An export reports the bytes received so far. The server streams it without a length, so the `total` is not known. A raw export reports what has been read of its body. `exportModel()` reports the same way.
+
 #### Runtimes
 
 `AbortSignal.any()` and `AbortSignal.timeout()` are used where the runtime has them, and replaced by an equivalent where it does not, such as in React Native. A signal whose `reason` the runtime does not record is reported as an `AbortError`.

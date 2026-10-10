@@ -1,9 +1,15 @@
 import type { Uuid } from "@surrealdb/sqon";
-import { ConnectionUnavailableError, UnexpectedServerResponseError } from "../errors";
+import {
+    ConnectionUnavailableError,
+    HttpConnectionError,
+    ImportError,
+    UnexpectedServerResponseError,
+} from "../errors";
+import { raceAbort, throwIfAborted } from "../internal/abort";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { getSessionFromState } from "../internal/get-session-from-state";
-import { fetchSurreal } from "../internal/http";
-import { parseQueryError } from "../internal/parse-error";
+import { fetchSurreal, releaseResponse } from "../internal/http";
+import { parseQueryError, type RpcQueryResultErrRaw } from "../internal/parse-error";
 import { statsFromTime } from "../internal/query-stats";
 import type {
     AccessRecordAuth,
@@ -26,6 +32,16 @@ import type {
     VersionInfo,
 } from "../types";
 import type { BoundQuery } from "../utils";
+import { isVersionSupported } from "../utils/is-version-supported";
+
+/** From 3.1, the server answers an import with the statements which failed, and only those */
+const IMPORT_REPORTS_FAILURES = "3.1.0";
+
+/** The status from which the server says, for itself, that statements of an import failed */
+const IMPORT_FAILED = 422;
+
+/** The most failures an `ImportError` carries, beyond which they are only counted */
+const KEPT_FAILURES = 100;
 
 /**
  * JSON-based engines implement the SurrealDB v1 protocol, which uses
@@ -34,6 +50,8 @@ import type { BoundQuery } from "../utils";
 export abstract class RpcEngine implements SurrealProtocol {
     protected _context: DriverContext;
     protected _state: ConnectionState | undefined;
+    /** The version of the server, as `ready()` is told it */
+    protected _version: string | undefined;
 
     constructor(context: DriverContext) {
         this._context = context;
@@ -226,7 +244,12 @@ export abstract class RpcEngine implements SurrealProtocol {
 
         endpoint.pathname = `${basepath}/import`;
 
-        await fetchSurreal(this._context, this._state, this._state.rootSession, {
+        // An older server answers with the result of every statement, which is left unread
+        const reports =
+            this._version !== undefined &&
+            isVersionSupported(this._version, IMPORT_REPORTS_FAILURES);
+
+        const response = await fetchSurreal(this._context, this._state, this._state.rootSession, {
             body: typeof data === "string" ? new Blob([data]) : data,
             url: endpoint,
             headers: {
@@ -234,7 +257,43 @@ export abstract class RpcEngine implements SurrealProtocol {
             },
             token,
             signal: request?.signal,
+            uploadProgress: request?.uploadProgress,
+            answers: reports ? [IMPORT_FAILED] : undefined,
         });
+
+        if (!reports) {
+            releaseResponse(response);
+            return;
+        }
+
+        // The answer lists only the statements which failed, so it is small unless many did
+        let results: unknown;
+
+        try {
+            results = await raceAbort(response.json(), request?.signal);
+        } catch {
+            throwIfAborted(request?.signal);
+        }
+
+        const failures = Array.isArray(results)
+            ? (results as RpcQueryResultErrRaw[]).filter((result) => result?.status === "ERR")
+            : [];
+
+        if (failures.length > 0) {
+            throw new ImportError(
+                failures.slice(0, KEPT_FAILURES).map(parseQueryError),
+                failures.length,
+            );
+        }
+
+        if (response.status !== 200) {
+            throw new HttpConnectionError(
+                "The import failed",
+                response.status,
+                response.statusText,
+                new ArrayBuffer(0),
+            );
+        }
     }
 
     /**
