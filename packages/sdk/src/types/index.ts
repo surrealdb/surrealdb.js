@@ -6,4 +6,5 @@ export * from "./live";
 export * from "./patch";
 export * from "./publisher";
 export * from "./rpc";
+export * from "./standard-schema";
 export * from "./surreal";

@@ -1,7 +1,7 @@
 import { Duration, type SqonError } from "@surrealdb/sqon";
 import type { Feature } from "./internal/feature";
 import type { ApiResponse } from "./query/api";
-import type { Session } from "./types";
+import type { Session, StandardSchemaV1 } from "./types";
 import { markSymbol, SERVER_ERROR_SYMBOL, SURREAL_ERROR_SYMBOL } from "./utils/symbols";
 
 /**
@@ -725,6 +725,39 @@ export class InvalidSessionError extends SurrealError {
     constructor(session: Session) {
         super(`Invalid session: ${session}`);
         this.session = session;
+    }
+}
+
+/**
+ * Thrown when a value did not match the schema it was checked against, which is a client side
+ * check and happens before a request is sent (for arguments and request bodies), or after a
+ * response was received (for results and response bodies). Use `instanceof` to tell it from the
+ * `ValidationError` of the server.
+ */
+export class SchemaValidationError extends SurrealError {
+    override name = "SchemaValidationError";
+
+    /** What was being validated, such as `arguments for fn::add`. */
+    readonly subject: string;
+    /** Every issue the schema reported, with the path of the failing value. */
+    readonly issues: ReadonlyArray<StandardSchemaV1.Issue>;
+
+    constructor(subject: string, issues: ReadonlyArray<StandardSchemaV1.Issue>) {
+        const lines = issues.map((issue) => {
+            const path = issue.path
+                ?.map((segment) => String(typeof segment === "object" ? segment.key : segment))
+                .join(".");
+
+            return `  - ${path ? `${path}: ` : ""}${issue.message}`;
+        });
+
+        super(
+            `Invalid ${subject}: ${issues.length} validation error${
+                issues.length === 1 ? "" : "s"
+            }\n${lines.join("\n")}`,
+        );
+        this.subject = subject;
+        this.issues = issues;
     }
 }
 
