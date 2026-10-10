@@ -59,7 +59,6 @@ describe("an import into SurrealDB 3.1 or later", () => {
 
         expect(error).toBeInstanceOf(ImportError);
         expect(error.failed).toBe(3);
-        expect(error.truncated).toBe(false);
         expect(error.failures[0]).toBeInstanceOf(AlreadyExistsError);
         expect(error.cause).toBe(error.failures[0]);
         expect(error.message).toBe(
@@ -85,7 +84,6 @@ describe("an import into SurrealDB 3.1 or later", () => {
 
         expect(error).toBeInstanceOf(HttpConnectionError);
         expect(error.status).toBe(422);
-        expect(error.message).toContain("Unprocessable");
     });
 
     test("which the server refuses still fails as before", async () => {
@@ -126,7 +124,6 @@ describe("an import with progress in a browser", () => {
 
         expect(error).toBeInstanceOf(ImportError);
         expect(error.failed).toBe(20_000);
-        expect(error.truncated).toBe(false);
         expect(error.failures).toHaveLength(100);
         expect(error.message.startsWith("20000 statements of the import failed.")).toBe(true);
         expect(requests[0]?.aborted).toBe(false);

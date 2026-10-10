@@ -52,9 +52,9 @@ export function readBody(response: Response, signal?: AbortSignal): Promise<Arra
  * this reads a body which may be very large and is likely to be streamed, so what it holds is let go
  * of when the signal aborts, whatever `fetch` did with it. The reason of the signal is thrown.
  */
-export async function readChunks(
+async function readChunks(
     response: Response,
-    signal: AbortSignal | undefined,
+    signal: AbortSignal,
     onChunk: (chunk: Uint8Array) => void,
 ): Promise<void> {
     throwIfAborted(signal);
@@ -66,10 +66,10 @@ export async function readChunks(
 
     const reader = response.body.getReader();
     const cancel = () => {
-        if (signal) reader.cancel(abortReason(signal)).catch(() => {});
+        reader.cancel(abortReason(signal)).catch(() => {});
     };
 
-    signal?.addEventListener("abort", cancel, { once: true });
+    signal.addEventListener("abort", cancel, { once: true });
 
     try {
         for (;;) {
@@ -82,7 +82,7 @@ export async function readChunks(
             onChunk(value);
         }
     } finally {
-        signal?.removeEventListener("abort", cancel);
+        signal.removeEventListener("abort", cancel);
         reader.releaseLock();
     }
 }

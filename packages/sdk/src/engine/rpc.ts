@@ -1,10 +1,15 @@
 import type { Uuid } from "@surrealdb/sqon";
-import { ConnectionUnavailableError, UnexpectedServerResponseError } from "../errors";
+import {
+    ConnectionUnavailableError,
+    HttpConnectionError,
+    ImportError,
+    UnexpectedServerResponseError,
+} from "../errors";
+import { raceAbort, throwIfAborted } from "../internal/abort";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal, releaseResponse } from "../internal/http";
-import { readImportReport } from "../internal/import-report";
-import { parseQueryError } from "../internal/parse-error";
+import { parseQueryError, type RpcQueryResultErrRaw } from "../internal/parse-error";
 import { statsFromTime } from "../internal/query-stats";
 import type {
     AccessRecordAuth,
@@ -34,6 +39,9 @@ const IMPORT_REPORTS_FAILURES = "3.1.0";
 
 /** The status from which the server says, for itself, that statements of an import failed */
 const IMPORT_FAILED = 422;
+
+/** The most failures an `ImportError` carries, beyond which they are only counted */
+const KEPT_FAILURES = 100;
 
 /**
  * JSON-based engines implement the SurrealDB v1 protocol, which uses
@@ -253,10 +261,38 @@ export abstract class RpcEngine implements SurrealProtocol {
             answers: reports ? [IMPORT_FAILED] : undefined,
         });
 
-        if (reports) {
-            await readImportReport(response, request?.signal);
-        } else {
+        if (!reports) {
             releaseResponse(response);
+            return;
+        }
+
+        // The answer lists only the statements which failed, so it is small unless many did
+        let results: unknown;
+
+        try {
+            results = await raceAbort(response.json(), request?.signal);
+        } catch {
+            throwIfAborted(request?.signal);
+        }
+
+        const failures = Array.isArray(results)
+            ? (results as RpcQueryResultErrRaw[]).filter((result) => result?.status === "ERR")
+            : [];
+
+        if (failures.length > 0) {
+            throw new ImportError(
+                failures.slice(0, KEPT_FAILURES).map(parseQueryError),
+                failures.length,
+            );
+        }
+
+        if (response.status !== 200) {
+            throw new HttpConnectionError(
+                "The import failed",
+                response.status,
+                response.statusText,
+                new ArrayBuffer(0),
+            );
         }
     }
 

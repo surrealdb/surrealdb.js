@@ -760,14 +760,11 @@ export class ImportError extends SurrealError {
     /** The statements which failed, as server errors, up to the first hundred */
     readonly failures: ServerError[];
 
-    /** How many statements failed, or at least how many, when `truncated` */
+    /** How many statements failed */
     readonly failed: number;
 
-    /** Whether the report was cut short, so that more statements may have failed than `failed` */
-    readonly truncated: boolean;
-
-    constructor(failures: ServerError[], failed: number, truncated: boolean) {
-        const count = `${truncated ? "At least " : ""}${failed} ${failed === 1 ? "statement" : "statements"}`;
+    constructor(failures: ServerError[], failed: number) {
+        const count = `${failed} ${failed === 1 ? "statement" : "statements"}`;
         const first = failures[0]?.message;
 
         super(
@@ -778,6 +775,5 @@ export class ImportError extends SurrealError {
         );
         this.failures = failures;
         this.failed = failed;
-        this.truncated = truncated;
     }
 }

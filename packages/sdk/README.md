@@ -843,7 +843,7 @@ try {
 }
 ```
 
-`failures` holds the first hundred as `ServerError`s, such as an `AlreadyExistsError`, and `failed` counts all of them. In a browser, an import followed with `.progress()` goes through `XMLHttpRequest`, which cannot stream a response, so the report is taken as a `Blob`, which the browser keeps out of the page's memory and may hold on disk, and read from there. `truncated` is set when the report was cut short, such as by a dropped connection, in which case `failed` counts the failures it got through. Older servers answer with the result of every statement, so the answer is not read and failed statements are not reported, and embedded engines report what their engine does.
+`failures` holds the first hundred as `ServerError`s, such as an `AlreadyExistsError`, and `failed` counts all of them. The answer lists only the statements which failed, so it is read whole: it is small unless very many statements failed. Older servers answer with the result of every statement, so the answer is not read and failed statements are not reported, and embedded engines report what their engine does.
 
 #### Import and export progress
 
@@ -862,7 +862,7 @@ const sql = await db.export().progress(({ loaded }) => {
 - An import reports the bytes uploaded so far. The server executes an import as it reads it, so this stays close behind what has been applied, and the import still waits for the last statements once the upload completes. The `total` is known for a string or a `Blob`, and not for a stream.
 - In a browser, `fetch` cannot report the upload of a string or a `Blob`, so that upload goes through `XMLHttpRequest` instead. This is skipped on a connection with a `fetchImpl`, or one which [resolves credentials for each request](#resolving-credentials-for-each-request), and progress is not reported for those.
 - Embedded engines apply an import in a single call and report no progress for it.
-- Nothing is held in memory to report progress: uploads and raw exports stay streamed, and the answer to an import is read one result at a time.
+- Nothing is held in memory to report progress: uploads and raw exports stay streamed.
 - An export reports the bytes received so far. The server streams it without a length, so the `total` is not known. A raw export reports what has been read of its body. `exportModel()` reports the same way.
 
 #### Runtimes
