@@ -372,6 +372,11 @@ jobs:
     name: Test WASM
     needs: build-wasm
     runs-on: ubuntu-latest
+    # Runs take under a minute, so 10 leaves ample headroom. When the embedded
+    # engine traps (a RuntimeError out of @surrealdb/wasm-native), Bun stops
+    # making progress and, without a limit, the job holds a runner until the
+    # 6 hour default runs out instead of failing quickly.
+    timeout-minutes: 10
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -415,6 +420,9 @@ jobs:
     name: Test Node
     needs: build-node
     runs-on: ubuntu-latest
+    # Runs take under a minute. The same suite runs against an embedded engine
+    # here too, so a stuck engine gets the same limit as Test WASM.
+    timeout-minutes: 10
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
