@@ -98,8 +98,8 @@ export async function requestVersion(): Promise<{
     version: string;
     is2x: boolean;
     is3x: boolean;
-    /** Whether the version is 4.0.0 or later, including its pre-releases */
-    is4x: boolean;
+    /** Whether a RETURN at the top level of a transaction is a value statement rather than an early exit (3.4.0 and later) */
+    returnIsAValue: boolean;
     /** Whether the version reports a transaction conflict as a structured error (3.1.0 and later) */
     structuredConflicts: boolean;
 }> {
@@ -121,7 +121,7 @@ export async function requestVersion(): Promise<{
     const version = match[1];
     const is2x = satisfies(version, ">=2.0.0-0 <3.0.0-0", { includePrerelease: true });
     const is3x = satisfies(version, ">=3.0.0-0 <4.0.0-0", { includePrerelease: true });
-    const is4x = satisfies(version, ">=4.0.0-0", { includePrerelease: true });
+    const returnIsAValue = satisfies(version, ">=3.4.0-0", { includePrerelease: true });
     const structuredConflicts = satisfies(version, ">=3.1.0-0 <4.0.0-0", {
         includePrerelease: true,
     });
@@ -130,7 +130,7 @@ export async function requestVersion(): Promise<{
         version,
         is2x,
         is3x,
-        is4x,
+        returnIsAValue,
         structuredConflicts,
     };
 }
