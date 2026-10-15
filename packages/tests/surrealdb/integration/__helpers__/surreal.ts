@@ -97,6 +97,7 @@ const VERSION_REGEX = /(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)/;
 export async function requestVersion(): Promise<{
     version: string;
     is2x: boolean;
+    /** Whether the version has the features of 3.0, which every later version, 4.0 included, keeps */
     is3x: boolean;
     /** Whether a RETURN at the top level of a transaction is a value statement rather than an early exit (3.4.0 and later) */
     returnIsAValue: boolean;
@@ -120,9 +121,9 @@ export async function requestVersion(): Promise<{
 
     const version = match[1];
     const is2x = satisfies(version, ">=2.0.0-0 <3.0.0-0", { includePrerelease: true });
-    const is3x = satisfies(version, ">=3.0.0-0 <4.0.0-0", { includePrerelease: true });
+    const is3x = satisfies(version, ">=3.0.0-0", { includePrerelease: true });
     const returnIsAValue = satisfies(version, ">=3.4.0-0", { includePrerelease: true });
-    const structuredConflicts = satisfies(version, ">=3.1.0-0 <4.0.0-0", {
+    const structuredConflicts = satisfies(version, ">=3.1.0-0", {
         includePrerelease: true,
     });
 
