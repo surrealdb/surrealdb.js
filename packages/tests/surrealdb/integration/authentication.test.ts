@@ -7,6 +7,7 @@ import {
     requestVersion,
     respawnServer,
     SURREAL_BACKEND,
+    SURREAL_PROTOCOL,
 } from "./__helpers__";
 
 const { is3x } = await requestVersion();
@@ -286,6 +287,25 @@ describe.skipIf(!isRemote || !is3x)("bearer access", async () => {
         await expect(surreal.authenticate(tokens)).rejects.toBeInstanceOf(ServerError);
         await expect(surreal.revoke()).rejects.toBeInstanceOf(SurrealError);
     });
+
+    test.if(SURREAL_PROTOCOL === "ws")(
+        "revoke the refresh token of a session, and of those forked from it",
+        async () => {
+            const surreal = await createSurreal();
+            await surreal.signup({
+                access: "user_with_refresh",
+                variables: { id: 126 },
+            });
+
+            const forked = await surreal.forkSession();
+
+            await surreal.revoke();
+
+            // The forked session holds the same refresh token, so it has none left to revoke
+            await expect(forked.revoke()).rejects.toThrow("There is no refresh token to revoke");
+            await forked.closeSession();
+        },
+    );
 
     test("system user", async () => {
         const surreal = await createSurreal({

@@ -401,11 +401,12 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
         await this.#engine.revoke(revoked, session);
 
-        // A refresh token which was revoked can no longer renew the authentication of the session
-        const sessionState = this.getSession(session);
-
-        if (sessionState.refreshToken === revoked.refresh) {
-            sessionState.refreshToken = undefined;
+        // A refresh token which was revoked can no longer renew the authentication of any session
+        // holding it, which includes the sessions forked from the one it was issued to
+        for (const sessionState of this.#allSessions()) {
+            if (sessionState.refreshToken === revoked.refresh) {
+                sessionState.refreshToken = undefined;
+            }
         }
     }
 

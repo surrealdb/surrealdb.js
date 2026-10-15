@@ -166,7 +166,7 @@ When renewing the session fails, for example because the identity provider is br
 
 Using `signin()`, `signup()`, or `authenticate()` yourself takes over from the `authentication` option for that session.
 
-On SurrealDB 3.0 and later, an access method defined `WITH REFRESH` issues a refresh token too. Passing the pair to `authenticate()` exchanges it for a new pair, and `revoke()` revokes the refresh token so it can never be exchanged again. Without arguments, `revoke()` revokes the refresh token of the session. The session stays authenticated until its access token expires, so call `invalidate()` as well to sign out at once.
+On SurrealDB 3.0 and later, an access method defined `WITH REFRESH` issues a refresh token too. Passing the pair to `authenticate()` exchanges it for a new pair, and `revoke()` revokes the refresh token so it can never be exchanged again. Without arguments, `revoke()` revokes the refresh token of the session, and no session goes on renewing with it, forked ones included. The access token stays in place, and the session then renews like one without a refresh token: with the `authentication` option if that applies, and otherwise it is invalidated when the token is about to expire. Call `invalidate()` as well to sign out at once.
 
 ```ts
 const tokens = await db.signin({ access: "account", variables: { email, password } });
