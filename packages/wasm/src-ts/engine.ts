@@ -89,11 +89,6 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         return this.#publisher.subscribe(event, listener);
     }
 
-    /** An embedded instance has no `/health` endpoint, so being able to answer is its health */
-    override async health(): Promise<void> {
-        await this.send({ method: "ping" });
-    }
-
     override liveQuery(id: Uuid): AsyncIterable<LiveMessage> {
         const channel = new ChannelIterator<LiveMessage>(() => {
             unsub1();

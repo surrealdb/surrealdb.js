@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { HttpConnectionError, Surreal } from "surrealdb";
+import { connectFake } from "./__helpers__/mock-engine";
 import {
     bearerOf,
     createJwtExpiringIn,
@@ -66,5 +67,15 @@ describe("health()", () => {
         const { db } = await connect("http://localhost:8000/rpc", serving(500));
 
         await expect(db.health()).rejects.toBeInstanceOf(HttpConnectionError);
+    });
+
+    test("an engine of its own, which is not reached over HTTP, asks with ping", async () => {
+        const { db, engine } = await connectFake();
+        open = db;
+        engine.respond = async () => undefined;
+
+        await db.health();
+
+        expect(engine.sent.map(({ request }) => request.method)).toEqual(["ping"]);
     });
 });
