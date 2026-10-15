@@ -228,6 +228,10 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         }
     }
 
+    override health(): Promise<void> {
+        return this.requestHealthEndpoint();
+    }
+
     ready(version?: string): void {
         this._version = version;
 
