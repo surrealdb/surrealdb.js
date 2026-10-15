@@ -64,6 +64,7 @@ describe("import", async () => {
         expect(records).toHaveLength(1);
     });
 
+    // Importing 2000 records takes over half of the default 5s against nightly on CI runners
     test.if(SURREAL_BACKEND === "remote")("reports the progress of its upload", async () => {
         const surreal = await createSurreal();
         const statements = Array.from(
@@ -82,7 +83,7 @@ describe("import", async () => {
         const [count] = await surreal.query("count(SELECT * FROM progress)").collect<[number]>();
 
         expect(count).toBe(2000);
-    });
+    }, 20_000);
 
     test.if(isRemote && reportsFailures)("rejects with the statements which failed", async () => {
         const surreal = await createSurreal();
