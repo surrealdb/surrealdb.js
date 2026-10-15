@@ -425,7 +425,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
                     sessionState.id,
                 );
             } catch (error) {
-                failures.push(error);
+                failures.push(...listenerFailures(error));
             }
         }
 
@@ -1303,4 +1303,12 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         // Apply authentication
         await this.#applyAuthentication(session.id);
     }
+}
+
+/**
+ * The errors which listeners threw, out of the `PublishError` which reports them. A session's
+ * listeners are reached through publishers of their own, so the errors may be nested several deep.
+ */
+function listenerFailures(error: unknown): unknown[] {
+    return error instanceof PublishError ? error.causes.flatMap(listenerFailures) : [error];
 }

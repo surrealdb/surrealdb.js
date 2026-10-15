@@ -333,10 +333,22 @@ describe.skipIf(!isRemote || !is3x)("bearer access", async () => {
             const forked = await surreal.forkSession();
 
             surreal.subscribe("auth", () => {
-                throw new Error("listener failed");
+                throw new Error("root listener failed");
             });
 
-            await expect(surreal.revoke()).rejects.toBeInstanceOf(PublishError);
+            forked.subscribe("auth", () => {
+                throw new Error("forked listener failed");
+            });
+
+            const error = await surreal.revoke().then(
+                () => undefined,
+                (error: unknown) => error,
+            );
+
+            // Every listener which failed is reported, whichever session it listened to
+            expect(error).toBeInstanceOf(PublishError);
+            expect((error as PublishError).message).toContain("root listener failed");
+            expect((error as PublishError).message).toContain("forked listener failed");
             await expect(forked.revoke()).rejects.toThrow("There is no refresh token to revoke");
             await forked.closeSession();
         },
