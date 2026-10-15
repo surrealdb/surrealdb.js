@@ -65,25 +65,31 @@ describe("import", async () => {
     });
 
     // Importing 2000 records takes over half of the default 5s against nightly on CI runners
-    test.if(SURREAL_BACKEND === "remote")("reports the progress of its upload", async () => {
-        const surreal = await createSurreal();
-        const statements = Array.from(
-            { length: 2000 },
-            (_, i) => `CREATE progress:${i} CONTENT { n: ${i} };`,
-        );
-        const sql = `OPTION IMPORT;\n${statements.join("\n")}`;
-        const size = new TextEncoder().encode(sql).byteLength;
-        const events: TransferProgress[] = [];
+    test.if(SURREAL_BACKEND === "remote")(
+        "reports the progress of its upload",
+        async () => {
+            const surreal = await createSurreal();
+            const statements = Array.from(
+                { length: 2000 },
+                (_, i) => `CREATE progress:${i} CONTENT { n: ${i} };`,
+            );
+            const sql = `OPTION IMPORT;\n${statements.join("\n")}`;
+            const size = new TextEncoder().encode(sql).byteLength;
+            const events: TransferProgress[] = [];
 
-        await surreal.import(sql).progress((progress) => events.push(progress));
+            await surreal.import(sql).progress((progress) => events.push(progress));
 
-        expect(events.length).toBeGreaterThan(0);
-        expect(events.at(-1)).toEqual({ loaded: size, total: size });
+            expect(events.length).toBeGreaterThan(0);
+            expect(events.at(-1)).toEqual({ loaded: size, total: size });
 
-        const [count] = await surreal.query("count(SELECT * FROM progress)").collect<[number]>();
+            const [count] = await surreal
+                .query("count(SELECT * FROM progress)")
+                .collect<[number]>();
 
-        expect(count).toBe(2000);
-    }, 20_000);
+            expect(count).toBe(2000);
+        },
+        20_000,
+    );
 
     test.if(isRemote && reportsFailures)("rejects with the statements which failed", async () => {
         const surreal = await createSurreal();
