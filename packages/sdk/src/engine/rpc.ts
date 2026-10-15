@@ -57,8 +57,27 @@ export abstract class RpcEngine implements SurrealProtocol {
         this._context = context;
     }
 
+    /**
+     * Ask the `/health` endpoint of the server, which answers with an error when the datastore
+     * cannot be reached. There is no RPC method for this, and no credential is presented.
+     */
     async health(): Promise<void> {
-        await this.send({ method: "health" });
+        if (!this._state) {
+            throw new ConnectionUnavailableError();
+        }
+
+        const endpoint = new URL(this._state.url);
+        const basepath = endpoint.pathname.slice(0, -4);
+
+        endpoint.pathname = `${basepath}/health`;
+
+        const response = await fetchSurreal(this._context, this._state, this._state.rootSession, {
+            url: endpoint,
+            method: "GET",
+            token: "",
+        });
+
+        releaseResponse(response);
     }
 
     async version(): Promise<VersionInfo> {

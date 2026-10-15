@@ -43,20 +43,11 @@ const ALWAYS_ALLOW = new Set([
     "version",
     "query",
     "info",
-    "health",
 ]);
 
 // Requests which establish the credentials of a session, or which do not need any. These
 // never trigger the resolution of per-request credentials.
-const NEVER_RESOLVE = new Set([
-    "signin",
-    "signup",
-    "authenticate",
-    "refresh",
-    "revoke",
-    "version",
-    "health",
-]);
+const NEVER_RESOLVE = new Set(["signin", "signup", "authenticate", "refresh", "revoke", "version"]);
 
 interface SendOptions extends RequestOptions {
     /** Present this credential with the request, in place of the one of the session */
