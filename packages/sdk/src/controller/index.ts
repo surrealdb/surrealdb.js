@@ -406,6 +406,13 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         for (const sessionState of this.#allSessions()) {
             if (sessionState.refreshToken === revoked.refresh) {
                 sessionState.refreshToken = undefined;
+
+                // Listeners keeping the tokens of the session learn that it has no refresh token
+                this.#eventPublisher.publish(
+                    "auth",
+                    this.#getTokens(sessionState.id) ?? null,
+                    sessionState.id,
+                );
             }
         }
     }

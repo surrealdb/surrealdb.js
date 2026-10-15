@@ -298,8 +298,14 @@ describe.skipIf(!isRemote || !is3x)("bearer access", async () => {
             });
 
             const forked = await surreal.forkSession();
+            const announced: unknown[] = [];
+
+            forked.subscribe("auth", (tokens) => announced.push(tokens));
 
             await surreal.revoke();
+
+            // The forked session is told it is left with its access token alone
+            expect(announced).toEqual([{ access: surreal.accessToken, refresh: undefined }]);
 
             // The forked session holds the same refresh token, so it has none left to revoke
             await expect(forked.revoke()).rejects.toThrow("There is no refresh token to revoke");
