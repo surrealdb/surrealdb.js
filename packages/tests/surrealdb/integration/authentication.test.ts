@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { type AnyAuth, DateTime, RecordId, ServerError, surql } from "surrealdb";
+import { type AnyAuth, DateTime, RecordId, ServerError, SurrealError, surql } from "surrealdb";
 import {
     createAuth,
     createIdleSurreal,
@@ -258,6 +258,33 @@ describe.skipIf(!isRemote || !is3x)("bearer access", async () => {
         expect(res2.refresh).toBeString();
         expect(res2.refresh).not.toBe(res1.refresh);
         expect(res2.access).not.toBe(res1.access);
+    });
+
+    test("revoke a refresh token", async () => {
+        const surreal = await createSurreal();
+        const tokens = await surreal.signup({
+            access: "user_with_refresh",
+            variables: { id: 124 },
+        });
+
+        await surreal.revoke(tokens);
+
+        await expect(surreal.authenticate(tokens)).rejects.toBeInstanceOf(ServerError);
+    });
+
+    test("revoke the refresh token of the session", async () => {
+        const surreal = await createSurreal();
+        const tokens = await surreal.signup({
+            access: "user_with_refresh",
+            variables: { id: 125 },
+        });
+
+        await surreal.revoke();
+
+        // The session stays authenticated until its access token expires
+        expect(surreal.accessToken).toBe(tokens.access);
+        await expect(surreal.authenticate(tokens)).rejects.toBeInstanceOf(ServerError);
+        await expect(surreal.revoke()).rejects.toBeInstanceOf(SurrealError);
     });
 
     test("system user", async () => {

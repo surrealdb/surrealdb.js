@@ -6,6 +6,7 @@ import {
     InvalidSessionError,
     MissingNamespaceDatabaseError,
     ServerError,
+    SurrealError,
     UnavailableFeatureError,
     UnsupportedEngineError,
     UnsupportedFeatureError,
@@ -385,14 +386,27 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return response;
     }
 
-    async revoke(tokens: Tokens, session: Session): Promise<void> {
+    async revoke(tokens: Tokens | undefined, session: Session): Promise<void> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
 
         this.assertFeature(Features.RefreshTokens);
 
-        await this.#engine.revoke(tokens, session);
+        const revoked = tokens ?? this.#getTokens(session);
+
+        if (!revoked?.refresh) {
+            throw new SurrealError("There is no refresh token to revoke");
+        }
+
+        await this.#engine.revoke(revoked, session);
+
+        // A refresh token which was revoked can no longer renew the authentication of the session
+        const sessionState = this.getSession(session);
+
+        if (sessionState.refreshToken === revoked.refresh) {
+            sessionState.refreshToken = undefined;
+        }
     }
 
     async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<NamespaceDatabase> {
