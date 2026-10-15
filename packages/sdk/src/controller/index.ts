@@ -5,6 +5,7 @@ import {
     ConnectionUnavailableError,
     InvalidSessionError,
     MissingNamespaceDatabaseError,
+    PublishError,
     ServerError,
     SurrealError,
     UnavailableFeatureError,
@@ -402,18 +403,34 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         await this.#engine.revoke(revoked, session);
 
         // A refresh token which was revoked can no longer renew the authentication of any session
-        // holding it, which includes the sessions forked from the one it was issued to
-        for (const sessionState of this.#allSessions()) {
-            if (sessionState.refreshToken === revoked.refresh) {
-                sessionState.refreshToken = undefined;
+        // holding it, which includes the sessions forked from the one it was issued to. Every one
+        // of them forgets it before any listener is told, so a listener which throws cannot leave
+        // a session holding it.
+        const affected = this.#allSessions().filter(
+            (sessionState) => sessionState.refreshToken === revoked.refresh,
+        );
 
-                // Listeners keeping the tokens of the session learn that it has no refresh token
+        for (const sessionState of affected) {
+            sessionState.refreshToken = undefined;
+        }
+
+        // Listeners keeping the tokens of a session learn that it has no refresh token
+        const failures: unknown[] = [];
+
+        for (const sessionState of affected) {
+            try {
                 this.#eventPublisher.publish(
                     "auth",
                     this.#getTokens(sessionState.id) ?? null,
                     sessionState.id,
                 );
+            } catch (error) {
+                failures.push(error);
             }
+        }
+
+        if (failures.length > 0) {
+            throw new PublishError(failures);
         }
     }
 

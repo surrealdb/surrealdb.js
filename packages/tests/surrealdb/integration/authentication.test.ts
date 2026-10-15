@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { type AnyAuth, DateTime, RecordId, ServerError, SurrealError, surql } from "surrealdb";
+import {
+    type AnyAuth,
+    DateTime,
+    PublishError,
+    RecordId,
+    ServerError,
+    SurrealError,
+    surql,
+} from "surrealdb";
 import {
     createAuth,
     createIdleSurreal,
@@ -308,6 +316,27 @@ describe.skipIf(!isRemote || !is3x)("bearer access", async () => {
             expect(announced).toEqual([{ access: surreal.accessToken, refresh: undefined }]);
 
             // The forked session holds the same refresh token, so it has none left to revoke
+            await expect(forked.revoke()).rejects.toThrow("There is no refresh token to revoke");
+            await forked.closeSession();
+        },
+    );
+
+    test.if(SURREAL_PROTOCOL === "ws")(
+        "a listener which throws does not leave a forked session holding a revoked token",
+        async () => {
+            const surreal = await createSurreal();
+            await surreal.signup({
+                access: "user_with_refresh",
+                variables: { id: 127 },
+            });
+
+            const forked = await surreal.forkSession();
+
+            surreal.subscribe("auth", () => {
+                throw new Error("listener failed");
+            });
+
+            await expect(surreal.revoke()).rejects.toBeInstanceOf(PublishError);
             await expect(forked.revoke()).rejects.toThrow("There is no refresh token to revoke");
             await forked.closeSession();
         },
