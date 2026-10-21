@@ -41,7 +41,10 @@ describe("wasm engine registration", () => {
             for (const url of ["surrealkv://test.db", "indxdb://test"]) {
                 const db = new Surreal({ engines: createWasmEngines() });
 
-                await expect(db.connect(url)).rejects.toBeInstanceOf(UnsupportedEngineError);
+                const error = await db.connect(url).catch((caught: unknown) => caught);
+
+                expect(error).toBeInstanceOf(UnsupportedEngineError);
+                expect((error as Error).message).toContain("createWasmWorkerEngines");
                 expect(db.status).toBe("disconnected");
             }
         },
