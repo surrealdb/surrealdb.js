@@ -909,6 +909,8 @@ await db.connect("surrealkv://demo");
 
 `createWasmEngines` registers only `mem` on the main thread. Persistent stores need `createWasmWorkerEngines`.
 
+Persistent browser stores flush to storage periodically, not on every commit, so a commit can return before it is durable. Add `?sync=every` to the store URL, for example `surrealkv://demo?sync=every`, to make each commit durable before it returns. See the [WebAssembly engine readme](https://github.com/surrealdb/surrealdb.js/blob/main/packages/wasm/README.md#storage-backends) for details.
+
 When using [Vite](https://vitejs.dev/), exclude the WASM package from dependency optimisation and enable top-level await:
 
 ```js

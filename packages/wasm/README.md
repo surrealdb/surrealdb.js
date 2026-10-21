@@ -129,6 +129,8 @@ await db.connect("mem://");
 
 Persistent browser stores run only in a Web Worker, so they are registered by `createWasmWorkerEngines` and not by `createWasmEngines`. Connecting to `surrealkv://` or `indxdb://` with the main thread engines fails with an `UnsupportedEngineError`.
 
+Persistent browser stores flush to storage periodically, not on every commit. A commit can return before it is durable, so a commit made shortly before the page or worker stops can be lost. To make each commit durable before it returns, add `?sync=every` to the store URL, for example `surrealkv://myapp?sync=every`.
+
 ### Running in a Web Worker
 
 Offload database work from the main thread to keep your UI responsive. Use `createWasmWorkerEngines` for both in-memory and persistent stores:
