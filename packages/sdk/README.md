@@ -885,26 +885,29 @@ We have only scratched the surface of what the JavaScript SDK can do. For more i
 
 ## Embedding SurrealDB in the browser
 
-The [**`@surrealdb/wasm`**](https://github.com/surrealdb/surrealdb.js/blob/main/packages/wasm/README.md) engine plugin runs SurrealDB inside a browser - in-memory or persisted to IndexedDB. See the [WebAssembly engine readme](https://github.com/surrealdb/surrealdb.js/blob/main/packages/wasm/README.md) for worker setup, Vite configuration, and full package details.
+The [**`@surrealdb/wasm`**](https://github.com/surrealdb/surrealdb.js/blob/main/packages/wasm/README.md) engine plugin runs SurrealDB inside a browser. In-memory stores run on the main thread or in a Web Worker. Persistent stores run only in a Web Worker. See the [WebAssembly engine readme](https://github.com/surrealdb/surrealdb.js/blob/main/packages/wasm/README.md) for worker setup, Vite configuration, and full package details.
 
 ```sh
 npm i @surrealdb/wasm
 ```
 
 ```ts
-import { createWasmEngines } from "@surrealdb/wasm";
+import { createWasmWorkerEngines } from "@surrealdb/wasm";
+import WorkerAgent from "@surrealdb/wasm/worker?worker";
 import { Surreal, createRemoteEngines } from "surrealdb";
 
 const db = new Surreal({
     engines: {
         ...createRemoteEngines(),
-        ...createWasmEngines(),
+        ...createWasmWorkerEngines({ createWorker: () => new WorkerAgent() }),
     },
 });
 
 await db.connect("mem://");
-await db.connect("indxdb://demo");
+await db.connect("surrealkv://demo");
 ```
+
+`createWasmEngines` registers only `mem` on the main thread. Persistent stores need `createWasmWorkerEngines`.
 
 When using [Vite](https://vitejs.dev/), exclude the WASM package from dependency optimisation and enable top-level await:
 

@@ -5,7 +5,11 @@ import { LocalEngineBroker } from "./local/local-broker";
 import { type WasmWorkerOptions, WorkerEngineBroker } from "./worker/worker-broker";
 
 /**
- * Configure the `mem` and `indxdb` WebAssembly engines for the JavaScript SDK.
+ * Configure the `mem` WebAssembly engine for the JavaScript SDK, running on the main thread.
+ *
+ * Persistent browser stores are not offered here. They run only in a Web Worker,
+ * so use {@link createWasmWorkerEngines} for `surrealkv://` and `indxdb://`. Connecting
+ * to either scheme with these engines fails with an `UnsupportedEngineError`.
  *
  * @param options Optional connection options to configure the WebAssembly engines.
  * @example
@@ -27,12 +31,16 @@ export const createWasmEngines = (options?: ConnectionOptions): Engines => {
 
     return {
         mem: createEngine,
-        indxdb: createEngine,
     };
 };
 
 /**
- * Configure the `mem` and `indxdb` WebAssembly WebWorker engines for the JavaScript SDK.
+ * Configure the `mem`, `surrealkv` and `indxdb` WebAssembly engines to run inside a Web Worker
+ * for the JavaScript SDK.
+ *
+ * `surrealkv` is the persistent browser store. `indxdb` is registered as a pass-through to the
+ * same engine: the WebAssembly module applies the alias, and the SDK passes the URL on unchanged.
+ * Persistent stores are only available through this function, not {@link createWasmEngines}.
  *
  * @param options Optional connection options to configure the WebAssembly engines.
  * @example
@@ -54,6 +62,7 @@ export const createWasmWorkerEngines = (options?: WasmWorkerOptions): Engines =>
 
     return {
         mem: createEngine,
+        surrealkv: createEngine,
         indxdb: createEngine,
     };
 };
