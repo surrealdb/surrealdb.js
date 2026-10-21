@@ -39,7 +39,8 @@ export const createWasmEngines = (options?: ConnectionOptions): Engines => {
  * for the JavaScript SDK.
  *
  * `surrealkv` is the persistent browser store. `indxdb` is registered as a pass-through to the
- * same engine: the WebAssembly module applies the alias, and the SDK passes the URL on unchanged.
+ * same engine: the SDK passes the URL on unchanged, and the WebAssembly module applies the alias
+ * from the release of `@surrealdb/wasm-native` that adds the `surrealkv` store.
  * Persistent stores are only available through this function, not {@link createWasmEngines}.
  *
  * @param options Optional connection options to configure the WebAssembly engines.

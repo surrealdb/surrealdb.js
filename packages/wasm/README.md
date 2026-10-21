@@ -154,7 +154,7 @@ await db.connect("mem://");
 await db.connect("surrealkv://myapp");
 ```
 
-`indxdb://` is also accepted by `createWasmWorkerEngines` and is handled by the same engine, so existing URLs keep working. The URL is passed to the engine unchanged, and the WebAssembly module applies the alias.
+`indxdb://` is also accepted by `createWasmWorkerEngines`. The SDK passes the URL to the engine unchanged. The WebAssembly module applies the alias, so `indxdb://` opens the `surrealkv` store, from the release of `@surrealdb/wasm-native` that adds that store. Releases before it open their own IndexedDB store for `indxdb://`.
 
 The `@surrealdb/wasm/worker` export provides a pre-built worker script for bundlers that support the `?worker` import suffix (such as Vite).
 
