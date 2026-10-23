@@ -27,8 +27,11 @@ export async function insertMockRecords(surreal: Surreal): Promise<void> {
     ]);
 }
 
-export async function defineMockApi(surreal: Surreal): Promise<void> {
-    const remote = SURREAL_PROTOCOL !== "mem";
+export async function defineMockApi(
+    surreal: Surreal,
+    options: { http?: boolean } = {},
+): Promise<void> {
+    const remote = options.http ?? SURREAL_PROTOCOL !== "mem";
     const output = remote ? "MIDDLEWARE api::res::body('cbor')" : "";
     const input = remote ? "MIDDLEWARE api::req::body('cbor'), api::res::body('cbor')" : "";
     await surreal.query(`

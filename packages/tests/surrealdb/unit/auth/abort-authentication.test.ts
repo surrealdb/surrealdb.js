@@ -9,6 +9,7 @@ import {
 } from "../../../../sdk/src";
 import { FakeClock } from "../__helpers__/fake-clock";
 import {
+    apiRequests,
     closeClients,
     connect,
     queries,
@@ -101,10 +102,11 @@ describe("a call made as someone else, which may be abandoned", () => {
 
                 await compose(build(db) as Chainable, "call-token", controller.signal);
 
-                const [sent] = queries(mock.calls);
+                const requests = name === "api" ? apiRequests(mock.calls) : queries(mock.calls);
+                const [sent] = requests;
 
                 // It was made as the identity it was asked to be, and could have been abandoned
-                expect(queries(mock.calls)).toHaveLength(1);
+                expect(requests).toHaveLength(1);
                 expect(bearerOf(sent)).toBe("call-token");
                 expect(sent.init.signal).toBeInstanceOf(AbortSignal);
             });
@@ -122,7 +124,8 @@ describe("a call made as someone else, which may be abandoned", () => {
             );
 
             expect(error).toBe(reason);
-            expect(queries(mock.calls)).toHaveLength(0);
+            const requests = name === "api" ? apiRequests(mock.calls) : queries(mock.calls);
+            expect(requests).toHaveLength(0);
         });
     }
 
