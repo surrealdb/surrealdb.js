@@ -1,4 +1,5 @@
 import { Uuid } from "@surrealdb/sqon";
+import type { ApiRequest } from "../api/api";
 import { createRemoteEngines } from "../engine";
 import {
     AuthenticationError,
@@ -21,6 +22,7 @@ import { relayIterable } from "../internal/relay";
 import { RequestCredentials } from "../internal/request-credentials";
 import { RetryContext } from "../internal/retry";
 import { fastParseJwt, renewalDelay, tokenExpiry } from "../internal/tokens";
+import type { ApiResponse } from "../query/api";
 import type {
     AccessRecordAuth,
     AnyAuth,
@@ -531,6 +533,33 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             undefined,
             () => engine.exportMlModel(options, request),
             request?.signal,
+        );
+    }
+
+    /** Remote APIs use their HTTP endpoint; embedded APIs run within the datastore. */
+    get remoteApi(): boolean {
+        return ["http:", "https:", "ws:", "wss:"].includes(this.#state?.url.protocol ?? "");
+    }
+
+    invokeApiHttp<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        options?: RequestOptions & { credential?: AuthOrToken },
+    ): Promise<ApiResponse<T>> {
+        const engine = this.#engine;
+        if (!engine) throw new ConnectionUnavailableError();
+        this.assertFeature(Features.Api);
+        const invoke = engine.invokeApiHttp?.bind(engine);
+        if (!invoke) throw new UnsupportedEngineError("HTTP API invocation");
+        if (options?.credential !== undefined) {
+            this.#credentialedEngine(options.credential);
+            return invoke<T>(path, request, session, options);
+        }
+        return this.#whenAuthenticated(
+            session,
+            () => invoke<T>(path, request, session, options),
+            options?.signal,
         );
     }
 

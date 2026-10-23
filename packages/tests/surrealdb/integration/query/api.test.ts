@@ -22,7 +22,7 @@ describe.if(is3x)("api", async () => {
             foo: "bar",
         };
 
-        const res = await api.invoke<Payload, Payload>("/identity", { body });
+        const res = await api.invoke<Payload, Payload>("/identity", { body, method: "post" });
 
         expect(res).toMatchObject({
             body,
@@ -108,13 +108,15 @@ describe.if(is3x)("api", async () => {
         };
 
         // Successful
-        const res = await api.invoke<Payload, Payload>("/identity", { body }).value();
+        const res = await api
+            .invoke<Payload, Payload>("/identity", { body, method: "post" })
+            .value();
 
         expect(res.foo).toEqual("bar");
 
         // Unsuccessful
         expect(async () => {
-            await api.invoke<Payload, Payload>("/error", { body }).value();
+            await api.invoke<Payload, Payload>("/error", { body, method: "post" }).value();
         }).toThrow(UnsuccessfulApiError);
     });
 

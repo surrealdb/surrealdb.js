@@ -40,6 +40,7 @@ export class DiagnosticsEngine implements SurrealEngine {
      * is refused, rather than run as the session, when it does not.
      */
     queryAs?: SurrealEngine["queryAs"];
+    invokeApiHttp?: SurrealEngine["invokeApiHttp"];
 
     /** Likewise for import and export, which are refused as well when the engine cannot */
     importSqlAs?: SurrealEngine["importSqlAs"];
@@ -49,6 +50,11 @@ export class DiagnosticsEngine implements SurrealEngine {
     constructor(delegate: SurrealEngine, callback: DiagnosticsCallback) {
         this.#delegate = delegate;
         this.#callback = callback;
+
+        // Forward API calls without including request credentials in diagnostics.
+        if (delegate.invokeApiHttp) {
+            this.invokeApiHttp = delegate.invokeApiHttp.bind(delegate);
+        }
 
         const queryAs = delegate.queryAs;
 

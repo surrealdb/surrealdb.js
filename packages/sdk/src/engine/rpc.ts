@@ -1,16 +1,21 @@
-import type { Uuid } from "@surrealdb/sqon";
+import { jsonify, type Uuid } from "@surrealdb/sqon";
+import type { ApiRequest } from "../api/api";
 import {
     ConnectionUnavailableError,
     HttpConnectionError,
     ImportError,
+    MissingNamespaceDatabaseError,
+    SurrealError,
     UnexpectedServerResponseError,
 } from "../errors";
 import { raceAbort, throwIfAborted } from "../internal/abort";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { getSessionFromState } from "../internal/get-session-from-state";
-import { fetchSurreal, releaseResponse } from "../internal/http";
+import { fetchSurreal, readBytes, releaseResponse } from "../internal/http";
 import { parseQueryError, type RpcQueryResultErrRaw } from "../internal/parse-error";
 import { statsFromTime } from "../internal/query-stats";
+import { wrapSqonError } from "../internal/wrap-sqon-error";
+import type { ApiResponse } from "../query/api";
 import type {
     AccessRecordAuth,
     AnyAuth,
@@ -43,6 +48,9 @@ const IMPORT_FAILED = 422;
 /** The most failures an `ImportError` carries, beyond which they are only counted */
 const KEPT_FAILURES = 100;
 
+/** Custom API responses carry their own status, including application errors. */
+const API_HTTP_STATUSES = Array.from({ length: 400 }, (_, index) => index + 200);
+
 /**
  * JSON-based engines implement the SurrealDB v1 protocol, which uses
  * JSON objects to communicate with the server.
@@ -55,6 +63,126 @@ export abstract class RpcEngine implements SurrealProtocol {
 
     constructor(context: DriverContext) {
         this._context = context;
+    }
+
+    async invokeApiHttp<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        options?: RequestOptions,
+    ): Promise<ApiResponse<T>> {
+        return this.invokeApiHttpWith(path, request, session, options);
+    }
+
+    protected async invokeApiHttpWith<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        options?: RequestOptions,
+        token?: Token,
+    ): Promise<ApiResponse<T>> {
+        if (!this._state) throw new ConnectionUnavailableError();
+        const state = this._state;
+        const selected = getSessionFromState(state, session);
+        if (!selected.namespace || !selected.database) throw new MissingNamespaceDatabaseError();
+        if ([selected.namespace, selected.database].some((name) => name === "." || name === "..")) {
+            throw new SurrealError("HTTP API namespace and database cannot be dot segments");
+        }
+        const method = (request.method ?? "get").toUpperCase();
+        if ((method === "GET" || method === "HEAD") && request.body !== undefined) {
+            throw new SurrealError("HTTP API requests with GET or HEAD cannot have a body");
+        }
+
+        const endpoint = new URL(state.url);
+        const basepath = endpoint.pathname.slice(0, -4);
+        // Encode every segment so path data cannot replace the origin, query, or fragment.
+        const segments = path.split("/").filter(Boolean);
+        if (segments.some((segment) => segment === "." || segment === "..")) {
+            throw new SurrealError("HTTP API paths cannot contain dot segments");
+        }
+        endpoint.pathname = `${basepath}/api/${encodeURIComponent(selected.namespace)}/${encodeURIComponent(selected.database)}/${segments.map(encodeURIComponent).join("/")}`;
+        endpoint.search = "";
+        endpoint.hash = "";
+        for (const [name, value] of Object.entries(request.query ?? {})) {
+            endpoint.searchParams.set(name, value);
+        }
+
+        const requestHeaders = new Headers(request.headers);
+        const requestType =
+            requestHeaders.get("content-type")?.split(";", 1)[0].trim().toLowerCase() ??
+            "application/cbor";
+        let payload: Blob | undefined;
+        if (request.body !== undefined) {
+            if (request.body instanceof Blob) {
+                payload = request.body;
+            } else if (requestType === "application/cbor") {
+                payload = new Blob([
+                    new Uint8Array(
+                        wrapSqonError(() => this._context.codecs.cbor.encode(request.body)),
+                    ),
+                ]);
+            } else if (requestType === "application/json" || requestType.endsWith("+json")) {
+                payload = new Blob([JSON.stringify(jsonify(request.body))]);
+            } else if (typeof request.body === "string" || request.body instanceof Uint8Array) {
+                payload = new Blob([request.body]);
+            } else {
+                throw new SurrealError(
+                    "HTTP API bodies with this Content-Type must be a string, Uint8Array, or Blob",
+                );
+            }
+        }
+        const headers: Record<string, string> = {};
+        requestHeaders.forEach((value, name) => {
+            // Use the same spelling as fetchSurreal's defaults to replace them.
+            headers[
+                name === "content-type"
+                    ? "Content-Type"
+                    : name === "accept"
+                      ? "Accept"
+                      : name === "authorization"
+                        ? "Authorization"
+                        : name === "surreal-ns"
+                          ? "Surreal-NS"
+                          : name === "surreal-db"
+                            ? "Surreal-DB"
+                            : name
+            ] = value;
+        });
+        const response = await fetchSurreal(this._context, state, selected, {
+            url: endpoint,
+            method,
+            body: payload,
+            headers,
+            token,
+            signal: options?.signal,
+            // All HTTP statuses belong to the API response, including application errors.
+            answers: API_HTTP_STATUSES,
+            retryAuth: false,
+            redirect: "manual",
+        });
+        const bytes = await readBytes(response, options?.signal);
+        const contentType = response.headers
+            .get("content-type")
+            ?.split(";", 1)[0]
+            .trim()
+            .toLowerCase();
+        let body: unknown;
+        if (bytes.length === 0) {
+            body = undefined;
+        } else if (contentType === "application/cbor") {
+            body = wrapSqonError(() => this._context.codecs.cbor.decode(bytes));
+        } else if (contentType === "application/json" || contentType?.endsWith("+json")) {
+            body = JSON.parse(new TextDecoder().decode(bytes));
+        } else if (contentType?.startsWith("text/")) {
+            body = new TextDecoder().decode(bytes);
+        } else {
+            body = bytes;
+        }
+        const responseHeaders: Record<string, string> = {};
+        response.headers.forEach((value, name) => {
+            responseHeaders[name] = value;
+        });
+        return { body: body as T, status: response.status, headers: responseHeaders };
     }
 
     async health(): Promise<void> {

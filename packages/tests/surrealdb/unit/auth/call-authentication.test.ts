@@ -270,7 +270,10 @@ describe("a call made as someone else", () => {
 
             await build(db);
 
-            const sent = queries(mock.calls);
+            const sent =
+                name === "api"
+                    ? mock.calls.filter((call) => new URL(call.url).pathname.startsWith("/api/"))
+                    : queries(mock.calls);
 
             expect(sent).toHaveLength(1);
             expect(bearerOf(sent[0])).toBe("call-token");

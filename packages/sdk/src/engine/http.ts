@@ -1,4 +1,5 @@
 import type { Uuid } from "@surrealdb/sqon";
+import type { ApiRequest } from "../api/api";
 import {
     ConnectionUnavailableError,
     MissingNamespaceDatabaseError,
@@ -12,6 +13,7 @@ import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal, readBody } from "../internal/http";
 import { parseRpcError } from "../internal/parse-error";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
+import type { ApiResponse } from "../query/api";
 import type {
     AnyAuth,
     AuthOrToken,
@@ -100,6 +102,21 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
 
     ready(version?: string): void {
         this._version = version;
+    }
+
+    override async invokeApiHttp<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        options?: RequestOptions & { credential?: AuthOrToken },
+    ): Promise<ApiResponse<T>> {
+        const state = this._state;
+        if (!state) throw new ConnectionUnavailableError();
+        const token =
+            options?.credential === undefined
+                ? undefined
+                : await this.#present(options.credential, session, state, options.signal);
+        return this.invokeApiHttpWith(path, request, session, options, token);
     }
 
     /**

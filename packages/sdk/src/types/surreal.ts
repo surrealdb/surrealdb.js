@@ -6,9 +6,11 @@ import type {
     Uuid,
     ValueCodec,
 } from "@surrealdb/sqon";
+import type { ApiRequest } from "../api/api";
 import type { ServerError } from "../errors";
 import type { Feature } from "../internal/feature";
 import type { ReconnectContext } from "../internal/reconnect";
+import type { ApiResponse } from "../query/api";
 import type { BoundQuery } from "../utils";
 import type { AccessRecordAuth, AnyAuth, AuthOrToken, AuthProvider, Token, Tokens } from "./auth";
 import type { Nullable } from "./helpers";
@@ -168,6 +170,14 @@ export interface CredentialedRequestOptions extends RequestOptions {
  * An engine responsible for communicating to a SurrealDB datastore
  */
 export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEvents> {
+    /** Invoke a custom API over HTTP, independently of the query channel. */
+    invokeApiHttp?<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        options?: RequestOptions & { credential?: AuthOrToken },
+    ): Promise<ApiResponse<T>>;
+
     features: Set<Feature>;
     open(state: ConnectionState): void;
     close(): Promise<void>;

@@ -33,6 +33,10 @@ export interface FetchSurrealOptions {
     uploadProgress?: ProgressCallback;
     /** Statuses besides `200` which answer the request, returned for the caller to read */
     answers?: readonly number[];
+    /** Custom API handlers may return 401 after performing writes; never replay them. */
+    retryAuth?: boolean;
+    /** Override redirect handling for endpoints which must remain on this server. */
+    redirect?: RequestRedirect;
 }
 
 /**
@@ -240,7 +244,7 @@ export async function fetchSurreal(
                 method,
                 headers,
                 body: bodyFor(),
-                ...(scoped ? { redirect: "manual" as const } : {}),
+                ...(scoped || options.redirect ? { redirect: options.redirect ?? "manual" } : {}),
                 signal: options.signal,
                 // @ts-expect-error TS is dumb
                 duplex: "half",
@@ -257,7 +261,13 @@ export async function fetchSurreal(
     // it is safe to ask for a new credential and send the request again, once, whatever the
     // request does. A body which has been streamed out cannot be sent again. Abandoning the
     // request ends the wait for the new credential, and the replay, like anything else.
-    if (response.status === 401 && source && token && !(encodedBody instanceof ReadableStream)) {
+    if (
+        options.retryAuth !== false &&
+        response.status === 401 &&
+        source &&
+        token &&
+        !(encodedBody instanceof ReadableStream)
+    ) {
         const renewed = await resolveToken(source, session.id, token, options.signal);
 
         if (renewed && renewed !== token) {

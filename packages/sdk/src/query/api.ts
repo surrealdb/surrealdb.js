@@ -1,14 +1,21 @@
 import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { SurrealError, UnsuccessfulApiError } from "../errors";
-import { type AbortOptions, addSignal, assertTimeout } from "../internal/abort";
+import {
+    type AbortOptions,
+    abortScope,
+    addSignal,
+    assertTimeout,
+    raceAbort,
+    throwIfAborted,
+} from "../internal/abort";
 import { assertCredential } from "../internal/auth-provider";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import type { MaybeJsonify } from "../internal/maybe-jsonify";
+import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
 import { validateWith } from "../internal/standard-schema";
 import type { AuthOrToken, Session, StandardSchemaV1 } from "../types";
 import { type BoundQuery, surql } from "../utils";
-import type { Frame } from "../utils/frame";
+import { DoneFrame, type Frame, ValueFrame } from "../utils/frame";
 import { Query } from "./query";
 
 /**
@@ -63,8 +70,8 @@ export class ApiPromise<
      * This is useful when query results need to be serialized. Keep in mind
      * that your responses will lose SurrealDB type information.
      */
-    json(): ApiPromise<Req, Res, true> {
-        return new ApiPromise<Req, Res, true>(this.#connection, {
+    json(): ApiPromise<Req, Res, V, true> {
+        return new ApiPromise<Req, Res, V, true>(this.#connection, {
             ...this.#options,
             json: true,
         });
@@ -96,8 +103,8 @@ export class ApiPromise<
      * @param name The name of the header to append.
      * @param value The value of the header to append.
      */
-    header(name: string, value: string): ApiPromise<Req, Res, J> {
-        return new ApiPromise<Req, Res, J>(this.#connection, {
+    header(name: string, value: string): ApiPromise<Req, Res, V, J> {
+        return new ApiPromise<Req, Res, V, J>(this.#connection, {
             ...this.#options,
             headers: { ...this.#options.headers, [name]: value },
         });
@@ -110,8 +117,8 @@ export class ApiPromise<
      * @param value The value of the query parameter to append.
      * @returns A new ApiPromise instance.
      */
-    query(name: string, value: string): ApiPromise<Req, Res, J> {
-        return new ApiPromise<Req, Res, J>(this.#connection, {
+    query(name: string, value: string): ApiPromise<Req, Res, V, J> {
+        return new ApiPromise<Req, Res, V, J>(this.#connection, {
             ...this.#options,
             query: { ...this.#options.query, [name]: value },
         });
@@ -221,7 +228,8 @@ export class ApiPromise<
     }
 
     /**
-     * Compile this qurery into a BoundQuery
+     * Compile an explicit `api::invoke` SQL query. Executing this compiled query requires
+     * query access, including on remote connections whose API calls normally use HTTP.
      */
     compile(): BoundQuery<[ApiResponse<Res>]> {
         return this.#build().inner;
@@ -233,6 +241,16 @@ export class ApiPromise<
      * @returns An async iterable of query frames.
      */
     async *stream(): AsyncIterable<Frame<ApiResponse<Res>, J>> {
+        if (this.#connection.remoteApi) {
+            const result = await this.#invokeHttp(this.#options);
+            yield new ValueFrame<ApiResponse<Res>, J>(
+                0,
+                maybeJsonify(result, this.#options.json as J),
+                true,
+            );
+            yield new DoneFrame<ApiResponse<Res>, J>(0, undefined, "other");
+            return;
+        }
         const query = this.#build().stream<ApiResponse<Res>>();
 
         for await (const frame of query) {
@@ -254,7 +272,9 @@ export class ApiPromise<
             options = { ...options, body: body as Req };
         }
 
-        const [result] = await this.#build(options).collect();
+        const result = this.#connection.remoteApi
+            ? maybeJsonify(await this.#invokeHttp(options), options.json)
+            : (await this.#build(options).collect())[0];
 
         if (!("body" in result) || typeof result.status !== "number") {
             throw new SurrealError("Body or status was missing from the API response");
@@ -277,6 +297,37 @@ export class ApiPromise<
         }
 
         return result as Collect<Res, V, J>;
+    }
+
+    async #invokeHttp(options: ApiOptions<Req>): Promise<ApiResponse<Res>> {
+        if (options.transaction) {
+            throw new SurrealError("Remote HTTP API requests cannot run inside a transaction");
+        }
+        const scope = abortScope(options.signals ?? []);
+        try {
+            throwIfAborted(scope.signal);
+            await raceAbort(this.#connection.ready(), scope.signal);
+            const request = abortScope(
+                scope.signal ? [scope.signal] : [],
+                options.requestTimeout ?? this.#connection.requestTimeout,
+            );
+            try {
+                throwIfAborted(request.signal);
+                return await this.#connection.invokeApiHttp<Res>(
+                    options.path,
+                    options,
+                    options.session,
+                    {
+                        signal: request.signal,
+                        credential: options.credential,
+                    },
+                );
+            } finally {
+                request.dispose();
+            }
+        } finally {
+            scope.dispose();
+        }
     }
 
     #build(options: ApiOptions<Req> = this.#options): Query<[ApiResponse<Res>], J> {
