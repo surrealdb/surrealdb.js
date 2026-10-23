@@ -87,8 +87,8 @@ describe("HTTP API invocation", () => {
         const { db, calls } = await connect(() => cbor(new RecordId("user", "ada"), 201));
         const result = await db.api().post("/users", false).value();
         expect(result).toEqual(new RecordId("user", "ada"));
-        const body = calls[0].init.body as Blob;
-        expect(codec.decode<unknown>(new Uint8Array(await body.arrayBuffer()))).toBe(false);
+        const body = await new Response(calls[0].init.body).arrayBuffer();
+        expect(codec.decode<unknown>(new Uint8Array(body))).toBe(false);
         const json = await db.api().post("/users", null).value().json();
         expect(json).toBe("user:ada");
     });
@@ -191,11 +191,9 @@ describe("HTTP API invocation", () => {
     test("compile and stream build an api::invoke query", async () => {
         const { db, calls } = await connect(() => cbor(true));
         expect(db.api().get("/hello").compile().query).toContain("api::invoke");
-        await expect(
-            (async () => {
-                for await (const _ of db.api().get("/hello").stream());
-            })(),
-        ).rejects.toThrow("Anonymous queries are disabled");
+        await expect(Array.fromAsync(db.api().get("/hello").stream())).rejects.toThrow(
+            "Anonymous queries are disabled",
+        );
         expect(calls).toHaveLength(0);
     });
 

@@ -9,6 +9,7 @@ import type {
     ConnectionState,
     CredentialedRequestOptions,
     Diagnostic,
+    DiagnosticEvent,
     DiagnosticKey,
     DiagnosticResult,
     EngineEvents,
@@ -504,32 +505,37 @@ export class DiagnosticsEngine implements SurrealEngine {
         const measure = Duration.measure();
         const key = Uuid.v4();
 
-        this.#callback({ type, key, phase: "before" } as Diagnostic);
+        this.#emit<K>({ type, key, phase: "before" });
 
         try {
             const response = await callback();
 
-            this.#callback({
+            this.#emit<K>({
                 type,
                 key,
                 phase: "after",
                 success: true,
                 duration: measure(),
                 result: result(response),
-            } as Diagnostic);
+            });
 
             return response;
         } catch (error) {
-            this.#callback({
+            this.#emit<K>({
                 type,
                 key,
                 phase: "after",
                 success: false,
                 duration: measure(),
                 error: error as Error,
-            } as Diagnostic);
+            });
 
             throw error;
         }
+    }
+
+    /** Past 25 kinds of event, TypeScript no longer relates one of a generic kind to the union */
+    #emit<K extends DiagnosticKey>(event: DiagnosticEvent<K>): void {
+        this.#callback(event as Diagnostic);
     }
 }

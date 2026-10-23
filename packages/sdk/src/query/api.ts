@@ -3,18 +3,20 @@ import type { ConnectionController } from "../controller";
 import { SurrealError, UnsuccessfulApiError } from "../errors";
 import {
     type AbortOptions,
+    type AbortScope,
     abortScope,
     addSignal,
     assertTimeout,
     raceAbort,
     throwIfAborted,
 } from "../internal/abort";
+import { apiInvocation } from "../internal/api-invocation";
 import { assertCredential } from "../internal/auth-provider";
 import { DispatchedPromise } from "../internal/dispatched-promise";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
 import { validateWith } from "../internal/standard-schema";
 import type { AuthOrToken, Session, StandardSchemaV1 } from "../types";
-import { type BoundQuery, surql } from "../utils";
+import type { BoundQuery } from "../utils";
 import type { Frame } from "../utils/frame";
 import { Query } from "./query";
 
@@ -290,29 +292,31 @@ export class ApiPromise<
     async #invoke(options: ApiOptions<Req>): Promise<ApiResponse<Res>> {
         const { path, transaction, session, credential } = options;
         const scope = abortScope(options.signals ?? []);
+        let request: AbortScope | undefined;
+
         try {
             throwIfAborted(scope.signal);
             await raceAbort(this.#connection.ready(), scope.signal);
-            const request = abortScope(
-                scope.signal ? [scope.signal] : [],
+
+            // The request timeout is measured from here, as it is for a query
+            request = abortScope(
+                [scope.signal],
                 options.requestTimeout ?? this.#connection.requestTimeout,
             );
-            try {
-                throwIfAborted(request.signal);
-                const { signal } = request;
-                return await raceAbort(
-                    credential === undefined
-                        ? this.#connection.api<Res>(path, options, session, transaction, { signal })
-                        : this.#connection.apiAs<Res>(path, options, session, transaction, {
-                              signal,
-                              credential,
-                          }),
-                    signal,
-                );
-            } finally {
-                request.dispose();
-            }
+            const { signal } = request;
+            throwIfAborted(signal);
+
+            return await raceAbort(
+                credential === undefined
+                    ? this.#connection.api<Res>(path, options, session, transaction, { signal })
+                    : this.#connection.apiAs<Res>(path, options, session, transaction, {
+                          signal,
+                          credential,
+                      }),
+                signal,
+            );
         } finally {
+            request?.dispose();
             scope.dispose();
         }
     }
@@ -325,12 +329,7 @@ export class ApiPromise<
             transaction,
             json,
             session,
-            query: surql`api::invoke(${path}, ${{
-                body,
-                method,
-                headers,
-                query,
-            }})`,
+            query: apiInvocation(path, { body, method, headers, query }),
             signals: this.#options.signals,
             requestTimeout: this.#options.requestTimeout,
         });
