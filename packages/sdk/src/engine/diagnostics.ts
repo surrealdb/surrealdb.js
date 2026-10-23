@@ -1,6 +1,8 @@
 import { Duration, Uuid } from "@surrealdb/sqon";
+import type { ApiRequest } from "../api/api";
 import type { Feature } from "../internal/feature";
 import { relayIterable } from "../internal/relay";
+import type { ApiResponse } from "../query/api";
 import type {
     AccessRecordAuth,
     AnyAuth,
@@ -40,21 +42,16 @@ export class DiagnosticsEngine implements SurrealEngine {
      * is refused, rather than run as the session, when it does not.
      */
     queryAs?: SurrealEngine["queryAs"];
-    invokeApiHttp?: SurrealEngine["invokeApiHttp"];
 
     /** Likewise for import and export, which are refused as well when the engine cannot */
     importSqlAs?: SurrealEngine["importSqlAs"];
     exportSqlAs?: SurrealEngine["exportSqlAs"];
     exportMlModelAs?: SurrealEngine["exportMlModelAs"];
+    apiAs?: SurrealEngine["apiAs"];
 
     constructor(delegate: SurrealEngine, callback: DiagnosticsCallback) {
         this.#delegate = delegate;
         this.#callback = callback;
-
-        // Forward API calls without including request credentials in diagnostics.
-        if (delegate.invokeApiHttp) {
-            this.invokeApiHttp = delegate.invokeApiHttp.bind(delegate);
-        }
 
         const queryAs = delegate.queryAs;
 
@@ -78,7 +75,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         }
 
         // The credential is passed on in the same way, and never reported
-        const { importSqlAs, exportSqlAs, exportMlModelAs } = delegate;
+        const { importSqlAs, exportSqlAs, exportMlModelAs, apiAs } = delegate;
 
         if (typeof importSqlAs === "function") {
             this.importSqlAs = (data, request) =>
@@ -104,6 +101,26 @@ export class DiagnosticsEngine implements SurrealEngine {
                     "exportMlModel",
                     () => exportMlModelAs.call(delegate, options, request),
                     () => undefined,
+                );
+        }
+
+        if (typeof apiAs === "function") {
+            this.apiAs = <T>(
+                path: string,
+                request: ApiRequest<unknown>,
+                session: Session,
+                txn: Uuid | undefined,
+                options: CredentialedRequestOptions,
+            ) =>
+                // The credential is passed on, and never reported
+                this.#diagnoseApi(
+                    path,
+                    request,
+                    session,
+                    () =>
+                        apiAs.call(delegate, path, request, session, txn, options) as Promise<
+                            ApiResponse<T>
+                        >,
                 );
         }
     }
@@ -346,6 +363,34 @@ export class DiagnosticsEngine implements SurrealEngine {
         );
     }
 
+    api<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): Promise<ApiResponse<T>> {
+        return this.#diagnoseApi(path, request, session, () =>
+            this.#delegate.api<T>(path, request, session, txn, options),
+        );
+    }
+
+    /** The body and headers of the request are not reported, as they may hold credentials */
+    #diagnoseApi<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        run: () => Promise<ApiResponse<T>>,
+    ): Promise<ApiResponse<T>> {
+        const method = request.method ?? "get";
+        return this.#diagnose("api", run, (response) => ({
+            path,
+            method,
+            status: response?.status,
+            session,
+        }));
+    }
+
     #diagnoseQuery<T>(
         query: BoundQuery,
         session: Session,
@@ -459,7 +504,7 @@ export class DiagnosticsEngine implements SurrealEngine {
         const measure = Duration.measure();
         const key = Uuid.v4();
 
-        this.#callback({ type, key, phase: "before" });
+        this.#callback({ type, key, phase: "before" } as Diagnostic);
 
         try {
             const response = await callback();
@@ -482,7 +527,7 @@ export class DiagnosticsEngine implements SurrealEngine {
                 success: false,
                 duration: measure(),
                 error: error as Error,
-            });
+            } as Diagnostic);
 
             throw error;
         }

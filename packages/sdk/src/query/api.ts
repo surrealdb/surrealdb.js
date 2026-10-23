@@ -15,7 +15,7 @@ import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
 import { validateWith } from "../internal/standard-schema";
 import type { AuthOrToken, Session, StandardSchemaV1 } from "../types";
 import { type BoundQuery, surql } from "../utils";
-import { DoneFrame, type Frame, ValueFrame } from "../utils/frame";
+import type { Frame } from "../utils/frame";
 import { Query } from "./query";
 
 /**
@@ -241,16 +241,6 @@ export class ApiPromise<
      * @returns An async iterable of query frames.
      */
     async *stream(): AsyncIterable<Frame<ApiResponse<Res>, J>> {
-        if (this.#connection.remoteApi) {
-            const result = await this.#invokeHttp(this.#options);
-            yield new ValueFrame<ApiResponse<Res>, J>(
-                0,
-                maybeJsonify(result, this.#options.json as J),
-                true,
-            );
-            yield new DoneFrame<ApiResponse<Res>, J>(0, undefined, "other");
-            return;
-        }
         const query = this.#build().stream<ApiResponse<Res>>();
 
         for await (const frame of query) {
@@ -272,9 +262,7 @@ export class ApiPromise<
             options = { ...options, body: body as Req };
         }
 
-        const result = this.#connection.remoteApi
-            ? maybeJsonify(await this.#invokeHttp(options), options.json)
-            : (await this.#build(options).collect())[0];
+        const result = maybeJsonify(await this.#invoke(options), options.json);
 
         if (!("body" in result) || typeof result.status !== "number") {
             throw new SurrealError("Body or status was missing from the API response");
@@ -299,10 +287,8 @@ export class ApiPromise<
         return result as Collect<Res, V, J>;
     }
 
-    async #invokeHttp(options: ApiOptions<Req>): Promise<ApiResponse<Res>> {
-        if (options.transaction) {
-            throw new SurrealError("Remote HTTP API requests cannot run inside a transaction");
-        }
+    async #invoke(options: ApiOptions<Req>): Promise<ApiResponse<Res>> {
+        const { path, transaction, session, credential } = options;
         const scope = abortScope(options.signals ?? []);
         try {
             throwIfAborted(scope.signal);
@@ -313,14 +299,15 @@ export class ApiPromise<
             );
             try {
                 throwIfAborted(request.signal);
-                return await this.#connection.invokeApiHttp<Res>(
-                    options.path,
-                    options,
-                    options.session,
-                    {
-                        signal: request.signal,
-                        credential: options.credential,
-                    },
+                const { signal } = request;
+                return await raceAbort(
+                    credential === undefined
+                        ? this.#connection.api<Res>(path, options, session, transaction, { signal })
+                        : this.#connection.apiAs<Res>(path, options, session, transaction, {
+                              signal,
+                              credential,
+                          }),
+                    signal,
                 );
             } finally {
                 request.dispose();

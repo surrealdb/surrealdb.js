@@ -976,7 +976,7 @@ const result = await db.api().get("/hello").value();
 await db.api().post("/users", { name: "Ada" });
 ```
 
-HTTP and WebSocket connections use HTTP endpoints, bypassing the query channel with your selected namespace, database, and credentials. Embedded connections continue to use `api::invoke` inside the datastore. The API route and endpoint permissions must allow the caller.
+HTTP and WebSocket connections call the API endpoint directly, with your selected namespace, database, and credentials, so no query access is needed. Embedded connections, and API calls made inside a transaction, use `api::invoke` instead. The API route and endpoint permissions must allow the caller.
 
 Bodies use CBOR by default. Configure endpoint middleware to parse requests and serialize responses:
 
@@ -986,11 +986,11 @@ DEFINE API '/users' FOR post
     THEN { RETURN { status: 201, body: $request.body }; };
 ```
 
-Set `Content-Type: application/json` with `.header()` to send JSON instead. Response bodies are decoded according to their `Content-Type`: CBOR, JSON, text, or otherwise `Uint8Array`. Empty bodies return `undefined`. `.value()` accepts all successful 2xx responses and rejects other statuses; without it, the result contains the status, headers, and body.
+Set `Content-Type: application/json` with `.header()` to send JSON instead. Response bodies are decoded according to their `Content-Type`: CBOR, JSON, text, or otherwise `Uint8Array`. Empty bodies return `undefined`. GET requests cannot carry bodies, so use `.post()` or set `method: "post"` for an endpoint that takes a body.
 
-Remote API calls support schemas, signals, request timeouts, and `.as()` on HTTP connections. GET requests cannot carry bodies; use `.post()` or set `method: "post"` when invoking an endpoint with a body. API calls cannot join a remote interactive transaction. `.stream()` yields the completed HTTP response as a value frame followed by a done frame. `.compile()` explicitly produces an `api::invoke` SQL query, which requires query access to execute. Passing an API builder to `db.query([...])` also compiles it into SQL and requires query access; the response body then reflects the endpoint middleware without the HTTP decoding step. An API-only anonymous client should connect over HTTP because server restrictions can block WebSocket session setup.
+`.compile()` and `.stream()` still run `api::invoke` as a query, as does an API builder passed to `db.query([...])`, so they need query access.
 
-For WebSocket connections, API calls use a separate HTTP request and do not inherit server-side session variables or an interactive transaction. Your proxy must forward the `/api` route. In browsers, HTTP CORS rules also apply, and only response headers exposed by the server are visible to JavaScript. API 401 responses are returned without automatically renewing and replaying credentials, because a custom handler may already have applied writes.
+On a WebSocket connection, an API call is a separate HTTP request. It does not see server-side session variables, your proxy must forward the `/api` route, and in browsers CORS rules apply. An API-only anonymous client should connect over HTTP, because server restrictions can block WebSocket session setup. API 401 responses are returned as they are, without renewing and replaying credentials, because the handler may already have written data.
 
 ## Supported environments
 

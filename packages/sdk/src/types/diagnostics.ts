@@ -12,6 +12,7 @@ type SetInfo = { name: string; value: unknown };
 type UnsetInfo = { name: string };
 type LiveQueryInfo = { id: Uuid; message?: LiveMessage };
 type TransactionInfo = { txn: Uuid };
+type ApiInfo = { path: string; method: string; status?: number };
 type QueryInfo = {
     query: string;
     params: Record<string, unknown>;
@@ -45,6 +46,7 @@ type DiagnosticMap = {
     importSql: undefined;
     exportSql: undefined;
     exportMlModel: undefined;
+    api: ApiInfo & SessionInfo;
 };
 
 export type DiagnosticKey = keyof DiagnosticMap;

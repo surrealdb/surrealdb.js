@@ -104,19 +104,31 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         this._version = version;
     }
 
-    override async invokeApiHttp<T>(
+    override api<T>(
         path: string,
         request: ApiRequest<unknown>,
         session: Session,
-        options?: RequestOptions & { credential?: AuthOrToken },
+        _txn?: Uuid,
+        options?: RequestOptions,
+    ): Promise<ApiResponse<T>> {
+        return this.apiOverHttp<T>(path, request, session, options);
+    }
+
+    /**
+     * Invoke a custom API as someone else. As for a query, the credential is presented with this
+     * request alone, and the session is neither used for authentication nor changed.
+     */
+    async apiAs<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        _txn: Uuid | undefined,
+        options: CredentialedRequestOptions,
     ): Promise<ApiResponse<T>> {
         const state = this._state;
         if (!state) throw new ConnectionUnavailableError();
-        const token =
-            options?.credential === undefined
-                ? undefined
-                : await this.#present(options.credential, session, state, options.signal);
-        return this.invokeApiHttpWith(path, request, session, options, token);
+        const token = await this.#present(options.credential, session, state, options.signal);
+        return this.apiOverHttp<T>(path, request, session, options, token);
     }
 
     /**

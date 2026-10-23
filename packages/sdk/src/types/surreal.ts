@@ -92,6 +92,15 @@ export interface SurrealProtocol {
         options?: RequestOptions,
     ): AsyncIterable<QueryChunk<T>>;
     liveQuery(id: Uuid): AsyncIterable<LiveMessage>;
+
+    // API operations
+    api<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): Promise<ApiResponse<T>>;
 }
 
 /**
@@ -170,14 +179,6 @@ export interface CredentialedRequestOptions extends RequestOptions {
  * An engine responsible for communicating to a SurrealDB datastore
  */
 export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEvents> {
-    /** Invoke a custom API over HTTP, independently of the query channel. */
-    invokeApiHttp?<T>(
-        path: string,
-        request: ApiRequest<unknown>,
-        session: Session,
-        options?: RequestOptions & { credential?: AuthOrToken },
-    ): Promise<ApiResponse<T>>;
-
     features: Set<Feature>;
     open(state: ConnectionState): void;
     close(): Promise<void>;
@@ -234,6 +235,18 @@ export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEve
         options: MlExportOptions,
         request: CredentialedRequestOptions,
     ): Promise<Response | Uint8Array>;
+
+    /**
+     * Invoke a custom API as a different identity than the one of the session, for this call
+     * only. See `queryAs()`.
+     */
+    apiAs?<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        txn: Uuid | undefined,
+        options: CredentialedRequestOptions,
+    ): Promise<ApiResponse<T>>;
 }
 
 /**

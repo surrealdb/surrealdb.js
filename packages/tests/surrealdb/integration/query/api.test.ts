@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { UnsuccessfulApiError } from "surrealdb";
+import { Features, RecordId, UnsuccessfulApiError } from "surrealdb";
 import { createSurreal, defineMockApi, proto, requestVersion } from "../__helpers__";
 
 type ExamplePaths = {
@@ -132,6 +132,30 @@ describe.if(is3x)("api", async () => {
             headers: {},
             status: 200,
         });
+    });
+
+    test("joins the transaction it is invoked in", async () => {
+        const surreal = await createSurreal();
+        if (!surreal.isFeatureSupported(Features.Transactions)) return;
+
+        await surreal.query(`
+            DEFINE TABLE person SCHEMALESS;
+            DEFINE API '/touch' FOR get THEN {
+                CREATE person:api;
+                RETURN { status: 200, body: true };
+            };
+        `);
+
+        const txn = await surreal.beginTransaction();
+        const res = await txn.api().get("/touch");
+
+        expect(res.status).toBe(200);
+        expect(await txn.select(new RecordId("person", "api"))).toBeDefined();
+        expect(await surreal.select(new RecordId("person", "api"))).toBeUndefined();
+
+        await txn.cancel();
+
+        expect(await surreal.select(new RecordId("person", "api"))).toBeUndefined();
     });
 
     test("compile", async () => {

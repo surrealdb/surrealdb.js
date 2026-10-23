@@ -4,6 +4,7 @@ import {
     CborCodec,
     type ConnectOptions,
     createRemoteEngines,
+    type Diagnostic,
     RecordId,
     Surreal,
     UnsuccessfulApiError,
@@ -19,11 +20,11 @@ type Call = { url: URL; init: RequestInit };
 async function connect(
     reply: (call: Call) => Response | Promise<Response>,
     authentication?: ConnectOptions["authentication"],
-    diagnostics = false,
+    diagnostics?: (event: Diagnostic) => void,
 ) {
     const calls: Call[] = [];
     const db = new Surreal({
-        ...(diagnostics ? { engines: applyDiagnostics(createRemoteEngines(), () => {}) } : {}),
+        ...(diagnostics ? { engines: applyDiagnostics(createRemoteEngines(), diagnostics) } : {}),
         fetchImpl: (async (input, init = {}) => {
             const url = new URL(String(input));
             if (url.pathname.endsWith("/rpc")) {
@@ -129,10 +130,23 @@ describe("HTTP API invocation", () => {
         expect(resolved).toBe(2);
     });
 
-    test("diagnostic wrappers forward API calls and their credentials", async () => {
-        const { db, calls } = await connect(() => cbor(true), undefined, true);
+    test("diagnostic wrappers report API calls and forward their credentials", async () => {
+        const events: Diagnostic[] = [];
+        const { db, calls } = await connect(
+            () => cbor(true),
+            undefined,
+            (event) => {
+                if (event.type === "api") events.push(event);
+            },
+        );
         expect(await db.api().get("/hello").as("call-token").value()).toBe(true);
         expect(new Headers(calls[0].init.headers).get("authorization")).toBe("Bearer call-token");
+        expect(events.map((event) => event.phase)).toEqual(["before", "after"]);
+        expect(events[1]).toMatchObject({
+            success: true,
+            result: { path: "/hello", method: "get", status: 200 },
+        });
+        expect(JSON.stringify(events)).not.toContain("call-token");
     });
 
     test("binary responses are returned as bytes", async () => {
@@ -174,15 +188,15 @@ describe("HTTP API invocation", () => {
         expect(calls).toHaveLength(0);
     });
 
-    test("compile explicitly builds SQL while stream uses HTTP", async () => {
+    test("compile and stream build an api::invoke query", async () => {
         const { db, calls } = await connect(() => cbor(true));
         expect(db.api().get("/hello").compile().query).toContain("api::invoke");
-        const frames = [];
-        for await (const frame of db.api().get("/hello").stream()) frames.push(frame);
-        expect(frames).toHaveLength(2);
-        expect(frames[0].isValue() && frames[0].value).toMatchObject({ body: true, status: 200 });
-        expect(frames[1].isDone()).toBe(true);
-        expect(calls).toHaveLength(1);
+        await expect(
+            (async () => {
+                for await (const _ of db.api().get("/hello").stream());
+            })(),
+        ).rejects.toThrow("Anonymous queries are disabled");
+        expect(calls).toHaveLength(0);
     });
 
     test("aborted requests are not sent", async () => {

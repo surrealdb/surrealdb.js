@@ -38,6 +38,7 @@ import type {
 } from "../types";
 import type { BoundQuery } from "../utils";
 import { isVersionSupported } from "../utils/is-version-supported";
+import { surql } from "../utils/tagged-template";
 
 /** From 3.1, the server answers an import with the statements which failed, and only those */
 const IMPORT_REPORTS_FAILURES = "3.1.0";
@@ -65,16 +66,35 @@ export abstract class RpcEngine implements SurrealProtocol {
         this._context = context;
     }
 
-    async invokeApiHttp<T>(
+    /**
+     * Invoke a custom API by running `api::invoke` as a query, which works wherever queries do,
+     * inside a transaction as well. Engines which reach the server over HTTP override it with
+     * `apiOverHttp()`, which needs no query access.
+     */
+    async api<T>(
         path: string,
         request: ApiRequest<unknown>,
         session: Session,
+        txn?: Uuid,
         options?: RequestOptions,
     ): Promise<ApiResponse<T>> {
-        return this.invokeApiHttpWith(path, request, session, options);
+        const { body, method, headers, query } = request;
+        const invocation = surql`api::invoke(${path}, ${{ body, method, headers, query }})`;
+
+        for await (const chunk of this.query<ApiResponse<T>>(invocation, session, txn, options)) {
+            if (chunk.error) throw chunk.error;
+            return chunk.result?.[0] as ApiResponse<T>;
+        }
+
+        throw new UnexpectedServerResponseError(undefined);
     }
 
-    protected async invokeApiHttpWith<T>(
+    /**
+     * Invoke a custom API through the `/api/:namespace/:database` endpoint of the server, as the
+     * session, or as the identity of the token when there is one. Unlike `api::invoke`, this is
+     * allowed for those who may not run queries.
+     */
+    protected async apiOverHttp<T>(
         path: string,
         request: ApiRequest<unknown>,
         session: Session,

@@ -536,29 +536,19 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         );
     }
 
-    /** Remote APIs use their HTTP endpoint; embedded APIs run within the datastore. */
-    get remoteApi(): boolean {
-        return ["http:", "https:", "ws:", "wss:"].includes(this.#state?.url.protocol ?? "");
-    }
-
-    invokeApiHttp<T>(
+    api<T>(
         path: string,
         request: ApiRequest<unknown>,
         session: Session,
-        options?: RequestOptions & { credential?: AuthOrToken },
+        txn?: Uuid,
+        options?: RequestOptions,
     ): Promise<ApiResponse<T>> {
         const engine = this.#engine;
         if (!engine) throw new ConnectionUnavailableError();
         this.assertFeature(Features.Api);
-        const invoke = engine.invokeApiHttp?.bind(engine);
-        if (!invoke) throw new UnsupportedEngineError("HTTP API invocation");
-        if (options?.credential !== undefined) {
-            this.#credentialedEngine(options.credential);
-            return invoke<T>(path, request, session, options);
-        }
         return this.#whenAuthenticated(
             session,
-            () => invoke<T>(path, request, session, options),
+            () => engine.api<T>(path, request, session, txn, options),
             options?.signal,
         );
     }
@@ -680,6 +670,27 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         }
 
         return engine.exportMlModelAs(options, request);
+    }
+
+    /**
+     * Invoke a custom API as a different identity than the one of the session, for this call
+     * only. See `importSqlAs()`.
+     */
+    apiAs<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        txn: Uuid | undefined,
+        options: CredentialedRequestOptions,
+    ): Promise<ApiResponse<T>> {
+        const engine = this.#credentialedEngine(options.credential);
+        this.assertFeature(Features.Api);
+
+        if (typeof engine.apiAs !== "function") {
+            throw new UnsupportedFeatureError(Features.PerRequestAuth);
+        }
+
+        return engine.apiAs<T>(path, request, session, txn, options);
     }
 
     /**
