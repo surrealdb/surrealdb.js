@@ -83,6 +83,14 @@ describe("HTTP API invocation", () => {
         expect(new Headers(calls[0].init.headers).get("x-test")).toBe("yes");
     });
 
+    test("reports invalid JSON responses", async () => {
+        const { db, calls } = await connect(
+            () => new Response("{", { headers: { "Content-Type": "application/json" } }),
+        );
+        await expect(Promise.resolve(db.api().get("/users/"))).rejects.toThrow("not valid JSON");
+        expect(calls).toHaveLength(1);
+    });
+
     test("encodes falsy CBOR bodies and decodes native SurrealDB values", async () => {
         const { db, calls } = await connect(() => cbor(new RecordId("user", "ada"), 201));
         const result = await db.api().post("/users", false).value();

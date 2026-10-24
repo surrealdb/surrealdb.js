@@ -165,7 +165,11 @@ export abstract class RpcEngine implements SurrealProtocol {
         } else if (responseType === "application/cbor") {
             body = wrapSqonError(() => this._context.codecs.cbor.decode(bytes));
         } else if (responseType && isJson(responseType)) {
-            body = JSON.parse(utf8.decode(bytes));
+            try {
+                body = JSON.parse(utf8.decode(bytes));
+            } catch (cause) {
+                throw new SurrealError("The API response is not valid JSON", { cause });
+            }
         } else if (responseType?.startsWith("text/")) {
             body = utf8.decode(bytes);
         } else {

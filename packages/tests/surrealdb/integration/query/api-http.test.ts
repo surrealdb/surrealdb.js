@@ -26,7 +26,7 @@ test.skipIf(SURREAL_BACKEND !== "remote" || !is3x)(
                 "--deny-arbitrary-query",
                 "guest,record",
             ],
-            { stdout: "ignore", stderr: "ignore" },
+            { stdout: "ignore", stderr: "pipe" },
         );
         const admin = new Surreal();
         const guest = new Surreal();
@@ -40,9 +40,15 @@ test.skipIf(SURREAL_BACKEND !== "remote" || !is3x)(
                         break;
                     }
                 } catch {}
+                if (server.exitCode !== null) break;
                 await Bun.sleep(25);
             }
-            expect(ready).toBe(true);
+            if (!ready) {
+                server.kill();
+                throw new Error(
+                    `SurrealDB did not become ready: ${await new Response(server.stderr).text()}`,
+                );
+            }
             await admin.connect(endpoint, {
                 namespace: "test",
                 database: "test",
@@ -82,5 +88,5 @@ test.skipIf(SURREAL_BACKEND !== "remote" || !is3x)(
             await server.exited;
         }
     },
-    15_000,
+    30_000,
 );
