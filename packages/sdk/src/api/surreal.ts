@@ -165,7 +165,8 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
     /**
      * Check the health of the connected SurrealDB instance
      *
-     * @returns The health of the connected SurrealDB instance
+     * A remote instance is asked through its `/health` endpoint, and an embedded one with `ping`.
+     * Resolves when the instance is healthy, and rejects when it is not, or cannot be reached.
      */
     health(): Promise<void> {
         return this.#connection.health();
