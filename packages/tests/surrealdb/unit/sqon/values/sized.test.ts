@@ -8,11 +8,13 @@ import {
     I16,
     I32,
     InvalidNumberError,
+    JsonCodec,
     SizedNumber,
     U8,
     U16,
     U32,
     U64,
+    Value,
 } from "surrealdb";
 
 describe("sized numbers", () => {
@@ -75,6 +77,30 @@ describe("sized numbers", () => {
 
     test("serialise to JSON as their number, a u64 as a string", () => {
         expect(JSON.stringify([new U8(5), new F32(1.5), new U64(7n)])).toBe('[5,1.5,"7"]');
+    });
+
+    test("keep their kinds through the experimental JSON encoding", () => {
+        const values = [
+            new U8(5),
+            new U64(7n),
+            new U64(2n ** 64n - 1n),
+            new F32(1.5),
+            new F16(Number.NaN),
+            new F32(-0),
+            new F32(Number.NEGATIVE_INFINITY),
+        ];
+        const json =
+            '[{"$u8":5},{"$u64":7},{"$u64":"18446744073709551615"},{"$f32":1.5},{"$f16":"NaN"},{"$f32":"-0"},{"$f32":"-Infinity"}]';
+
+        Value.useExperimentalToJson(true);
+        try {
+            expect(JSON.stringify(values)).toBe(json);
+        } finally {
+            Value.useExperimentalToJson(false);
+        }
+
+        const decoded = JsonCodec.DEFAULT.decode<SizedNumber[]>(JSON.parse(json));
+        expect(decoded.every((value, i) => value.equals(values[i]))).toBe(true);
     });
 
     test("are sent widened over plain cbor", () => {
