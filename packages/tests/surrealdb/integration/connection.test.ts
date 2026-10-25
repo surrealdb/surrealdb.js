@@ -22,6 +22,14 @@ describe("connection", async () => {
         expect(version.startsWith("surrealdb-")).toBe(true);
     });
 
+    test("health", async () => {
+        const surreal = await createSurreal({
+            unselected: true,
+        });
+
+        await expect(surreal.health()).resolves.toBeUndefined();
+    });
+
     test("allowed rpcs without namespace or database", async () => {
         const surreal = await createSurreal({
             unselected: true,
