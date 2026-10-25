@@ -314,25 +314,40 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        surrealdb: ["v2.2.7", "v2.3.7", "latest-v2", "v3.0.0", "nightly"]
+        # The latest-* entries resolve the newest stable release of their line at run time, so new
+        # releases are tested without a matrix bump. Nightly is the line which becomes 4.0.
+        surrealdb: ["v2.2.7", "v2.3.7", "latest-v2", "v3.0.0", "latest-v3.3", "nightly"]
         engine: ["ws", "http"]
     steps:
       - name: Install SurrealDB ${{ matrix.surrealdb }} over ${{ matrix.engine }} engine
         run: |
-          if [ "${{ matrix.surrealdb }}" = "nightly" ]; then
-            curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --nightly
-          elif [ "${{ matrix.surrealdb }}" = "latest-v2" ]; then
-            # Resolve the newest stable 2.x tag at run time, so new 2.x releases are tested without a matrix bump
-            version=$(git ls-remote --tags --refs https://github.com/surrealdb/surrealdb 'v2.*' | sed 's#.*refs/tags/##' | grep -E '^v2\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
-            if [ -z "$version" ]; then
-              echo "::error::Could not resolve the latest SurrealDB 2.x release."
-              exit 1
-            fi
-            echo "Resolved latest-v2 to $version"
-            curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --version "$version"
-          else
-            curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --version ${{ matrix.surrealdb }}
-          fi
+          case "${{ matrix.surrealdb }}" in
+            nightly)
+              curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --nightly
+              ;;
+            latest-v*)
+              line="${{ matrix.surrealdb }}"
+              line="${line#latest-}"
+              version=$(git ls-remote --tags --refs https://github.com/surrealdb/surrealdb "${line}.*" | sed 's#.*refs/tags/##' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | awk -v line="${line}." 'index($0, line) == 1' | sort -V | tail -n 1)
+              if [ -z "$version" ]; then
+                echo "::error::Could not resolve the latest SurrealDB ${line} release."
+                exit 1
+              fi
+              # Patch releases are published for download without a public tag, so look for later ones there
+              while :; do
+                next=$(echo "$version" | awk -F. '{ printf "%s.%s.%d", $1, $2, $3 + 1 }')
+                curl -sfI "https://download.surrealdb.com/${next}/surreal-${next}.linux-amd64.tgz" > /dev/null || break
+                version="$next"
+              done
+              echo "Resolved ${{ matrix.surrealdb }} to $version"
+              curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --version "$version"
+              ;;
+            *)
+              curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --version ${{ matrix.surrealdb }}
+              ;;
+          esac
+
+          surreal version
 
       - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0

@@ -182,8 +182,35 @@ export abstract class RpcEngine implements SurrealProtocol {
         };
     }
 
+    /**
+     * There is no `health` RPC method, so an engine which knows no better asks with `ping`, which
+     * any engine can send. Engines which reach the server over HTTP ask its `/health` endpoint.
+     */
     async health(): Promise<void> {
-        await this.send({ method: "health" });
+        await this.send({ method: "ping" });
+    }
+
+    /**
+     * Ask the `/health` endpoint of the server, which answers with an error when the datastore
+     * cannot be reached. No credential is presented.
+     */
+    protected async requestHealthEndpoint(): Promise<void> {
+        if (!this._state) {
+            throw new ConnectionUnavailableError();
+        }
+
+        const endpoint = new URL(this._state.url);
+        const basepath = endpoint.pathname.slice(0, -4);
+
+        endpoint.pathname = `${basepath}/health`;
+
+        const response = await fetchSurreal(this._context, this._state, this._state.rootSession, {
+            url: endpoint,
+            method: "GET",
+            token: "",
+        });
+
+        releaseResponse(response);
     }
 
     async version(): Promise<VersionInfo> {

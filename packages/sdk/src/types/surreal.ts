@@ -766,12 +766,21 @@ export interface MlExportOptions {
 
 /**
  * Query statistics
+ *
+ * Over HTTP and WebSocket, and in the embedded engines, SurrealDB reports only how long a
+ * statement took. The counts are `-1`, which means the server did not report them, not that
+ * nothing was received or scanned.
  */
 export interface QueryStats {
+    /** The number of records returned, or `-1` when it was not reported */
     recordsReceived: number;
+    /** The number of bytes returned, or `-1` when it was not reported */
     bytesReceived: number;
+    /** The number of records scanned, or `-1` when it was not reported */
     recordsScanned: number;
+    /** The number of bytes scanned, or `-1` when it was not reported */
     bytesScanned: number;
+    /** How long the statement took to execute, as reported by the server */
     duration: Duration;
 }
 
