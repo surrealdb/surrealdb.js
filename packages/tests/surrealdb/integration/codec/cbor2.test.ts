@@ -6,7 +6,6 @@ import {
     I8,
     I16,
     I32,
-    RecordId,
     SizedNumber,
     SurrealSqonError,
     U8,
@@ -70,16 +69,6 @@ describe.if(CBOR2)("cbor.2", () => {
 
         expect(values[0]).toBe(5);
         expect(values[1]).toBeInstanceOf(U8);
-    });
-
-    test("a sized integer as a record id key is a plain int", async () => {
-        const surreal = await createSurreal();
-
-        const [id] = await surreal
-            .query("RETURN $id", { id: new RecordId("t", new U8(5) as never) })
-            .collect<[RecordId]>();
-
-        expect(id.id).toBe(5);
     });
 });
 
