@@ -1,4 +1,4 @@
-import { RecordId, Uuid } from "@surrealdb/sqon";
+import { RecordId, Uuid, type ValueCodec } from "@surrealdb/sqon";
 import {
     CallTerminatedError,
     ConnectionUnavailableError,
@@ -9,6 +9,7 @@ import {
     UnexpectedServerResponseError,
 } from "../errors";
 import { abortReason } from "../internal/abort";
+import { CBOR_PROTOCOL, CBOR2_PROTOCOL, cborCodec, cborProtocols } from "../internal/cbor-format";
 import { parseRpcError } from "../internal/parse-error";
 import {
     type Abandonment,
@@ -240,7 +241,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
         for (const { request } of this.#calls.values()) {
             this.#socket?.send(
-                new Uint8Array(wrapSqonError(() => this._context.codecs.cbor.encode(request))),
+                new Uint8Array(wrapSqonError(() => this.#encoder().encode(request))),
             );
         }
     }
@@ -307,9 +308,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
             try {
                 this.#socket?.send(
-                    new Uint8Array(
-                        wrapSqonError(() => this._context.codecs.cbor.encode(call.request)),
-                    ),
+                    new Uint8Array(wrapSqonError(() => this.#encoder().encode(call.request))),
                 );
             } catch (error) {
                 // A request which could not be written is not left waiting for an answer
@@ -507,7 +506,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         this.#socket.send(
             new Uint8Array(
                 wrapSqonError(() =>
-                    this._context.codecs.cbor.encode({
+                    this.#encoder().encode({
                         id,
                         method: STREAM_METHOD,
                         params: [query.query, query.bindings],
@@ -662,6 +661,24 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         }
     }
 
+    /**
+     * The codec to write messages in: `cbor.2` once the server has picked it for the socket.
+     * Plain `cbor` is valid `cbor.2` too, so it is what is written to a socket whose dialect
+     * is not known.
+     */
+    #encoder(socket = this.#socket): ValueCodec<Uint8Array> {
+        return cborCodec(this._context.codecs, socket?.protocol === CBOR2_PROTOCOL);
+    }
+
+    /**
+     * The codec to read messages in: `cbor.2` unless the server picked plain `cbor`. It reads
+     * all of `cbor`, so it is also what reads a socket whose implementation does not tell which
+     * subprotocol the server picked.
+     */
+    #decoder(socket: WebSocket): ValueCodec<Uint8Array> {
+        return cborCodec(this._context.codecs, socket.protocol !== CBOR_PROTOCOL);
+    }
+
     private async createSocket(onConnected: () => void): Promise<Error | null> {
         return new Promise((resolve, reject) => {
             if (!this._state) {
@@ -671,7 +688,10 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
             // Open a new connection
             const WebSocketImpl = this._context.options.websocketImpl ?? globalThis.WebSocket;
-            const socket = new WebSocketImpl(this._state.url.toString(), "cbor");
+            const socket = new WebSocketImpl(
+                this._state.url.toString(),
+                cborProtocols(this._context.codecs),
+            );
 
             // Binary frames must arrive as something parseBuffer accepts. Assert the desired
             // type rather than correcting one specific unwanted value: React Native leaves
@@ -822,7 +842,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 try {
                     const buffer = this.parseBuffer(data);
                     const decoded = wrapSqonError(() =>
-                        this._context.codecs.cbor.decode<Response>(buffer),
+                        this.#decoder(socket).decode<Response>(buffer),
                     );
 
                     if (

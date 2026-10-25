@@ -368,6 +368,68 @@ jobs:
           group_suite: true
           skip_success_summary: true
 
+  # The scenarios of the SurrealDB protocol's conformance suite, run against this SDK's
+  # build through the JavaScript driver of that suite. Both come from the
+  # surrealdb-protocol release which packages/tests pins as a dev dependency, fetched
+  # when dependencies are installed: nothing from it is committed here.
+  conformance:
+    name: Conformance
+    needs: build-sdk
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        surrealdb: ["v3.3.4", "nightly"]
+    steps:
+      - name: Install SurrealDB ${{ matrix.surrealdb }}
+        run: |
+          if [ "${{ matrix.surrealdb }}" = "nightly" ]; then
+            curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --nightly
+          else
+            curl --proto '=https' --tlsv1.2 -sSf https://install.surrealdb.com | sh -s -- --version ${{ matrix.surrealdb }}
+          fi
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.2.21
+
+      - name: Code Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install dependencies
+        run: bun ci
+
+      # The driver imports `surrealdb`, which resolves to this workspace's build
+      - name: Download SDK build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: sdk-build
+          path: packages/sdk/dist/
+
+      # These scenarios are left out, so that any other failure fails the job. The first two
+      # fail on limits of this SDK which the suite records for it; the third expects a client
+      # on plain cbor, where this SDK speaks cbor.2 with a 4.0 server and reads sized numbers
+      # with their width:
+      #   query-values-survive-the-full-stack        an integral float reads back as an integer
+      #   deny-rpc-run-is-not-bypassed               run() is sent as a query, not the run method
+      #   query-sized-numbers-widen-over-plain-cbor  4.0 only
+      - name: Run the conformance suite
+        run: >-
+          bun node_modules/@surrealdb/protocol/conformance/runner/cli.ts
+          --driver "bun node_modules/@surrealdb/protocol/conformance/examples/surrealdb-js/driver.ts"
+          --filter '^(?!(query-values-survive-the-full-stack|deny-rpc-run-is-not-bypassed|query-sized-numbers-widen-over-plain-cbor)$)'
+          --report conformance.json
+
+      - name: Upload the conformance report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: success() || failure()
+        with:
+          name: conformance-${{ matrix.surrealdb }}
+          retention-days: 30
+          path: conformance.json
+
   test-wasm:
     name: Test WASM
     needs: build-wasm

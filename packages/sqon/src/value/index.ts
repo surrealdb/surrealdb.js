@@ -16,6 +16,19 @@ export {
 export { Range } from "./range.ts";
 export { RecordId, type RecordIdValue } from "./record-id.ts";
 export { RecordIdRange } from "./record-id-range.ts";
+export {
+    F16,
+    F32,
+    I8,
+    I16,
+    I32,
+    SizedNumber,
+    type SizedNumberKind,
+    U8,
+    U16,
+    U32,
+    U64,
+} from "./sized.ts";
 export { StringRecordId } from "./string-record-id.ts";
 export { Table } from "./table.ts";
 export { Uuid } from "./uuid.ts";

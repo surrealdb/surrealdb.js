@@ -1,5 +1,6 @@
 import { rm } from "node:fs/promises";
 import { type Subprocess, sleep } from "bun";
+import getPort from "get-port";
 import { satisfies } from "semver";
 import {
     applyDiagnostics,
@@ -133,6 +134,52 @@ export async function requestVersion(): Promise<{
         returnIsAValue,
         structuredConflicts,
     };
+}
+
+let cbor2: Promise<boolean> | undefined;
+
+/**
+ * Whether the server binary speaks `cbor.2` (SurrealDB 4.0), which the SDK then picks over
+ * plain `cbor`. It starts a server of its own, so that it can be awaited where tests are
+ * declared, before the shared server is up. Always false for the embedded engines.
+ */
+export function speaksCbor2(): Promise<boolean> {
+    cbor2 ??= (async () => {
+        if (SURREAL_BACKEND !== "remote") return false;
+
+        const port = await getPort();
+        const probe = Bun.spawn(
+            [SURREAL_EXECUTABLE_PATH, "start", "--bind", `127.0.0.1:${port}`, "memory"],
+            { stdout: "ignore", stderr: "ignore" },
+        );
+
+        try {
+            const startAt = Date.now();
+
+            while (Date.now() - startAt < 10_000) {
+                const healthy = await fetch(`http://127.0.0.1:${port}/health`).then(
+                    (response) => response.ok,
+                    () => false,
+                );
+                if (healthy) break;
+                await sleep(100);
+            }
+
+            return await new Promise<boolean>((resolve) => {
+                const socket = new WebSocket(`ws://127.0.0.1:${port}/rpc`, ["cbor.2", "cbor"]);
+                socket.onopen = () => {
+                    resolve(socket.protocol === "cbor.2");
+                    socket.close();
+                };
+                socket.onerror = () => resolve(false);
+            });
+        } finally {
+            probe.kill();
+            await probe.exited;
+        }
+    })();
+
+    return cbor2;
 }
 
 /**

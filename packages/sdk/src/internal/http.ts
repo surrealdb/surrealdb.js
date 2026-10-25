@@ -1,3 +1,4 @@
+import type { ValueCodec } from "@surrealdb/sqon";
 import { HttpConnectionError, SurrealError } from "../errors";
 import type { Token } from "../types/auth";
 import type {
@@ -14,6 +15,8 @@ import { wrapSqonError } from "./wrap-sqon-error";
 
 export interface FetchSurrealOptions {
     body?: unknown;
+    /** The codec which writes a body that is a value. Defaults to the plain `cbor` one */
+    codec?: ValueCodec<Uint8Array>;
     url?: URL;
     headers?: Record<string, string>;
     method?: string;
@@ -173,7 +176,11 @@ export async function fetchSurreal(
     // A stream which is uploaded is taken over before anything is waited for, so that abandoning the
     // request while its credential is being resolved lets go of the stream of the caller just as
     // abandoning it during the upload does, and the wait is not what leaves it open.
-    const encodedBody = encodeBody(context, options.body, options.signal);
+    const encodedBody = encodeBody(
+        options.codec ?? context.codecs.cbor,
+        options.body,
+        options.signal,
+    );
 
     let token = options.token ?? session.accessToken;
 
@@ -495,7 +502,7 @@ function abortableStream(source: ReadableStream, signal: AbortSignal): ReadableS
 }
 
 function encodeBody(
-    context: DriverContext,
+    codec: ValueCodec<Uint8Array>,
     body?: unknown,
     signal?: AbortSignal,
 ): BodyInit | undefined {
@@ -510,5 +517,5 @@ function encodeBody(
         return body;
     }
 
-    return body ? new Uint8Array(wrapSqonError(() => context.codecs.cbor.encode(body))) : undefined;
+    return body ? new Uint8Array(wrapSqonError(() => codec.encode(body))) : undefined;
 }

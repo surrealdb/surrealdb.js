@@ -98,8 +98,16 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
         const userCodecs = options.codecs ?? {};
         const codecOptions = options.codecOptions ?? {};
 
+        // A custom cbor codec is not bypassed for cbor.2 unless a cbor.2 codec is given too
+        const cbor2 = userCodecs.cbor2
+            ? userCodecs.cbor2(codecOptions)
+            : userCodecs.cbor
+              ? undefined
+              : new CborCodec({ ...codecOptions, version: 2 });
+
         return {
             cbor: userCodecs.cbor?.(codecOptions) ?? new CborCodec(codecOptions),
+            cbor2,
             flatbuffer: userCodecs.flatbuffer?.(codecOptions) ?? new FlatBufferCodec(codecOptions),
             json: userCodecs.json?.(codecOptions) ?? new JsonCodec(codecOptions),
         };

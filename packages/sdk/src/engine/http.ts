@@ -8,6 +8,12 @@ import {
 } from "../errors";
 import { throwIfAborted } from "../internal/abort";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
+import {
+    CBOR_MEDIA_TYPE,
+    CBOR2_MEDIA_TYPE,
+    cborCodec,
+    isCbor2MediaType,
+} from "../internal/cbor-format";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal, readBody } from "../internal/http";
 import { parseRpcError } from "../internal/parse-error";
@@ -71,6 +77,13 @@ interface SendOptions extends RequestOptions {
 export class HttpEngine extends RpcEngine implements SurrealEngine {
     #publisher = new Publisher<EngineEvents>();
 
+    /**
+     * Whether the server has answered in `cbor.2`. Until it has, requests are written in plain
+     * `cbor`, which every server reads, and ask for `cbor.2` back: a server before 4.0 answers in
+     * `cbor`, and one which speaks `cbor.2` turns this on.
+     */
+    #cbor2 = false;
+
     features = new Set([
         Features.RefreshTokens,
         Features.Api,
@@ -88,6 +101,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
 
     open(state: ConnectionState): void {
         this._state = state;
+        this.#cbor2 = false;
         setTimeout(() => {
             this.#publisher.publish("connected");
         });
@@ -268,15 +282,26 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         }
 
         const id = this._context.uniqueId();
+        const codecs = this._context.codecs;
         const res = await fetchSurreal(this._context, state, session, {
             body: {
                 id,
                 ...request,
             },
+            codec: cborCodec(codecs, this.#cbor2),
+            headers: codecs.cbor2
+                ? {
+                      "Content-Type": this.#cbor2 ? CBOR2_MEDIA_TYPE : CBOR_MEDIA_TYPE,
+                      Accept: CBOR2_MEDIA_TYPE,
+                  }
+                : undefined,
             token,
             resolve: !NEVER_RESOLVE.has(request.method),
             signal: options?.signal,
         });
+
+        const cbor2 = isCbor2MediaType(res.headers.get("Content-Type"));
+        if (cbor2 && codecs.cbor2 && state === this._state) this.#cbor2 = true;
 
         const buffer = await readBody(res, options?.signal);
 
@@ -284,7 +309,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
 
         try {
             response = wrapSqonError(() =>
-                this._context.codecs.cbor.decode<RpcResponse<Result>>(new Uint8Array(buffer)),
+                cborCodec(codecs, cbor2).decode<RpcResponse<Result>>(new Uint8Array(buffer)),
             );
         } catch (error) {
             if (error instanceof SurrealSqonError) {

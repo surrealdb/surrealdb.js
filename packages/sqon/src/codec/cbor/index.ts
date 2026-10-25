@@ -1,1 +1,1 @@
-export { CborCodec } from "./codec.ts";
+export { CborCodec, type CborCodecOptions } from "./codec.ts";
