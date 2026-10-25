@@ -41,10 +41,14 @@ export class MockSocket {
     /** The subprotocol the mock server picks when it is offered: plain cbor unless a test assigns it */
     static picks = "cbor";
 
+    /** Fail the handshake of a socket offered more than one subprotocol, as some runtimes do */
+    static refusesLists = false;
+
     static reset(): void {
         MockSocket.sockets = [];
         MockSocket.handler = undefined;
         MockSocket.picks = "cbor";
+        MockSocket.refusesLists = false;
     }
 
     /** The socket most recently opened. */
@@ -78,6 +82,11 @@ export class MockSocket {
 
         queueMicrotask(() => {
             if (this.readyState !== MockSocket.CONNECTING) return;
+            if (MockSocket.refusesLists && this.offered.length > 1) {
+                this.readyState = MockSocket.CLOSED;
+                this.#emit("close", { code: 1002, reason: "Mismatch client protocol" });
+                return;
+            }
             this.readyState = MockSocket.OPEN;
             this.#emit("open", {});
         });

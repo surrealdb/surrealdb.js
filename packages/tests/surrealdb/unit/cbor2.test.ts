@@ -58,6 +58,18 @@ describe("cbor.2 over WebSocket", () => {
         expect(socket.offered).toEqual(["cbor"]);
     });
 
+    test("offers cbor alone where the runtime will not open a socket offering both", async () => {
+        MockSocket.refusesLists = true;
+        const { engine, socket } = await open();
+
+        expect(MockSocket.sockets.map((s) => s.offered)).toEqual([["cbor.2", "cbor"], ["cbor"]]);
+        expect(socket.protocol).toBe("cbor");
+
+        // Over which sized numbers go widened
+        const { result } = await echo(engine, socket, new U8(5));
+        expect(result).toBe(5);
+    });
+
     test("speaks cbor.2 when the server picks it", async () => {
         MockSocket.picks = "cbor.2";
         const { engine, socket } = await open();
