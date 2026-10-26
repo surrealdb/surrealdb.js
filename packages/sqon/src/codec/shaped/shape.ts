@@ -1,4 +1,3 @@
-import { ShapedFrameError } from "../../errors.ts";
 import {
     MAX_COLUMNS,
     MAX_DEPTH,
@@ -12,7 +11,7 @@ import {
     ROOT_VALUE,
 } from "./constants.ts";
 import { fixedWidth, hasOverflow, isElement, isVar, Kind, kindOf } from "./kinds.ts";
-import { ByteReader, text } from "./reader.ts";
+import { ByteReader, refuse } from "./reader.ts";
 
 /** One column of a shape, as the SHAPE message lists it */
 export interface Column {
@@ -76,24 +75,24 @@ export class Shape {
         columns: Column[],
     ) {
         if (columns.length > MAX_COLUMNS) {
-            throw new ShapedFrameError("too many columns");
+            refuse("too many columns");
         }
         if (fixedSize > MAX_FIXED) {
-            throw new ShapedFrameError("a fixed region too large");
+            refuse("a fixed region too large");
         }
         if (presenceBits > 2 * MAX_COLUMNS) {
-            throw new ShapedFrameError("too many presence states");
+            refuse("too many presence states");
         }
         if (varCount > 2 * MAX_COLUMNS + 1) {
-            throw new ShapedFrameError("too many var slots");
+            refuse("too many var slots");
         }
 
         if (root === ROOT_VALUE) {
             if (columns.length > 0 || rootRest >= varCount) {
-                throw new ShapedFrameError("a value root with columns or no value slot");
+                refuse("a value root with columns or no value slot");
             }
         } else if (rootRest !== NO_SLOT && rootRest >= varCount) {
-            throw new ShapedFrameError("a remainder slot out of range");
+            refuse("a remainder slot out of range");
         }
 
         this.root = root;
@@ -113,9 +112,7 @@ export class Shape {
      * column's subtree stops. Returns how deeply objects nest below it.
      */
     #checkNode(start: number, end: number, depth: number): number {
-        if (depth >= MAX_DEPTH) {
-            throw new ShapedFrameError("objects nested too deep");
-        }
+        if (depth >= MAX_DEPTH) refuse("objects nested too deep");
 
         let deepest = 0;
         let at = start;
@@ -124,77 +121,18 @@ export class Shape {
         while (at < end) {
             const column = this.columns[at] as Column;
 
-            if (column.name === "") {
-                throw new ShapedFrameError("an empty column name");
-            }
-            // Siblings are listed in the byte order of their UTF-8, which makes them distinct
-            if (previous !== undefined && !(previous < column.name)) {
-                throw new ShapedFrameError("column names out of order");
-            }
+            this.#checkName(column, previous);
+            this.#checkFlags(column);
+            this.#checkKind(column);
+            this.#checkSlot(column);
             previous = column.name;
 
-            if ((column.flags & ~(MAY_BE_ABSENT | MAY_BE_NULL)) !== 0) {
-                throw new ShapedFrameError("unknown column flags");
-            }
-
-            const width = presenceWidth(column.flags);
-            if (width === 0) {
-                if (column.presence !== NO_SLOT) {
-                    throw new ShapedFrameError("a presence index out of range");
-                }
-            } else if (column.presence + width > this.presenceBits) {
-                throw new ShapedFrameError("a presence index out of range");
-            }
-
-            if (column.kind !== Kind.Record && column.table !== "") {
-                throw new ShapedFrameError("a table on a column that is not a record");
-            }
-
-            if (column.kind === Kind.Array) {
-                if (column.element === undefined || !isElement(column.element)) {
-                    throw new ShapedFrameError("an array of no element kind");
-                }
-            } else if (column.element !== undefined) {
-                throw new ShapedFrameError("an element kind on a column that is not an array");
-            }
-
-            if (column.kind !== Kind.Object && column.children !== 0) {
-                throw new ShapedFrameError("children on a column that is not an object");
-            }
-
-            if (hasOverflow(column.kind)) {
-                if (column.rest >= this.varCount) {
-                    throw new ShapedFrameError("an overflow slot out of range");
-                }
-            } else if (column.kind !== Kind.Object && column.rest !== NO_SLOT) {
-                throw new ShapedFrameError("a remainder on a column that is not an object");
-            }
-
-            const fixed = fixedWidth(column.kind);
-            if (column.kind === Kind.Bit) {
-                if (column.slot >= this.fixedSize * 8) {
-                    throw new ShapedFrameError("a bit slot out of range");
-                }
-            } else if (fixed !== undefined) {
-                if (column.slot + fixed > this.fixedSize) {
-                    throw new ShapedFrameError("a fixed slot out of range");
-                }
-            } else if (isVar(column.kind)) {
-                if (column.slot >= this.varCount) {
-                    throw new ShapedFrameError("a var slot out of range");
-                }
-            } else if (column.slot !== NO_SLOT) {
-                throw new ShapedFrameError("a slot on an object column");
-            }
-
             const stop = at + 1 + column.children;
-            if (stop > end) {
-                throw new ShapedFrameError("children past their parent");
-            }
+            if (stop > end) refuse("children past their parent");
 
             if (column.kind === Kind.Object) {
                 if (column.rest !== NO_SLOT && column.rest >= this.varCount) {
-                    throw new ShapedFrameError("a remainder slot out of range");
+                    refuse("a remainder slot out of range");
                 }
                 deepest = Math.max(deepest, 1 + this.#checkNode(at + 1, stop, depth + 1));
             }
@@ -204,6 +142,70 @@ export class Shape {
         }
 
         return deepest;
+    }
+
+    /** A name is non-empty, and siblings are in the byte order of their UTF-8, so all distinct */
+    #checkName(column: Column, previous: string | undefined): void {
+        if (column.name === "") refuse("an empty column name");
+        if (previous !== undefined && !(previous < column.name)) {
+            refuse("column names out of order");
+        }
+    }
+
+    /** The flags are the two the format has, and the presence bits they imply are in range */
+    #checkFlags(column: Column): void {
+        if ((column.flags & ~(MAY_BE_ABSENT | MAY_BE_NULL)) !== 0) refuse("unknown column flags");
+
+        const width = presenceWidth(column.flags);
+        const inRange =
+            width === 0
+                ? column.presence === NO_SLOT
+                : column.presence + width <= this.presenceBits;
+
+        if (!inRange) refuse("a presence index out of range");
+    }
+
+    /** What a column carries beyond its kind belongs to that kind: a table, an element, children */
+    #checkKind(column: Column): void {
+        if (column.kind !== Kind.Record && column.table !== "") {
+            refuse("a table on a column that is not a record");
+        }
+
+        if (column.kind === Kind.Array) {
+            if (column.element === undefined || !isElement(column.element)) {
+                refuse("an array of no element kind");
+            }
+        } else if (column.element !== undefined) {
+            refuse("an element kind on a column that is not an array");
+        }
+
+        if (column.kind !== Kind.Object && column.children !== 0) {
+            refuse("children on a column that is not an object");
+        }
+
+        if (hasOverflow(column.kind)) {
+            if (column.rest >= this.varCount) refuse("an overflow slot out of range");
+        } else if (column.kind !== Kind.Object && column.rest !== NO_SLOT) {
+            refuse("a remainder on a column that is not an object");
+        }
+    }
+
+    /**
+     * The column's slot lies inside the region its kind is held in, so reading a row only has
+     * to bound its own bytes rather than re-check the layout for every row.
+     */
+    #checkSlot(column: Column): void {
+        const fixed = fixedWidth(column.kind);
+
+        if (column.kind === Kind.Bit) {
+            if (column.slot >= this.fixedSize * 8) refuse("a bit slot out of range");
+        } else if (fixed !== undefined) {
+            if (column.slot + fixed > this.fixedSize) refuse("a fixed slot out of range");
+        } else if (isVar(column.kind)) {
+            if (column.slot >= this.varCount) refuse("a var slot out of range");
+        } else if (column.slot !== NO_SLOT) {
+            refuse("a slot on an object column");
+        }
     }
 
     /** The bytes of a row before its var region */
@@ -247,7 +249,7 @@ export class Shape {
 
         const root = r.u8();
         if (root !== ROOT_OBJECT && root !== ROOT_VALUE) {
-            throw new ShapedFrameError("an unknown shape root");
+            refuse("an unknown shape root");
         }
 
         const presenceBits = r.u32();
@@ -257,19 +259,19 @@ export class Shape {
         const count = r.u32();
 
         if (count > MAX_COLUMNS) {
-            throw new ShapedFrameError("too many columns");
+            refuse("too many columns");
         }
 
         const columns: Column[] = [];
         for (let i = 0; i < count; i++) {
-            const name = text(r.take(r.u16()), "a column name");
+            const name = r.text(r.u16(), "a column name");
             const kind = kindOf(r.u8());
             const elementCode = r.u8();
             const element = elementCode === 0 ? undefined : kindOf(elementCode);
             const flags = r.u8();
             const presence = r.u32();
             const slot = r.u32();
-            const table = text(r.take(r.u16()), "a table name");
+            const table = r.text(r.u16(), "a table name");
             const children = r.u32();
             const rest = r.u32();
 
@@ -277,7 +279,7 @@ export class Shape {
         }
 
         if (!r.done) {
-            throw new ShapedFrameError("bytes past a shape's columns");
+            refuse("bytes past a shape's columns");
         }
 
         return new Shape(root, presenceBits, fixedSize, varCount, rootRest, columns);

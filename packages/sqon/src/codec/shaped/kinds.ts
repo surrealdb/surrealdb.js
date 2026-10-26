@@ -1,4 +1,4 @@
-import { ShapedFrameError } from "../../errors.ts";
+import { refuse } from "./reader.ts";
 
 /**
  * How a column holds its values. A fixed kind takes a slot of a known width in the row's fixed
@@ -40,7 +40,7 @@ const KINDS = new Set<number>(
 /** The kind a wire code names */
 export function kindOf(code: number): Kind {
     if (!KINDS.has(code)) {
-        throw new ShapedFrameError("an unknown column kind");
+        refuse("an unknown column kind");
     }
 
     return code as Kind;

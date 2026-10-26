@@ -1,4 +1,4 @@
-export { BlockReader, type DynamicDecoder, decodeRow, ShapedBlock } from "./block.ts";
+export { BlockReader, decodeRow, ShapedBlock } from "./block.ts";
 export { ShapedCodec } from "./codec.ts";
 export {
     MAX_COLUMNS,
@@ -13,3 +13,4 @@ export {
 } from "./constants.ts";
 export { Kind } from "./kinds.ts";
 export { type Column, Shape } from "./shape.ts";
+export type { DynamicDecoder } from "./values.ts";
