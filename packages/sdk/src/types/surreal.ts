@@ -3,6 +3,7 @@ import type {
     Duration,
     RecordId,
     RecordIdValue,
+    ShapedCodec,
     Uuid,
     ValueCodec,
 } from "@surrealdb/sqon";
@@ -40,6 +41,15 @@ export interface CodecRegistry {
      * turns it off.
      */
     cbor2?: ValueCodec<Uint8Array>;
+    /**
+     * The `shaped` format of SurrealDB 4.0: `cbor.2` with each list of result rows written as
+     * one block, which announces the rows' shape once rather than repeating every key and type
+     * tag per row. A remote connection asks for it first and falls back to the CBOR ladder with
+     * a server which does not offer it. Absent when the connection is not to ask for it: the
+     * default when a custom `cbor` codec is given without a `shaped` one. A `shaped` factory
+     * which returns `undefined` turns it off.
+     */
+    shaped?: ShapedCodec;
     flatbuffer: ValueCodec<Uint8Array>;
     json: ValueCodec<unknown>;
 }
@@ -280,6 +290,27 @@ export interface DriverOptions {
      * @default true
      */
     streaming?: boolean;
+    /**
+     * Ask the server for the `shaped` format, which SurrealDB 4.0 adds: `cbor.2` with each list
+     * of result rows written as one block, announcing the rows' shape once instead of repeating
+     * every key and type tag on every row. Rows decode to the same values either way.
+     *
+     * Off by default, because asking for it costs something against a server which does not
+     * offer it, and every server before 4.0 is one:
+     *
+     * - Over WebSocket `shaped` has to be offered alone, so a server which does not know the
+     *   name fails the handshake and the connection is made a second time offering the CBOR
+     *   ladder. That is one extra round trip on the first connect.
+     * - Over HTTP a server which speaks `cbor.2` but was built without `shaped` answers a
+     *   shaped `Accept` in plain `cbor` rather than refusing it, which would widen that one
+     *   response's sized numbers. The SDK stops asking after such an answer, so this is
+     *   bounded, but it is a reason not to ask unasked.
+     *
+     * Turn it on against a 4.0 server built with the format.
+     *
+     * @default false
+     */
+    shaped?: boolean;
     /**
      * The interval in milliseconds between keepalive ping messages sent to the server.
      * When set to 0, automatic keepalive pings are disabled.

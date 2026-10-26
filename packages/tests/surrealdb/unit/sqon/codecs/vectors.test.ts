@@ -383,8 +383,9 @@ const cbor2 = new CborCodec({ version: 2 });
 /**
  * The reject vectors which this SDK decodes rather than refuses. The SDK is a client, not a
  * validator of what the server sends: it refuses what would be read as the wrong value (a
- * sized tag in the wrong dialect or holding the wrong item, an integer past the signed 64-bit
- * range, a record id key of the wrong kind), and leaves the server's other rules to the
+ * sized tag in the wrong dialect or holding the wrong item, a shaped block on a format which
+ * does not carry one, an integer past the signed 64-bit range, a record id key of the wrong
+ * kind), and leaves the server's other rules to the
  * server. It still reads the text tags 0, 9 and 13, which servers before 4.0 accepted, and an
  * integer past the signed 64-bit range, which the server never sends outside a u64 or the
  * seconds of a duration.
@@ -426,7 +427,6 @@ const LENIENT = new Set([
     "reject-tag-binary-decimal",
     "reject-object-duplicate-key",
     "reject-none-with-payload",
-    "reject-shaped-block-malformed",
     "reject-unknown-tag",
 ]);
 

@@ -1,4 +1,4 @@
-import { CborCodec } from "@surrealdb/sqon";
+import { CborCodec, ShapedCodec } from "@surrealdb/sqon";
 import type { ConnectionState, DriverContext, DriverOptions } from "surrealdb";
 import { ReconnectContext } from "../../../../sdk/src/internal/reconnect";
 import { DEFAULT_RETRY_OPTIONS } from "../../../../sdk/src/internal/retry";
@@ -16,6 +16,8 @@ type Listener = (event: unknown) => void;
 
 const codec = new CborCodec({});
 const codec2 = new CborCodec({ version: 2 });
+// `shaped` is cbor.2 on the wire; a mock server writes blocks as raw bytes with `respondRaw`
+const codecShaped = new ShapedCodec({});
 
 /**
  * A `WebSocket` implementation which hands every request to a test provided
@@ -44,11 +46,18 @@ export class MockSocket {
     /** Fail the handshake of a socket offered more than one subprotocol, as some runtimes do */
     static refusesLists = false;
 
+    /**
+     * Fail the handshake of a socket which offers a subprotocol the mock server does not know,
+     * as a server before 4.0 does when a client offers `shaped`.
+     */
+    static knows: string[] | undefined;
+
     static reset(): void {
         MockSocket.sockets = [];
         MockSocket.handler = undefined;
         MockSocket.picks = "cbor";
         MockSocket.refusesLists = false;
+        MockSocket.knows = undefined;
     }
 
     /** The socket most recently opened. */
@@ -85,6 +94,14 @@ export class MockSocket {
             if (MockSocket.refusesLists && this.offered.length > 1) {
                 this.readyState = MockSocket.CLOSED;
                 this.#emit("close", { code: 1002, reason: "Mismatch client protocol" });
+                return;
+            }
+            if (
+                MockSocket.knows &&
+                !this.offered.some((name) => MockSocket.knows?.includes(name))
+            ) {
+                this.readyState = MockSocket.CLOSED;
+                this.#emit("close", { code: 1002, reason: "Unknown subprotocol" });
                 return;
             }
             this.readyState = MockSocket.OPEN;
@@ -125,8 +142,15 @@ export class MockSocket {
         this.#emit("message", { data: buffer });
     }
 
+    /** Delivers one response already written as bytes, for a block a codec will not encode */
+    respondRaw(bytes: Uint8Array): void {
+        const copy = new Uint8Array(bytes);
+        this.#emit("message", { data: copy.buffer });
+    }
+
     /** The codec of the subprotocol picked, as a server would use it */
     get #codec(): CborCodec {
+        if (this.protocol === "shaped") return codecShaped;
         return this.protocol === "cbor.2" ? codec2 : codec;
     }
 

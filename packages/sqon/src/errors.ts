@@ -69,3 +69,16 @@ export class TextParseError extends SqonError {
         this.offset = offset;
     }
 }
+
+/**
+ * Thrown when shaped frame bytes cannot be read: a block whose version this decoder does not
+ * know, a shape which breaks the wire rules or passes a limit, or a row which does not fit the
+ * shape it names. The decoder refuses such bytes rather than reading past them.
+ */
+export class ShapedFrameError extends SqonError {
+    override name = "ShapedFrameError";
+
+    constructor(message: string) {
+        super(`Invalid shaped frame: ${message}`);
+    }
+}
