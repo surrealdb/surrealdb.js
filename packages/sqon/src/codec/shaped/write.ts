@@ -147,7 +147,7 @@ function setBit(bytes: Uint8Array, at: number): void {
 }
 
 /** Writes a value of a fixed kind into its slot */
-function writeFixed(
+export function writeFixed(
     view: DataView,
     bytes: Uint8Array,
     at: number,
@@ -216,7 +216,7 @@ function sized(value: unknown): number {
 }
 
 /** The bytes of a value of a variable kind */
-function varBytes(column: Column, value: unknown, dynamic: DynamicEncoder): Uint8Array {
+export function varBytes(column: Column, value: unknown, dynamic: DynamicEncoder): Uint8Array {
     switch (column.kind) {
         case Kind.String:
             return UTF8.encode(value as string);
@@ -238,7 +238,11 @@ function varBytes(column: Column, value: unknown, dynamic: DynamicEncoder): Uint
 }
 
 /** A record slice: its key kind, the table when the column does not name one, then the id */
-function recordBytes(id: RecordId, columnTable: string, dynamic: DynamicEncoder): Uint8Array {
+export function recordBytes(
+    id: RecordId,
+    columnTable: string,
+    dynamic: DynamicEncoder,
+): Uint8Array {
     const key = id.id;
     const out = new ByteWriter();
 

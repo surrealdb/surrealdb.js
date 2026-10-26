@@ -5,7 +5,7 @@ import { U8 } from "../../value/sized.ts";
 import { CborCodec } from "../cbor/codec.ts";
 import { BlockReader, ShapedBlock } from "./block.ts";
 import { ShapedCodec } from "./codec.ts";
-import { deriveShape } from "./derive.ts";
+import { Columns } from "./columnar.ts";
 import { writeBlock } from "./write.ts";
 
 // Run with: bun run src/codec/shaped/shaped.bench.ts
@@ -54,8 +54,10 @@ const shaped = new ShapedCodec({});
 
 const cborBytes = cbor.encode(people);
 const cbor2Bytes = cbor2.encode(people);
-const derived = deriveShape(people);
-if (!derived) throw new Error("the rows have no shape");
+const collected = Columns.collect(people);
+if (!collected) throw new Error("the rows have no shape");
+const derived = collected.shape;
+
 const blockBytes = writeBlock(derived, people, (v) => cbor2.encode(v));
 
 // A benchmark of a decode which does not produce the right rows measures nothing, so the two
@@ -122,12 +124,15 @@ group("encode a statement's rows", () => {
         summary(() => {
             bench("cbor", () => do_not_optimize(cbor.encode(people)));
             bench("cbor.2", () => do_not_optimize(cbor2.encode(people)));
-            // What the SDK does when it sends a long array: derive a shape, write the rows in
-            // it, and measure the result against the CBOR array before keeping it
-            bench("shaped (derive + write)", () => do_not_optimize(shaped.block(people)));
-            // The same write with the shape already in hand, which is what the comparison above
-            // costs on top
-            bench("shaped (write only)", () =>
+            // What the SDK does when it sends a long array: read the rows into columns, measure
+            // the shape they settle on against the CBOR array, and write them if it wins
+            bench("shaped (whole path)", () => do_not_optimize(shaped.block(people)));
+            // The write alone, column by column, with the rows already read
+            bench("shaped (columnar write)", () =>
+                do_not_optimize(collected.write((v) => cbor2.encode(v))),
+            );
+            // And the row-at-a-time writer it replaces, for the same rows and shape
+            bench("shaped (row write)", () =>
                 do_not_optimize(writeBlock(derived, people, (v) => cbor2.encode(v))),
             );
         });

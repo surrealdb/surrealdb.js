@@ -183,9 +183,19 @@ export function text(bytes: Uint8Array, what: string): string {
  * what it is writing rather than its width and byte order.
  */
 export class ByteWriter {
-    #bytes = new Uint8Array(256);
-    #view = new DataView(this.#bytes.buffer);
+    #bytes: Uint8Array;
+    #view: DataView;
     #at = 0;
+
+    /**
+     * `capacity` is how many bytes to start with. A caller which knows the size it is about to
+     * write passes it, which matters for a large one: growing from the default doubles its way
+     * there, copying everything written so far each time.
+     */
+    constructor(capacity = 256) {
+        this.#bytes = new Uint8Array(capacity);
+        this.#view = new DataView(this.#bytes.buffer);
+    }
 
     /** The bytes written so far */
     get bytes(): Uint8Array {

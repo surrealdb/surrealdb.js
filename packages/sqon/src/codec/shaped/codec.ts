@@ -3,8 +3,8 @@ import { ShapedFrameError } from "../../errors.ts";
 import { CborCodec, type CborCodecOptions } from "../cbor/codec.ts";
 import type { BlockReader } from "./block.ts";
 import { ShapedBlock } from "./block.ts";
+import { Columns } from "./columnar.ts";
 import { SHAPED_TAG } from "./constants.ts";
-import { deriveShape } from "./derive.ts";
 import { Kind } from "./kinds.ts";
 import { ByteWriter } from "./reader.ts";
 import type { Shape } from "./shape.ts";
@@ -129,15 +129,19 @@ export class ShapedCodec extends CborCodec {
     block(rows: readonly unknown[]): Uint8Array | undefined {
         if (rows.length < this.#threshold) return undefined;
 
-        const shape = deriveShape(rows);
-        if (!shape) return undefined;
+        // One read of the rows settles their shape and keeps what writing them needs, so
+        // deciding whether to send a block costs nothing the block itself would not have cost
+        const columns = Columns.collect(rows);
+        if (!columns) return undefined;
+
+        const shape = columns.shape;
 
         // A shape whose every column is dynamic saves nothing: the rows are still whole CBOR
         // items, and the block only adds its own framing on top
         if (shape.columns.every((column) => column.kind === Kind.Dynamic)) return undefined;
 
         if (!this.#worthIt(shape, rows)) return undefined;
-        return tagged(writeBlock(shape, rows, (item) => super.encode(item)));
+        return tagged(columns.write((item) => super.encode(item)));
     }
 
     /**
@@ -178,8 +182,9 @@ export class ShapedCodec extends CborCodec {
 
 /** `contents` as CBOR tag 57 around a definite-length byte string, as the server writes one */
 function tagged(contents: Uint8Array): Uint8Array {
+    // The head is three bytes of tag and byte-string marker and four of length
     return (
-        new ByteWriter()
+        new ByteWriter(7 + contents.length)
             .u8(0xd8)
             .u8(0x39)
             .u8(0x5a)
