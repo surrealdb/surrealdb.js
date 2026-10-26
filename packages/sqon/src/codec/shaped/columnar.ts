@@ -21,7 +21,6 @@ import {
 } from "./constants.ts";
 import { fixedWidth, Kind } from "./kinds.ts";
 import { elementOf, isPlainObject, kindOf, MIXED } from "./kinds-of.ts";
-import { ownKeys } from "./object.ts";
 import { ByteWriter, byUtf8, refuse } from "./reader.ts";
 import { type Column, Shape } from "./shape.ts";
 import { type DynamicEncoder, recordBytes, varBytes, writeFixed } from "./write.ts";
@@ -201,7 +200,7 @@ function observeNode(
 ): boolean {
     if (depth >= MAX_DEPTH) return false;
 
-    for (const name of ownKeys(object)) {
+    for (const name of Object.keys(object)) {
         let column = node.byName[name];
 
         if (column === undefined) {

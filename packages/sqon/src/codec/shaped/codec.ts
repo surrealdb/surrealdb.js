@@ -6,7 +6,6 @@ import { ShapedBlock } from "./block.ts";
 import { Columns } from "./columnar.ts";
 import { SHAPED_TAG } from "./constants.ts";
 import { Kind } from "./kinds.ts";
-import { define } from "./object.ts";
 import { ByteWriter } from "./reader.ts";
 import type { Shape } from "./shape.ts";
 import type { DynamicDecoder } from "./values.ts";
@@ -129,12 +128,11 @@ export class ShapedCodec extends CborCodec {
             value !== null &&
             Object.getPrototypeOf(value) === Object.prototype
         ) {
-            // Every object of a request passes through here, block or no block, so a field
-            // named `__proto__` is defined rather than assigned: assigning it would make the
-            // clone's prototype out of the value and drop the field before it is ever encoded
+            // Own enumerable keys only, as the CBOR encoder takes, so that the clone carries
+            // the fields that encoder would have written and nothing off the prototype chain
             const out: Record<string, unknown> = {};
             for (const [key, item] of Object.entries(value)) {
-                define(out, key, this.#shapeRows(item));
+                out[key] = this.#shapeRows(item);
             }
             return out;
         }

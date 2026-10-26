@@ -10,7 +10,6 @@ import {
     STATE_VALUE,
 } from "./constants.ts";
 import { isVar, Kind } from "./kinds.ts";
-import { define } from "./object.ts";
 import { refuse } from "./reader.ts";
 import type { Column, Shape } from "./shape.ts";
 import {
@@ -124,7 +123,7 @@ export class Row {
             if (open && Object.hasOwn(object, column.name)) {
                 refuse("a remainder key that has a column");
             }
-            define(object, column.name, this.#stated(at, column, state));
+            object[column.name] = this.#stated(at, column, state);
         }
 
         return object;

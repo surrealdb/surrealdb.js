@@ -12,6 +12,7 @@ import { describe, expect, test } from "bun:test";
 import {
     BlockReader,
     ByteReader,
+    CborCodec,
     Columns,
     DateTime,
     Decimal,
@@ -389,20 +390,30 @@ describe("nested objects", () => {
 });
 
 describe("what a block must not change about a value", () => {
-    test("a column named __proto__ is a field, not the row's prototype", () => {
-        // A computed key makes a real own property; `{ __proto__: 1 }` in a literal would not
+    test("a column named __proto__ reads back as plain CBOR would", () => {
+        // `__proto__` is JavaScript's own, not a field name the codec goes out of its way to
+        // carry: a block has to agree with CBOR about it rather than be cleverer. A computed
+        // key makes a real own property; `{ __proto__: 1 }` in a literal would not
         const rows = [{ ["__proto__"]: 1, other: 2 }];
-        const read = same(rows)[0] as Record<string, unknown>;
 
-        expect(Object.hasOwn(read, "__proto__")).toBe(true);
-        expect(read["__proto__"]).toBe(1);
-        expect(Object.getPrototypeOf(read)).toBe(Object.prototype);
+        const cbor = new CborCodec({});
+        const viaCbor = cbor.decode(cbor.encode(rows)) as Record<string, unknown>[];
+        const viaBlock = same(rows) as Record<string, unknown>[];
+
+        expect(Object.keys(viaBlock[0] as object)).toEqual(Object.keys(viaCbor[0] as object));
+        expect(Object.keys(viaBlock[0] as object)).toEqual(["other"]);
+        expect(Object.getPrototypeOf(viaBlock[0] as object)).toBe(Object.prototype);
     });
 
-    test("a __proto__ field survives the encoder's own clone", () => {
-        // Every object of a request passes through that clone, block or not
-        const bytes = codec.encode({ ["__proto__"]: 1, other: 2 });
-        expect(Buffer.from(bytes).toString("latin1")).toContain("__proto__");
+    test("the encoder's clone keeps the fields CBOR would have written", () => {
+        // Every object of a request passes through that clone, block or not, so it has to take
+        // the keys the CBOR encoder takes: own and enumerable, nothing off the prototype chain
+        const value: Record<string, unknown> = { other: 2 };
+        Object.defineProperty(value, "hidden", { value: 4, enumerable: false });
+
+        const text = Buffer.from(codec.encode(value)).toString("latin1");
+        expect(text).toContain("other");
+        expect(text).not.toContain("hidden");
     });
 
     test("a property inherited from Object.prototype is not a column", () => {
