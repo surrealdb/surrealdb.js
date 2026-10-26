@@ -264,9 +264,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         }
 
         for (const { request } of this.#calls.values()) {
-            this.#socket?.send(
-                new Uint8Array(wrapSqonError(() => this.#encoder().encode(request))),
-            );
+            this.#socket?.send(new Uint8Array(wrapSqonError(() => this.#codec().encode(request))));
         }
     }
 
@@ -332,7 +330,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
             try {
                 this.#socket?.send(
-                    new Uint8Array(wrapSqonError(() => this.#encoder().encode(call.request))),
+                    new Uint8Array(wrapSqonError(() => this.#codec().encode(call.request))),
                 );
             } catch (error) {
                 // A request which could not be written is not left waiting for an answer
@@ -530,7 +528,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         this.#socket.send(
             new Uint8Array(
                 wrapSqonError(() =>
-                    this.#encoder().encode({
+                    this.#codec().encode({
                         id,
                         method: STREAM_METHOD,
                         params: [query.query, query.bindings],
@@ -686,21 +684,11 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     }
 
     /**
-     * The codec to write messages in: `cbor.2` once the server has picked it for the socket.
-     * Plain `cbor` is valid `cbor.2` too, so it is what is written to a socket whose dialect
-     * is not known.
+     * The codec to write and read messages in: `cbor.2` once the server has picked it for the
+     * socket, and plain `cbor` otherwise.
      */
-    #encoder(socket = this.#socket): ValueCodec<Uint8Array> {
+    #codec(socket = this.#socket): ValueCodec<Uint8Array> {
         return cborCodec(this._context.codecs, socket?.protocol === CBOR2_PROTOCOL);
-    }
-
-    /**
-     * The codec to read messages in: `cbor.2` unless the server picked plain `cbor`. It reads
-     * all of `cbor`, so it is also what reads a socket whose implementation does not tell which
-     * subprotocol the server picked.
-     */
-    #decoder(socket: WebSocket): ValueCodec<Uint8Array> {
-        return cborCodec(this._context.codecs, socket.protocol !== CBOR_PROTOCOL);
     }
 
     private async createSocket(
@@ -866,7 +854,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 try {
                     const buffer = this.parseBuffer(data);
                     const decoded = wrapSqonError(() =>
-                        this.#decoder(socket).decode<Response>(buffer),
+                        this.#codec(socket).decode<Response>(buffer),
                     );
 
                     if (
