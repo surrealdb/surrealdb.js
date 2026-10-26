@@ -572,6 +572,58 @@ sent as a `Decimal`. To use plain `cbor` with every server, pass
 A `bigint` outside the signed 64-bit range of a SurrealDB `int` cannot be
 sent. Send it as a `Decimal`, or as a `U64` when it fits one.
 
+#### Shaped frames
+
+SurrealDB 4.0 also adds the `shaped` format: `cbor.2` with each list of result
+rows written as one block, which announces the rows' shape once rather than
+repeating every key and type tag on every row. Rows decode to exactly the same
+values either way, so nothing in your code changes; the format is a smaller,
+cheaper way to carry the same answer.
+
+It is off by default. Turn it on with the `shaped` option:
+
+```ts
+const db = new Surreal({ shaped: true });
+```
+
+Over WebSocket, a shape announced in one `query_stream` frame holds for the
+frames after it, and the notifications of one live query share a shape for the
+life of the subscription, so a long stream pays for its shape once.
+
+It works in both directions. The server reads a block wherever a CBOR request
+holds a value, so a long array of records — the rows of an `INSERT`, a large
+query variable — is sent as a block too. The SDK is never told the schema of
+what you send, so it derives a shape from the values themselves; anything no
+column can describe goes in a dynamic column, which holds one CBOR item.
+
+Over WebSocket a connection sends blocks as soon as the handshake settles on
+`shaped`, which is itself proof the server reads them. Over HTTP nothing in a
+response says so until one comes back written in `shaped`, because a 4.0 server
+can be built without the format; so request bodies stay CBOR until that answer
+arrives, and carry blocks after it.
+
+A shape is not always a saving. It gives every column a fixed width, so a
+column of small integers takes eight bytes a row where CBOR takes one. The SDK
+measures a sample of the rows both ways and sends a block only when it comes
+out smaller, so turning this on cannot make a request larger.
+
+It is off by default because asking for it costs something against a server
+which does not offer it, and every server before 4.0 is one:
+
+- Over WebSocket `shaped` has to be offered on its own — the server picks the
+  first entry of *its* list which the client offered, and `shaped` is last
+  there, so offering it beside `cbor` would simply settle on `cbor`. A server
+  which does not know the name fails the handshake, and the SDK connects again
+  offering the CBOR ladder: one extra round trip on the first connect.
+- Over HTTP the SDK asks for it only once an answer in `cbor.2` has shown the
+  server to be 4.0, because an earlier server answers a mismatched `Accept`
+  with 415. A 4.0 server built without the format answers in plain `cbor`
+  instead of refusing, which widens that one answer's sized numbers; the SDK
+  stops asking after such an answer.
+
+Pass `codecs: { shaped: () => undefined }` to turn it off again where it was
+enabled, or supply your own codec with a `shaped` factory.
+
 ### Subscribing to live queries
 
 You can subscribe to live queries to receive updates when the data in the database changes.

@@ -1,5 +1,5 @@
 import { decode, Encoded, encode, POW_2_53, type Replacer, Tagged } from "@surrealdb/cbor";
-import { InvalidNumberError } from "../../errors.ts";
+import { InvalidNumberError, ShapedFrameError } from "../../errors.ts";
 import type { CodecOptions, ValueCodec } from "../../types/codec.ts";
 import { BoundExcluded, BoundIncluded } from "../../utils/range.ts";
 import {
@@ -87,6 +87,9 @@ const TAG_FILE_POINTER = 55;
 
 // Sets
 const TAG_SET = 56;
+
+// Shaped blocks, which only the `shaped` format carries
+const TAG_SHAPED_BLOCK = 57;
 
 // Custom Geometries
 const TAG_GEOMETRY_POINT = 88;
@@ -350,6 +353,12 @@ export class CborCodec implements ValueCodec<Uint8Array> {
         },
         [TAG_FILE_POINTER]: (v) => this.#decodeValue(new FileRef(v[0], v[1])),
         [TAG_SET]: (v) => this.#decodeValue(new Set(v)),
+        // A block is only ever written on the `shaped` format, whose codec reads this tag; on
+        // every other format it is refused rather than passed through as an opaque tag, which
+        // would drop a statement's rows silently.
+        [TAG_SHAPED_BLOCK]: () => {
+            throw new ShapedFrameError("a shaped block outside the shaped format");
+        },
         [TAG_GEOMETRY_POINT]: (v) => this.#decodeValue(new GeometryPoint(v)),
         [TAG_GEOMETRY_LINE]: (v) => this.#decodeValue(new GeometryLine(v)),
         [TAG_GEOMETRY_POLYGON]: (v) => this.#decodeValue(new GeometryPolygon(v)),
