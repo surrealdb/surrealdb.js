@@ -81,7 +81,40 @@ export function writeRow(
     const fixedView = new DataView(fixed.buffer);
     const slices: Uint8Array[] = new Array(shape.varCount).fill(EMPTY);
 
-    for (const at of shape.children(undefined)) {
+    writeNode(shape, undefined, object, presence, fixed, fixedView, slices, dynamic);
+
+    out.raw(presence).raw(fixed);
+
+    let end = 0;
+    for (const slice of slices) {
+        end += slice.length;
+        out.u32(end);
+    }
+    for (const slice of slices) out.raw(slice);
+}
+
+const EMPTY = new Uint8Array(0);
+
+/**
+ * Writes the columns of one node — the root, or an `object` column's subtree — from the object
+ * which holds them.
+ *
+ * An object column has no slot of its own: its value is its children, which are the columns
+ * which follow it. A node which is not present leaves every slot beneath it zero and every var
+ * slice beneath it empty, which is the same bytes a row without those keys writes, so nothing
+ * has to be written for it at all.
+ */
+function writeNode(
+    shape: Shape,
+    node: number | undefined,
+    object: Record<string, unknown>,
+    presence: Uint8Array,
+    fixed: Uint8Array,
+    fixedView: DataView,
+    slices: Uint8Array[],
+    dynamic: DynamicEncoder,
+): void {
+    for (const at of shape.children(node)) {
         const column = shape.columns[at] as Column;
         const held = Object.hasOwn(object, column.name);
         const value = object[column.name];
@@ -101,24 +134,24 @@ export function writeRow(
         // which is what makes a hidden value and a missing key the same bytes
         if (state !== STATE_VALUE) continue;
 
-        if (isVar(column.kind)) {
+        if (column.kind === Kind.Object) {
+            writeNode(
+                shape,
+                at,
+                value as Record<string, unknown>,
+                presence,
+                fixed,
+                fixedView,
+                slices,
+                dynamic,
+            );
+        } else if (isVar(column.kind)) {
             slices[column.slot] = varBytes(column, value, dynamic);
         } else {
             writeFixed(fixedView, fixed, column.slot, column.kind, value);
         }
     }
-
-    out.raw(presence).raw(fixed);
-
-    let end = 0;
-    for (const slice of slices) {
-        end += slice.length;
-        out.u32(end);
-    }
-    for (const slice of slices) out.raw(slice);
 }
-
-const EMPTY = new Uint8Array(0);
 
 /** Puts `column` into `state`, in the bits its flags give it */
 function setState(presence: Uint8Array, column: Column, state: number): void {

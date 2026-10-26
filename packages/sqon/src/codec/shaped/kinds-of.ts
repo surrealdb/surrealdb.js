@@ -63,9 +63,11 @@ export function kindOf(value: unknown): Kind {
     if (value instanceof Uint8Array || value instanceof ArrayBuffer) return Kind.Bytes;
     if (Array.isArray(value)) return Kind.Array;
 
-    // Everything else — a nested object, a set, a geometry, a range — is one CBOR item. The
-    // server derives nested object columns too; a client leaves that to a dynamic column, which
-    // costs the nesting's compression but never a wrong shape.
+    // A plain object is a node: its keys become columns of their own, so they are named once in
+    // the shape rather than in every row, exactly as the root's keys are
+    if (isPlainObject(value)) return Kind.Object;
+
+    // Everything else — a set, a geometry, a range, a future — is one CBOR item
     return Kind.Dynamic;
 }
 

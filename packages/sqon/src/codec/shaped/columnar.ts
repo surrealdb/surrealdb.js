@@ -5,6 +5,7 @@ import type { SizedNumber } from "../../value/sized.ts";
 import { Uuid } from "../../value/uuid.ts";
 import {
     MAX_COLUMNS,
+    MAX_DEPTH,
     MAY_BE_ABSENT,
     MAY_BE_NULL,
     MESSAGE_BATCH,
@@ -58,6 +59,21 @@ interface Accumulated {
     states: Uint8Array;
     /** The values themselves, read once and kept until the column is written */
     values: unknown[];
+    /** For an object, the keys beneath it, which become columns of their own */
+    children: Accumulated[];
+    /** Those same children by name, for finding one while the rows are read */
+    byName: Record<string, Accumulated>;
+}
+
+/** A node being filled in: the root, or one object column's subtree */
+interface Node {
+    children: Accumulated[];
+    byName: Record<string, Accumulated>;
+}
+
+/** How many columns a shape may hold, counted over every depth */
+interface Budget {
+    left: number;
 }
 
 /**
@@ -87,52 +103,35 @@ export class Columns {
 
         const n = rows.length;
         // A null prototype so that a column called `__proto__` or `constructor` is just a key
-        const byName: Record<string, Accumulated> = Object.create(null);
-        const order: Accumulated[] = [];
+        const root: Node = { children: [], byName: Object.create(null) };
+        const budget: Budget = { left: MAX_COLUMNS };
 
         for (let at = 0; at < n; at++) {
             const row = rows[at];
             if (!isPlainObject(row)) return undefined;
-
-            for (const name in row) {
-                let column = byName[name];
-
-                if (column === undefined) {
-                    if (order.length >= MAX_COLUMNS) return undefined;
-                    column = {
-                        name,
-                        kind: MIXED,
-                        seenAny: false,
-                        element: undefined,
-                        table: undefined,
-                        // A key first seen after row 0 was missing from every row before it
-                        absent: at > 0,
-                        null: false,
-                        none: false,
-                        states: new Uint8Array(n),
-                        values: new Array(n),
-                    };
-                    byName[name] = column;
-                    order.push(column);
-                }
-
-                observe(column, at, row[name]);
-            }
-
-            // A key seen before which this row does not hold is absent in it
-            for (let i = 0; i < order.length; i++) {
-                const column = order[i] as Accumulated;
-                if (column.states[at] === STATE_ABSENT && !(column.name in row)) {
-                    column.absent = true;
-                }
-            }
+            if (!observeNode(root, row, at, n, 0, budget)) return undefined;
         }
 
-        if (order.length === 0) return undefined;
+        if (root.children.length === 0) return undefined;
 
-        order.sort(byName_);
-        const shape = settle(order);
-        return shape && new Columns(shape, order, n);
+        const order: Accumulated[] = [];
+        const columns: Column[] = [];
+        const layout = { fixedSize: 0, varCount: 0, presenceBits: 0 };
+
+        if (!flatten(root, order, columns, layout)) return undefined;
+
+        try {
+            const shape = Shape.of({
+                presenceBits: layout.presenceBits,
+                fixedSize: layout.fixedSize,
+                varCount: layout.varCount,
+                columns,
+            });
+            return new Columns(shape, order, n);
+        } catch {
+            // A shape this SDK would refuse to read is one it must not write
+            return undefined;
+        }
     }
 
     /** The block these rows make: a SHAPE message announcing their shape, then one BATCH */
@@ -158,6 +157,10 @@ export class Columns {
 
             writePresence(headers, stride, column, accumulated.states, n);
 
+            // An object column holds no value of its own: saying whether the node is there is
+            // all there is to write, and its children are columns in their own right
+            if (column.kind === Kind.Object) continue;
+
             if (fixedWidth(column.kind) === undefined) {
                 slices[column.slot] = writeVar(column, accumulated, n, dynamic);
             } else {
@@ -181,9 +184,72 @@ export class Columns {
     }
 }
 
-/** Orders two columns by the bytes of their names, which is the order a shape lists them in */
-function byName_(a: Accumulated, b: Accumulated): number {
-    return byUtf8(a.name, b.name);
+/**
+ * Folds one object's keys into `node`, which is the root or an object column's subtree.
+ *
+ * Returns false when the rows cannot be shaped: too many columns over every depth, or objects
+ * nested deeper than a shape may hold.
+ */
+function observeNode(
+    node: Node,
+    object: Record<string, unknown>,
+    at: number,
+    rows: number,
+    depth: number,
+    budget: Budget,
+): boolean {
+    if (depth >= MAX_DEPTH) return false;
+
+    for (const name in object) {
+        let column = node.byName[name];
+
+        if (column === undefined) {
+            if (budget.left === 0) return false;
+            budget.left -= 1;
+
+            column = {
+                name,
+                kind: MIXED,
+                seenAny: false,
+                element: undefined,
+                table: undefined,
+                // A key first seen after row 0 was missing from every row before it
+                absent: at > 0,
+                null: false,
+                none: false,
+                states: new Uint8Array(rows),
+                values: new Array(rows),
+                children: [],
+                byName: Object.create(null),
+            };
+            node.byName[name] = column;
+            node.children.push(column);
+        }
+
+        const value = object[name];
+        observe(column, at, value);
+
+        // A plain object is a node of its own: its keys are columns under this one, so they
+        // are named in the shape rather than in every row
+        if (column.states[at] === STATE_VALUE && column.kind === Kind.Object) {
+            if (
+                !observeNode(column, value as Record<string, unknown>, at, rows, depth + 1, budget)
+            ) {
+                return false;
+            }
+        }
+    }
+
+    // A key this node has held before and this object does not is absent in it. A node which
+    // is not present at all leaves its own children alone: the reader never reaches them.
+    for (let i = 0; i < node.children.length; i++) {
+        const column = node.children[i] as Accumulated;
+        if (column.states[at] === STATE_ABSENT && !(column.name in object)) {
+            column.absent = true;
+        }
+    }
+
+    return true;
 }
 
 /** Folds one value into what its column has seen, and keeps it for the write */
@@ -228,14 +294,24 @@ function observe(column: Accumulated, at: number, value: unknown): void {
     }
 }
 
-/** Turns what the columns saw into a shape, laid out exactly as the row writer's deriver does */
-function settle(order: Accumulated[]): Shape | undefined {
-    const columns: Column[] = [];
-    let fixedSize = 0;
-    let varCount = 0;
-    let presenceBits = 0;
+/** Where a shape's regions have been filled up to while its columns are laid out */
+interface Layout {
+    fixedSize: number;
+    varCount: number;
+    presenceBits: number;
+}
 
-    for (const accumulated of order) {
+/**
+ * Lays one node's columns out, depth first: a column, then the subtree of an object column.
+ *
+ * The accumulators come out in the same order as the columns, so the writer can pair them by
+ * index. Returns false when a column's kind could not be settled into a shape.
+ */
+function flatten(node: Node, order: Accumulated[], columns: Column[], layout: Layout): boolean {
+    // Siblings are listed in the byte order of their UTF-8, which a shape requires
+    node.children.sort(byName_);
+
+    for (const accumulated of node.children) {
         const kind = kindFor(accumulated);
 
         // A key whose value is ever NONE needs both bits, since NONE is the fourth state
@@ -244,20 +320,23 @@ function settle(order: Accumulated[]): Shape | undefined {
             (accumulated.null || accumulated.none ? MAY_BE_NULL : 0);
 
         const width = presenceWidth(flags);
-        const presence = width === 0 ? NO_SLOT : presenceBits;
-        presenceBits += width;
+        const presence = width === 0 ? NO_SLOT : layout.presenceBits;
+        layout.presenceBits += width;
 
         let slot: number;
         const fixed = fixedWidth(kind);
-        if (fixed !== undefined) {
-            slot = fixedSize;
-            fixedSize += fixed;
+        if (kind === Kind.Object) {
+            // An object column holds no value of its own; its children are its value
+            slot = NO_SLOT;
+        } else if (fixed !== undefined) {
+            slot = layout.fixedSize;
+            layout.fixedSize += fixed;
         } else {
-            slot = varCount;
-            varCount += 1;
+            slot = layout.varCount;
+            layout.varCount += 1;
         }
 
-        columns.push({
+        const column: Column = {
             name: accumulated.name,
             kind,
             element:
@@ -272,16 +351,28 @@ function settle(order: Accumulated[]): Shape | undefined {
                     ? accumulated.table
                     : "",
             children: 0,
+            // Every key a node held became a column of its own, so nothing is left over and
+            // the node is closed
             rest: NO_SLOT,
-        });
+        };
+
+        const at = columns.length;
+        columns.push(column);
+        order.push(accumulated);
+
+        if (kind === Kind.Object) {
+            if (!flatten(accumulated, order, columns, layout)) return false;
+            // How many columns the subtree took, which is what a reader skips it by
+            column.children = columns.length - at - 1;
+        }
     }
 
-    try {
-        return Shape.of({ presenceBits, fixedSize, varCount, columns });
-    } catch {
-        // A shape this SDK would refuse to read is one it must not write
-        return undefined;
-    }
+    return true;
+}
+
+/** Orders two columns by the bytes of their names, which is the order a shape lists them in */
+function byName_(a: Accumulated, b: Accumulated): number {
+    return byUtf8(a.name, b.name);
 }
 
 /** The one kind a column holds, or `dynamic` when its rows did not settle on one */

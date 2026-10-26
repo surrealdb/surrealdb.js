@@ -206,10 +206,11 @@ describe("a roundtrip through a derived shape", () => {
         expect(roundtrip(rows).read).toEqual(rows);
     });
 
-    test("a nested object goes in a dynamic column and comes back whole", () => {
+    test("a nested object becomes a node of its own", () => {
         const rows = [{ meta: { tags: ["a"], depth: 2 }, n: 1 }];
 
-        expect(column(rows, "meta")?.kind).toBe(Kind.Dynamic);
+        // Its keys are columns, so they are named once rather than in every row
+        expect(column(rows, "meta")?.kind).toBe(Kind.Object);
         expect(roundtrip(rows).read).toEqual(rows);
     });
 

@@ -22,6 +22,7 @@ import {
     I16,
     I32,
     Kind,
+    MAY_BE_ABSENT,
     RecordId,
     ShapedBlock,
     ShapedCodec,
@@ -139,10 +140,18 @@ describe("the same bytes as the row writer", () => {
         expect(same(rows)).toEqual(rows);
     });
 
-    test("a nested object", () => {
+    test("a nested object becomes a node, not one CBOR item", () => {
         const rows = [{ meta: { a: 1, b: [1, 2] }, n: 1 }];
 
-        expect(column(rows, "meta")?.kind).toBe(Kind.Dynamic);
+        // Its keys are columns of their own, listed right after it
+        expect(column(rows, "meta")?.kind).toBe(Kind.Object);
+        expect(column(rows, "meta")?.children).toBe(2);
+        expect(Columns.collect(rows)?.shape.columns.map((c) => c.name)).toEqual([
+            "meta",
+            "a",
+            "b",
+            "n",
+        ]);
         expect(same(rows)).toEqual(rows);
     });
 
@@ -239,6 +248,143 @@ describe("the same bytes as the row writer", () => {
     });
 });
 
+describe("nested objects", () => {
+    test("a node's keys are named once, however many rows follow", () => {
+        const rows = Array.from({ length: 50 }, (_, i) => ({
+            id: i,
+            address: { line: `${i} Example Street`, city: `City${i % 5}` },
+        }));
+
+        const names = Columns.collect(rows)?.shape.columns.map((c) => c.name);
+        expect(names).toEqual(["address", "city", "line", "id"]);
+        expect(same(rows)).toEqual(rows);
+    });
+
+    test("nesting several levels deep", () => {
+        const rows = [{ a: { b: { c: { d: { e: 1 } } } } }];
+
+        expect(Columns.collect(rows)?.shape.depth).toBe(4);
+        expect(same(rows)).toEqual(rows);
+    });
+
+    test("a node missing from some rows", () => {
+        const rows = [{ a: { x: 1 } }, { b: 2 }, { a: { x: 3 } }];
+
+        expect(column(rows, "a")?.flags).toBe(MAY_BE_ABSENT);
+        expect(same(rows)).toEqual(rows);
+    });
+
+    test("a node which is null or NONE in some rows", () => {
+        const rows = [{ a: { x: 1 } }, { a: null }, { a: undefined }, { a: { x: 2 } }];
+        const read = same(rows);
+
+        expect(read[0]).toEqual({ a: { x: 1 } });
+        expect(read[1]).toEqual({ a: null });
+        expect((read[2] as { a: unknown }).a).toBe(undefined);
+        expect(read[3]).toEqual({ a: { x: 2 } });
+    });
+
+    test("keys which only some rows' nodes hold", () => {
+        const rows = [{ a: { x: 1 } }, { a: { y: 2 } }, { a: { x: 3, y: 4 } }];
+
+        expect(same(rows)).toEqual(rows);
+    });
+
+    test("an empty node", () => {
+        const rows = [{ a: {} }, { a: { x: 1 } }];
+
+        expect(column(rows, "a")?.kind).toBe(Kind.Object);
+        expect(same(rows)).toEqual(rows);
+    });
+
+    test("every node empty", () => {
+        const rows = [{ a: {} }, { a: {} }];
+
+        expect(column(rows, "a")?.children).toBe(0);
+        expect(same(rows)).toEqual(rows);
+    });
+
+    test("a key which is an object in one row and not in another goes dynamic", () => {
+        const rows = [{ a: { x: 1 } }, { a: 5 }];
+
+        expect(column(rows, "a")?.kind).toBe(Kind.Dynamic);
+        expect(same(rows)).toEqual(rows);
+    });
+
+    test("a node holding every kind, including another node", () => {
+        const rows = [
+            {
+                outer: {
+                    inner: { deep: "value" },
+                    when: new DateTime([1700000000n, 0n]),
+                    who: new RecordId("person", 1),
+                    n: 42,
+                    s: "text",
+                    maybe: null,
+                },
+            },
+        ];
+
+        expect(same(rows)).toEqual(rows);
+    });
+
+    test("siblings of a node are ordered with it, not around it", () => {
+        const rows = [{ b: { z: 1, a: 2 }, a: 3, c: 4 }];
+
+        // Depth first: a, then b with its own children in order, then c
+        expect(Columns.collect(rows)?.shape.columns.map((c) => c.name)).toEqual([
+            "a",
+            "b",
+            "a",
+            "z",
+            "c",
+        ]);
+        expect(same(rows)).toEqual(rows);
+    });
+
+    test("a value class is not mistaken for a node", () => {
+        const rows = [
+            {
+                r: new RecordId("t", 1),
+                d: new DateTime([1700000000n, 0n]),
+                u: new Uuid("01924b3c-f1a2-7e3d-a001-2f4b8c9d0e1f"),
+                dec: new Decimal("1.5"),
+            },
+        ];
+
+        expect(column(rows, "r")?.kind).toBe(Kind.Record);
+        expect(column(rows, "d")?.kind).toBe(Kind.Datetime);
+        expect(column(rows, "u")?.kind).toBe(Kind.Uuid);
+        expect(column(rows, "dec")?.kind).toBe(Kind.Decimal);
+        expect(same(rows)).toEqual(rows);
+    });
+
+    test("nesting past what a shape may hold is refused", () => {
+        // A shape nests object columns 32 deep at most
+        let deep: Record<string, unknown> = { leaf: 1 };
+        for (let i = 0; i < 40; i++) deep = { down: deep };
+
+        expect(Columns.collect([deep])).toBeUndefined();
+    });
+
+    test("a node is smaller than the CBOR item it replaces", () => {
+        const rows = Array.from({ length: 200 }, (_, i) => ({
+            id: i,
+            address: {
+                addressLine: `${i} Example Street`,
+                cityName: `City${i % 50}`,
+                postalCode: `PC${i % 900}`,
+            },
+        }));
+
+        const block = codec.block(rows);
+        expect(block).toBeDefined();
+        expect((block as Uint8Array).length).toBeLessThan(
+            new ShapedCodec({ blockThreshold: Number.POSITIVE_INFINITY }).encode(rows).length,
+        );
+    });
+});
+
 describe("rows a block cannot carry", () => {
     test("an empty array", () => {
         expect(Columns.collect([])).toBeUndefined();
@@ -282,7 +428,11 @@ describe("the two writers agree on random rows", () => {
         (r) => new RecordId("t", Math.floor(r() * 100)),
         (r) => new Decimal(`${Math.floor(r() * 100)}.25`),
         (r) => [Math.floor(r() * 10), Math.floor(r() * 10)],
+        // Nodes, including ones whose own keys come and go, so the nesting is exercised too
         (r) => ({ nested: Math.floor(r() * 10) }),
+        (r) => (r() > 0.5 ? { a: Math.floor(r() * 10) } : { b: `s${Math.floor(r() * 10)}` }),
+        (r) => ({ deep: { deeper: { leaf: Math.floor(r() * 10) } } }),
+        () => ({}),
         () => null,
         () => undefined,
     ];
