@@ -29,6 +29,15 @@ export interface ReadContext {
      * and already honours it; one in a datetime column is built here, so it has to be told.
      */
     nativeDates: boolean;
+    /**
+     * The codec's `valueDecodeVisitor`, or a function which returns what it was given.
+     *
+     * The CBOR decoder runs it from each tag handler, so a tagged value — a record id, a
+     * datetime, a uuid, a decimal, a sized number — is visited there. Those same values are
+     * built here when they sit in a column of their own, so they are visited here too, or the
+     * same response would skip the visitor whenever the server chose a block.
+     */
+    visit(value: unknown): unknown;
 }
 
 /**
@@ -46,29 +55,31 @@ export function fixedValue(kind: Kind, view: DataView, at: number, ctx: ReadCont
         case Kind.Float:
             return view.getFloat64(at, true);
         case Kind.I8:
-            return new I8(view.getInt8(at));
+            return ctx.visit(new I8(view.getInt8(at)));
         case Kind.I16:
-            return new I16(view.getInt16(at, true));
+            return ctx.visit(new I16(view.getInt16(at, true)));
         case Kind.I32:
-            return new I32(view.getInt32(at, true));
+            return ctx.visit(new I32(view.getInt32(at, true)));
         case Kind.U8:
-            return new U8(view.getUint8(at));
+            return ctx.visit(new U8(view.getUint8(at)));
         case Kind.U16:
-            return new U16(view.getUint16(at, true));
+            return ctx.visit(new U16(view.getUint16(at, true)));
         case Kind.U32:
-            return new U32(view.getUint32(at, true));
+            return ctx.visit(new U32(view.getUint32(at, true)));
         case Kind.U64:
-            return new U64(view.getBigUint64(at, true));
+            return ctx.visit(new U64(view.getBigUint64(at, true)));
         case Kind.F16:
-            return new F16(f16Of(view.getUint16(at, true)));
+            return ctx.visit(new F16(f16Of(view.getUint16(at, true))));
         case Kind.F32:
-            return new F32(view.getFloat32(at, true));
+            return ctx.visit(new F32(view.getFloat32(at, true)));
         case Kind.Uuid:
-            return new Uuid(new Uint8Array(view.buffer, view.byteOffset + at, 16).slice());
+            return ctx.visit(
+                new Uuid(new Uint8Array(view.buffer, view.byteOffset + at, 16).slice()),
+            );
         case Kind.Datetime:
             return datetime(view.getBigInt64(at, true), view.getUint32(at + 8, true), ctx);
         case Kind.Duration:
-            return duration(view.getBigUint64(at, true), view.getUint32(at + 8, true));
+            return duration(view.getBigUint64(at, true), view.getUint32(at + 8, true), ctx);
         default:
             return refuse("a value of a kind which has no fixed slot");
     }
@@ -91,7 +102,7 @@ export function varValue(
         case Kind.Bytes:
             return copy(slice);
         case Kind.Decimal:
-            return new Decimal(text(slice, "a decimal"));
+            return ctx.visit(new Decimal(text(slice, "a decimal")));
         case Kind.Dynamic:
             return dynamic(slice, ctx);
         case Kind.Record:
@@ -137,13 +148,18 @@ export function datetimeNs(
 }
 
 /** The 8-byte nanosecond form of a duration, which escapes the same way */
-export function durationNs(view: DataView, at: number, overflow: () => Uint8Array): Duration {
+export function durationNs(
+    view: DataView,
+    at: number,
+    overflow: () => Uint8Array,
+    ctx: ReadContext,
+): Duration {
     const ns = view.getBigUint64(at, true);
     if (ns === MAX_U64) {
         const [secs, nanos] = wide(overflow(), "a duration");
-        return duration(BigInt.asUintN(64, secs), nanos);
+        return duration(BigInt.asUintN(64, secs), nanos, ctx);
     }
-    return duration(ns / 1_000_000_000n, Number(ns % 1_000_000_000n));
+    return duration(ns / 1_000_000_000n, Number(ns % 1_000_000_000n), ctx);
 }
 
 const MIN_I64 = -(2n ** 63n);
@@ -172,14 +188,16 @@ function datetime(secs: bigint, nanos: number, ctx: ReadContext): DateTime | Dat
     if (nanos >= 2_000_000_000) refuse("a datetime's nanoseconds out of range");
 
     // As the CBOR codec reads tag 12 under the same option
-    if (ctx.nativeDates) return new Date(Number(secs) * 1000 + nanos / 1_000_000);
-    return new DateTime([secs, BigInt(nanos)]);
+    if (ctx.nativeDates) {
+        return ctx.visit(new Date(Number(secs) * 1000 + nanos / 1_000_000)) as Date;
+    }
+    return ctx.visit(new DateTime([secs, BigInt(nanos)])) as DateTime;
 }
 
 /** A duration of whole seconds and nanoseconds */
-function duration(secs: bigint, nanos: number): Duration {
+function duration(secs: bigint, nanos: number, ctx: ReadContext): Duration {
     if (nanos >= 1_000_000_000) refuse("a duration's nanoseconds out of range");
-    return new Duration([secs, BigInt(nanos)]);
+    return ctx.visit(new Duration([secs, BigInt(nanos)])) as Duration;
 }
 
 /**
@@ -208,14 +226,14 @@ function record(slice: Uint8Array, columnTable: string, ctx: ReadContext): Recor
         case 0: {
             const id = r.int();
             if (!r.done) refuse("bytes past a record's number id");
-            return new RecordId(table, id);
+            return ctx.visit(new RecordId(table, id)) as RecordId;
         }
         case 1:
-            return new RecordId(table, text(r.rest, "a record id"));
+            return ctx.visit(new RecordId(table, text(r.rest, "a record id"))) as RecordId;
         case 2: {
             const id = r.bytes(16).slice();
             if (!r.done) refuse("bytes past a record's uuid id");
-            return new RecordId(table, new Uuid(id));
+            return ctx.visit(new RecordId(table, new Uuid(id))) as RecordId;
         }
         default:
             return refuse("an unknown record key kind");

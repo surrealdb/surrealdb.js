@@ -74,7 +74,11 @@ export function isCbor2MediaType(contentType: string | null): boolean {
  * for it, `cbor` otherwise.
  */
 export function cborCodec(codecs: CodecRegistry, cbor2: boolean): ValueCodec<Uint8Array> {
-    return cbor2 && codecs.cbor2 ? codecs.cbor2 : codecs.cbor;
+    if (!cbor2) return codecs.cbor;
+    // A shaped codec speaks `cbor.2` and adds one tag to it, so where there is no `cbor2` codec
+    // it can read a `cbor.2` answer: a connection given a custom `shaped` alone is not left
+    // reading one with the plain `cbor` codec, which would read its sized numbers wrongly.
+    return codecs.cbor2 ?? codecs.shaped ?? codecs.cbor;
 }
 
 /**

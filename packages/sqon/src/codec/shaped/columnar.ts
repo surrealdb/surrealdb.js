@@ -21,6 +21,7 @@ import {
 } from "./constants.ts";
 import { fixedWidth, Kind } from "./kinds.ts";
 import { elementOf, isPlainObject, kindOf, MIXED } from "./kinds-of.ts";
+import { ownKeys } from "./object.ts";
 import { ByteWriter, byUtf8, refuse } from "./reader.ts";
 import { type Column, Shape } from "./shape.ts";
 import { type DynamicEncoder, recordBytes, varBytes, writeFixed } from "./write.ts";
@@ -200,7 +201,7 @@ function observeNode(
 ): boolean {
     if (depth >= MAX_DEPTH) return false;
 
-    for (const name in object) {
+    for (const name of ownKeys(object)) {
         let column = node.byName[name];
 
         if (column === undefined) {
@@ -244,7 +245,7 @@ function observeNode(
     // is not present at all leaves its own children alone: the reader never reaches them.
     for (let i = 0; i < node.children.length; i++) {
         const column = node.children[i] as Accumulated;
-        if (column.states[at] === STATE_ABSENT && !(column.name in object)) {
+        if (column.states[at] === STATE_ABSENT && !Object.hasOwn(object, column.name)) {
             column.absent = true;
         }
     }

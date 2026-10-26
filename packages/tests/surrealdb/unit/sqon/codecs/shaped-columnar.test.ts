@@ -399,6 +399,54 @@ describe("what a block must not change about a value", () => {
         expect(Object.getPrototypeOf(read)).toBe(Object.prototype);
     });
 
+    test("a __proto__ field survives the encoder's own clone", () => {
+        // Every object of a request passes through that clone, block or not
+        const bytes = codec.encode({ ["__proto__"]: 1, other: 2 });
+        expect(Buffer.from(bytes).toString("latin1")).toContain("__proto__");
+    });
+
+    test("a property inherited from Object.prototype is not a column", () => {
+        (Object.prototype as Record<string, unknown>).polluted = "oops";
+        try {
+            const rows = [{ real: 1 }];
+            expect(Columns.collect(rows)?.shape.columns.map((c) => c.name)).toEqual(["real"]);
+            expect(same(rows)).toEqual(rows);
+        } finally {
+            delete (Object.prototype as Record<string, unknown>).polluted;
+        }
+    });
+
+    test("a decode visitor sees the values a column builds", () => {
+        const seen: string[] = [];
+        const visiting = new ShapedCodec({
+            valueDecodeVisitor: (v) => {
+                if (v instanceof RecordId) seen.push("record");
+                if (v instanceof DateTime) seen.push("datetime");
+                if (v instanceof U8) seen.push("u8");
+                return v;
+            },
+        });
+
+        const rows = [
+            { d: new DateTime([1700000000n, 0n]), id: new RecordId("t", 1), n: new U8(7) },
+        ];
+        const block = (Columns.collect(rows) as Columns).write((v) => visiting.encode(v));
+        visiting.rows(new ShapedBlock(block), new BlockReader());
+
+        // The CBOR path runs the visitor from each tag handler; a column must too
+        expect(seen.sort()).toEqual(["datetime", "record", "u8"]);
+    });
+
+    test("a numeric record id key above 2^53 keeps the type CBOR gives it", () => {
+        const key = 2 ** 53 + 2;
+        const rows = [{ id: new RecordId("t", key) }];
+
+        // CBOR writes such a number as a float, so an integer slot would hand back a bigint
+        const read = same(rows)[0] as { id: RecordId };
+        expect(typeof read.id.id).toBe("number");
+        expect(read.id.id).toBe(key);
+    });
+
     test("a record id key past an int is refused, not wrapped into range", () => {
         const rows = Array.from({ length: 40 }, () => ({
             aLongKeyName: new RecordId("t", 2n ** 63n),

@@ -308,19 +308,24 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
                 this.#shapedConfirmed && codecs.shaped
                     ? codecs.shaped
                     : cborCodec(codecs, this.#cbor2),
-            headers: codecs.cbor2
-                ? {
-                      "Content-Type": this.#cbor2 ? CBOR2_MEDIA_TYPE : CBOR_MEDIA_TYPE,
-                      // Only a server from 4.0 admits an Accept which differs from
-                      // Content-Type, and only for these pairs; an earlier one answers 415.
-                      // So shaped is asked for only once an answer in cbor.2 has shown the
-                      // server to be 4.0, the same way cbor.2 is negotiated up from cbor.
-                      Accept:
-                          codecs.shaped && this.#cbor2 && !this.#shapedUnavailable
-                              ? SHAPED_MEDIA_TYPE
-                              : CBOR2_MEDIA_TYPE,
-                  }
-                : undefined,
+            // A shaped codec is a `cbor.2` codec with one tag added, so it can read a `cbor.2`
+            // answer on its own: a connection given a custom `shaped` but no `cbor2` still
+            // negotiates, where asking only about `cbor2` would have left it on plain `cbor`
+            // for ever and never used the codec it was given.
+            headers:
+                codecs.cbor2 || codecs.shaped
+                    ? {
+                          "Content-Type": this.#cbor2 ? CBOR2_MEDIA_TYPE : CBOR_MEDIA_TYPE,
+                          // Only a server from 4.0 admits an Accept which differs from
+                          // Content-Type, and only for these pairs; an earlier one answers 415.
+                          // So shaped is asked for only once an answer in cbor.2 has shown the
+                          // server to be 4.0, the same way cbor.2 is negotiated up from cbor.
+                          Accept:
+                              codecs.shaped && this.#cbor2 && !this.#shapedUnavailable
+                                  ? SHAPED_MEDIA_TYPE
+                                  : CBOR2_MEDIA_TYPE,
+                      }
+                    : undefined,
             token,
             resolve: !NEVER_RESOLVE.has(request.method),
             signal: options?.signal,

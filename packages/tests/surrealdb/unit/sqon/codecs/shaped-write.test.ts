@@ -308,6 +308,46 @@ describe("the codec decides when a block is worth sending", () => {
         expect(asBlock.length).toBeLessThan(asArray.length);
     });
 
+    test("a block is never larger than the array, however the rows are distributed", () => {
+        // Distributions which share a period with any stepped sample: one phase then reads as
+        // if it were the whole array. Each of these was sent as a larger block at some point.
+        const shapes: [string, unknown[]][] = [
+            [
+                "alternating",
+                Array.from({ length: 128 }, (_, i) => ({ n: i % 2 === 0 ? 2 ** 53 : 0 })),
+            ],
+            [
+                "clustered eight and eight",
+                Array.from({ length: 128 }, (_, i) => ({ n: i % 16 < 8 ? 2 ** 53 : 0 })),
+            ],
+            [
+                "clustered in halves",
+                Array.from({ length: 200 }, (_, i) => ({ n: i < 100 ? 2 ** 53 : 0 })),
+            ],
+        ];
+
+        for (const [name, rows] of shapes) {
+            const block = codec.block(rows);
+            if (block) {
+                const asArray = never.encode(rows).length;
+                expect(`${name} ${block.length} < ${asArray}`).toBe(
+                    `${name} ${block.length} < ${Math.max(asArray, block.length + 1)}`,
+                );
+            }
+        }
+    });
+
+    test("the tag 57 head counts towards the size, not just the block's contents", () => {
+        // Two rows under a long field name: the contents alone come out under the array while
+        // the request, which carries the seven-byte head too, does not
+        const name = "f".repeat(68);
+        const rows = [{ [name]: "" }, { [name]: "" }];
+        const small = new ShapedCodec({ blockThreshold: 2 });
+
+        const block = small.block(rows);
+        if (block) expect(block.length).toBeLessThan(never.encode(rows).length);
+    });
+
     test("a short array is measured whole, so a block is never larger than the array", () => {
         // Up to the sample size the comparison is exact rather than extrapolated, which is
         // what makes the guarantee hold at these lengths

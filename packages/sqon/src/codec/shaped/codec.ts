@@ -6,6 +6,7 @@ import { ShapedBlock } from "./block.ts";
 import { Columns } from "./columnar.ts";
 import { SHAPED_TAG } from "./constants.ts";
 import { Kind } from "./kinds.ts";
+import { define } from "./object.ts";
 import { ByteWriter } from "./reader.ts";
 import type { Shape } from "./shape.ts";
 import type { DynamicDecoder } from "./values.ts";
@@ -23,6 +24,13 @@ export const BLOCK_THRESHOLD = 32;
  * shape are alike, so a sample spread across the array settles it without encoding all of it.
  */
 const SAMPLE = 64;
+
+/**
+ * The bytes `tagged` puts in front of a block: the tag 57 head and the byte string's
+ * four-byte length. The block goes on the wire inside them, so a comparison which leaves them
+ * out can keep a block which is larger than the array it replaced.
+ */
+const TAG_HEAD = 7;
 
 /** Options for the shaped codec */
 export interface ShapedCodecOptions extends Omit<CborCodecOptions, "version"> {
@@ -57,12 +65,14 @@ export interface ShapedCodecOptions extends Omit<CborCodecOptions, "version"> {
 export class ShapedCodec extends CborCodec {
     #threshold: number;
     #nativeDates: boolean;
+    #visitor: ((value: unknown) => unknown) | undefined;
     #visits: boolean;
 
     constructor(options: ShapedCodecOptions = {}) {
         super({ ...options, version: 2 });
         this.#threshold = options.blockThreshold ?? BLOCK_THRESHOLD;
         this.#nativeDates = options.useNativeDates === true;
+        this.#visitor = options.valueDecodeVisitor;
 
         // A visitor is applied by the CBOR encoder as it walks the values. A block writes its
         // columns itself and never reaches that walk, so a row in a block would come out
@@ -91,7 +101,10 @@ export class ShapedCodec extends CborCodec {
 
     /** The rows of `block`, read in `scope` */
     rows(block: ShapedBlock, scope: BlockReader): unknown[] {
-        return scope.read(block, this.dynamic, this.#nativeDates);
+        return scope.read(block, this.dynamic, {
+            nativeDates: this.#nativeDates,
+            visit: this.#visitor,
+        });
     }
 
     override encode<T>(data: T): Uint8Array {
@@ -116,8 +129,13 @@ export class ShapedCodec extends CborCodec {
             value !== null &&
             Object.getPrototypeOf(value) === Object.prototype
         ) {
+            // Every object of a request passes through here, block or no block, so a field
+            // named `__proto__` is defined rather than assigned: assigning it would make the
+            // clone's prototype out of the value and drop the field before it is ever encoded
             const out: Record<string, unknown> = {};
-            for (const [key, item] of Object.entries(value)) out[key] = this.#shapeRows(item);
+            for (const [key, item] of Object.entries(value)) {
+                define(out, key, this.#shapeRows(item));
+            }
             return out;
         }
 
@@ -163,27 +181,24 @@ export class ShapedCodec extends CborCodec {
      * across the array instead, and only short arrays are measured whole.
      */
     #worthIt(shape: Shape, rows: readonly unknown[]): boolean {
-        // A short array is measured whole, so the answer is exactly the one which matters
+        // A short array is measured whole, so the answer is exactly the one which matters.
+        // What goes on the wire is the block inside its tag 57 head, so that is what is
+        // measured: the contents alone can be smaller than the array while the request is not.
         if (rows.length <= SAMPLE) {
             const asBlock = writeBlock(shape, rows, (item) => super.encode(item)).length;
-            return asBlock < super.encode(rows).length;
+            return asBlock + TAG_HEAD < super.encode(rows).length;
         }
 
-        // Taken as a few runs of neighbouring rows rather than one row every stride. A stride
-        // divides the array evenly, so rows which alternate — every other one small, every
-        // other one large — can land entirely on one side of the alternation and the sample
-        // then describes a different array than the one being sent. A run sees its neighbours,
-        // whatever period they repeat with, and spreading the runs still covers the whole.
-        const runs = 8;
-        const perRun = Math.ceil(SAMPLE / runs);
-        const step = Math.floor(rows.length / runs);
-
+        // The indices are scattered rather than stepped. Any arithmetic progression — one row
+        // every stride, or runs beginning every stride — shares a period with the data when
+        // the data has one, and then the sample sees only one phase of it: rows alternating
+        // large and small, or clustered eight and eight, read as if they were all large.
+        // Multiplying by an odd constant and wrapping visits the array in an order which lines
+        // up with no period, and is still settled only by the array's length.
         const sample: unknown[] = [];
-        for (let run = 0; run < runs; run++) {
-            const from = run * step;
-            for (let i = 0; i < perRun && from + i < rows.length; i++) {
-                sample.push(rows[from + i]);
-            }
+        const n = rows.length;
+        for (let i = 0; i < SAMPLE; i++) {
+            sample.push(rows[((i * 0x9e3779b1) >>> 0) % n]);
         }
 
         const asBlock = writeBlock(shape, sample, (item) => super.encode(item)).length;
@@ -197,7 +212,7 @@ export class ShapedCodec extends CborCodec {
         const perBlockRow = (asBlock - shapeBytes) / sample.length;
         const perArrayRow = asArray / sample.length;
 
-        return shapeBytes + perBlockRow * rows.length < perArrayRow * rows.length;
+        return shapeBytes + TAG_HEAD + perBlockRow * rows.length < perArrayRow * rows.length;
     }
 }
 

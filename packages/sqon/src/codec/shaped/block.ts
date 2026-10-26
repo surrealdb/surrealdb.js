@@ -7,6 +7,17 @@ import type { DynamicDecoder, ReadContext } from "./values.ts";
 
 export type { DynamicDecoder };
 
+/** What a reader needs from the codec beyond the bytes and a CBOR decoder */
+export interface ReadOptions {
+    /** Whether a datetime reads back as a native `Date`, the codec's `useNativeDates` */
+    nativeDates?: boolean;
+    /** The codec's `valueDecodeVisitor`, which the CBOR path runs from each tag handler */
+    visit?: (value: unknown) => unknown;
+}
+
+/** The visitor a codec without one uses: every value is already what it should be */
+const identity = (value: unknown): unknown => value;
+
 /**
  * A block of rows, still in its bytes.
  *
@@ -47,7 +58,7 @@ export class BlockReader {
     }
 
     /** The rows of `block`, read against the shapes this scope has announced so far */
-    read(block: ShapedBlock, dynamic: DynamicDecoder, nativeDates = false): unknown[] {
+    read(block: ShapedBlock, dynamic: DynamicDecoder, options: ReadOptions = {}): unknown[] {
         const r = new ByteReader(block.contents);
         if (r.u8() !== VERSION) refuse("an unknown block version");
 
@@ -56,7 +67,8 @@ export class BlockReader {
         const tables = new Map<string, Table>();
         const ctx: ReadContext = {
             dynamic,
-            nativeDates,
+            nativeDates: options.nativeDates === true,
+            visit: options.visit ?? identity,
             table(name) {
                 let table = tables.get(name);
                 if (!table) {
@@ -133,8 +145,13 @@ export function decodeRow(
     shape: Shape,
     bytes: Uint8Array,
     dynamic: DynamicDecoder,
-    nativeDates = false,
+    options: ReadOptions = {},
 ): [unknown, number] {
     // One row on its own has no batch to share tables with, so it makes its own
-    return readRow(shape, bytes, { dynamic, nativeDates, table: (name) => new Table(name) });
+    return readRow(shape, bytes, {
+        dynamic,
+        nativeDates: options.nativeDates === true,
+        visit: options.visit ?? identity,
+        table: (name) => new Table(name),
+    });
 }

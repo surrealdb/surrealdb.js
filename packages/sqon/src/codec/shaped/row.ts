@@ -10,6 +10,7 @@ import {
     STATE_VALUE,
 } from "./constants.ts";
 import { isVar, Kind } from "./kinds.ts";
+import { define } from "./object.ts";
 import { refuse } from "./reader.ts";
 import type { Column, Shape } from "./shape.ts";
 import {
@@ -163,7 +164,12 @@ export class Row {
                     this.#ctx,
                 );
             case Kind.DurationNs:
-                return durationNs(this.#view, this.#fixedAt + slot, () => this.slice(column.rest));
+                return durationNs(
+                    this.#view,
+                    this.#fixedAt + slot,
+                    () => this.slice(column.rest),
+                    this.#ctx,
+                );
             default:
                 // Object and bit are above, so what is left is held either at a byte offset in
                 // the fixed region or in a var slice
@@ -235,27 +241,6 @@ export class Row {
 }
 
 /** One row of `shape` at the start of `bytes`: its value, and the bytes it took */
-/**
- * Puts `value` under `name` on `object`.
- *
- * `__proto__` is a setter inherited from `Object.prototype`, so assigning it would set the
- * row's prototype and drop the field. A field may legitimately be called that — a shape's names
- * are whatever the table's are — so it is defined as an own property, where every other name
- * already goes.
- */
-function define(object: Record<string, unknown>, name: string, value: unknown): void {
-    if (name === "__proto__") {
-        Object.defineProperty(object, name, {
-            value,
-            writable: true,
-            enumerable: true,
-            configurable: true,
-        });
-        return;
-    }
-    object[name] = value;
-}
-
 export function readRow(shape: Shape, bytes: Uint8Array, ctx: ReadContext): [unknown, number] {
     const row = new Row(shape, bytes, ctx);
     const used = row.seek(0);

@@ -283,7 +283,7 @@ export function recordBytes(
     // record id as one CBOR item. That is an array or an object, and also a number past the
     // range of the i64 slot, which would otherwise be wrapped into it silently — as one CBOR
     // item the codec refuses it, exactly as it refuses the same value anywhere else.
-    if ((typeof key === "object" && !(key instanceof Uuid)) || beyondI64(key)) {
+    if ((typeof key === "object" && !(key instanceof Uuid)) || beyondSlot(key)) {
         return out.u8(3).raw(dynamic(id)).bytes;
     }
 
@@ -336,9 +336,15 @@ const UTF8 = new TextEncoder();
 const I64_MIN = -(2n ** 63n);
 const I64_MAX = 2n ** 63n - 1n;
 
-/** Whether a record id's numeric key is past what its eight-byte slot can hold */
-function beyondI64(key: unknown): boolean {
+/**
+ * Whether a record id's numeric key has to go as one CBOR item rather than in the slot.
+ *
+ * A `bigint` past the i64 range would be wrapped into it. A `number` past 2^53 is written by
+ * the CBOR codec as a float, because that is what it is — so writing it into the integer slot
+ * would change both the kind the server stores and the type it reads back as.
+ */
+function beyondSlot(key: unknown): boolean {
     if (typeof key === "bigint") return key < I64_MIN || key > I64_MAX;
-    if (typeof key === "number") return !(key >= -(2 ** 63) && key < 2 ** 63);
+    if (typeof key === "number") return !Number.isInteger(key) || Math.abs(key) > 2 ** 53;
     return false;
 }
