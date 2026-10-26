@@ -63,6 +63,50 @@ describe("a roundtrip through a derived shape", () => {
         expect(read).toEqual(rows);
     });
 
+    test("an int reads back as the CBOR path reads the same value, at every magnitude", () => {
+        // The decoder reads the two halves of an int as plain numbers rather than building a
+        // bigint for each, so the boundary where a number stops being exact is worth pinning:
+        // 2^53 is still a number, and the first value past it is not
+        const values = [
+            0,
+            -1,
+            1,
+            0xffffffff,
+            -0xffffffff,
+            0x1_0000_0000,
+            Number.MAX_SAFE_INTEGER,
+            -Number.MAX_SAFE_INTEGER,
+            2 ** 53,
+            -(2 ** 53),
+            2n ** 53n + 1n,
+            -(2n ** 53n) - 1n,
+            2n ** 63n - 1n,
+            -(2n ** 63n),
+        ];
+
+        const rows = values.map((v) => ({ v }));
+        const { read } = roundtrip(rows);
+
+        // Every value comes back exactly, and as the same kind of value it went in as
+        expect(read).toEqual(rows);
+        for (let i = 0; i < rows.length; i++) {
+            expect(typeof (read[i] as { v: unknown }).v).toBe(typeof values[i]);
+        }
+
+        // And it agrees with what plain CBOR makes of the same rows. The one exception is
+        // -(2^53)-1, which CBOR itself reads back as -(2^53): its decoder admits a negative
+        // payload of exactly 2^53 to a number, where it no longer fits. That is a bug in
+        // @surrealdb/cbor rather than in a block, so the block is not made to match it.
+        const viaCbor = new ShapedCodec({ blockThreshold: Number.POSITIVE_INFINITY }).decode<
+            { v: unknown }[]
+        >(new ShapedCodec({ blockThreshold: Number.POSITIVE_INFINITY }).encode(rows));
+
+        for (let i = 0; i < rows.length; i++) {
+            if (values[i] === -(2n ** 53n) - 1n) continue;
+            expect((read[i] as { v: unknown }).v).toEqual((viaCbor[i] as { v: unknown }).v);
+        }
+    });
+
     test("a string key, a uuid key and a numeric key all survive", () => {
         const rows = [
             { id: new RecordId("person", 1) },

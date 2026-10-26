@@ -84,6 +84,12 @@ export class ByteReader {
         return this.#view.getBigInt64(this.#take(8), true);
     }
 
+    /** The `int` in the next eight bytes, as {@link readInt} reads one */
+    int(): number | bigint {
+        const at = this.#take(8);
+        return readInt(this.#view, at);
+    }
+
     f32(): number {
         return this.#view.getFloat32(this.#take(4), true);
     }
@@ -94,14 +100,7 @@ export class ByteReader {
 
     /** An IEEE 754 binary16, which `DataView` does not read everywhere this SDK runs */
     f16(): number {
-        const bits = this.u16();
-        const sign = bits & 0x8000 ? -1 : 1;
-        const exponent = (bits >> 10) & 0x1f;
-        const fraction = bits & 0x3ff;
-
-        if (exponent === 0) return sign * 2 ** -24 * fraction;
-        if (exponent === 0x1f) return fraction ? Number.NaN : sign * Number.POSITIVE_INFINITY;
-        return sign * 2 ** (exponent - 25) * (1024 + fraction);
+        return f16Value(this.u16());
     }
 
     /** Bit `at` of the bytes, counted least significant first within each byte */
@@ -164,7 +163,12 @@ export class Slices {
     }
 }
 
-/** The UTF-8 text of `bytes`, or a refusal naming `what` they were */
+/**
+ * The UTF-8 text of `bytes`, or a refusal naming `what` they were.
+ *
+ * Building a short ASCII string character by character rather than through the `TextDecoder`
+ * was measured and was slower, so every string goes through the decoder.
+ */
 export function text(bytes: Uint8Array, what: string): string {
     try {
         return TEXT.decode(bytes);
@@ -293,6 +297,44 @@ export class ByteWriter {
 }
 
 const UTF8 = new TextEncoder();
+
+/** Integers at or below this are read as numbers; larger ones stay `bigint`, as CBOR reads them */
+const POW_2_53 = 2n ** 53n;
+
+/** An `int` as the CBOR path reads the same value: a number while it is exact, else a `bigint` */
+export function int(value: bigint): number | bigint {
+    return value <= POW_2_53 && value >= -POW_2_53 ? Number(value) : value;
+}
+
+/**
+ * The `int` in the eight bytes at `at`.
+ *
+ * Reading it as a `bigint` and converting allocates one for every value, and almost every value
+ * a row holds is an ordinary integer. So the two halves are read as plain numbers whenever the
+ * high word shows the value cannot need more than 53 bits — it is the sign extension of one
+ * which does — and only the rest go the long way, where {@link int} settles the boundary
+ * exactly as it does on the CBOR path.
+ */
+export function readInt(view: DataView, at: number): number | bigint {
+    const high = view.getInt32(at + 4, true);
+
+    if (high >= -0x200000 && high <= 0x1fffff) {
+        return high * 0x1_0000_0000 + view.getUint32(at, true);
+    }
+
+    return int(view.getBigInt64(at, true));
+}
+
+/** The number an IEEE 754 binary16 bit pattern holds */
+export function f16Value(bits: number): number {
+    const sign = bits & 0x8000 ? -1 : 1;
+    const exponent = (bits >> 10) & 0x1f;
+    const fraction = bits & 0x3ff;
+
+    if (exponent === 0) return sign * 2 ** -24 * fraction;
+    if (exponent === 0x1f) return fraction ? Number.NaN : sign * Number.POSITIVE_INFINITY;
+    return sign * 2 ** (exponent - 25) * (1024 + fraction);
+}
 
 /** The bit pattern of `value` as an IEEE 754 binary16, rounding to nearest, ties to even */
 export function f16Bits(value: number): number {

@@ -1,8 +1,9 @@
+import { Table } from "../../value/table.ts";
 import { MAX_EMPTY_ROWS, MAX_SHAPES, MESSAGE_BATCH, MESSAGE_SHAPE, VERSION } from "./constants.ts";
 import { ByteReader, refuse } from "./reader.ts";
-import { Row } from "./row.ts";
+import { Row, readRow } from "./row.ts";
 import { Shape } from "./shape.ts";
-import type { DynamicDecoder } from "./values.ts";
+import type { DynamicDecoder, ReadContext } from "./values.ts";
 
 export type { DynamicDecoder };
 
@@ -51,6 +52,19 @@ export class BlockReader {
         if (r.u8() !== VERSION) refuse("an unknown block version");
 
         const rows: unknown[] = [];
+        // The tables of one block are few and repeat on every row, so they are made once here
+        const tables = new Map<string, Table>();
+        const ctx: ReadContext = {
+            dynamic,
+            table(name) {
+                let table = tables.get(name);
+                if (!table) {
+                    table = new Table(name);
+                    tables.set(name, table);
+                }
+                return table;
+            },
+        };
 
         while (!r.done) {
             const type = r.u8();
@@ -61,7 +75,7 @@ export class BlockReader {
                     this.#announce(payload);
                     break;
                 case MESSAGE_BATCH:
-                    this.#batch(payload, rows, { dynamic });
+                    this.#batch(payload, rows, ctx);
                     break;
                 default:
                     // A message this version does not know is skipped
@@ -85,7 +99,7 @@ export class BlockReader {
     }
 
     /** BATCH: rows of one announced shape, back to back, each one as long as its own bytes say */
-    #batch(payload: ByteReader, rows: unknown[], ctx: { dynamic: DynamicDecoder }): void {
+    #batch(payload: ByteReader, rows: unknown[], ctx: ReadContext): void {
         const id = payload.u32();
         const count = payload.u32();
 
@@ -98,14 +112,18 @@ export class BlockReader {
             refuse("a batch of too many empty rows");
         }
 
-        let bytes = payload.rest;
+        // One cursor reads every row of the batch, moved along by what each row takes
+        const bytes = payload.rest;
+        const row = new Row(shape, bytes, ctx);
+
+        let at = 0;
         for (let i = 0; i < count; i++) {
-            const [value, used] = Row.read(shape, bytes, ctx);
-            rows.push(value);
-            bytes = bytes.subarray(used);
+            const used = row.seek(at);
+            rows.push(row.read());
+            at += used;
         }
 
-        if (bytes.length !== 0) refuse("bytes past a batch's rows");
+        if (at !== bytes.length) refuse("bytes past a batch's rows");
     }
 }
 
@@ -115,5 +133,6 @@ export function decodeRow(
     bytes: Uint8Array,
     dynamic: DynamicDecoder,
 ): [unknown, number] {
-    return Row.read(shape, bytes, { dynamic });
+    // One row on its own has no batch to share tables with, so it makes its own
+    return readRow(shape, bytes, { dynamic, table: (name) => new Table(name) });
 }

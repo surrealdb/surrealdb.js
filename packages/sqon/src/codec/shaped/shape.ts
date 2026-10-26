@@ -13,6 +13,9 @@ import {
 import { fixedWidth, hasOverflow, isElement, isVar, Kind, kindOf } from "./kinds.ts";
 import { ByteReader, ByteWriter, refuse } from "./reader.ts";
 
+/** The children of a node which has none */
+const EMPTY: readonly number[] = [];
+
 /** One column of a shape, as the SHAPE message lists it */
 export interface Column {
     /** The key this column holds, non-empty UTF-8 */
@@ -65,6 +68,11 @@ export class Shape {
     readonly #header: number;
     /** The deepest nesting of object columns */
     readonly #depth: number;
+    /** The bits of a row's last presence byte which must be zero */
+    readonly #paddingMask: number;
+    /** The root's direct children, and each object column's, worked out once */
+    readonly #rootChildren: number[];
+    readonly #childrenOf: (number[] | undefined)[];
 
     private constructor(
         root: number,
@@ -105,6 +113,26 @@ export class Shape {
         this.#ends = new Uint32Array(columns.length);
         this.#depth = this.#checkNode(0, columns.length, 0);
         this.#header = presenceBytes(presenceBits) + fixedSize + 4 * varCount;
+
+        // Only the last presence byte can hold bits past the states the shape uses, so checking
+        // the padding of a row is one mask rather than a walk over the region
+        const spare = presenceBits % 8;
+        this.#paddingMask = spare === 0 ? 0 : (0xff << spare) & 0xff;
+
+        this.#rootChildren = this.#childrenBetween(0, columns.length);
+        this.#childrenOf = new Array(columns.length);
+        for (let at = 0; at < columns.length; at++) {
+            if ((columns[at] as Column).kind === Kind.Object) {
+                this.#childrenOf[at] = this.#childrenBetween(at + 1, this.#ends[at] as number);
+            }
+        }
+    }
+
+    /** The columns which are direct children of the node spanning `start` to `end` */
+    #childrenBetween(start: number, end: number): number[] {
+        const out: number[] = [];
+        for (let i = start; i < end; i = this.#ends[i] as number) out.push(i);
+        return out;
     }
 
     /**
@@ -228,14 +256,19 @@ export class Shape {
         return this.#depth;
     }
 
-    /** The indices of the child columns of `node`, or of the root when it is `undefined` */
-    children(node: number | undefined): number[] {
-        const at = node === undefined ? 0 : node + 1;
-        const end = node === undefined ? this.columns.length : (this.#ends[node] as number);
+    /** The bits of a row's last presence byte which must be zero, or `0` when it is full */
+    get paddingMask(): number {
+        return this.#paddingMask;
+    }
 
-        const out: number[] = [];
-        for (let i = at; i < end; i = this.#ends[i] as number) out.push(i);
-        return out;
+    /**
+     * The indices of the child columns of `node`, or of the root when it is `undefined`.
+     *
+     * Worked out once per shape rather than once per node per row: a shape is announced before
+     * the rows which name it, so everything about its layout is settled before any row is read.
+     */
+    children(node: number | undefined): readonly number[] {
+        return (node === undefined ? this.#rootChildren : this.#childrenOf[node]) ?? EMPTY;
     }
 
     /** The remainder slot of `node`, or of the root when it is `undefined` */

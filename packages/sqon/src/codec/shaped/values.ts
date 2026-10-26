@@ -3,9 +3,10 @@ import { Decimal } from "../../value/decimal.ts";
 import { Duration } from "../../value/duration.ts";
 import { RecordId } from "../../value/record-id.ts";
 import { F16, F32, I8, I16, I32, U8, U16, U32, U64 } from "../../value/sized.ts";
+import type { Table } from "../../value/table.ts";
 import { Uuid } from "../../value/uuid.ts";
 import { fixedWidth, isVar, Kind } from "./kinds.ts";
-import { ByteReader, refuse, Slices, text } from "./reader.ts";
+import { ByteReader, f16Value as f16Of, int, readInt, refuse, Slices, text } from "./reader.ts";
 
 /** Decodes the one CBOR item a dynamic slice holds */
 export type DynamicDecoder = (bytes: Uint8Array) => unknown;
@@ -14,14 +15,14 @@ export type DynamicDecoder = (bytes: Uint8Array) => unknown;
 export interface ReadContext {
     /** The CBOR decoder a dynamic slice goes through */
     dynamic: DynamicDecoder;
-}
-
-/** Integers at or below this are read as numbers; larger ones stay `bigint`, as CBOR reads them */
-const POW_2_53 = 2n ** 53n;
-
-/** An `int` as the CBOR path reads the same value: a number while it is exact, else a `bigint` */
-export function int(value: bigint): number | bigint {
-    return value <= POW_2_53 && value >= -POW_2_53 ? Number(value) : value;
+    /**
+     * The `Table` of `name`, kept from row to row.
+     *
+     * A record column names one table for every row it holds, and building a fresh `Table` for
+     * each was the single most expensive thing in reading a row of record ids. The tables of
+     * one batch are few, so they are made once and handed out again.
+     */
+    table(name: string): Table;
 }
 
 /**
@@ -30,38 +31,38 @@ export function int(value: bigint): number | bigint {
  * Both a column's slot in the fixed region and an element of an array of a fixed kind are a
  * value of that kind at an offset, so both read through here.
  */
-export function fixedValue(kind: Kind, r: ByteReader): unknown {
+export function fixedValue(kind: Kind, view: DataView, at: number): unknown {
     switch (kind) {
         case Kind.Bool:
-            return bool(r.u8());
+            return bool(view.getUint8(at));
         case Kind.Int:
-            return int(r.i64());
+            return readInt(view, at);
         case Kind.Float:
-            return r.f64();
+            return view.getFloat64(at, true);
         case Kind.I8:
-            return new I8(r.i8());
+            return new I8(view.getInt8(at));
         case Kind.I16:
-            return new I16(r.i16());
+            return new I16(view.getInt16(at, true));
         case Kind.I32:
-            return new I32(r.i32());
+            return new I32(view.getInt32(at, true));
         case Kind.U8:
-            return new U8(r.u8());
+            return new U8(view.getUint8(at));
         case Kind.U16:
-            return new U16(r.u16());
+            return new U16(view.getUint16(at, true));
         case Kind.U32:
-            return new U32(r.u32());
+            return new U32(view.getUint32(at, true));
         case Kind.U64:
-            return new U64(r.u64());
+            return new U64(view.getBigUint64(at, true));
         case Kind.F16:
-            return new F16(r.f16());
+            return new F16(f16Of(view.getUint16(at, true)));
         case Kind.F32:
-            return new F32(r.f32());
+            return new F32(view.getFloat32(at, true));
         case Kind.Uuid:
-            return new Uuid(r.bytes(16).slice());
+            return new Uuid(new Uint8Array(view.buffer, view.byteOffset + at, 16).slice());
         case Kind.Datetime:
-            return datetime(r.i64(), r.u32());
+            return datetime(view.getBigInt64(at, true), view.getUint32(at + 8, true));
         case Kind.Duration:
-            return duration(r.u64(), r.u32());
+            return duration(view.getBigUint64(at, true), view.getUint32(at + 8, true));
         default:
             return refuse("a value of a kind which has no fixed slot");
     }
@@ -106,8 +107,8 @@ export function dynamic(slice: Uint8Array, ctx: ReadContext): unknown {
  * The 8-byte nanosecond form of a datetime, which escapes to a 12-byte overflow slice at the
  * ends of its range.
  */
-export function datetimeNs(r: ByteReader, overflow: () => Uint8Array): DateTime {
-    const ns = r.i64();
+export function datetimeNs(view: DataView, at: number, overflow: () => Uint8Array): DateTime {
+    const ns = view.getBigInt64(at, true);
     if (ns === MIN_I64 || ns === MAX_I64) {
         return datetime(...wide(overflow(), "a datetime"));
     }
@@ -124,8 +125,8 @@ export function datetimeNs(r: ByteReader, overflow: () => Uint8Array): DateTime 
 }
 
 /** The 8-byte nanosecond form of a duration, which escapes the same way */
-export function durationNs(r: ByteReader, overflow: () => Uint8Array): Duration {
-    const ns = r.u64();
+export function durationNs(view: DataView, at: number, overflow: () => Uint8Array): Duration {
+    const ns = view.getBigUint64(at, true);
     if (ns === MAX_U64) {
         const [secs, nanos] = wide(overflow(), "a duration");
         return duration(BigInt.asUintN(64, secs), nanos);
@@ -186,11 +187,11 @@ function record(slice: Uint8Array, columnTable: string, ctx: ReadContext): Recor
         return value;
     }
 
-    const table = columnTable === "" ? r.text(r.u16(), "a table") : columnTable;
+    const table = ctx.table(columnTable === "" ? r.text(r.u16(), "a table") : columnTable);
 
     switch (code) {
         case 0: {
-            const id = int(r.i64());
+            const id = r.int();
             if (!r.done) refuse("bytes past a record's number id");
             return new RecordId(table, id);
         }
@@ -226,9 +227,12 @@ function array(slice: Uint8Array, element: Kind, ctx: ReadContext): unknown[] {
 
     const width = fixedWidth(element);
     if (width === undefined) refuse("an invalid array element kind");
-    if (r.rest.length !== count * width) refuse("an array of the wrong length");
 
-    const out: unknown[] = [];
-    for (let i = 0; i < count; i++) out.push(fixedValue(element, r));
+    const elements = r.rest;
+    if (elements.length !== count * width) refuse("an array of the wrong length");
+
+    const view = new DataView(elements.buffer, elements.byteOffset, elements.byteLength);
+    const out: unknown[] = new Array(count);
+    for (let i = 0; i < count; i++) out[i] = fixedValue(element, view, i * width);
     return out;
 }
