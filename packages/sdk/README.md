@@ -545,6 +545,33 @@ const [people] = await db.gql<[{ name: string }[]]>(
 > GQL is served by remote (WebSocket/HTTP) engines connected to a SurrealDB
 > instance with GQL enabled.
 
+#### Sized numbers
+
+SurrealDB 4.0 adds fixed-width number kinds: `i8`, `u8`, `i16`, `u16`, `i32`,
+`u32` and `u64`, and the floats `f16` and `f32`. The SDK represents them with the
+classes `I8`, `U8`, `I16`, `U16`, `I32`, `U32`, `U64`, `F16` and `F32`. Each
+instance holds its `value` (a `bigint` for `U64`) and converts to it with
+`valueOf()`.
+
+A remote connection offers the `cbor.2` protocol to the server and uses it when
+the server accepts it. Servers from 4.0 accept it. Over `cbor.2`, a value of a sized
+kind is read as an instance of its class, and an instance is sent with its kind:
+
+```ts
+const [byte] = await db.query("RETURN 255u8").collect<[U8]>();
+byte.value; // 255
+
+await db.query("CREATE reading SET level = $level", { level: new U16(512) });
+```
+
+Servers before 4.0 use plain `cbor`, which has no sized numbers. The SDK then
+sends an instance as a plain number: a `U64` above the signed 64-bit range is
+sent as a `Decimal`. To use plain `cbor` with every server, pass
+`codecs: { cbor2: () => undefined }` to the `Surreal` constructor.
+
+A `bigint` outside the signed 64-bit range of a SurrealDB `int` cannot be
+sent. Send it as a `Decimal`, or as a `U64` when it fits one.
+
 ### Subscribing to live queries
 
 You can subscribe to live queries to receive updates when the data in the database changes.

@@ -15,6 +15,7 @@ export interface MockRequest {
 type Listener = (event: unknown) => void;
 
 const codec = new CborCodec({});
+const codec2 = new CborCodec({ version: 2 });
 
 /**
  * A `WebSocket` implementation which hands every request to a test provided
@@ -37,9 +38,17 @@ export class MockSocket {
     /** Answers each request. Assigned per test. */
     static handler: ((socket: MockSocket, request: MockRequest) => void) | undefined;
 
+    /** The subprotocol the mock server picks when it is offered: plain cbor unless a test assigns it */
+    static picks = "cbor";
+
+    /** Fail the handshake of a socket offered more than one subprotocol, as some runtimes do */
+    static refusesLists = false;
+
     static reset(): void {
         MockSocket.sockets = [];
         MockSocket.handler = undefined;
+        MockSocket.picks = "cbor";
+        MockSocket.refusesLists = false;
     }
 
     /** The socket most recently opened. */
@@ -57,14 +66,27 @@ export class MockSocket {
 
     #listeners = new Map<string, Set<Listener>>();
 
+    /** The subprotocols the engine offered, in its order of preference */
+    readonly offered: string[];
+
+    /** The subprotocol the mock server picked, or an empty string when it picked none */
+    readonly protocol: string;
+
     constructor(
         readonly url: string,
-        readonly protocol?: string,
+        protocols?: string | string[],
     ) {
+        this.offered = protocols === undefined ? [] : [protocols].flat();
+        this.protocol = this.offered.includes(MockSocket.picks) ? MockSocket.picks : "";
         MockSocket.sockets.push(this);
 
         queueMicrotask(() => {
             if (this.readyState !== MockSocket.CONNECTING) return;
+            if (MockSocket.refusesLists && this.offered.length > 1) {
+                this.readyState = MockSocket.CLOSED;
+                this.#emit("close", { code: 1002, reason: "Mismatch client protocol" });
+                return;
+            }
             this.readyState = MockSocket.OPEN;
             this.#emit("open", {});
         });
@@ -81,7 +103,7 @@ export class MockSocket {
     }
 
     send(data: Uint8Array): void {
-        const request = codec.decode<MockRequest>(new Uint8Array(data));
+        const request = this.#codec.decode<MockRequest>(new Uint8Array(data));
         this.requests.push(request);
         MockSocket.handler?.(this, request);
     }
@@ -94,13 +116,18 @@ export class MockSocket {
 
     /** Delivers one response to the engine, as an arraybuffer socket would. */
     respond(response: object): void {
-        const encoded = new Uint8Array(codec.encode(response));
+        const encoded = new Uint8Array(this.#codec.encode(response));
         const buffer = encoded.buffer.slice(
             encoded.byteOffset,
             encoded.byteOffset + encoded.byteLength,
         );
 
         this.#emit("message", { data: buffer });
+    }
+
+    /** The codec of the subprotocol picked, as a server would use it */
+    get #codec(): CborCodec {
+        return this.protocol === "cbor.2" ? codec2 : codec;
     }
 
     /** The requests received for a given method. */

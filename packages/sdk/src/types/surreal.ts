@@ -30,7 +30,16 @@ export type RetryValue = boolean | Partial<RetryOptions>;
  * The registry of codecs supported by the SDK.
  */
 export interface CodecRegistry {
+    /** Plain CBOR, which every server speaks */
     cbor: ValueCodec<Uint8Array>;
+    /**
+     * CBOR with the sized numbers of SurrealDB 4.0 (`cbor.2`). A remote connection offers it
+     * first and speaks it with a server which picks it, falling back to `cbor` with servers
+     * before 4.0. Absent when the connection is to speak `cbor` only: the default when a custom
+     * `cbor` codec is given without a `cbor2` one. A `cbor2` factory which returns `undefined`
+     * turns it off.
+     */
+    cbor2?: ValueCodec<Uint8Array>;
     flatbuffer: ValueCodec<Uint8Array>;
     json: ValueCodec<unknown>;
 }

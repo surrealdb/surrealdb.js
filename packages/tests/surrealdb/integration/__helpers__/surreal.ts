@@ -1,8 +1,10 @@
 import { rm } from "node:fs/promises";
 import { type Subprocess, sleep } from "bun";
+import getPort from "get-port";
 import { satisfies } from "semver";
 import {
     applyDiagnostics,
+    CborCodec,
     type ConnectOptions,
     createRemoteEngines,
     type Diagnostic,
@@ -134,6 +136,65 @@ export async function requestVersion(): Promise<{
         returnIsAValue,
         structuredConflicts,
     };
+}
+
+let cbor2: Promise<boolean> | undefined;
+
+/**
+ * Whether a connection over the protocol under test speaks `cbor.2` (SurrealDB 4.0): the
+ * server binary must speak it, and over WebSocket the runtime must be able to offer it. It starts a server of its own, so that it can be awaited where tests are
+ * declared, before the shared server is up. Always false for the embedded engines.
+ */
+export function speaksCbor2(): Promise<boolean> {
+    cbor2 ??= (async () => {
+        if (SURREAL_BACKEND !== "remote") return false;
+
+        const port = await getPort();
+        const probe = Bun.spawn(
+            [SURREAL_EXECUTABLE_PATH, "start", "--bind", `127.0.0.1:${port}`, "memory"],
+            { stdout: "ignore", stderr: "ignore" },
+        );
+
+        try {
+            const startAt = Date.now();
+
+            while (Date.now() - startAt < 10_000) {
+                const healthy = await fetch(`http://127.0.0.1:${port}/health`).then(
+                    (response) => response.ok,
+                    () => false,
+                );
+                if (healthy) break;
+                await sleep(100);
+            }
+
+            // Asked over HTTP: some WebSocket implementations cannot offer more than one subprotocol
+            const response = await fetch(`http://127.0.0.1:${port}/rpc`, {
+                method: "POST",
+                body: new CborCodec({}).encode({ id: "1", method: "version" }),
+                headers: { "Content-Type": "application/cbor", Accept: "application/cbor; v=2" },
+            });
+            await response.arrayBuffer();
+
+            if (!/v=2/.test(response.headers.get("Content-Type") ?? "")) return false;
+            if (SURREAL_PROTOCOL !== "ws") return true;
+
+            // Over WebSocket the SDK falls back to plain cbor where the runtime cannot offer
+            // more than one subprotocol, as Bun 1.2 cannot
+            return await new Promise<boolean>((resolve) => {
+                const socket = new WebSocket(`ws://127.0.0.1:${port}/rpc`, ["cbor.2", "cbor"]);
+                socket.onopen = () => {
+                    resolve(socket.protocol === "cbor.2");
+                    socket.close();
+                };
+                socket.onclose = () => resolve(false);
+            });
+        } finally {
+            probe.kill();
+            await probe.exited;
+        }
+    })();
+
+    return cbor2;
 }
 
 /**

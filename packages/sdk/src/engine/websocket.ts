@@ -1,4 +1,4 @@
-import { RecordId, Uuid } from "@surrealdb/sqon";
+import { RecordId, Uuid, type ValueCodec } from "@surrealdb/sqon";
 import {
     CallTerminatedError,
     ConnectionUnavailableError,
@@ -9,6 +9,7 @@ import {
     UnexpectedServerResponseError,
 } from "../errors";
 import { abortReason } from "../internal/abort";
+import { CBOR_PROTOCOL, CBOR2_PROTOCOL, cborCodec, cborProtocols } from "../internal/cbor-format";
 import { parseRpcError } from "../internal/parse-error";
 import {
     type Abandonment,
@@ -111,6 +112,9 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     #terminated = false;
     #streaming = true;
 
+    /** Whether to offer plain cbor alone, as the WebSocket implementation would not open a socket offering more */
+    #cborOnly = false;
+
     features = new Set([
         Features.LiveQueries,
         Features.RefreshTokens,
@@ -137,8 +141,10 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
         (async () => {
             while (!this.#terminated) {
-                // Open a new socket and await until closure
-                const error = await this.createSocket(() => {
+                let opened = false;
+
+                const onConnected = () => {
+                    opened = true;
                     this.#active = true;
                     // Whether streaming is served is a property of the server, and a reconnect
                     // can land on a different one, so each socket is asked again. What the driver
@@ -147,7 +153,22 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                     reconnect.reset();
 
                     this.#publisher.publish("connected");
-                });
+                };
+
+                // Open a new socket and await until closure
+                const protocols = this.#cborOnly
+                    ? [CBOR_PROTOCOL]
+                    : cborProtocols(this._context.codecs);
+                let error = await this.createSocket(onConnected, protocols);
+
+                // Some WebSocket implementations (Bun 1.2's, for one) fail the handshake of a
+                // socket which offers more than one subprotocol, whichever the server picks. A
+                // socket which offered cbor.2 and never opened is tried again at once offering
+                // plain cbor alone, which is kept to from then on if it opens.
+                if (!opened && !this.#terminated && protocols.length > 1) {
+                    error = await this.createSocket(onConnected, [CBOR_PROTOCOL]);
+                    if (opened) this.#cborOnly = true;
+                }
 
                 this.#socket = undefined;
 
@@ -243,9 +264,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         }
 
         for (const { request } of this.#calls.values()) {
-            this.#socket?.send(
-                new Uint8Array(wrapSqonError(() => this._context.codecs.cbor.encode(request))),
-            );
+            this.#socket?.send(new Uint8Array(wrapSqonError(() => this.#codec().encode(request))));
         }
     }
 
@@ -311,9 +330,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
             try {
                 this.#socket?.send(
-                    new Uint8Array(
-                        wrapSqonError(() => this._context.codecs.cbor.encode(call.request)),
-                    ),
+                    new Uint8Array(wrapSqonError(() => this.#codec().encode(call.request))),
                 );
             } catch (error) {
                 // A request which could not be written is not left waiting for an answer
@@ -511,7 +528,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         this.#socket.send(
             new Uint8Array(
                 wrapSqonError(() =>
-                    this._context.codecs.cbor.encode({
+                    this.#codec().encode({
                         id,
                         method: STREAM_METHOD,
                         params: [query.query, query.bindings],
@@ -666,7 +683,18 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         }
     }
 
-    private async createSocket(onConnected: () => void): Promise<Error | null> {
+    /**
+     * The codec to write and read messages in: `cbor.2` once the server has picked it for the
+     * socket, and plain `cbor` otherwise.
+     */
+    #codec(socket = this.#socket): ValueCodec<Uint8Array> {
+        return cborCodec(this._context.codecs, socket?.protocol === CBOR2_PROTOCOL);
+    }
+
+    private async createSocket(
+        onConnected: () => void,
+        protocols: string[],
+    ): Promise<Error | null> {
         return new Promise((resolve, reject) => {
             if (!this._state) {
                 reject(new ConnectionUnavailableError());
@@ -675,7 +703,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
             // Open a new connection
             const WebSocketImpl = this._context.options.websocketImpl ?? globalThis.WebSocket;
-            const socket = new WebSocketImpl(this._state.url.toString(), "cbor");
+            const socket = new WebSocketImpl(this._state.url.toString(), protocols);
 
             // Binary frames must arrive as something parseBuffer accepts. Assert the desired
             // type rather than correcting one specific unwanted value: React Native leaves
@@ -826,7 +854,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 try {
                     const buffer = this.parseBuffer(data);
                     const decoded = wrapSqonError(() =>
-                        this._context.codecs.cbor.decode<Response>(buffer),
+                        this.#codec(socket).decode<Response>(buffer),
                     );
 
                     if (
