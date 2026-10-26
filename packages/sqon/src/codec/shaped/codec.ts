@@ -56,10 +56,20 @@ export interface ShapedCodecOptions extends Omit<CborCodecOptions, "version"> {
  */
 export class ShapedCodec extends CborCodec {
     #threshold: number;
+    #nativeDates: boolean;
+    #visits: boolean;
 
     constructor(options: ShapedCodecOptions = {}) {
         super({ ...options, version: 2 });
         this.#threshold = options.blockThreshold ?? BLOCK_THRESHOLD;
+        this.#nativeDates = options.useNativeDates === true;
+
+        // A visitor is applied by the CBOR encoder as it walks the values. A block writes its
+        // columns itself and never reaches that walk, so a row in a block would come out
+        // unvisited while the same row in a plain array came out visited — the same request
+        // serialised two ways depending on how long the array was. Rather than visit twice,
+        // and risk the two disagreeing, a codec with a visitor does not write blocks at all.
+        this.#visits = options.valueEncodeVisitor !== undefined;
 
         // Set here rather than as a field: the base class holds `tagged` as an instance field,
         // which a subclass field initializer would replace wholesale rather than add to.
@@ -81,7 +91,7 @@ export class ShapedCodec extends CborCodec {
 
     /** The rows of `block`, read in `scope` */
     rows(block: ShapedBlock, scope: BlockReader): unknown[] {
-        return scope.read(block, this.dynamic);
+        return scope.read(block, this.dynamic, this.#nativeDates);
     }
 
     override encode<T>(data: T): Uint8Array {
@@ -127,7 +137,7 @@ export class ShapedCodec extends CborCodec {
      * kept only if it actually won.
      */
     block(rows: readonly unknown[]): Uint8Array | undefined {
-        if (rows.length < this.#threshold) return undefined;
+        if (rows.length < this.#threshold || this.#visits) return undefined;
 
         // One read of the rows settles their shape and keeps what writing them needs, so
         // deciding whether to send a block costs nothing the block itself would not have cost
@@ -159,10 +169,21 @@ export class ShapedCodec extends CborCodec {
             return asBlock < super.encode(rows).length;
         }
 
-        const stride = Math.floor(rows.length / SAMPLE);
+        // Taken as a few runs of neighbouring rows rather than one row every stride. A stride
+        // divides the array evenly, so rows which alternate — every other one small, every
+        // other one large — can land entirely on one side of the alternation and the sample
+        // then describes a different array than the one being sent. A run sees its neighbours,
+        // whatever period they repeat with, and spreading the runs still covers the whole.
+        const runs = 8;
+        const perRun = Math.ceil(SAMPLE / runs);
+        const step = Math.floor(rows.length / runs);
+
         const sample: unknown[] = [];
-        for (let i = 0; i < rows.length && sample.length < SAMPLE; i += stride) {
-            sample.push(rows[i]);
+        for (let run = 0; run < runs; run++) {
+            const from = run * step;
+            for (let i = 0; i < perRun && from + i < rows.length; i++) {
+                sample.push(rows[from + i]);
+            }
         }
 
         const asBlock = writeBlock(shape, sample, (item) => super.encode(item)).length;

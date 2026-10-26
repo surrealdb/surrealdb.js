@@ -47,7 +47,7 @@ export class BlockReader {
     }
 
     /** The rows of `block`, read against the shapes this scope has announced so far */
-    read(block: ShapedBlock, dynamic: DynamicDecoder): unknown[] {
+    read(block: ShapedBlock, dynamic: DynamicDecoder, nativeDates = false): unknown[] {
         const r = new ByteReader(block.contents);
         if (r.u8() !== VERSION) refuse("an unknown block version");
 
@@ -56,6 +56,7 @@ export class BlockReader {
         const tables = new Map<string, Table>();
         const ctx: ReadContext = {
             dynamic,
+            nativeDates,
             table(name) {
                 let table = tables.get(name);
                 if (!table) {
@@ -132,7 +133,8 @@ export function decodeRow(
     shape: Shape,
     bytes: Uint8Array,
     dynamic: DynamicDecoder,
+    nativeDates = false,
 ): [unknown, number] {
     // One row on its own has no batch to share tables with, so it makes its own
-    return readRow(shape, bytes, { dynamic, table: (name) => new Table(name) });
+    return readRow(shape, bytes, { dynamic, nativeDates, table: (name) => new Table(name) });
 }

@@ -123,7 +123,7 @@ export class Row {
             if (open && Object.hasOwn(object, column.name)) {
                 refuse("a remainder key that has a column");
             }
-            object[column.name] = this.#stated(at, column, state);
+            define(object, column.name, this.#stated(at, column, state));
         }
 
         return object;
@@ -156,7 +156,12 @@ export class Row {
             case Kind.Bit:
                 return this.#bit(this.#fixedAt, slot);
             case Kind.DatetimeNs:
-                return datetimeNs(this.#view, this.#fixedAt + slot, () => this.slice(column.rest));
+                return datetimeNs(
+                    this.#view,
+                    this.#fixedAt + slot,
+                    () => this.slice(column.rest),
+                    this.#ctx,
+                );
             case Kind.DurationNs:
                 return durationNs(this.#view, this.#fixedAt + slot, () => this.slice(column.rest));
             default:
@@ -170,7 +175,7 @@ export class Row {
                           column.table,
                           column.element,
                       )
-                    : fixedValue(column.kind, this.#view, this.#fixedAt + slot);
+                    : fixedValue(column.kind, this.#view, this.#fixedAt + slot, this.#ctx);
         }
     }
 
@@ -230,6 +235,27 @@ export class Row {
 }
 
 /** One row of `shape` at the start of `bytes`: its value, and the bytes it took */
+/**
+ * Puts `value` under `name` on `object`.
+ *
+ * `__proto__` is a setter inherited from `Object.prototype`, so assigning it would set the
+ * row's prototype and drop the field. A field may legitimately be called that — a shape's names
+ * are whatever the table's are — so it is defined as an own property, where every other name
+ * already goes.
+ */
+function define(object: Record<string, unknown>, name: string, value: unknown): void {
+    if (name === "__proto__") {
+        Object.defineProperty(object, name, {
+            value,
+            writable: true,
+            enumerable: true,
+            configurable: true,
+        });
+        return;
+    }
+    object[name] = value;
+}
+
 export function readRow(shape: Shape, bytes: Uint8Array, ctx: ReadContext): [unknown, number] {
     const row = new Row(shape, bytes, ctx);
     const used = row.seek(0);

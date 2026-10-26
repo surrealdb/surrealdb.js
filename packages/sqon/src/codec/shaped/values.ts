@@ -23,6 +23,12 @@ export interface ReadContext {
      * one batch are few, so they are made once and handed out again.
      */
     table(name: string): Table;
+    /**
+     * Whether a datetime reads back as a native `Date` rather than a {@link DateTime}, which is
+     * the codec's `useNativeDates`. A datetime in a dynamic slice goes through the CBOR decoder
+     * and already honours it; one in a datetime column is built here, so it has to be told.
+     */
+    nativeDates: boolean;
 }
 
 /**
@@ -31,7 +37,7 @@ export interface ReadContext {
  * Both a column's slot in the fixed region and an element of an array of a fixed kind are a
  * value of that kind at an offset, so both read through here.
  */
-export function fixedValue(kind: Kind, view: DataView, at: number): unknown {
+export function fixedValue(kind: Kind, view: DataView, at: number, ctx: ReadContext): unknown {
     switch (kind) {
         case Kind.Bool:
             return bool(view.getUint8(at));
@@ -60,7 +66,7 @@ export function fixedValue(kind: Kind, view: DataView, at: number): unknown {
         case Kind.Uuid:
             return new Uuid(new Uint8Array(view.buffer, view.byteOffset + at, 16).slice());
         case Kind.Datetime:
-            return datetime(view.getBigInt64(at, true), view.getUint32(at + 8, true));
+            return datetime(view.getBigInt64(at, true), view.getUint32(at + 8, true), ctx);
         case Kind.Duration:
             return duration(view.getBigUint64(at, true), view.getUint32(at + 8, true));
         default:
@@ -107,10 +113,16 @@ export function dynamic(slice: Uint8Array, ctx: ReadContext): unknown {
  * The 8-byte nanosecond form of a datetime, which escapes to a 12-byte overflow slice at the
  * ends of its range.
  */
-export function datetimeNs(view: DataView, at: number, overflow: () => Uint8Array): DateTime {
+export function datetimeNs(
+    view: DataView,
+    at: number,
+    overflow: () => Uint8Array,
+    ctx: ReadContext,
+): DateTime | Date {
     const ns = view.getBigInt64(at, true);
     if (ns === MIN_I64 || ns === MAX_I64) {
-        return datetime(...wide(overflow(), "a datetime"));
+        const [secs, nanos] = wide(overflow(), "a datetime");
+        return datetime(secs, nanos, ctx);
     }
 
     // Euclidean, so that a time before the epoch floors rather than truncating towards it
@@ -121,7 +133,7 @@ export function datetimeNs(view: DataView, at: number, overflow: () => Uint8Arra
         secs -= 1n;
         nanos += billion;
     }
-    return datetime(secs, Number(nanos));
+    return datetime(secs, Number(nanos), ctx);
 }
 
 /** The 8-byte nanosecond form of a duration, which escapes the same way */
@@ -156,8 +168,11 @@ function copy(slice: Uint8Array): ArrayBuffer {
 }
 
 /** A datetime of whole seconds and nanoseconds, which a leap second may carry past a billion */
-function datetime(secs: bigint, nanos: number): DateTime {
+function datetime(secs: bigint, nanos: number, ctx: ReadContext): DateTime | Date {
     if (nanos >= 2_000_000_000) refuse("a datetime's nanoseconds out of range");
+
+    // As the CBOR codec reads tag 12 under the same option
+    if (ctx.nativeDates) return new Date(Number(secs) * 1000 + nanos / 1_000_000);
     return new DateTime([secs, BigInt(nanos)]);
 }
 
@@ -233,6 +248,6 @@ function array(slice: Uint8Array, element: Kind, ctx: ReadContext): unknown[] {
 
     const view = new DataView(elements.buffer, elements.byteOffset, elements.byteLength);
     const out: unknown[] = new Array(count);
-    for (let i = 0; i < count; i++) out[i] = fixedValue(element, view, i * width);
+    for (let i = 0; i < count; i++) out[i] = fixedValue(element, view, i * width, ctx);
     return out;
 }

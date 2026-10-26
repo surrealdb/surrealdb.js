@@ -11,6 +11,7 @@
 import { describe, expect, test } from "bun:test";
 import {
     BlockReader,
+    ByteReader,
     Columns,
     DateTime,
     Decimal,
@@ -26,6 +27,8 @@ import {
     RecordId,
     ShapedBlock,
     ShapedCodec,
+    ShapedFrameError,
+    Slices,
     U8,
     U16,
     U32,
@@ -385,7 +388,78 @@ describe("nested objects", () => {
     });
 });
 
+describe("what a block must not change about a value", () => {
+    test("a column named __proto__ is a field, not the row's prototype", () => {
+        // A computed key makes a real own property; `{ __proto__: 1 }` in a literal would not
+        const rows = [{ ["__proto__"]: 1, other: 2 }];
+        const read = same(rows)[0] as Record<string, unknown>;
+
+        expect(Object.hasOwn(read, "__proto__")).toBe(true);
+        expect(read["__proto__"]).toBe(1);
+        expect(Object.getPrototypeOf(read)).toBe(Object.prototype);
+    });
+
+    test("a record id key past an int is refused, not wrapped into range", () => {
+        const rows = Array.from({ length: 40 }, () => ({
+            aLongKeyName: new RecordId("t", 2n ** 63n),
+        }));
+
+        // Writing it into the eight-byte slot would make it -(2^63); as one CBOR item the
+        // codec refuses it, exactly as it refuses the same value in a plain request
+        expect(() => codec.encode({ rows })).toThrow(/outside the signed 64-bit range/);
+        expect(() =>
+            new ShapedCodec({ blockThreshold: Number.POSITIVE_INFINITY }).encode({ rows }),
+        ).toThrow(/outside the signed 64-bit range/);
+    });
+
+    test("a record id key at the edge of an int still fits its slot", () => {
+        const rows = [
+            { id: new RecordId("t", 2n ** 63n - 1n) },
+            { id: new RecordId("t", -(2n ** 63n)) },
+        ];
+
+        expect(same(rows)).toEqual(rows);
+    });
+
+    test("useNativeDates is honoured by a datetime column, as it is by the CBOR path", () => {
+        const native = new ShapedCodec({ useNativeDates: true });
+        const rows = [{ d: new DateTime([1700000000n, 0n]) }];
+
+        const columns = Columns.collect(rows) as Columns;
+        const block = columns.write((v) => native.encode(v));
+        const read = native.rows(new ShapedBlock(block), new BlockReader())[0] as {
+            d: unknown;
+        };
+
+        expect(read.d).toBeInstanceOf(Date);
+        // And without the option it is a DateTime, as it always was
+        const plain = codec.rows(new ShapedBlock(block), new BlockReader())[0] as { d: unknown };
+        expect(plain.d).toBeInstanceOf(DateTime);
+    });
+
+    test("a codec with an encode visitor does not write blocks", () => {
+        const visiting = new ShapedCodec({
+            valueEncodeVisitor: (v) => (typeof v === "string" ? v.toUpperCase() : v),
+        });
+        const rows = Array.from({ length: 200 }, (_, i) => ({
+            someLongKeyName: `value${i}`,
+            anotherLongKeyName: `other${i}`,
+        }));
+
+        // A block writes its columns itself and never reaches the encoder's walk, so a visitor
+        // would apply to a short array and not a long one. It declines to block instead.
+        expect(visiting.block(rows)).toBeUndefined();
+    });
+});
+
 describe("rows a block cannot carry", () => {
+    test("a variable array claiming more slices than its bytes hold", () => {
+        // The count is read off the wire; allocating for it before checking would ask for
+        // sixteen gigabytes from four bytes of payload
+        const slices = new Uint8Array([0xff, 0xff, 0xff, 0xff]);
+        expect(() => new Slices(new ByteReader(slices), 0xffffffff)).toThrow(ShapedFrameError);
+    });
+
     test("an empty array", () => {
         expect(Columns.collect([])).toBeUndefined();
         expect(deriveShape([])).toBeUndefined();

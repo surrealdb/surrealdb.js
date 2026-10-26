@@ -131,6 +131,12 @@ export class Slices {
 
     /** Reads a table of `count` ends where the reader stands, then takes the slices after it */
     constructor(r: ByteReader, count: number) {
+        // The count is read off the wire, so it is bounded by the bytes which are actually
+        // there before anything is allocated for it: a four-byte slice claiming four billion
+        // ends would otherwise ask for sixteen gigabytes and fail as an out-of-memory crash
+        // rather than as bytes this decoder refuses.
+        if (count * 4 > r.rest.length) refuse("more slices than the bytes could hold");
+
         this.#ends = new Uint32Array(count);
 
         let last = 0;

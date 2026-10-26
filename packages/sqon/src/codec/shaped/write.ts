@@ -279,10 +279,11 @@ export function recordBytes(
     const key = id.id;
     const out = new ByteWriter();
 
-    // A key which is not one of the three the slot can hold — an array or an object — goes as
-    // key kind 3, the whole record id as one CBOR item. It carries its own table, so no table
-    // is written in front of it.
-    if (typeof key === "object" && !(key instanceof Uuid)) {
+    // A key which is not one of the three the slot can hold goes as key kind 3, the whole
+    // record id as one CBOR item. That is an array or an object, and also a number past the
+    // range of the i64 slot, which would otherwise be wrapped into it silently — as one CBOR
+    // item the codec refuses it, exactly as it refuses the same value anywhere else.
+    if ((typeof key === "object" && !(key instanceof Uuid)) || beyondI64(key)) {
         return out.u8(3).raw(dynamic(id)).bytes;
     }
 
@@ -331,3 +332,13 @@ function arrayBytes(value: unknown[], element: Kind, dynamic: DynamicEncoder): U
 }
 
 const UTF8 = new TextEncoder();
+
+const I64_MIN = -(2n ** 63n);
+const I64_MAX = 2n ** 63n - 1n;
+
+/** Whether a record id's numeric key is past what its eight-byte slot can hold */
+function beyondI64(key: unknown): boolean {
+    if (typeof key === "bigint") return key < I64_MIN || key > I64_MAX;
+    if (typeof key === "number") return !(key >= -(2 ** 63) && key < 2 ** 63);
+    return false;
+}

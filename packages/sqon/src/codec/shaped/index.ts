@@ -15,6 +15,7 @@ export {
 export { deriveShape } from "./derive.ts";
 export { Kind } from "./kinds.ts";
 export { kindOf } from "./kinds-of.ts";
+export { ByteReader, Slices } from "./reader.ts";
 export { type Column, Shape } from "./shape.ts";
 export type { DynamicDecoder } from "./values.ts";
 export { type DynamicEncoder, writeBlock, writeRow } from "./write.ts";
