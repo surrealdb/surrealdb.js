@@ -596,6 +596,12 @@ query variable — is sent as a block too. The SDK is never told the schema of
 what you send, so it derives a shape from the values themselves; anything no
 column can describe goes in a dynamic column, which holds one CBOR item.
 
+Over WebSocket a connection sends blocks as soon as the handshake settles on
+`shaped`, which is itself proof the server reads them. Over HTTP nothing in a
+response says so until one comes back written in `shaped`, because a 4.0 server
+can be built without the format; so request bodies stay CBOR until that answer
+arrives, and carry blocks after it.
+
 A shape is not always a saving. It gives every column a fixed width, so a
 column of small integers takes eight bytes a row where CBOR takes one. The SDK
 measures a sample of the rows both ways and sends a block only when it comes

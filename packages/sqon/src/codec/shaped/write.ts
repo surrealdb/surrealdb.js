@@ -229,7 +229,7 @@ function varBytes(column: Column, value: unknown, dynamic: DynamicEncoder): Uint
         case Kind.Dynamic:
             return dynamic(value);
         case Kind.Record:
-            return recordBytes(value as RecordId, column.table);
+            return recordBytes(value as RecordId, column.table, dynamic);
         case Kind.Array:
             return arrayBytes(value as unknown[], column.element as Kind, dynamic);
         default:
@@ -238,9 +238,16 @@ function varBytes(column: Column, value: unknown, dynamic: DynamicEncoder): Uint
 }
 
 /** A record slice: its key kind, the table when the column does not name one, then the id */
-function recordBytes(id: RecordId, columnTable: string): Uint8Array {
+function recordBytes(id: RecordId, columnTable: string, dynamic: DynamicEncoder): Uint8Array {
     const key = id.id;
     const out = new ByteWriter();
+
+    // A key which is not one of the three the slot can hold — an array or an object — goes as
+    // key kind 3, the whole record id as one CBOR item. It carries its own table, so no table
+    // is written in front of it.
+    if (typeof key === "object" && !(key instanceof Uuid)) {
+        return out.u8(3).raw(dynamic(id)).bytes;
+    }
 
     const kind = typeof key === "string" ? 1 : key instanceof Uuid ? 2 : 0;
     out.u8(kind);

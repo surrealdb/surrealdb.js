@@ -298,6 +298,27 @@ export class ByteWriter {
 
 const UTF8 = new TextEncoder();
 
+/**
+ * Orders two names by the bytes of their UTF-8, which is the order a shape lists siblings in.
+ *
+ * JavaScript's `<` compares UTF-16 code units, which is a different order: a character outside
+ * the basic plane is a surrogate pair beginning `0xD800`, so `<` puts it before `U+E000`, while
+ * its UTF-8 begins `0xF0` and belongs after. Comparing the encoded bytes is what the format
+ * means, and keeps a shape this SDK writes readable by the one it reads.
+ */
+export function byUtf8(a: string, b: string): number {
+    const x = UTF8.encode(a);
+    const y = UTF8.encode(b);
+    const shared = Math.min(x.length, y.length);
+
+    for (let i = 0; i < shared; i++) {
+        const diff = (x[i] as number) - (y[i] as number);
+        if (diff !== 0) return diff;
+    }
+
+    return x.length - y.length;
+}
+
 /** Integers at or below this are read as numbers; larger ones stay `bigint`, as CBOR reads them */
 const POW_2_53 = 2n ** 53n;
 

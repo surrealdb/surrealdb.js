@@ -13,6 +13,7 @@ import {
     deriveShape,
     F32,
     Kind,
+    MAY_BE_ABSENT,
     RecordId,
     ShapedBlock,
     ShapedCodec,
@@ -23,6 +24,9 @@ import {
 } from "@surrealdb/sqon";
 
 const codec = new ShapedCodec();
+
+/** The same codec with blocks turned off, for comparing against the plain CBOR array */
+const never = new ShapedCodec({ blockThreshold: Number.POSITIVE_INFINITY });
 
 /** Writes `rows` in the shape derived for them, reads them back, and returns both */
 function roundtrip(rows: unknown[]): { shape: ReturnType<typeof deriveShape>; read: unknown[] } {
@@ -114,6 +118,64 @@ describe("a roundtrip through a derived shape", () => {
             { id: new RecordId("person", new Uuid("01924b3c-f1a2-7e3d-a001-2f4b8c9d0e1f")) },
         ];
 
+        expect(roundtrip(rows).read).toEqual(rows);
+    });
+
+    test("a key which only later rows hold is optional, not required", () => {
+        // The first row has no `b`, so the column must allow being absent. Marking it required
+        // because every row which holds it holds a value makes writing row 0 impossible.
+        const rows = [{ a: 1 }, { a: 2, b: "x" }, { a: 3, b: "y" }];
+
+        expect(column(rows, "b")?.flags).toBe(MAY_BE_ABSENT);
+        expect(roundtrip(rows).read).toEqual(rows);
+    });
+
+    test("negative zero keeps its sign, as it does through CBOR", () => {
+        const rows = Array.from({ length: 40 }, (_, i) => ({
+            longKeyToMakeItWorthBlocking: `v${i}`,
+            v: i === 0 ? -0 : -i,
+        }));
+
+        const read = roundtrip(rows).read as { v: number }[];
+        expect(Object.is((read[0] as { v: number }).v, -0)).toBe(true);
+    });
+
+    test("an integral number too large for an int is a float, not a wrapped int", () => {
+        // `Number.isInteger(1e300)` is true, but it is far outside an i64: writing it into a
+        // fixed int slot wraps it to something else entirely
+        const rows = [{ v: 1e300 }, { v: -1e300 }];
+
+        expect(column(rows, "v")?.kind).toBe(Kind.Float);
+        expect(roundtrip(rows).read).toEqual(rows);
+    });
+
+    test("a bigint past the int range is refused rather than wrapped", () => {
+        const rows = Array.from({ length: 40 }, () => ({ v: 2n ** 70n }));
+
+        // It lands in a dynamic column rather than an int slot which would wrap it, so the
+        // request is refused by the CBOR codec exactly as one which never used a block is
+        expect(column(rows, "v")?.kind).toBe(Kind.Dynamic);
+        expect(() => codec.encode({ rows })).toThrow();
+        expect(() => never.encode({ rows })).toThrow();
+    });
+
+    test("a record id whose key is an array or an object survives", () => {
+        const rows = [
+            { id: new RecordId("thing", [1, "two"]) },
+            { id: new RecordId("thing", { a: 1 }) },
+            { id: new RecordId("thing", 3) },
+        ];
+
+        expect(roundtrip(rows).read).toEqual(rows);
+    });
+
+    test("sibling names are ordered by their UTF-8 bytes, not their UTF-16 units", () => {
+        // UTF-8 puts U+E000 (ee 80 80) before U+10000 (f0 90 80 80); UTF-16 puts the surrogate
+        // pair of U+10000 first, which would order them the other way
+        const rows = [{ "": 1, "\u{10000}": 2 }];
+        const names = deriveShape(rows)?.columns.map((c) => c.name);
+
+        expect(names).toEqual(["", "\u{10000}"]);
         expect(roundtrip(rows).read).toEqual(rows);
     });
 
@@ -221,8 +283,6 @@ describe("the codec decides when a block is worth sending", () => {
         registeredAt: new DateTime([BigInt(1700000000 + i), 0n]),
     });
 
-    const never = new ShapedCodec({ blockThreshold: Number.POSITIVE_INFINITY });
-
     test("a short array stays a CBOR array", () => {
         expect(codec.block(Array.from({ length: 8 }, (_, i) => row(i)))).toBeUndefined();
     });
@@ -245,6 +305,23 @@ describe("the codec decides when a block is worth sending", () => {
         const asArray = never.encode({ rows });
 
         expect(asBlock.length).toBeLessThan(asArray.length);
+    });
+
+    test("a short array is measured whole, so a block is never larger than the array", () => {
+        // Up to the sample size the comparison is exact rather than extrapolated, which is
+        // what makes the guarantee hold at these lengths
+        for (const n of [32, 40, 48, 64]) {
+            const rows = Array.from({ length: n }, (_, i) => ({
+                k: `v${i}`,
+                m: i % 7,
+                flag: i % 2 === 0,
+            }));
+
+            const block = codec.block(rows);
+            if (block) {
+                expect(block.length).toBeLessThan(never.encode(rows).length);
+            }
+        }
     });
 
     test("rows a shape would make larger are left as a CBOR array", () => {

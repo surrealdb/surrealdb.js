@@ -11,7 +11,7 @@ import {
     ROOT_VALUE,
 } from "./constants.ts";
 import { fixedWidth, hasOverflow, isElement, isVar, Kind, kindOf } from "./kinds.ts";
-import { ByteReader, ByteWriter, refuse } from "./reader.ts";
+import { ByteReader, ByteWriter, byUtf8, refuse } from "./reader.ts";
 
 /** The children of a node which has none */
 const EMPTY: readonly number[] = [];
@@ -175,7 +175,7 @@ export class Shape {
     /** A name is non-empty, and siblings are in the byte order of their UTF-8, so all distinct */
     #checkName(column: Column, previous: string | undefined): void {
         if (column.name === "") refuse("an empty column name");
-        if (previous !== undefined && !(previous < column.name)) {
+        if (previous !== undefined && byUtf8(previous, column.name) >= 0) {
             refuse("column names out of order");
         }
     }

@@ -149,7 +149,13 @@ export class ShapedCodec extends CborCodec {
      * across the array instead, and only short arrays are measured whole.
      */
     #worthIt(shape: Shape, rows: readonly unknown[]): boolean {
-        const stride = Math.max(1, Math.floor(rows.length / SAMPLE));
+        // A short array is measured whole, so the answer is exactly the one which matters
+        if (rows.length <= SAMPLE) {
+            const asBlock = writeBlock(shape, rows, (item) => super.encode(item)).length;
+            return asBlock < super.encode(rows).length;
+        }
+
+        const stride = Math.floor(rows.length / SAMPLE);
         const sample: unknown[] = [];
         for (let i = 0; i < rows.length && sample.length < SAMPLE; i += stride) {
             sample.push(rows[i]);
@@ -158,10 +164,15 @@ export class ShapedCodec extends CborCodec {
         const asBlock = writeBlock(shape, sample, (item) => super.encode(item)).length;
         const asArray = super.encode(sample).length;
 
-        // The shape is written once however many rows follow, so its cost is counted once
-        // rather than once per sample: what a longer array pays is the rows alone
+        // The shape is written once however many rows follow it, so the sample's rows are what
+        // scales and the shape is added back once. Everything else — the block's framing, the
+        // array's head — is small and counted in the per-row rate, which only makes the block
+        // look slightly worse than it is.
         const shapeBytes = shape.encode().length;
-        return asBlock - shapeBytes < asArray;
+        const perBlockRow = (asBlock - shapeBytes) / sample.length;
+        const perArrayRow = asArray / sample.length;
+
+        return shapeBytes + perBlockRow * rows.length < perArrayRow * rows.length;
     }
 }
 

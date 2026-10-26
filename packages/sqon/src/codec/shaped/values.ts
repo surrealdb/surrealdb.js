@@ -6,7 +6,7 @@ import { F16, F32, I8, I16, I32, U8, U16, U32, U64 } from "../../value/sized.ts"
 import type { Table } from "../../value/table.ts";
 import { Uuid } from "../../value/uuid.ts";
 import { fixedWidth, isVar, Kind } from "./kinds.ts";
-import { ByteReader, f16Value as f16Of, int, readInt, refuse, Slices, text } from "./reader.ts";
+import { ByteReader, f16Value as f16Of, readInt, refuse, Slices, text } from "./reader.ts";
 
 /** Decodes the one CBOR item a dynamic slice holds */
 export type DynamicDecoder = (bytes: Uint8Array) => unknown;

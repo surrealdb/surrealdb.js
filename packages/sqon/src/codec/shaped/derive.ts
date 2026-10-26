@@ -6,6 +6,7 @@ import { F16, F32, I8, I16, I32, SizedNumber, U8, U16, U32, U64 } from "../../va
 import { Uuid } from "../../value/uuid.ts";
 import { MAX_COLUMNS, MAY_BE_ABSENT, MAY_BE_NULL, NO_SLOT } from "./constants.ts";
 import { fixedWidth, isElement, Kind } from "./kinds.ts";
+import { byUtf8 } from "./reader.ts";
 import { type Column, Shape } from "./shape.ts";
 
 /**
@@ -43,10 +44,16 @@ function kindOf(value: unknown): Kind | undefined {
         case "string":
             return Kind.String;
         case "bigint":
-            return Kind.Int;
+            // Past the range of an `int` the CBOR codec refuses the value rather than sending
+            // it. A dynamic column holds one CBOR item, so it is refused there in the same way
+            // instead of being wrapped into range by the fixed slot.
+            return value >= I64_MIN && value <= I64_MAX ? Kind.Int : Kind.Dynamic;
         case "number":
-            // As the CBOR codec writes them: an integral number is an int
-            return Number.isInteger(value) ? Kind.Int : Kind.Float;
+            // As the CBOR codec writes them. `-0` is written as a float, and an int column
+            // would lose the sign it is the whole of; an integral number too large for an i64
+            // is a float there too, and an int column would wrap it.
+            if (!Number.isInteger(value) || Object.is(value, -0)) return Kind.Float;
+            return value >= -(2 ** 63) && value < 2 ** 63 ? Kind.Int : Kind.Float;
     }
 
     if (value instanceof SizedNumber) return SIZED.get(value.constructor as never) ?? Kind.Dynamic;
@@ -113,14 +120,16 @@ export function deriveShape(rows: readonly unknown[]): Shape | undefined {
 
     const seen = new Map<string, Observed>();
 
-    for (const row of rows) {
+    for (let at = 0; at < rows.length; at++) {
+        const row = rows[at];
         if (!isPlainObject(row)) return undefined;
 
+        // A key first seen here is one every row before it went without, so it is already
+        // known to be absent somewhere; a key seen before and missing here becomes so now
         for (const [name, value] of Object.entries(row)) {
-            observe(seen, name, value);
+            observe(seen, name, value, at);
         }
 
-        // A key some other row holds and this one does not is absent here
         if (seen.size > MAX_COLUMNS) return undefined;
         for (const [name, observed] of seen) {
             if (!Object.hasOwn(row, name)) observed.absent = true;
@@ -132,14 +141,16 @@ export function deriveShape(rows: readonly unknown[]): Shape | undefined {
     return layout(seen);
 }
 
-function observe(seen: Map<string, Observed>, name: string, value: unknown): void {
+function observe(seen: Map<string, Observed>, name: string, value: unknown, at: number): void {
     let observed = seen.get(name);
     if (!observed) {
         observed = {
             kinds: new Set(),
             element: undefined,
             table: undefined,
-            absent: false,
+            // Row 0 is the first chance to hold a key; a key which turns up later was missing
+            // from every row before it, so the column has to allow being absent
+            absent: at > 0,
             null: false,
             none: false,
         };
@@ -257,16 +268,6 @@ function presenceWidthOf(flags: number): number {
     return set === (MAY_BE_ABSENT | MAY_BE_NULL) ? 2 : 1;
 }
 
-/** Orders names by the bytes of their UTF-8, which is what a shape's order means */
-function byUtf8(a: string, b: string): number {
-    const x = UTF8.encode(a);
-    const y = UTF8.encode(b);
-
-    for (let i = 0; i < Math.min(x.length, y.length); i++) {
-        const diff = (x[i] as number) - (y[i] as number);
-        if (diff !== 0) return diff;
-    }
-    return x.length - y.length;
-}
-
-const UTF8 = new TextEncoder();
+/** The bounds of a SurrealDB `int`, which is an i64 */
+const I64_MIN = -(2n ** 63n);
+const I64_MAX = 2n ** 63n - 1n;

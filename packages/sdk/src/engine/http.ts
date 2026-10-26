@@ -84,6 +84,12 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
      */
     #shapedUnavailable = false;
 
+    /**
+     * Whether an answer has come back written in `shaped`, which is the only thing which shows
+     * the server was built with the format and so reads a block in a request body.
+     */
+    #shapedConfirmed = false;
+
     features = new Set([
         Features.RefreshTokens,
         Features.Api,
@@ -103,6 +109,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         this._state = state;
         this.#cbor2 = false;
         this.#shapedUnavailable = false;
+        this.#shapedConfirmed = false;
         setTimeout(() => {
             this.#publisher.publish("connected");
         });
@@ -293,8 +300,14 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
                 id,
                 ...request,
             },
-            // The body is always CBOR; only the answer is ever shaped.
-            codec: cborCodec(codecs, this.#cbor2),
+            // The server reads a block wherever a request holds a value, but only a build with
+            // the format does, and nothing in a `cbor.2` answer says whether this one has it.
+            // An answer which came back shaped does, so bodies are written as blocks only
+            // after that; until then they are CBOR, which every server reads.
+            codec:
+                this.#shapedConfirmed && codecs.shaped
+                    ? codecs.shaped
+                    : cborCodec(codecs, this.#cbor2),
             headers: codecs.cbor2
                 ? {
                       "Content-Type": this.#cbor2 ? CBOR2_MEDIA_TYPE : CBOR_MEDIA_TYPE,
@@ -319,6 +332,9 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
 
         // A shaped answer is written in cbor.2, so a server which gives one speaks that too
         if ((cbor2 || shaped) && codecs.cbor2 && state === this._state) this.#cbor2 = true;
+
+        // And a server which writes blocks is one built with the format, so it reads them too
+        if (shaped && state === this._state) this.#shapedConfirmed = true;
 
         // A server built without the format answers a shaped Accept in plain cbor rather than
         // refusing it, which widens that answer's sized numbers. Nothing says so but the answer

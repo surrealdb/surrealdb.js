@@ -982,9 +982,16 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             }
 
             // Every notification of one live query shares a scope, for the life of the
-            // subscription on this connection.
+            // subscription on this connection. A block always reads as a list of rows, and a
+            // notification carries one record rather than a list, so the single row it holds
+            // is the value: without this a subscriber would be handed `[record]` where the
+            // CBOR connection hands it `record`.
             const result = this.#shaped()
-                ? (this.#readBlocks({ result: frame.result }, live) as { result: unknown }).result
+                ? unwrapRow(
+                      (this.#readBlocks({ result: frame.result }, live) as { result: unknown })
+                          .result,
+                      frame.result,
+                  )
                 : frame.result;
 
             this.#live.dispatch(live, {
@@ -1014,6 +1021,19 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             key === undefined ? new BlockReader() : this.#scopes.get(key),
         );
     }
+}
+
+/**
+ * The one row `read` holds, for a notification whose value a block carried.
+ *
+ * A block is always read as a list of rows, but a notification's `result` is one record, so a
+ * block which carried one is a block of one row. Anything else is handed back as it came:
+ * `original` when the value was never a block at all, and the list itself when the server sent
+ * a row count this does not expect, which is better than guessing at which row was meant.
+ */
+function unwrapRow(read: unknown, original: unknown): unknown {
+    if (read === original || !Array.isArray(read)) return read;
+    return read.length === 1 ? read[0] : read;
 }
 
 /**
