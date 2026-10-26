@@ -11,7 +11,7 @@ import {
     ROOT_VALUE,
 } from "./constants.ts";
 import { fixedWidth, hasOverflow, isElement, isVar, Kind, kindOf } from "./kinds.ts";
-import { ByteReader, refuse } from "./reader.ts";
+import { ByteReader, ByteWriter, refuse } from "./reader.ts";
 
 /** One column of a shape, as the SHAPE message lists it */
 export interface Column {
@@ -241,6 +241,54 @@ export class Shape {
     /** The remainder slot of `node`, or of the root when it is `undefined` */
     rest(node: number | undefined): number {
         return node === undefined ? this.rootRest : (this.columns[node] as Column).rest;
+    }
+
+    /**
+     * A shape built from its parts, checked by the same rules a shape read off the wire is.
+     * A shape derived from values to send goes through here, so a shape this SDK writes can
+     * never be one it would refuse to read.
+     */
+    static of(def: {
+        root?: number;
+        presenceBits?: number;
+        fixedSize?: number;
+        varCount?: number;
+        rootRest?: number;
+        columns?: Column[];
+    }): Shape {
+        return new Shape(
+            def.root ?? ROOT_OBJECT,
+            def.presenceBits ?? 0,
+            def.fixedSize ?? 0,
+            def.varCount ?? 0,
+            def.rootRest ?? NO_SLOT,
+            def.columns ?? [],
+        );
+    }
+
+    /** The SHAPE payload of this shape, past its shape id */
+    encode(): Uint8Array {
+        const out = new ByteWriter()
+            .u8(this.root)
+            .u32(this.presenceBits)
+            .u32(this.fixedSize)
+            .u32(this.varCount)
+            .u32(this.rootRest)
+            .u32(this.columns.length);
+
+        for (const column of this.columns) {
+            out.u16Text(column.name)
+                .u8(column.kind)
+                .u8(column.element ?? 0)
+                .u8(column.flags)
+                .u32(column.presence)
+                .u32(column.slot)
+                .u16Text(column.table)
+                .u32(column.children)
+                .u32(column.rest);
+        }
+
+        return out.bytes;
     }
 
     /** Reads a shape from a SHAPE payload past its shape id, which it must fill exactly */

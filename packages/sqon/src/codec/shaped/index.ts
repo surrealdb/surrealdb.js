@@ -1,5 +1,5 @@
 export { BlockReader, decodeRow, ShapedBlock } from "./block.ts";
-export { ShapedCodec } from "./codec.ts";
+export { BLOCK_THRESHOLD, ShapedCodec, type ShapedCodecOptions } from "./codec.ts";
 export {
     MAX_COLUMNS,
     MAX_DEPTH,
@@ -11,6 +11,8 @@ export {
     SHAPED_TAG,
     VERSION as SHAPED_VERSION,
 } from "./constants.ts";
+export { deriveShape } from "./derive.ts";
 export { Kind } from "./kinds.ts";
 export { type Column, Shape } from "./shape.ts";
 export type { DynamicDecoder } from "./values.ts";
+export { type DynamicEncoder, writeBlock, writeRow } from "./write.ts";

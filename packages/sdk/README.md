@@ -590,6 +590,17 @@ Over WebSocket, a shape announced in one `query_stream` frame holds for the
 frames after it, and the notifications of one live query share a shape for the
 life of the subscription, so a long stream pays for its shape once.
 
+It works in both directions. The server reads a block wherever a CBOR request
+holds a value, so a long array of records — the rows of an `INSERT`, a large
+query variable — is sent as a block too. The SDK is never told the schema of
+what you send, so it derives a shape from the values themselves; anything no
+column can describe goes in a dynamic column, which holds one CBOR item.
+
+A shape is not always a saving. It gives every column a fixed width, so a
+column of small integers takes eight bytes a row where CBOR takes one. The SDK
+measures a sample of the rows both ways and sends a block only when it comes
+out smaller, so turning this on cannot make a request larger.
+
 It is off by default because asking for it costs something against a server
 which does not offer it, and every server before 4.0 is one:
 

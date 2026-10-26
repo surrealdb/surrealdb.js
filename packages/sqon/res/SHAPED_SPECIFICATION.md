@@ -195,10 +195,40 @@ Row 1 is what a hidden field looks like too. Nothing distinguishes "this row has
 
 | file | what it owns |
 |---|---|
-| `reader.ts` | `ByteReader`, a cursor with one method per kind of number; `Slices`, a run of slices addressed by an ends table |
+| `reader.ts` | `ByteReader` and `ByteWriter`, cursors with one method per kind of number; `Slices`, a run of slices addressed by an ends table |
 | `kinds.ts` | the kind codes and what each one implies: width, fixed or var, usable as an array element |
-| `shape.ts` | parsing a SHAPE payload and checking it once, so rows need not be re-checked |
-| `row.ts` | one row: presence states, the fixed region, the var slices, and assembling a node |
-| `values.ts` | one value of a kind — shared by a column's slot and an array's element |
+| `shape.ts` | a shape: building one, checking it once, and reading or writing its SHAPE payload |
+| `row.ts` | reading one row: presence states, the fixed region, the var slices, assembling a node |
+| `values.ts` | reading one value of a kind — shared by a column's slot and an array's element |
+| `derive.ts` | working out the shape of rows which are about to be sent |
+| `write.ts` | writing rows into a block |
 | `block.ts` | the message framing, and the scope which holds announced shapes |
-| `codec.ts` | `cbor.2` plus tag 57 |
+| `codec.ts` | `cbor.2` plus tag 57, and deciding when a block is worth sending |
+
+## Writing
+
+Blocks go both ways. The server emits one only on the `shaped` format, but it
+**accepts** one in a request on every CBOR format, wherever a request holds a
+value — an RPC parameter, a query variable. A block in a request decodes to the
+array of its rows, which are then held to exactly the rules a plain CBOR request
+is held to. Two limits apply: a block cannot nest, because a dynamic slice is
+read as strict CBOR which refuses tag 57, and a block cannot be a record id key.
+
+The server shapes rows it has not seen yet, so it fits each row to the shape in
+hand and widens or re-announces when one does not fit. A client already holds
+the whole array, so `deriveShape` reads every row once to learn the union of
+what they hold — which keys appear, which are ever missing, `NULL` or `NONE`,
+and whether their kinds agree — and then writes them all in one shape. One
+SHAPE, one BATCH, no joining and no re-announcement.
+
+Where rows disagree, or hold something no column describes (a nested object, a
+ragged array, a set, a geometry), the column becomes `dynamic` and carries one
+CBOR item. So a shape is always possible for an array of objects; it just stops
+being worth sending when most of it is dynamic.
+
+**A shape is not always smaller.** Every column has a fixed width, so a column
+of small integers costs eight bytes a row where CBOR costs one or two. The
+server does not meet this, because its shapes come from a table's field
+definitions over rows already stored in that layout. A client deriving a shape
+from the values in hand does, so `ShapedCodec.block` writes a sample of the rows
+both ways and keeps the block only when it actually won.
