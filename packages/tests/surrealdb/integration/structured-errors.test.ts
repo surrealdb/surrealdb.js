@@ -85,7 +85,7 @@ describe.if(is3x)("structured server errors", () => {
         if (!res.success) {
             const e = res.error;
             expect(e).toBeInstanceOf(ServerError);
-            // 3.3.0 reclassified a field which fails to coerce as the caller's mistake
+            // 4.0 reclassified a field which fails to coerce as the caller's mistake
             expect(e.kind).toBe(coercionIsValidation ? "Validation" : "Internal");
             expect(e.code).toBe(0);
             expect(e.message).toBe(
