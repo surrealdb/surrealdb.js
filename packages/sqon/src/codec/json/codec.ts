@@ -5,17 +5,28 @@ import {
     DateTime,
     Decimal,
     Duration,
+    F16,
+    F32,
     FileRef,
     Future,
     Geometry,
+    I8,
+    I16,
+    I32,
     Range,
     RecordId,
     RecordIdRange,
     type RecordIdValue,
+    SizedNumber,
     StringRecordId,
     Table,
+    U8,
+    U16,
+    U32,
+    U64,
     Uuid,
 } from "../../value/index.ts";
+import type { SizedNumberKind } from "../../value/sized.ts";
 import {
     createBoundExcluded,
     createBoundIncluded,
@@ -31,6 +42,7 @@ import {
     createRange,
     createRecordId,
     createSet,
+    createSized,
     createStringRecordId,
     createTable,
     createUuid,
@@ -51,7 +63,14 @@ import {
     isStringRecordId,
     isTable,
     isUuid,
+    sizedKind,
 } from "./values.ts";
+
+// A function rather than a map, as the sized number classes import this module
+const sizedClass = (kind: SizedNumberKind): (new (value: never) => SizedNumber) =>
+    ({ i8: I8, u8: U8, i16: I16, u16: U16, i32: I32, u32: U32, u64: U64, f16: F16, f32: F32 })[
+        kind
+    ];
 
 /**
  * A codec for encoding and decoding SurrealQL values using the SQON Json format.
@@ -137,6 +156,9 @@ export class JsonCodec implements ValueCodec<unknown> {
         if (value instanceof Geometry) {
             return createGeometry(value.toJSON());
         }
+        if (value instanceof SizedNumber) {
+            return createSized(value.kind, this.#encodeSized(value.value));
+        }
         if (value instanceof Set) {
             return createSet([...value].map((v) => this.#serialize(v)));
         }
@@ -170,6 +192,17 @@ export class JsonCodec implements ValueCodec<unknown> {
         }
 
         return value;
+    }
+
+    /** A number within ±2^53 as itself, and anything JSON cannot hold as a string */
+    #encodeSized(value: number | bigint): number | string {
+        if (typeof value === "bigint") {
+            return value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : value.toString();
+        }
+        if (Object.is(value, -0)) {
+            return "-0";
+        }
+        return Number.isFinite(value) ? value : String(value);
     }
 
     #encodeBound(bound: unknown): unknown {
@@ -258,6 +291,13 @@ export class JsonCodec implements ValueCodec<unknown> {
         }
         if (isFuture(obj)) {
             return this.#decodeValue(new Future(obj.$future));
+        }
+
+        const kind = sizedKind(obj);
+        if (kind) {
+            const arg = obj[`$${kind}`] as number | string;
+            const value = kind === "u64" ? BigInt(arg) : arg === "-0" ? -0 : Number(arg);
+            return this.#decodeValue(new (sizedClass(kind))(value as never));
         }
 
         return this.#decodeValue(

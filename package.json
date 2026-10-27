@@ -17,6 +17,7 @@
         "test:wasm": "bun run build:sdk && bun run build:wasm && cd packages/tests/surrealdb && SURREAL_BACKEND=wasm bun test --preload ./global-wasm.ts",
         "test:node": "bun run build:sdk && bun run build:node && cd packages/tests/surrealdb && SURREAL_BACKEND=node bun test --preload ./global-node.ts",
         "test:memory": "cd packages/tests/memory && bun test",
+        "test:conformance": "bun node_modules/@surrealdb/protocol/conformance/runner/cli.ts --driver 'bun node_modules/@surrealdb/protocol/conformance/examples/surrealdb-js/driver.ts'",
         "bench": "turbo bench",
         "bench:sqon": "turbo bench --filter=@surrealdb/sqon",
         "deploy:sdk": "turbo deploy --filter surrealdb --",

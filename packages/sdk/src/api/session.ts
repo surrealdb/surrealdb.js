@@ -337,6 +337,25 @@ export class SurrealSession extends SurrealQueryable {
     }
 
     /**
+     * Revoke a refresh token, so that it can never again be exchanged for new tokens.
+     *
+     * Without arguments, the refresh token of this session is revoked. No session renews its
+     * authentication with a revoked refresh token, including those forked from this one.
+     * Revoking leaves the access token in place, and the session is then treated as one without a
+     * refresh token: when the access token is about to expire, it is renewed with the
+     * `authentication` option of `connect()` if that applies, and otherwise the session is
+     * invalidated. Call `invalidate()` to sign out at once.
+     *
+     * Requires SurrealDB 3.0 or later.
+     *
+     * @param tokens The access and refresh token combination whose refresh token is revoked.
+     * Defaults to the tokens of this session.
+     */
+    revoke(tokens?: Tokens): Promise<void> {
+        return this.#connection.revoke(tokens, this.#session);
+    }
+
+    /**
      * Define a global variable for the current socket connection
      *
      * @param key Specifies the name of the variable

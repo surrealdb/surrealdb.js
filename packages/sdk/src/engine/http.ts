@@ -1,4 +1,4 @@
-import type { Uuid } from "@surrealdb/sqon";
+import { BlockReader, type ShapedCodec, type Uuid } from "@surrealdb/sqon";
 import {
     ConnectionUnavailableError,
     MissingNamespaceDatabaseError,
@@ -8,9 +8,18 @@ import {
 } from "../errors";
 import { throwIfAborted } from "../internal/abort";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
+import {
+    CBOR_MEDIA_TYPE,
+    CBOR2_MEDIA_TYPE,
+    cborCodec,
+    isCbor2MediaType,
+    isShapedMediaType,
+    SHAPED_MEDIA_TYPE,
+} from "../internal/cbor-format";
 import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal, readBody } from "../internal/http";
 import { parseRpcError } from "../internal/parse-error";
+import { resolveBlocks } from "../internal/shaped";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
 import type {
     AnyAuth,
@@ -43,20 +52,11 @@ const ALWAYS_ALLOW = new Set([
     "version",
     "query",
     "info",
-    "health",
 ]);
 
 // Requests which establish the credentials of a session, or which do not need any. These
 // never trigger the resolution of per-request credentials.
-const NEVER_RESOLVE = new Set([
-    "signin",
-    "signup",
-    "authenticate",
-    "refresh",
-    "revoke",
-    "version",
-    "health",
-]);
+const NEVER_RESOLVE = new Set(["signin", "signup", "authenticate", "refresh", "revoke", "version"]);
 
 interface SendOptions extends RequestOptions {
     /** Present this credential with the request, in place of the one of the session */
@@ -70,6 +70,25 @@ interface SendOptions extends RequestOptions {
  */
 export class HttpEngine extends RpcEngine implements SurrealEngine {
     #publisher = new Publisher<EngineEvents>();
+
+    /**
+     * Whether the server has answered in `cbor.2`. Until it has, requests are written in plain
+     * `cbor`, which every server reads, and ask for `cbor.2` back: a server before 4.0 answers in
+     * `cbor`, and one which speaks `cbor.2` turns this on.
+     */
+    #cbor2 = false;
+
+    /**
+     * Whether an answer has shown that the server does not write `shaped`, after which it is no
+     * longer asked for on this connection.
+     */
+    #shapedUnavailable = false;
+
+    /**
+     * Whether an answer has come back written in `shaped`, which is the only thing which shows
+     * the server was built with the format and so reads a block in a request body.
+     */
+    #shapedConfirmed = false;
 
     features = new Set([
         Features.RefreshTokens,
@@ -88,6 +107,9 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
 
     open(state: ConnectionState): void {
         this._state = state;
+        this.#cbor2 = false;
+        this.#shapedUnavailable = false;
+        this.#shapedConfirmed = false;
         setTimeout(() => {
             this.#publisher.publish("connected");
         });
@@ -96,6 +118,10 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
     async close(): Promise<void> {
         this._state = undefined;
         this.#publisher.publish("disconnected");
+    }
+
+    override health(): Promise<void> {
+        return this.requestHealthEndpoint();
     }
 
     ready(version?: string): void {
@@ -268,24 +294,77 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         }
 
         const id = this._context.uniqueId();
+        const codecs = this._context.codecs;
         const res = await fetchSurreal(this._context, state, session, {
             body: {
                 id,
                 ...request,
             },
+            // The server reads a block wherever a request holds a value, but only a build with
+            // the format does, and nothing in a `cbor.2` answer says whether this one has it.
+            // An answer which came back shaped does, so bodies are written as blocks only
+            // after that; until then they are CBOR, which every server reads.
+            codec:
+                this.#shapedConfirmed && codecs.shaped
+                    ? codecs.shaped
+                    : cborCodec(codecs, this.#cbor2),
+            // A shaped codec is a `cbor.2` codec with one tag added, so it can read a `cbor.2`
+            // answer on its own: a connection given a custom `shaped` but no `cbor2` still
+            // negotiates, where asking only about `cbor2` would have left it on plain `cbor`
+            // for ever and never used the codec it was given.
+            headers:
+                codecs.cbor2 || codecs.shaped
+                    ? {
+                          "Content-Type": this.#cbor2 ? CBOR2_MEDIA_TYPE : CBOR_MEDIA_TYPE,
+                          // Only a server from 4.0 admits an Accept which differs from
+                          // Content-Type, and only for these pairs; an earlier one answers 415.
+                          // So shaped is asked for only once an answer in cbor.2 has shown the
+                          // server to be 4.0, the same way cbor.2 is negotiated up from cbor.
+                          Accept:
+                              codecs.shaped && this.#cbor2 && !this.#shapedUnavailable
+                                  ? SHAPED_MEDIA_TYPE
+                                  : CBOR2_MEDIA_TYPE,
+                      }
+                    : undefined,
             token,
             resolve: !NEVER_RESOLVE.has(request.method),
             signal: options?.signal,
         });
+
+        const contentType = res.headers.get("Content-Type");
+        const shaped = !!codecs.shaped && isShapedMediaType(contentType);
+        const cbor2 = isCbor2MediaType(contentType);
+
+        // A shaped answer is written in cbor.2, so a server which gives one speaks that too
+        if ((cbor2 || shaped) && codecs.cbor2 && state === this._state) this.#cbor2 = true;
+
+        // And a server which writes blocks is one built with the format, so it reads them too
+        if (shaped && state === this._state) this.#shapedConfirmed = true;
+
+        // A server built without the format answers a shaped Accept in plain cbor rather than
+        // refusing it, which widens that answer's sized numbers. Nothing says so but the answer
+        // itself, so the ask stops after the first one which comes back in neither format.
+        if (!shaped && !cbor2 && codecs.shaped && this.#cbor2 && state === this._state) {
+            this.#shapedUnavailable = true;
+        }
 
         const buffer = await readBody(res, options?.signal);
 
         let response: RpcResponse<Result>;
 
         try {
-            response = wrapSqonError(() =>
-                this._context.codecs.cbor.decode<RpcResponse<Result>>(new Uint8Array(buffer)),
-            );
+            response = wrapSqonError(() => {
+                const bytes = new Uint8Array(buffer);
+                if (!shaped) {
+                    return cborCodec(codecs, cbor2).decode<RpcResponse<Result>>(bytes);
+                }
+
+                // One HTTP response is one scope: nothing follows it which could name a shape
+                // it announced.
+                const codec = codecs.shaped as ShapedCodec;
+                const decoded = codec.decode<RpcResponse<Result>>(bytes);
+                return resolveBlocks(decoded, codec, new BlockReader()) as RpcResponse<Result>;
+            });
         } catch (error) {
             if (error instanceof SurrealSqonError) {
                 throw error;

@@ -7,6 +7,7 @@ import {
     Geometry,
     Range,
     RecordId,
+    SizedNumber,
     StringRecordId,
     Table,
     Uuid,
@@ -34,6 +35,15 @@ export function toSurqlString(input: unknown): string {
         if (input instanceof Geometry) return toSurqlString(input.toJSON());
 
         if (input instanceof Decimal) return `${input.toJSON()}dec`;
+
+        // SurrealDB 4.0's literals: 5u8, 1.5f32, and a cast for what has no literal
+        if (input instanceof SizedNumber) {
+            const value = input.value;
+            if (typeof value === "number" && (!Number.isFinite(value) || Object.is(value, -0))) {
+                return `<${input.kind}>${Object.is(value, -0) ? "-0.0" : value}`;
+            }
+            return `${value}${input.kind}`;
+        }
 
         if (
             input instanceof Duration ||

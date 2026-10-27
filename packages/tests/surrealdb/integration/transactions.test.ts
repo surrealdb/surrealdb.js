@@ -25,7 +25,7 @@ import {
     SURREAL_PROTOCOL,
 } from "./__helpers__";
 
-const { is2x, is3x, structuredConflicts } = await requestVersion();
+const { is2x, is3x, returnIsAValue, structuredConflicts } = await requestVersion();
 
 interface Person {
     id: RecordId<"person">;
@@ -399,21 +399,24 @@ describe.if(is3x)("transaction() on SurrealDB 3", async () => {
         );
     });
 
-    test("a RETURN ends a transaction early, which is why transaction() does not allow one", async () => {
-        const surreal = await createSurreal();
-        await surreal.query(/* surql */ `DEFINE TABLE person SCHEMALESS`);
+    test.if(!returnIsAValue)(
+        "a RETURN ends a transaction early, which is why transaction() does not allow one",
+        async () => {
+            const surreal = await createSurreal();
+            await surreal.query(/* surql */ `DEFINE TABLE person SCHEMALESS`);
 
-        // The statements after the RETURN are skipped, yet this still commits
-        const responses = await surreal
-            .query("BEGIN; CREATE person:a; RETURN 1; CREATE person:b; COMMIT;")
-            .responses();
+            // The statements after the RETURN are skipped, yet this still commits
+            const responses = await surreal
+                .query("BEGIN; CREATE person:a; RETURN 1; CREATE person:b; COMMIT;")
+                .responses();
 
-        expect(responses.every((r) => r.success)).toBeTrue();
+            expect(responses.every((r) => r.success)).toBeTrue();
 
-        const people = await surreal.select<Person>(new Table("person"));
+            const people = await surreal.select<Person>(new Table("person"));
 
-        expect(people.map((p) => p.id.id)).toEqual(["a"]);
-    });
+            expect(people.map((p) => p.id.id)).toEqual(["a"]);
+        },
+    );
 
     describe("retry", () => {
         test("is off by default", async () => {
@@ -614,5 +617,28 @@ describe.if(is3x)("transaction() on SurrealDB 3", async () => {
                 expect((error as ServerError).message).toMatch(/conflict/i);
             }
         });
+    });
+});
+
+// From SurrealDB 3.4, a RETURN at the top level of a transaction is a value statement rather
+// than an early exit.
+describe.if(returnIsAValue)("transaction() from SurrealDB 3.4", async () => {
+    test("a RETURN in a transaction is a value and later statements still run", async () => {
+        const surreal = await createSurreal();
+        await surreal.query(/* surql */ `DEFINE TABLE person SCHEMALESS`);
+
+        // The RETURN is a statement of its own with its value as its result, and the statements
+        // after it run and commit: BEGIN, CREATE, RETURN, CREATE and COMMIT take a slot each
+        const responses = await surreal
+            .query("BEGIN; CREATE person:a; RETURN 1; CREATE person:b; COMMIT;")
+            .responses();
+
+        expect(responses).toHaveLength(5);
+        expect(responses.every((r) => r.success)).toBeTrue();
+        expect(responses[2].success && responses[2].result).toBe(1);
+
+        const people = await surreal.select<Person>(new Table("person"));
+
+        expect(people.map((p) => p.id.id)).toEqual(["a", "b"]);
     });
 });
