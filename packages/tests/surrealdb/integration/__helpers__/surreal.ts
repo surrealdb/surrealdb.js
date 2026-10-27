@@ -105,6 +105,14 @@ export async function requestVersion(): Promise<{
     returnIsAValue: boolean;
     /** Whether the version reports a transaction conflict as a structured error (3.1.0 and later) */
     structuredConflicts: boolean;
+    /**
+     * Whether a field which fails to coerce is reported as a Validation error rather than an
+     * Internal one (3.3.0 and later, 4.0 included).
+     *
+     * Checked against 3.0.0, which reports Internal, and 3.3.4 and 4.0 nightly, which report
+     * Validation with `details.kind` of `InvalidRequest`; 3.1 and 3.2 were not checked.
+     */
+    coercionIsValidation: boolean;
 }> {
     let output: string;
 
@@ -128,6 +136,9 @@ export async function requestVersion(): Promise<{
     const structuredConflicts = satisfies(version, ">=3.1.0-0", {
         includePrerelease: true,
     });
+    const coercionIsValidation = satisfies(version, ">=3.3.0-0", {
+        includePrerelease: true,
+    });
 
     return {
         version,
@@ -135,6 +146,7 @@ export async function requestVersion(): Promise<{
         is3x,
         returnIsAValue,
         structuredConflicts,
+        coercionIsValidation,
     };
 }
 

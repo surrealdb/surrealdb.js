@@ -9,7 +9,7 @@ import {
 } from "surrealdb";
 import { createSurreal, requestVersion, SURREAL_BACKEND } from "./__helpers__";
 
-const { is3x } = await requestVersion();
+const { is3x, coercionIsValidation } = await requestVersion();
 
 describe.if(is3x)("structured server errors", () => {
     // --------------------------------------------------------- //
@@ -85,7 +85,8 @@ describe.if(is3x)("structured server errors", () => {
         if (!res.success) {
             const e = res.error;
             expect(e).toBeInstanceOf(ServerError);
-            expect(e.kind).toBe("Internal");
+            // 3.3.0 reclassified a field which fails to coerce as the caller's mistake
+            expect(e.kind).toBe(coercionIsValidation ? "Validation" : "Internal");
             expect(e.code).toBe(0);
             expect(e.message).toBe(
                 `Couldn't coerce value for field \`age\` of \`person:1\`: Expected \`int\` but found \`'not a number'\``,

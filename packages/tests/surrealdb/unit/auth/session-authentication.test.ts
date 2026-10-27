@@ -7,6 +7,7 @@ import {
     deferred,
 } from "../__helpers__/mock-fetch";
 import { closeSessionClients, connect, serve } from "../__helpers__/session-engine";
+import { sdkTimerDelays } from "../__helpers__/timers";
 
 afterEach(async () => {
     setSystemTime();
@@ -336,8 +337,7 @@ describe("per request authentication of a session", () => {
 
             await db.query("RETURN 1");
 
-            const delayed = spy.mock.calls.filter(([, ms]) => typeof ms === "number" && ms > 0);
-            expect(delayed).toHaveLength(0);
+            expect(sdkTimerDelays(spy)).toHaveLength(0);
         } finally {
             spy.mockRestore();
         }
