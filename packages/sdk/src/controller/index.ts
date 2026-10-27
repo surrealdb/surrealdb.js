@@ -1,4 +1,5 @@
 import { Uuid } from "@surrealdb/sqon";
+import type { ApiRequest } from "../api/api";
 import { createRemoteEngines } from "../engine";
 import {
     AuthenticationError,
@@ -23,6 +24,7 @@ import { relayIterable } from "../internal/relay";
 import { RequestCredentials } from "../internal/request-credentials";
 import { RetryContext } from "../internal/retry";
 import { fastParseJwt, renewalDelay, tokenExpiry } from "../internal/tokens";
+import type { ApiResponse } from "../query/api";
 import type {
     AccessRecordAuth,
     AnyAuth,
@@ -573,6 +575,23 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         );
     }
 
+    api<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): Promise<ApiResponse<T>> {
+        const engine = this.#engine;
+        if (!engine) throw new ConnectionUnavailableError();
+        this.assertFeature(Features.Api);
+        return this.#whenAuthenticated(
+            session,
+            () => engine.api<T>(path, request, session, txn, options),
+            options?.signal,
+        );
+    }
+
     query<T>(
         query: BoundQuery,
         session: Session,
@@ -690,6 +709,27 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         }
 
         return engine.exportMlModelAs(options, request);
+    }
+
+    /**
+     * Invoke a custom API as a different identity than the one of the session, for this call
+     * only. See `importSqlAs()`.
+     */
+    apiAs<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        txn: Uuid | undefined,
+        options: CredentialedRequestOptions,
+    ): Promise<ApiResponse<T>> {
+        const engine = this.#credentialedEngine(options.credential);
+        this.assertFeature(Features.Api);
+
+        if (typeof engine.apiAs !== "function") {
+            throw new UnsupportedFeatureError(Features.PerRequestAuth);
+        }
+
+        return engine.apiAs<T>(path, request, session, txn, options);
     }
 
     /**

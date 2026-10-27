@@ -34,8 +34,13 @@ export interface FetchSurrealOptions {
     signal?: AbortSignal;
     /** Reports how much of the body has been uploaded, where the runtime lets that be seen */
     uploadProgress?: ProgressCallback;
-    /** Statuses besides `200` which answer the request, returned for the caller to read */
-    answers?: readonly number[];
+    /**
+     * Statuses besides `200` which answer the request, returned for the caller to read. A `401`
+     * among them is the caller's too, and is not taken for a rejected credential and replayed.
+     */
+    answers?: (status: number) => boolean;
+    /** Return a redirect as the response, instead of following it */
+    manualRedirect?: boolean;
 }
 
 /**
@@ -147,15 +152,18 @@ export async function fetchSurreal(
     const headerMap: Record<string, string> = {
         "Content-Type": "application/cbor",
         Accept: "application/cbor",
-        ...options.headers,
     };
 
+    for (const [name, value] of Object.entries(options.headers ?? {})) {
+        setHeader(headerMap, name, value);
+    }
+
     if (session.namespace) {
-        headerMap["Surreal-NS"] = session.namespace;
+        setHeader(headerMap, "Surreal-NS", session.namespace);
     }
 
     if (session.database) {
-        headerMap["Surreal-DB"] = session.database;
+        setHeader(headerMap, "Surreal-DB", session.database);
     }
 
     endpoint.protocol = endpoint.protocol.replace("ws", "http");
@@ -227,7 +235,8 @@ export async function fetchSurreal(
     };
 
     const attempt = (bearer: Token | undefined): Promise<Response> => {
-        const headers = bearer ? { ...headerMap, Authorization: `Bearer ${bearer}` } : headerMap;
+        const headers = { ...headerMap };
+        if (bearer) setHeader(headers, "Authorization", `Bearer ${bearer}`);
         const method = options.method ?? "POST";
 
         if (xhrBody && progress) {
@@ -247,7 +256,7 @@ export async function fetchSurreal(
                 method,
                 headers,
                 body: bodyFor(),
-                ...(scoped ? { redirect: "manual" as const } : {}),
+                ...(scoped || options.manualRedirect ? { redirect: "manual" as const } : {}),
                 signal: options.signal,
                 // @ts-expect-error TS is dumb
                 duplex: "half",
@@ -264,7 +273,13 @@ export async function fetchSurreal(
     // it is safe to ask for a new credential and send the request again, once, whatever the
     // request does. A body which has been streamed out cannot be sent again. Abandoning the
     // request ends the wait for the new credential, and the replay, like anything else.
-    if (response.status === 401 && source && token && !(encodedBody instanceof ReadableStream)) {
+    if (
+        response.status === 401 &&
+        !options.answers?.(401) &&
+        source &&
+        token &&
+        !(encodedBody instanceof ReadableStream)
+    ) {
         const renewed = await resolveToken(source, session.id, token, options.signal);
 
         if (renewed && renewed !== token) {
@@ -273,7 +288,7 @@ export async function fetchSurreal(
         }
     }
 
-    if (response.status === 200 || options.answers?.includes(response.status)) {
+    if (response.status === 200 || options.answers?.(response.status)) {
         return response;
     }
 
@@ -517,5 +532,16 @@ function encodeBody(
         return body;
     }
 
-    return body ? new Uint8Array(wrapSqonError(() => codec.encode(body))) : undefined;
+    return body === undefined ? undefined : new Uint8Array(wrapSqonError(() => codec.encode(body)));
+}
+
+/**
+ * Set a header, replacing one of the same name whatever its case, under the spelling it already
+ * has, so that a header given by the caller replaces a default rather than being sent beside it.
+ */
+function setHeader(headers: Record<string, string>, name: string, value: string): void {
+    const lower = name.toLowerCase();
+    const existing = Object.keys(headers).find((key) => key.toLowerCase() === lower);
+
+    headers[existing ?? name] = value;
 }

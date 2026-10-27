@@ -1049,6 +1049,36 @@ When using the embedded engine, call `.close()` when you are done to shut down t
 | Utilities | `equals`, `jsonify`, `escapeIdent`, `s`, `d`, `r`, `u` string prefixes |
 | Errors | SDK error classes and `parseRpcError` for RPC failures |
 
+## Calling custom APIs without query access
+
+Remote connections call custom APIs through `/api/:namespace/:database/...` when anonymous or record queries are disabled:
+
+```ts
+const db = new Surreal();
+await db.connect("https://database.example.com", {
+    namespace: "app",
+    database: "production",
+});
+const result = await db.api().get("/hello").value();
+await db.api().post("/users", { name: "Ada" });
+```
+
+HTTP and WebSocket connections call the API endpoint directly, with your selected namespace, database, and credentials, so no query access is needed. Embedded connections, and API calls made inside a transaction, use `api::invoke` instead. The API route and endpoint permissions must allow the caller.
+
+Bodies use CBOR by default. Configure endpoint middleware to parse requests and serialize responses:
+
+```surql
+DEFINE API '/users' FOR post
+    MIDDLEWARE api::req::body('cbor'), api::res::body('cbor')
+    THEN { RETURN { status: 201, body: $request.body }; };
+```
+
+Set `Content-Type: application/json` with `.header()` to send JSON instead. Response bodies are decoded according to their `Content-Type`: CBOR, JSON, text, or otherwise `Uint8Array`. Empty bodies return `undefined`. GET requests cannot carry bodies, so use `.post()` or set `method: "post"` for an endpoint that takes a body.
+
+`.compile()` and `.stream()` still run `api::invoke` as a query, as does an API builder passed to `db.query([...])`, so they need query access.
+
+On a WebSocket connection, an API call is a separate HTTP request. It does not see server-side session variables, your proxy must forward the `/api` route, and in browsers CORS rules apply. An API-only anonymous client should connect over HTTP, because server restrictions can block WebSocket session setup. API 401 responses are returned as they are, without renewing and replaying credentials, because the handler may already have written data.
+
 ## Supported environments
 
 - [Node.js](https://nodejs.org)

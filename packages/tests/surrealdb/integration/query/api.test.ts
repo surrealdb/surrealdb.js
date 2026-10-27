@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { UnsuccessfulApiError } from "surrealdb";
+import { Features, RecordId, UnsuccessfulApiError } from "surrealdb";
 import { createSurreal, defineMockApi, proto, requestVersion } from "../__helpers__";
 
 type ExamplePaths = {
@@ -22,7 +22,7 @@ describe.if(is3x)("api", async () => {
             foo: "bar",
         };
 
-        const res = await api.invoke<Payload, Payload>("/identity", { body });
+        const res = await api.invoke<Payload, Payload>("/identity", { body, method: "post" });
 
         expect(res).toMatchObject({
             body,
@@ -108,13 +108,15 @@ describe.if(is3x)("api", async () => {
         };
 
         // Successful
-        const res = await api.invoke<Payload, Payload>("/identity", { body }).value();
+        const res = await api
+            .invoke<Payload, Payload>("/identity", { body, method: "post" })
+            .value();
 
         expect(res.foo).toEqual("bar");
 
         // Unsuccessful
         expect(async () => {
-            await api.invoke<Payload, Payload>("/error", { body }).value();
+            await api.invoke<Payload, Payload>("/error", { body, method: "post" }).value();
         }).toThrow(UnsuccessfulApiError);
     });
 
@@ -130,6 +132,30 @@ describe.if(is3x)("api", async () => {
             headers: {},
             status: 200,
         });
+    });
+
+    test("joins the transaction it is invoked in", async () => {
+        const surreal = await createSurreal();
+        if (!surreal.isFeatureSupported(Features.Transactions)) return;
+
+        await surreal.query(`
+            DEFINE TABLE person SCHEMALESS;
+            DEFINE API '/touch' FOR get THEN {
+                CREATE person:api;
+                RETURN { status: 200, body: true };
+            };
+        `);
+
+        const txn = await surreal.beginTransaction();
+        const res = await txn.api().get("/touch");
+
+        expect(res.status).toBe(200);
+        expect(await txn.select(new RecordId("person", "api"))).toBeDefined();
+        expect(await surreal.select(new RecordId("person", "api"))).toBeUndefined();
+
+        await txn.cancel();
+
+        expect(await surreal.select(new RecordId("person", "api"))).toBeUndefined();
     });
 
     test("compile", async () => {

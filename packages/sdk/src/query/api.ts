@@ -1,13 +1,22 @@
 import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
 import { SurrealError, UnsuccessfulApiError } from "../errors";
-import { type AbortOptions, addSignal, assertTimeout } from "../internal/abort";
+import {
+    type AbortOptions,
+    type AbortScope,
+    abortScope,
+    addSignal,
+    assertTimeout,
+    raceAbort,
+    throwIfAborted,
+} from "../internal/abort";
+import { apiInvocation } from "../internal/api-invocation";
 import { assertCredential } from "../internal/auth-provider";
 import { DispatchedPromise } from "../internal/dispatched-promise";
-import type { MaybeJsonify } from "../internal/maybe-jsonify";
+import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
 import { validateWith } from "../internal/standard-schema";
 import type { AuthOrToken, Session, StandardSchemaV1 } from "../types";
-import { type BoundQuery, surql } from "../utils";
+import type { BoundQuery } from "../utils";
 import type { Frame } from "../utils/frame";
 import { Query } from "./query";
 
@@ -63,8 +72,8 @@ export class ApiPromise<
      * This is useful when query results need to be serialized. Keep in mind
      * that your responses will lose SurrealDB type information.
      */
-    json(): ApiPromise<Req, Res, true> {
-        return new ApiPromise<Req, Res, true>(this.#connection, {
+    json(): ApiPromise<Req, Res, V, true> {
+        return new ApiPromise<Req, Res, V, true>(this.#connection, {
             ...this.#options,
             json: true,
         });
@@ -96,8 +105,8 @@ export class ApiPromise<
      * @param name The name of the header to append.
      * @param value The value of the header to append.
      */
-    header(name: string, value: string): ApiPromise<Req, Res, J> {
-        return new ApiPromise<Req, Res, J>(this.#connection, {
+    header(name: string, value: string): ApiPromise<Req, Res, V, J> {
+        return new ApiPromise<Req, Res, V, J>(this.#connection, {
             ...this.#options,
             headers: { ...this.#options.headers, [name]: value },
         });
@@ -110,8 +119,8 @@ export class ApiPromise<
      * @param value The value of the query parameter to append.
      * @returns A new ApiPromise instance.
      */
-    query(name: string, value: string): ApiPromise<Req, Res, J> {
-        return new ApiPromise<Req, Res, J>(this.#connection, {
+    query(name: string, value: string): ApiPromise<Req, Res, V, J> {
+        return new ApiPromise<Req, Res, V, J>(this.#connection, {
             ...this.#options,
             query: { ...this.#options.query, [name]: value },
         });
@@ -221,7 +230,8 @@ export class ApiPromise<
     }
 
     /**
-     * Compile this qurery into a BoundQuery
+     * Compile an explicit `api::invoke` SQL query. Executing this compiled query requires
+     * query access, including on remote connections whose API calls normally use HTTP.
      */
     compile(): BoundQuery<[ApiResponse<Res>]> {
         return this.#build().inner;
@@ -254,7 +264,7 @@ export class ApiPromise<
             options = { ...options, body: body as Req };
         }
 
-        const [result] = await this.#build(options).collect();
+        const result = maybeJsonify(await this.#invoke(options), options.json);
 
         if (!("body" in result) || typeof result.status !== "number") {
             throw new SurrealError("Body or status was missing from the API response");
@@ -279,6 +289,38 @@ export class ApiPromise<
         return result as Collect<Res, V, J>;
     }
 
+    async #invoke(options: ApiOptions<Req>): Promise<ApiResponse<Res>> {
+        const { path, transaction, session, credential } = options;
+        const scope = abortScope(options.signals ?? []);
+        let request: AbortScope | undefined;
+
+        try {
+            throwIfAborted(scope.signal);
+            await raceAbort(this.#connection.ready(), scope.signal);
+
+            // The request timeout is measured from here, as it is for a query
+            request = abortScope(
+                [scope.signal],
+                options.requestTimeout ?? this.#connection.requestTimeout,
+            );
+            const { signal } = request;
+            throwIfAborted(signal);
+
+            return await raceAbort(
+                credential === undefined
+                    ? this.#connection.api<Res>(path, options, session, transaction, { signal })
+                    : this.#connection.apiAs<Res>(path, options, session, transaction, {
+                          signal,
+                          credential,
+                      }),
+                signal,
+            );
+        } finally {
+            request?.dispose();
+            scope.dispose();
+        }
+    }
+
     #build(options: ApiOptions<Req> = this.#options): Query<[ApiResponse<Res>], J> {
         const { path, body, method, headers, query, transaction, session, json } = options;
 
@@ -287,12 +329,7 @@ export class ApiPromise<
             transaction,
             json,
             session,
-            query: surql`api::invoke(${path}, ${{
-                body,
-                method,
-                headers,
-                query,
-            }})`,
+            query: apiInvocation(path, { body, method, headers, query }),
             signals: this.#options.signals,
             requestTimeout: this.#options.requestTimeout,
         });

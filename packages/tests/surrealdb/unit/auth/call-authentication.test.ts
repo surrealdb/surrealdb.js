@@ -15,6 +15,7 @@ import {
 } from "../../../../sdk/src";
 import { fetchSurreal } from "../../../../sdk/src/internal/http";
 import {
+    apiRequests,
     closeClients,
     connect,
     createFetchHarness,
@@ -270,7 +271,7 @@ describe("a call made as someone else", () => {
 
             await build(db);
 
-            const sent = queries(mock.calls);
+            const sent = name === "api" ? apiRequests(mock.calls) : queries(mock.calls);
 
             expect(sent).toHaveLength(1);
             expect(bearerOf(sent[0])).toBe("call-token");

@@ -1,16 +1,22 @@
-import type { Uuid } from "@surrealdb/sqon";
+import { jsonify, type Uuid } from "@surrealdb/sqon";
+import type { ApiRequest } from "../api/api";
 import {
     ConnectionUnavailableError,
     HttpConnectionError,
     ImportError,
+    MissingNamespaceDatabaseError,
+    SurrealError,
     UnexpectedServerResponseError,
 } from "../errors";
 import { raceAbort, throwIfAborted } from "../internal/abort";
+import { apiInvocation } from "../internal/api-invocation";
 import { buildRpcAuth } from "../internal/build-rpc-auth";
 import { getSessionFromState } from "../internal/get-session-from-state";
-import { fetchSurreal, releaseResponse } from "../internal/http";
+import { fetchSurreal, readBytes, releaseResponse } from "../internal/http";
 import { parseQueryError, type RpcQueryResultErrRaw } from "../internal/parse-error";
 import { statsFromTime } from "../internal/query-stats";
+import { wrapSqonError } from "../internal/wrap-sqon-error";
+import type { ApiResponse } from "../query/api";
 import type {
     AccessRecordAuth,
     AnyAuth,
@@ -43,6 +49,11 @@ const IMPORT_FAILED = 422;
 /** The most failures an `ImportError` carries, beyond which they are only counted */
 const KEPT_FAILURES = 100;
 
+/** A custom API answers with its own status, application errors included */
+const isApiStatus = (status: number) => status >= 200 && status < 600;
+
+const utf8 = new TextDecoder();
+
 /**
  * JSON-based engines implement the SurrealDB v1 protocol, which uses
  * JSON objects to communicate with the server.
@@ -55,6 +66,120 @@ export abstract class RpcEngine implements SurrealProtocol {
 
     constructor(context: DriverContext) {
         this._context = context;
+    }
+
+    /**
+     * Invoke a custom API by running `api::invoke` as a query, which works wherever queries do,
+     * inside a transaction as well. Engines which reach the server over HTTP override it with
+     * `apiOverHttp()`, which needs no query access.
+     */
+    async api<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): Promise<ApiResponse<T>> {
+        const invocation = apiInvocation(path, request);
+
+        for await (const chunk of this.query<ApiResponse<T>>(invocation, session, txn, options)) {
+            if (chunk.error) throw chunk.error;
+            return chunk.result?.[0] as ApiResponse<T>;
+        }
+
+        throw new UnexpectedServerResponseError(undefined);
+    }
+
+    /**
+     * Invoke a custom API through the `/api/:namespace/:database` endpoint of the server, as the
+     * session, or as the identity of the token when there is one. Unlike `api::invoke`, this is
+     * allowed for those who may not run queries.
+     */
+    protected async apiOverHttp<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        options?: RequestOptions,
+        token?: Token,
+    ): Promise<ApiResponse<T>> {
+        const state = this._state;
+        if (!state) throw new ConnectionUnavailableError();
+        const selected = getSessionFromState(state, session);
+        if (!selected.namespace || !selected.database) throw new MissingNamespaceDatabaseError();
+        if (isDotSegment(selected.namespace) || isDotSegment(selected.database)) {
+            throw new SurrealError("HTTP API namespace and database cannot be dot segments");
+        }
+        const method = (request.method ?? "get").toUpperCase();
+        if ((method === "GET" || method === "HEAD") && request.body !== undefined) {
+            throw new SurrealError("HTTP API requests with GET or HEAD cannot have a body");
+        }
+
+        const endpoint = new URL(state.url);
+        const basepath = endpoint.pathname.slice(0, -4);
+        // Encode every segment so path data cannot replace the origin, query, or fragment.
+        const segments = path.split("/").filter(Boolean);
+        if (segments.some(isDotSegment)) {
+            throw new SurrealError("HTTP API paths cannot contain dot segments");
+        }
+        endpoint.pathname = `${basepath}/api/${encodeURIComponent(selected.namespace)}/${encodeURIComponent(selected.database)}/${segments.map(encodeURIComponent).join("/")}`;
+        endpoint.search = "";
+        endpoint.hash = "";
+        for (const [name, value] of Object.entries(request.query ?? {})) {
+            endpoint.searchParams.set(name, value);
+        }
+
+        // A body which is not CBOR, the default, is sent as it is, as a Blob is
+        const headers = new Headers(request.headers);
+        const requestType = mediaType(headers.get("content-type")) ?? "application/cbor";
+        let payload = request.body;
+        if (
+            payload !== undefined &&
+            !(payload instanceof Blob) &&
+            requestType !== "application/cbor"
+        ) {
+            if (isJson(requestType)) {
+                payload = new Blob([JSON.stringify(jsonify(payload))]);
+            } else if (typeof payload === "string" || payload instanceof Uint8Array) {
+                payload = new Blob([payload]);
+            } else {
+                throw new SurrealError(
+                    "HTTP API bodies with this Content-Type must be a string, Uint8Array, or Blob",
+                );
+            }
+        }
+        const response = await fetchSurreal(this._context, state, selected, {
+            url: endpoint,
+            method,
+            body: payload,
+            headers: headerRecord(headers),
+            token,
+            signal: options?.signal,
+            answers: isApiStatus,
+            manualRedirect: true,
+        });
+        const bytes = await readBytes(response, options?.signal);
+        const responseType = mediaType(response.headers.get("content-type"));
+        let body: unknown;
+        if (bytes.length === 0) {
+            body = undefined;
+        } else if (responseType === "application/cbor") {
+            body = wrapSqonError(() => this._context.codecs.cbor.decode(bytes));
+        } else if (responseType && isJson(responseType)) {
+            try {
+                body = JSON.parse(utf8.decode(bytes));
+            } catch (cause) {
+                throw new SurrealError("The API response is not valid JSON", { cause });
+            }
+        } else if (responseType?.startsWith("text/")) {
+            body = utf8.decode(bytes);
+        } else {
+            body = bytes;
+        }
+        return {
+            body: body as T,
+            status: response.status,
+            headers: headerRecord(response.headers),
+        };
     }
 
     /**
@@ -285,7 +410,7 @@ export abstract class RpcEngine implements SurrealProtocol {
             token,
             signal: request?.signal,
             uploadProgress: request?.uploadProgress,
-            answers: reports ? [IMPORT_FAILED] : undefined,
+            answers: reports ? (status) => status === IMPORT_FAILED : undefined,
         });
 
         if (!reports) {
@@ -473,4 +598,25 @@ export abstract class RpcEngine implements SurrealProtocol {
         request: RpcRequest<Method, Params>,
         options?: RequestOptions,
     ): Promise<Result>;
+}
+
+function isDotSegment(segment: string): boolean {
+    return segment === "." || segment === "..";
+}
+
+/** The media type of a `Content-Type`, without its parameters */
+function mediaType(contentType: string | null): string | undefined {
+    return contentType?.split(";", 1)[0].trim().toLowerCase();
+}
+
+function isJson(type: string): boolean {
+    return type === "application/json" || type.endsWith("+json");
+}
+
+function headerRecord(headers: Headers): Record<string, string> {
+    const record: Record<string, string> = {};
+    headers.forEach((value, name) => {
+        record[name] = value;
+    });
+    return record;
 }

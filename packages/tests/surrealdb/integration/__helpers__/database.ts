@@ -1,4 +1,5 @@
-import { RecordId, type StringRecordId, type Surreal, surql, Table } from "surrealdb";
+import { RecordId, type StringRecordId, type Surreal, Table } from "surrealdb";
+import { SURREAL_PROTOCOL } from "./env";
 
 export const testTable: Table<"test"> = new Table("test");
 export const personTable: Table<"person"> = new Table("person");
@@ -26,46 +27,24 @@ export async function insertMockRecords(surreal: Surreal): Promise<void> {
     ]);
 }
 
-export async function defineMockApi(surreal: Surreal): Promise<void> {
-    await surreal.query(surql`
+export async function defineMockApi(
+    surreal: Surreal,
+    options: { http?: boolean } = {},
+): Promise<void> {
+    const remote = options.http ?? SURREAL_PROTOCOL !== "mem";
+    const output = remote ? "MIDDLEWARE api::res::body('cbor')" : "";
+    const input = remote ? "MIDDLEWARE api::req::body('cbor'), api::res::body('cbor')" : "";
+    await surreal.query(`
         DEFINE API '/identity'
-			FOR get
-                THEN {
-                    RETURN {
-						body: $request.body,
-						headers: $request.headers,
-					}
-                };
+            FOR get ${output}
+                THEN { RETURN { body: NONE, headers: $request.headers }; }
+            FOR post ${input}
+                THEN { RETURN { body: $request.body, headers: $request.headers }; };
+        DEFINE API '/nested/path' FOR get ${output}
+            THEN { RETURN { body: "nested" }; };
+        DEFINE API '/params' FOR get ${output}
+            THEN { RETURN { body: $request.query, headers: $request.headers }; };
+        DEFINE API '/error' FOR get
+            THEN { RETURN { status: 500 }; };
     `);
-
-    await surreal.query(surql`
-		DEFINE API '/nested/path'
-			FOR get
-				THEN {
-					RETURN {
-						body: "nested"
-					}
-				};
-	`);
-
-    await surreal.query(surql`
-		DEFINE API '/params'
-			FOR get
-				THEN {
-					RETURN {
-						body: $request.query,
-						headers: $request.headers,
-					}
-				};
-	`);
-
-    await surreal.query(surql`
-		DEFINE API '/error'
-			FOR get
-				THEN {
-					RETURN {
-						status: 500
-					}
-				};
-	`);
 }

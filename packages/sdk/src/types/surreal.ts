@@ -7,9 +7,11 @@ import type {
     Uuid,
     ValueCodec,
 } from "@surrealdb/sqon";
+import type { ApiRequest } from "../api/api";
 import type { ServerError } from "../errors";
 import type { Feature } from "../internal/feature";
 import type { ReconnectContext } from "../internal/reconnect";
+import type { ApiResponse } from "../query/api";
 import type { BoundQuery } from "../utils";
 import type { AccessRecordAuth, AnyAuth, AuthOrToken, AuthProvider, Token, Tokens } from "./auth";
 import type { Nullable } from "./helpers";
@@ -109,6 +111,15 @@ export interface SurrealProtocol {
         options?: RequestOptions,
     ): AsyncIterable<QueryChunk<T>>;
     liveQuery(id: Uuid): AsyncIterable<LiveMessage>;
+
+    // API operations
+    api<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): Promise<ApiResponse<T>>;
 }
 
 /**
@@ -243,6 +254,18 @@ export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEve
         options: MlExportOptions,
         request: CredentialedRequestOptions,
     ): Promise<Response | Uint8Array>;
+
+    /**
+     * Invoke a custom API as a different identity than the one of the session, for this call
+     * only. See `queryAs()`.
+     */
+    apiAs?<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        txn: Uuid | undefined,
+        options: CredentialedRequestOptions,
+    ): Promise<ApiResponse<T>>;
 }
 
 /**
@@ -458,7 +481,8 @@ export interface ConnectOptions {
      * to a transaction conflict under concurrent load.
      *
      * This default is used by the `transaction()` helper and by queries marked with `.retry()`.
-     * It is disabled by default; auto-retrying must be opted into explicitly because replaying
+     * Registering and killing live queries always retries a conflict, with these options, as
+     * neither does anything when it conflicts. It is disabled by default otherwise; auto-retrying must be opted into explicitly because replaying
      * a non-atomic, multi-statement query could apply some statements more than once.
      *
      * - When set to `false` (the default), no work is retried automatically.

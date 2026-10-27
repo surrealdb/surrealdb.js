@@ -353,7 +353,8 @@ describe("query() with an array", async () => {
 describe.if(is3x)("query() with an array and api()", async () => {
     test("can combine an api request with other queries", async () => {
         const surreal = await createSurreal();
-        await defineMockApi(surreal);
+        // Query batches compile API builders into SQL, whose bodies stay as native values.
+        await defineMockApi(surreal, { http: false });
 
         const [first, response] = await surreal.query<[1, { body: string }]>([
             "RETURN 1",

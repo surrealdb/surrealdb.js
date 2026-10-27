@@ -1,4 +1,5 @@
 import { BlockReader, RecordId, type ShapedCodec, Uuid, type ValueCodec } from "@surrealdb/sqon";
+import type { ApiRequest } from "../api/api";
 import {
     CallTerminatedError,
     ConnectionUnavailableError,
@@ -19,6 +20,7 @@ import {
 } from "../internal/query-stream";
 import { resolveBlocks, ShapeScopes } from "../internal/shaped";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
+import type { ApiResponse } from "../query/api";
 import type {
     LiveAction,
     LiveMessage,
@@ -503,6 +505,22 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 yield chunk;
             }
         }
+    }
+
+    /**
+     * Invoke a custom API through the HTTP endpoint of the server, as the HTTP engine does, so
+     * that it needs no query access. The socket has no method for it. A call inside a transaction
+     * is invoked in it instead, with `api::invoke`, because a request over HTTP cannot join it.
+     */
+    override api<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        txn?: Uuid,
+        options?: RequestOptions,
+    ): Promise<ApiResponse<T>> {
+        if (txn) return super.api<T>(path, request, session, txn, options);
+        return this.apiOverHttp<T>(path, request, session, options);
     }
 
     override liveQuery(id: Uuid): AsyncIterable<LiveMessage> {

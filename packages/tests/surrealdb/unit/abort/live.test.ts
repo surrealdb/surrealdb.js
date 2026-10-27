@@ -5,6 +5,7 @@ import {
     ConnectionUnavailableError,
     type LiveMessage,
     LiveSubscriptionError,
+    QueryError,
     RecordId,
     ServerError,
     type Surreal,
@@ -627,5 +628,62 @@ describe("a server sent events handler", () => {
         await Bun.sleep(5);
 
         expect(fake.log.kills).toHaveLength(20);
+    });
+});
+
+describe("live queries and transaction conflicts", () => {
+    const conflict = () =>
+        new QueryError({
+            message: "Transaction conflict: Resource busy. This transaction can be retried",
+            kind: "Query",
+            details: { kind: "TransactionConflict" },
+        });
+
+    test("a registration which conflicts with another is sent again", async () => {
+        const { db, engine } = await connect();
+        const fake = server(engine);
+        const register = engine.respond;
+        let conflicts = 1;
+
+        engine.respond = async (request, options) => {
+            if (String(request.params?.[0]).includes("LIVE SELECT") && conflicts-- > 0) {
+                throw conflict();
+            }
+
+            return register(request, options);
+        };
+
+        const subscription = await db.live(person);
+
+        expect(subscription.id).toEqual(fake.id);
+        expect(fake.log.registered).toBe(1);
+        expect(subscription.isAlive).toBe(true);
+    });
+
+    test("a kill which conflicts with another is sent again, and leaves nothing on the server", async () => {
+        const { db, engine } = await connect();
+        const fake = server(engine);
+        const errors: Error[] = [];
+        const controller = new AbortController();
+
+        db.subscribe("error", (error) => errors.push(error));
+        await db.withSignal(controller.signal).live(person);
+
+        const register = engine.respond;
+        let conflicts = 1;
+
+        engine.respond = async (request, options) => {
+            if (String(request.params?.[0]).includes("KILL") && conflicts-- > 0) {
+                throw conflict();
+            }
+
+            return register(request, options);
+        };
+
+        controller.abort();
+        await Bun.sleep(300);
+
+        expect(fake.log.kills).toHaveLength(1);
+        expect(errors).toEqual([]);
     });
 });

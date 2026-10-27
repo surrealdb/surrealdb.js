@@ -82,6 +82,9 @@ export async function connect(
 
 export const queries = (requests: MockRequest[]) =>
     requests.filter((r) => r.rpc?.method === "query");
+/** Requests to custom HTTP APIs, which do not pass through the query RPC. */
+export const apiRequests = (requests: MockRequest[]) =>
+    requests.filter((request) => new URL(request.url).pathname.startsWith("/api/"));
 export const signins = (requests: MockRequest[]) =>
     requests.filter((r) => r.rpc?.method === "signin");
 

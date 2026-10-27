@@ -1,4 +1,5 @@
 import { BlockReader, type ShapedCodec, type Uuid } from "@surrealdb/sqon";
+import type { ApiRequest } from "../api/api";
 import {
     ConnectionUnavailableError,
     MissingNamespaceDatabaseError,
@@ -21,6 +22,7 @@ import { fetchSurreal, readBody } from "../internal/http";
 import { parseRpcError } from "../internal/parse-error";
 import { resolveBlocks } from "../internal/shaped";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
+import type { ApiResponse } from "../query/api";
 import type {
     AnyAuth,
     AuthOrToken,
@@ -126,6 +128,33 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
 
     ready(version?: string): void {
         this._version = version;
+    }
+
+    override api<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        _txn?: Uuid,
+        options?: RequestOptions,
+    ): Promise<ApiResponse<T>> {
+        return this.apiOverHttp<T>(path, request, session, options);
+    }
+
+    /**
+     * Invoke a custom API as someone else. As for a query, the credential is presented with this
+     * request alone, and the session is neither used for authentication nor changed.
+     */
+    async apiAs<T>(
+        path: string,
+        request: ApiRequest<unknown>,
+        session: Session,
+        _txn: Uuid | undefined,
+        options: CredentialedRequestOptions,
+    ): Promise<ApiResponse<T>> {
+        const state = this._state;
+        if (!state) throw new ConnectionUnavailableError();
+        const token = await this.#present(options.credential, session, state, options.signal);
+        return this.apiOverHttp<T>(path, request, session, options, token);
     }
 
     /**

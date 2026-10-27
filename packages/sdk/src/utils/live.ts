@@ -13,6 +13,21 @@ function newKill(id: Uuid): BoundQuery {
 }
 
 /**
+ * Kill a live query on the server. Kills and registrations on the same table conflict with one
+ * another, so a kill which is reported as a conflict, and so did nothing, is retried, rather than
+ * leaving behind a live query which nobody is listening to.
+ */
+function killLive(controller: ConnectionController, session: Session, id: Uuid): Query {
+    return new Query(controller, {
+        query: newKill(id),
+        transaction: undefined,
+        session,
+        json: false,
+        retry: true,
+    });
+}
+
+/**
  * Whether an error means the connection is gone, and with it every live query it held, so that a
  * subscription being torn down has nothing left to kill.
  */
@@ -209,12 +224,7 @@ export class ManagedLiveSubscription<T = Record<string, unknown>> extends LiveSu
         this.#release(this.#stream);
 
         if (this.id) {
-            await new Query(this.#controller, {
-                query: newKill(this.id),
-                transaction: undefined,
-                session: this.#session,
-                json: false,
-            });
+            await killLive(this.#controller, this.#session, this.id);
         }
     }
 
@@ -251,12 +261,7 @@ export class ManagedLiveSubscription<T = Record<string, unknown>> extends LiveSu
 
     async #killRegistered(id: Uuid): Promise<void> {
         try {
-            await new Query(this.#controller, {
-                query: newKill(id),
-                transaction: undefined,
-                session: this.#session,
-                json: false,
-            });
+            await killLive(this.#controller, this.#session, id);
         } catch (err: unknown) {
             if (!isConnectionGone(err)) {
                 this.#controller.propagateError(new LiveSubscriptionError(err));
@@ -446,12 +451,7 @@ export class UnmanagedLiveSubscription<T = Record<string, unknown>> extends Live
         this.#stream?.return?.()?.catch(() => {});
 
         if (this.id) {
-            await new Query(this.#controller, {
-                query: newKill(this.id),
-                transaction: undefined,
-                session: this.#session,
-                json: false,
-            });
+            await killLive(this.#controller, this.#session, this.id);
         }
     }
 

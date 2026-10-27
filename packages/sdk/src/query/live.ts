@@ -178,6 +178,9 @@ export class ManagedLivePromise<T> extends DispatchedPromise<LiveSubscription<T>
             json: false,
             session,
             beforeSend,
+            // Registrations on the same table conflict with one another, and one which is
+            // reported as a conflict registered nothing, so it is sent again
+            retry: true,
         });
     }
 }
