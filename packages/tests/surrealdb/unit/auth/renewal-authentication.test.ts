@@ -480,3 +480,68 @@ describe("a renewal which fails", () => {
         expect(calls()).toBe(2);
     });
 });
+
+describe("a session which is closed before its renewal is due", () => {
+    /** Connect without any authentication, so that only the sessions of the test hold a token */
+    async function unauthenticated() {
+        clock = new FakeClock(START).install();
+
+        const { db, engine } = await connect(serve(), undefined, { expiryMargin: 10 });
+        const errors: Error[] = [];
+
+        db.subscribe("error", (error) => errors.push(error));
+
+        return { db, engine, errors };
+    }
+
+    test("leaves no renewal behind when it is closed", async () => {
+        const { db, engine, errors } = await unauthenticated();
+        const session = await db.newSession();
+
+        await session.authenticate(createJwtExpiringIn(100));
+        expect(timers()).toBe(1);
+
+        await session.closeSession();
+        expect(timers()).toBe(0);
+
+        const sent = engine.methods().length;
+
+        // Past when the renewal was due, and past the expiry of the token
+        await advance(600_000);
+        expect(errors).toHaveLength(0);
+        expect(engine.methods()).toHaveLength(sent);
+    });
+
+    test("leaves no renewal behind when it is disposed", async () => {
+        const { db, errors } = await unauthenticated();
+
+        {
+            await using fork = await db.forkSession();
+
+            await fork.authenticate(createJwtExpiringIn(100));
+            expect(timers()).toBe(1);
+        }
+
+        expect(timers()).toBe(0);
+
+        await advance(600_000);
+        expect(errors).toHaveLength(0);
+    });
+
+    test("leaves nothing behind when a session is made for every request", async () => {
+        const { db, errors } = await unauthenticated();
+
+        for (let request = 0; request < 100; request++) {
+            const session = await db.newSession();
+
+            await session.authenticate(createJwtExpiringIn(3600));
+            await session.query("RETURN 1");
+            await session.closeSession();
+        }
+
+        expect(timers()).toBe(0);
+
+        await advance(3_600_000);
+        expect(errors).toHaveLength(0);
+    });
+});
