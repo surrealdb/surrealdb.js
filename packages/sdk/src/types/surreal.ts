@@ -481,7 +481,8 @@ export interface ConnectOptions {
      * to a transaction conflict under concurrent load.
      *
      * This default is used by the `transaction()` helper and by queries marked with `.retry()`.
-     * It is disabled by default; auto-retrying must be opted into explicitly because replaying
+     * Registering and killing live queries always retries a conflict, with these options, as
+     * neither does anything when it conflicts. It is disabled by default otherwise; auto-retrying must be opted into explicitly because replaying
      * a non-atomic, multi-statement query could apply some statements more than once.
      *
      * - When set to `false` (the default), no work is retried automatically.
