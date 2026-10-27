@@ -29,6 +29,7 @@ import {
     type MockRequest,
     queryResult,
 } from "../__helpers__/mock-fetch";
+import { sdkTimerDelays } from "../__helpers__/timers";
 
 afterEach(async () => {
     setSystemTime();
@@ -164,8 +165,7 @@ describe("per request resolution", () => {
 
             await db.query("RETURN 1");
 
-            const delayed = spy.mock.calls.filter(([, ms]) => typeof ms === "number" && ms > 0);
-            expect(delayed).toHaveLength(0);
+            expect(sdkTimerDelays(spy)).toHaveLength(0);
         } finally {
             spy.mockRestore();
         }

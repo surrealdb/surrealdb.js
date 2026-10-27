@@ -40,6 +40,15 @@ export class InvalidDecimalError extends SqonError {
 }
 
 /**
+ * Thrown when a number does not fit the kind it is made or sent as: a sized number out of its
+ * range, an integer past the signed 64-bit range of a SurrealDB `int`, or CBOR which gives a
+ * number the wrong kind of content
+ */
+export class InvalidNumberError extends SqonError {
+    override name = "InvalidNumberError";
+}
+
+/**
  * Thrown when a Table or StringRecordId is constructed with an invalid value
  */
 export class InvalidTableError extends SqonError {
@@ -58,5 +67,18 @@ export class TextParseError extends SqonError {
     constructor(message: string, offset: number) {
         super(`${message} (at offset ${offset})`);
         this.offset = offset;
+    }
+}
+
+/**
+ * Thrown when shaped frame bytes cannot be read: a block whose version this decoder does not
+ * know, a shape which breaks the wire rules or passes a limit, or a row which does not fit the
+ * shape it names. The decoder refuses such bytes rather than reading past them.
+ */
+export class ShapedFrameError extends SqonError {
+    override name = "ShapedFrameError";
+
+    constructor(message: string) {
+        super(`Invalid shaped frame: ${message}`);
     }
 }

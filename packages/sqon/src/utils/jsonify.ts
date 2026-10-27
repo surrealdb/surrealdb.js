@@ -8,14 +8,18 @@ import type {
     Range,
     RecordId,
     RecordIdRange,
+    SizedNumber,
     StringRecordId,
     Table,
+    U64,
     Uuid,
 } from "../value/index.ts";
 
 import { Value } from "../value/value.ts";
 
-export type Jsonify<T> = T extends
+export type Jsonify<T> = T extends U64 ? string : T extends SizedNumber ? number : JsonifyValue<T>;
+
+type JsonifyValue<T> = T extends
     | Date
     | DateTime
     | Uuid

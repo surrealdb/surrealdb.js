@@ -1,4 +1,4 @@
-import { RecordId, Uuid } from "@surrealdb/sqon";
+import { BlockReader, RecordId, type ShapedCodec, Uuid, type ValueCodec } from "@surrealdb/sqon";
 import type { ApiRequest } from "../api/api";
 import {
     CallTerminatedError,
@@ -10,6 +10,7 @@ import {
     UnexpectedServerResponseError,
 } from "../errors";
 import { abortReason } from "../internal/abort";
+import { CBOR_PROTOCOL, cborProtocols, SHAPED_PROTOCOL, wireCodec } from "../internal/cbor-format";
 import { parseRpcError } from "../internal/parse-error";
 import {
     type Abandonment,
@@ -17,6 +18,7 @@ import {
     type QueryStreamFrame,
     queryStreamChunks,
 } from "../internal/query-stream";
+import { resolveBlocks, ShapeScopes } from "../internal/shaped";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
 import type { ApiResponse } from "../query/api";
 import type {
@@ -113,6 +115,13 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     #terminated = false;
     #streaming = true;
 
+    /** Whether to offer plain cbor alone, as the WebSocket implementation would not open a socket offering more */
+    #cborOnly = false;
+    /** Set once a handshake offering `shaped` failed, so reconnects do not try it again */
+    #shapedUnavailable = false;
+    /** The shape scopes of this socket: one per stream, and one per live query */
+    #scopes = new ShapeScopes();
+
     features = new Set([
         Features.LiveQueries,
         Features.RefreshTokens,
@@ -139,8 +148,10 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
         (async () => {
             while (!this.#terminated) {
-                // Open a new socket and await until closure
-                const error = await this.createSocket(() => {
+                let opened = false;
+
+                const onConnected = () => {
+                    opened = true;
                     this.#active = true;
                     // Whether streaming is served is a property of the server, and a reconnect
                     // can land on a different one, so each socket is asked again. What the driver
@@ -149,7 +160,39 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                     reconnect.reset();
 
                     this.#publisher.publish("connected");
-                });
+                };
+
+                // `shaped` has to be offered alone: the server picks the first of its own list
+                // (json, cbor.2, cbor, flatbuffers, shaped) which the client offered, and shaped
+                // comes last there, so offering it beside cbor would settle on cbor.
+                const wantsShaped = !!this._context.codecs.shaped && !this.#shapedUnavailable;
+                let error = wantsShaped
+                    ? await this.createSocket(onConnected, [SHAPED_PROTOCOL])
+                    : null;
+
+                // A server before 4.0 does not know the name and fails the handshake, so the
+                // connection drops back to the CBOR ladder and stays there.
+                if (wantsShaped && !opened && !this.#terminated) {
+                    this.#shapedUnavailable = true;
+                }
+
+                // Open a new socket and await until closure
+                const protocols = this.#cborOnly
+                    ? [CBOR_PROTOCOL]
+                    : cborProtocols(this._context.codecs);
+
+                if (!opened && !this.#terminated) {
+                    error = await this.createSocket(onConnected, protocols);
+
+                    // Some WebSocket implementations (Bun 1.2's, for one) fail the handshake of a
+                    // socket which offers more than one subprotocol, whichever the server picks. A
+                    // socket which offered cbor.2 and never opened is tried again at once offering
+                    // plain cbor alone, which is kept to from then on if it opens.
+                    if (!opened && !this.#terminated && protocols.length > 1) {
+                        error = await this.createSocket(onConnected, [CBOR_PROTOCOL]);
+                        if (opened) this.#cborOnly = true;
+                    }
+                }
 
                 this.#socket = undefined;
 
@@ -157,6 +200,10 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 // queries registered on it are stale and will be re-registered
                 // under fresh ids if the connection is re-established.
                 this.#live.clear();
+
+                // Shape ids are a property of the connection which announced them, so the next
+                // socket starts with none and reads each shape as it is announced again.
+                this.#scopes.clear();
 
                 // A stream dies with its socket, whether or not it had begun to answer. It is
                 // never re-sent: a consumer which holds part of the answer would see it twice,
@@ -245,9 +292,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         }
 
         for (const { request } of this.#calls.values()) {
-            this.#socket?.send(
-                new Uint8Array(wrapSqonError(() => this._context.codecs.cbor.encode(request))),
-            );
+            this.#socket?.send(new Uint8Array(wrapSqonError(() => this.#codec().encode(request))));
         }
     }
 
@@ -313,9 +358,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
             try {
                 this.#socket?.send(
-                    new Uint8Array(
-                        wrapSqonError(() => this._context.codecs.cbor.encode(call.request)),
-                    ),
+                    new Uint8Array(wrapSqonError(() => this.#codec().encode(call.request))),
                 );
             } catch (error) {
                 // A request which could not be written is not left waiting for an answer
@@ -529,7 +572,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         this.#socket.send(
             new Uint8Array(
                 wrapSqonError(() =>
-                    this._context.codecs.cbor.encode({
+                    this.#codec().encode({
                         id,
                         method: STREAM_METHOD,
                         params: [query.query, query.bindings],
@@ -579,6 +622,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         } finally {
             if (stream.settled) {
                 this.#streams.delete(id);
+                this.#scopes.end(id);
             } else {
                 this.abandonStream(id, stream);
             }
@@ -610,6 +654,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
     private cancelStream(id: string): void {
         if (!this.#active) {
             this.#streams.delete(id);
+            this.#scopes.end(id);
             return;
         }
 
@@ -643,6 +688,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         for (const [id, stream] of this.#streams) {
             stream.settled = true;
             this.#streams.delete(id);
+            this.#scopes.end(id);
 
             if (!stream.abandoned) {
                 stream.channel.submit({ kind: "error", error });
@@ -661,6 +707,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         if (response.error || !isQueryStreamFrame(frame)) {
             stream.settled = true;
             this.#streams.delete(id);
+            this.#scopes.end(id);
 
             if (!stream.abandoned) {
                 stream.channel.submit({
@@ -677,6 +724,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         if (frame.stream === "end") {
             stream.settled = true;
             this.#streams.delete(id);
+            this.#scopes.end(id);
         }
 
         if (!stream.abandoned) {
@@ -684,7 +732,27 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         }
     }
 
-    private async createSocket(onConnected: () => void): Promise<Error | null> {
+    /**
+     * The codec to write and read messages in, named by the subprotocol the server picked for
+     * the socket: `shaped`, `cbor.2`, or plain `cbor`.
+     */
+    #codec(socket = this.#socket): ValueCodec<Uint8Array> {
+        return wireCodec(this._context.codecs, socket?.protocol ?? null);
+    }
+
+    /**
+     * The shaped codec once the socket settled on `shaped`, and `undefined` otherwise. Only a
+     * socket on that format carries blocks, so only one needs its scopes read.
+     */
+    #shaped(socket = this.#socket): ShapedCodec | undefined {
+        const { shaped } = this._context.codecs;
+        return shaped && socket?.protocol === SHAPED_PROTOCOL ? shaped : undefined;
+    }
+
+    private async createSocket(
+        onConnected: () => void,
+        protocols: string[],
+    ): Promise<Error | null> {
         return new Promise((resolve, reject) => {
             if (!this._state) {
                 reject(new ConnectionUnavailableError());
@@ -693,7 +761,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
             // Open a new connection
             const WebSocketImpl = this._context.options.websocketImpl ?? globalThis.WebSocket;
-            const socket = new WebSocketImpl(this._state.url.toString(), "cbor");
+            const socket = new WebSocketImpl(this._state.url.toString(), protocols);
 
             // Binary frames must arrive as something parseBuffer accepts. Assert the desired
             // type rather than correcting one specific unwanted value: React Native leaves
@@ -844,7 +912,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                 try {
                     const buffer = this.parseBuffer(data);
                     const decoded = wrapSqonError(() =>
-                        this._context.codecs.cbor.decode<Response>(buffer),
+                        this.#codec(socket).decode<Response>(buffer),
                     );
 
                     if (
@@ -893,12 +961,20 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
             const stream = this.#streams.get(id);
 
             if (stream) {
-                this.handleStreamResponse(id, stream, res as RpcResponse<unknown>);
+                // Every frame of one stream shares a scope, so a shape announced in the first
+                // frame holds for the frames after it.
+                this.handleStreamResponse(
+                    id,
+                    stream,
+                    this.#readBlocks(res, id) as RpcResponse<unknown>,
+                );
                 return;
             }
 
             try {
-                const response = res as RpcResponse<unknown>;
+                // A buffered response is its own scope: nothing follows it which could name
+                // one of its shapes.
+                const response = this.#readBlocks(res, undefined) as RpcResponse<unknown>;
                 const { resolve, reject } = this.#calls.get(id) ?? {};
 
                 if (response.error) {
@@ -914,22 +990,68 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
 
         if (isLiveMessage(res.result)) {
             const frame = res.result;
-            this.#live.dispatch(
-                frame.id.toString(),
-                frame.action === "KILLED"
-                    ? { queryId: frame.id, action: "KILLED" }
-                    : {
-                          queryId: frame.id,
-                          action: frame.action,
-                          recordId: frame.record as RecordId,
-                          value: frame.result as Record<string, unknown>,
-                      },
-            );
+            const live = frame.id.toString();
+
+            if (frame.action === "KILLED") {
+                // The subscription is over, and so is the scope its shapes lived in
+                this.#scopes.end(live);
+                this.#live.dispatch(live, { queryId: frame.id, action: "KILLED" });
+                return;
+            }
+
+            // Every notification of one live query shares a scope, for the life of the
+            // subscription on this connection. A block always reads as a list of rows, and a
+            // notification carries one record rather than a list, so the single row it holds
+            // is the value: without this a subscriber would be handed `[record]` where the
+            // CBOR connection hands it `record`.
+            const result = this.#shaped()
+                ? unwrapRow(
+                      (this.#readBlocks({ result: frame.result }, live) as { result: unknown })
+                          .result,
+                      frame.result,
+                  )
+                : frame.result;
+
+            this.#live.dispatch(live, {
+                queryId: frame.id,
+                action: frame.action,
+                recordId: frame.record as RecordId,
+                value: result as Record<string, unknown>,
+            });
             return;
         }
 
         this.#publisher.publish("error", new UnexpectedServerResponseError(res));
     }
+
+    /**
+     * `value` with its blocks read as rows, in the scope `key` names — a stream or a live query
+     * — or in a scope of its own when `key` is `undefined`. A socket which did not settle on
+     * `shaped` carries no blocks, and the value is handed back untouched.
+     */
+    #readBlocks(value: unknown, key: string | undefined): unknown {
+        const codec = this.#shaped();
+        if (!codec) return value;
+
+        return resolveBlocks(
+            value,
+            codec,
+            key === undefined ? new BlockReader() : this.#scopes.get(key),
+        );
+    }
+}
+
+/**
+ * The one row `read` holds, for a notification whose value a block carried.
+ *
+ * A block is always read as a list of rows, but a notification's `result` is one record, so a
+ * block which carried one is a block of one row. Anything else is handed back as it came:
+ * `original` when the value was never a block at all, and the list itself when the server sent
+ * a row count this does not expect, which is better than guessing at which row was meant.
+ */
+function unwrapRow(read: unknown, original: unknown): unknown {
+    if (read === original || !Array.isArray(read)) return read;
+    return read.length === 1 ? read[0] : read;
 }
 
 /**

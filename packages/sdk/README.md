@@ -166,6 +166,14 @@ When renewing the session fails, for example because the identity provider is br
 
 Using `signin()`, `signup()`, or `authenticate()` yourself takes over from the `authentication` option for that session.
 
+On SurrealDB 3.0 and later, an access method defined `WITH REFRESH` issues a refresh token too. Passing the pair to `authenticate()` exchanges it for a new pair, and `revoke()` revokes the refresh token so it can never be exchanged again. Without arguments, `revoke()` revokes the refresh token of the session, and no session goes on renewing with it, forked ones included. The access token stays in place, and the session then renews like one without a refresh token: with the `authentication` option if that applies, and otherwise it is invalidated when the token is about to expire. Call `invalidate()` as well to sign out at once.
+
+```ts
+const tokens = await db.signin({ access: "account", variables: { email, password } });
+const renewed = await db.authenticate(tokens);
+await db.revoke(renewed);
+```
+
 #### Resolving credentials for each request
 
 Give `authentication` a resolver with `when: "request"` to evaluate the function as requests are made, instead of when connecting. This suits tokens which are rotated out of band, identities which differ from request to request, and connections which do not live long, such as one for each invocation on a serverless platform. Nothing is resolved when connecting, and no timers are started.
@@ -544,6 +552,85 @@ const [people] = await db.gql<[{ name: string }[]]>(
 
 > GQL is served by remote (WebSocket/HTTP) engines connected to a SurrealDB
 > instance with GQL enabled.
+
+#### Sized numbers
+
+SurrealDB 4.0 adds fixed-width number kinds: `i8`, `u8`, `i16`, `u16`, `i32`,
+`u32` and `u64`, and the floats `f16` and `f32`. The SDK represents them with the
+classes `I8`, `U8`, `I16`, `U16`, `I32`, `U32`, `U64`, `F16` and `F32`. Each
+instance holds its `value` (a `bigint` for `U64`) and converts to it with
+`valueOf()`.
+
+A remote connection offers the `cbor.2` protocol to the server and uses it when
+the server accepts it. Servers from 4.0 accept it. Over `cbor.2`, a value of a sized
+kind is read as an instance of its class, and an instance is sent with its kind:
+
+```ts
+const [byte] = await db.query("RETURN 255u8").collect<[U8]>();
+byte.value; // 255
+
+await db.query("CREATE reading SET level = $level", { level: new U16(512) });
+```
+
+Servers before 4.0 use plain `cbor`, which has no sized numbers. The SDK then
+sends an instance as a plain number: a `U64` above the signed 64-bit range is
+sent as a `Decimal`. To use plain `cbor` with every server, pass
+`codecs: { cbor2: () => undefined }` to the `Surreal` constructor.
+
+A `bigint` outside the signed 64-bit range of a SurrealDB `int` cannot be
+sent. Send it as a `Decimal`, or as a `U64` when it fits one.
+
+#### Shaped frames
+
+SurrealDB 4.0 also adds the `shaped` format: `cbor.2` with each list of result
+rows written as one block, which announces the rows' shape once rather than
+repeating every key and type tag on every row. Rows decode to exactly the same
+values either way, so nothing in your code changes; the format is a smaller,
+cheaper way to carry the same answer.
+
+It is off by default. Turn it on with the `shaped` option:
+
+```ts
+const db = new Surreal({ shaped: true });
+```
+
+Over WebSocket, a shape announced in one `query_stream` frame holds for the
+frames after it, and the notifications of one live query share a shape for the
+life of the subscription, so a long stream pays for its shape once.
+
+It works in both directions. The server reads a block wherever a CBOR request
+holds a value, so a long array of records — the rows of an `INSERT`, a large
+query variable — is sent as a block too. The SDK is never told the schema of
+what you send, so it derives a shape from the values themselves; anything no
+column can describe goes in a dynamic column, which holds one CBOR item.
+
+Over WebSocket a connection sends blocks as soon as the handshake settles on
+`shaped`, which is itself proof the server reads them. Over HTTP nothing in a
+response says so until one comes back written in `shaped`, because a 4.0 server
+can be built without the format; so request bodies stay CBOR until that answer
+arrives, and carry blocks after it.
+
+A shape is not always a saving. It gives every column a fixed width, so a
+column of small integers takes eight bytes a row where CBOR takes one. The SDK
+measures a sample of the rows both ways and sends a block only when it comes
+out smaller, so turning this on cannot make a request larger.
+
+It is off by default because asking for it costs something against a server
+which does not offer it, and every server before 4.0 is one:
+
+- Over WebSocket `shaped` has to be offered on its own — the server picks the
+  first entry of *its* list which the client offered, and `shaped` is last
+  there, so offering it beside `cbor` would simply settle on `cbor`. A server
+  which does not know the name fails the handshake, and the SDK connects again
+  offering the CBOR ladder: one extra round trip on the first connect.
+- Over HTTP the SDK asks for it only once an answer in `cbor.2` has shown the
+  server to be 4.0, because an earlier server answers a mismatched `Accept`
+  with 415. A 4.0 server built without the format answers in plain `cbor`
+  instead of refusing, which widens that one answer's sized numbers; the SDK
+  stops asking after such an answer.
+
+Pass `codecs: { shaped: () => undefined }` to turn it off again where it was
+enabled, or supply your own codec with a `shaped` factory.
 
 ### Subscribing to live queries
 

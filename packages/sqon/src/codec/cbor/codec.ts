@@ -1,4 +1,5 @@
 import { decode, Encoded, encode, POW_2_53, type Replacer, Tagged } from "@surrealdb/cbor";
+import { InvalidNumberError, ShapedFrameError } from "../../errors.ts";
 import type { CodecOptions, ValueCodec } from "../../types/codec.ts";
 import { BoundExcluded, BoundIncluded } from "../../utils/range.ts";
 import {
@@ -18,6 +19,7 @@ import {
     RANGE_SYMBOL,
     RECORD_ID_RANGE_SYMBOL,
     RECORD_ID_SYMBOL,
+    SIZED_NUMBER_SYMBOL,
     STRING_RECORD_ID_SYMBOL,
     TABLE_SYMBOL,
     UUID_SYMBOL,
@@ -28,6 +30,8 @@ import {
     DateTime,
     Decimal,
     Duration,
+    F16,
+    F32,
     Future,
     GeometryCollection,
     GeometryLine,
@@ -36,13 +40,25 @@ import {
     GeometryMultiPolygon,
     GeometryPoint,
     GeometryPolygon,
+    I8,
+    I16,
+    I32,
     Range,
     RecordId,
     RecordIdRange,
+    type RecordIdValue,
+    SizedNumber,
+    type SizedNumberKind,
     StringRecordId,
     Table,
+    U8,
+    U16,
+    U32,
+    U64,
     Uuid,
 } from "../../value/index.ts";
+import { f16Bits, f16round } from "../../value/sized.ts";
+import { StrictReader } from "./reader.ts";
 import { cborToRange, rangeToCbor } from "./utils.ts";
 
 // Tags from the spec - https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml
@@ -72,6 +88,9 @@ const TAG_FILE_POINTER = 55;
 // Sets
 const TAG_SET = 56;
 
+// Shaped blocks, which only the `shaped` format carries
+const TAG_SHAPED_BLOCK = 57;
+
 // Custom Geometries
 const TAG_GEOMETRY_POINT = 88;
 const TAG_GEOMETRY_LINE = 89;
@@ -80,6 +99,83 @@ const TAG_GEOMETRY_MULTIPOINT = 91;
 const TAG_GEOMETRY_MULTILINE = 92;
 const TAG_GEOMETRY_MULTIPOLYGON = 93;
 const TAG_GEOMETRY_COLLECTION = 94;
+
+// Sized numbers (cbor.2 only)
+const TAG_SIZED: Record<SizedNumberKind, number> = {
+    i8: 180,
+    u8: 181,
+    i16: 182,
+    u16: 183,
+    i32: 184,
+    u32: 185,
+    u64: 186,
+    f16: 187,
+    f32: 188,
+};
+
+const SIZED_CLASSES: Record<SizedNumberKind, new (value: never) => SizedNumber> = {
+    i8: I8,
+    u8: U8,
+    i16: I16,
+    u16: U16,
+    i32: I32,
+    u32: U32,
+    u64: U64,
+    f16: F16,
+    f32: F32,
+};
+
+const I64_MIN = -(2n ** 63n);
+const I64_MAX = 2n ** 63n - 1n;
+
+/**
+ * Options for the CBOR codec
+ */
+export interface CborCodecOptions extends CodecOptions {
+    /**
+     * The CBOR dialect: 1 for `cbor`, which every server speaks, or 2 for `cbor.2`, which
+     * SurrealDB 4.0 adds. `cbor.2` is `cbor` plus the tags 180 to 188 of the sized numbers.
+     * Defaults to 1.
+     */
+    version?: 1 | 2;
+}
+
+/**
+ * An integer which may be past the signed 64-bit range, where the protocol allows a u64. It is
+ * written directly, as the codec refuses such an integer anywhere else.
+ */
+function uint64<T>(value: T): T | Encoded {
+    if (typeof value !== "bigint" || value <= I64_MAX) return value;
+
+    const buf = new Uint8Array(9);
+    buf[0] = 0x1b;
+    new DataView(buf.buffer).setBigUint64(1, value, false);
+    return new Encoded(buf);
+}
+
+/**
+ * A float in the narrowest IEEE 754 width which holds it exactly, as the server writes them.
+ */
+function encodeFloat(value: number): Encoded {
+    if (Number.isNaN(value) || Object.is(f16round(value), value)) {
+        const bits = f16Bits(value);
+        return new Encoded(new Uint8Array([0xf9, bits >> 8, bits & 0xff]));
+    }
+
+    const width = Math.fround(value) === value ? 4 : 8;
+    const buf = new Uint8Array(width + 1);
+    const view = new DataView(buf.buffer);
+
+    if (width === 4) {
+        buf[0] = 0xfa;
+        view.setFloat32(1, value, false);
+    } else {
+        buf[0] = 0xfb;
+        view.setFloat64(1, value, false);
+    }
+
+    return new Encoded(buf);
+}
 
 /**
  * A codec for encoding and decoding SurrealQL values using the SQON Binary (cbor) format.
@@ -90,10 +186,18 @@ export class CborCodec implements ValueCodec<Uint8Array> {
      */
     static readonly DEFAULT: CborCodec = new CborCodec({});
 
-    #options: CodecOptions;
+    #options: CborCodecOptions;
+    #reader: StrictReader | undefined;
 
-    constructor(options: CodecOptions) {
+    constructor(options: CborCodecOptions) {
         this.#options = options;
+    }
+
+    /**
+     * The CBOR dialect this codec speaks: 1 for `cbor`, 2 for `cbor.2`
+     */
+    get version(): 1 | 2 {
+        return this.#options.version ?? 1;
     }
 
     encode<T>(data: T): Uint8Array {
@@ -104,13 +208,34 @@ export class CborCodec implements ValueCodec<Uint8Array> {
     }
 
     decode<T>(data: Uint8Array): T {
-        return decode(data, {
-            tagged: this.tagged,
-        });
+        const reader = new StrictReader(data);
+        const outer = this.#reader;
+        this.#reader = reader;
+
+        try {
+            return decode(reader, {
+                tagged: this.tagged,
+            });
+        } finally {
+            this.#reader = outer;
+        }
     }
 
     protected replacer: Replacer = (input: unknown): unknown => {
         const value = this.#encodeValue(input);
+
+        if (typeof value === "bigint" && (value < I64_MIN || value > I64_MAX)) {
+            throw new InvalidNumberError(
+                `The integer ${value} is outside the signed 64-bit range of a SurrealDB int: send it as a Decimal, or as a U64 when it fits one`,
+            );
+        }
+
+        if (value && hasSymbol(value, SIZED_NUMBER_SYMBOL)) {
+            return this.#encodeSized(value as SizedNumber);
+        }
+
+        // An integer to JavaScript, but a float to SurrealDB
+        if (Object.is(value, -0)) return encodeFloat(-0);
 
         if (
             typeof value === "number" &&
@@ -137,7 +262,8 @@ export class CborCodec implements ValueCodec<Uint8Array> {
             return new Tagged(TAG_STRING_DECIMAL, (value as Decimal).toString());
         }
         if (value && hasSymbol(value, DURATION_SYMBOL)) {
-            return new Tagged(TAG_CUSTOM_DURATION, (value as Duration).toCompact());
+            // Its seconds are a u64
+            return new Tagged(TAG_CUSTOM_DURATION, (value as Duration).toCompact().map(uint64));
         }
         if (value && hasSymbol(value, RECORD_ID_SYMBOL)) {
             return new Tagged(TAG_RECORDID, [
@@ -223,10 +349,16 @@ export class CborCodec implements ValueCodec<Uint8Array> {
             if (hasSymbol(v[1], RANGE_SYMBOL)) {
                 return this.#decodeValue(new RecordIdRange(v[0], v[1].begin, v[1].end));
             }
-            return this.#decodeValue(new RecordId(v[0], v[1]));
+            return this.#decodeValue(new RecordId(v[0], this.#recordIdKey(v[1])));
         },
         [TAG_FILE_POINTER]: (v) => this.#decodeValue(new FileRef(v[0], v[1])),
         [TAG_SET]: (v) => this.#decodeValue(new Set(v)),
+        // A block is only ever written on the `shaped` format, whose codec reads this tag; on
+        // every other format it is refused rather than passed through as an opaque tag, which
+        // would drop a statement's rows silently.
+        [TAG_SHAPED_BLOCK]: () => {
+            throw new ShapedFrameError("a shaped block outside the shaped format");
+        },
         [TAG_GEOMETRY_POINT]: (v) => this.#decodeValue(new GeometryPoint(v)),
         [TAG_GEOMETRY_LINE]: (v) => this.#decodeValue(new GeometryLine(v)),
         [TAG_GEOMETRY_POLYGON]: (v) => this.#decodeValue(new GeometryPolygon(v)),
@@ -234,7 +366,82 @@ export class CborCodec implements ValueCodec<Uint8Array> {
         [TAG_GEOMETRY_MULTILINE]: (v) => this.#decodeValue(new GeometryMultiLine(v)),
         [TAG_GEOMETRY_MULTIPOLYGON]: (v) => this.#decodeValue(new GeometryMultiPolygon(v)),
         [TAG_GEOMETRY_COLLECTION]: (v) => this.#decodeValue(new GeometryCollection(v)),
+        ...Object.fromEntries(
+            Object.entries(TAG_SIZED).map(([kind, tag]) => [
+                tag,
+                (v: unknown) => this.#decodeValue(this.#decodeSized(kind as SizedNumberKind, v)),
+            ]),
+        ),
     };
+
+    #encodeSized(value: SizedNumber): unknown {
+        const float = value.kind === "f16" || value.kind === "f32";
+
+        if (this.version === 2) {
+            const tag = TAG_SIZED[value.kind];
+            if (float) return new Tagged(tag, encodeFloat(value.value as number));
+
+            return new Tagged(tag, uint64(value.value));
+        }
+
+        // Plain cbor has no sized numbers: widen them, as the server does
+        if (float) return encodeFloat(value.value as number);
+        if (typeof value.value === "bigint") {
+            if (value.value > I64_MAX)
+                return new Tagged(TAG_STRING_DECIMAL, value.value.toString());
+            return value.value <= POW_2_53 ? Number(value.value) : value.value;
+        }
+        return value.value;
+    }
+
+    #decodeSized(kind: SizedNumberKind, value: unknown): SizedNumber {
+        if (this.version !== 2) {
+            throw new InvalidNumberError(
+                `CBOR tag ${TAG_SIZED[kind]} (${kind}) is only valid in cbor.2`,
+            );
+        }
+
+        const float = kind === "f16" || kind === "f32";
+        const reader = this.#reader;
+        const shaped = float ? reader?.isFloat : reader?.isInteger;
+
+        if (!shaped || (typeof value !== "number" && typeof value !== "bigint")) {
+            throw new InvalidNumberError(
+                `CBOR tag ${TAG_SIZED[kind]} (${kind}) must hold ${float ? "a float" : "an integer"}`,
+            );
+        }
+
+        const sized = new SIZED_CLASSES[kind](value as never);
+
+        // A float must fit its kind exactly: the constructor rounds, the wire may not
+        if (float && !Object.is(sized.value, value) && !Number.isNaN(value)) {
+            throw new InvalidNumberError(`The float ${value} cannot be held exactly by ${kind}`);
+        }
+
+        return sized;
+    }
+
+    /**
+     * A record id key holds an i64, so a sized integer key is read as a plain integer.
+     */
+    #recordIdKey(key: RecordIdValue): RecordIdValue {
+        if (!(key instanceof SizedNumber)) return key;
+
+        if (key.kind === "f16" || key.kind === "f32") {
+            throw new InvalidNumberError(`A record id key cannot be a ${key.kind}`);
+        }
+
+        if (typeof key.value === "bigint") {
+            if (key.value > I64_MAX) {
+                throw new InvalidNumberError(
+                    `The record id key ${key.value} is outside the signed 64-bit range`,
+                );
+            }
+            return key.value <= POW_2_53 ? Number(key.value) : key.value;
+        }
+
+        return key.value;
+    }
 
     #resolveSpecDate(v: string): unknown {
         return this.#options.useNativeDates ? new Date(v) : new DateTime(v);

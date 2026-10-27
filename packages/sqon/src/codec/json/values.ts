@@ -1,4 +1,17 @@
 import type { GeoJson } from "../../value/geometry";
+import type { SizedNumberKind } from "../../value/sized";
+
+const SIZED_KINDS: SizedNumberKind[] = [
+    "i8",
+    "u8",
+    "i16",
+    "u16",
+    "i32",
+    "u32",
+    "u64",
+    "f16",
+    "f32",
+];
 
 export const createNone = () => ({ $none: true });
 export const createDatetime = (value: string) => ({ $datetime: value });
@@ -17,6 +30,9 @@ export const createBytes = (value: string) => ({ $bytes: value });
 export const createGeometry = (value: unknown) => ({ $geometry: value });
 export const createSet = (items: unknown[]) => ({ $set: items });
 export const createObject = (value: Record<string, unknown>) => ({ $object: value });
+export const createSized = (kind: SizedNumberKind, value: number | string) => ({
+    [`$${kind}`]: value,
+});
 
 export const isNone = (value: object): value is { $none: true } => {
     return "$none" in value && value.$none === true;
@@ -91,4 +107,16 @@ export const isBoundExcluded = (value: object): value is { $boundExcluded: unkno
 
 export const isObject = (value: object): value is { $object: Record<string, unknown> } => {
     return "$object" in value && typeof value.$object === "object" && value.$object !== null;
+};
+
+/**
+ * The kind of a sized number, `{ $u8: 5 }` and so on, or undefined for anything else
+ */
+export const sizedKind = (value: object): SizedNumberKind | undefined => {
+    const keys = Object.keys(value);
+    if (keys.length !== 1) return undefined;
+
+    const kind = SIZED_KINDS.find((kind) => keys[0] === `$${kind}`);
+    const arg = (value as Record<string, unknown>)[keys[0] as string];
+    return kind && (typeof arg === "number" || typeof arg === "string") ? kind : undefined;
 };

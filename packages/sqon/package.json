@@ -11,7 +11,8 @@
     },
     "scripts": {
         "build": "bun run build.ts",
-        "bench": "bun run src/codec/text/parser.bench.ts",
+        "bench": "bun run src/codec/text/parser.bench.ts && bun run src/codec/shaped/shaped.bench.ts",
+        "bench:shaped": "bun run src/codec/shaped/shaped.bench.ts",
         "deploy": "bun run ../../scripts/publish.ts"
     },
     "devDependencies": {

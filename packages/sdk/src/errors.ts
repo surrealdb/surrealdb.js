@@ -658,26 +658,28 @@ export class PublishError extends SurrealError {
     override name = "PublishError";
     override message = "One or more subscribers threw an error:";
 
+    /**
+     * The errors thrown by the subscribers, as published. A subscriber that
+     * publishes to its own subscribers can contribute a nested `PublishError`.
+     */
     readonly causes: unknown[];
+
+    /**
+     * The errors thrown by the subscribers, with nested `PublishError`s
+     * replaced by their own leaf causes.
+     */
+    readonly leafCauses: unknown[];
 
     constructor(causes: unknown[]) {
         super();
         this.causes = causes;
-        this.message += PublishError.#appendCauses(causes, "");
-    }
+        this.leafCauses = causes.flatMap((cause) =>
+            cause instanceof PublishError ? cause.leafCauses : [cause],
+        );
 
-    static #appendCauses(causes: unknown[], msg: string): string {
-        let message = msg;
-
-        for (const cause of causes) {
-            if (cause instanceof PublishError) {
-                message = PublishError.#appendCauses(cause.causes, msg);
-            } else {
-                message += `\n  - ${cause instanceof Error ? cause.message : cause}`;
-            }
+        for (const cause of this.leafCauses) {
+            this.message += `\n  - ${cause instanceof Error ? cause.message : cause}`;
         }
-
-        return message;
     }
 }
 

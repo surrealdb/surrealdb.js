@@ -6,7 +6,9 @@ import {
     ConnectionUnavailableError,
     InvalidSessionError,
     MissingNamespaceDatabaseError,
+    PublishError,
     ServerError,
+    SurrealError,
     UnavailableFeatureError,
     UnsupportedEngineError,
     UnsupportedFeatureError,
@@ -387,14 +389,51 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return response;
     }
 
-    async revoke(tokens: Tokens, session: Session): Promise<void> {
+    async revoke(tokens: Tokens | undefined, session: Session): Promise<void> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
         }
 
         this.assertFeature(Features.RefreshTokens);
 
-        await this.#engine.revoke(tokens, session);
+        const revoked = tokens ?? this.#getTokens(session);
+
+        if (!revoked?.refresh) {
+            throw new SurrealError("There is no refresh token to revoke");
+        }
+
+        await this.#engine.revoke(revoked, session);
+
+        // A refresh token which was revoked can no longer renew the authentication of any session
+        // holding it, which includes the sessions forked from the one it was issued to. Every one
+        // of them forgets it before any listener is told, so a listener which throws cannot leave
+        // a session holding it.
+        const affected = this.#allSessions().filter(
+            (sessionState) => sessionState.refreshToken === revoked.refresh,
+        );
+
+        for (const sessionState of affected) {
+            sessionState.refreshToken = undefined;
+        }
+
+        // Listeners keeping the tokens of a session learn that it has no refresh token
+        const failures: unknown[] = [];
+
+        for (const sessionState of affected) {
+            try {
+                this.#eventPublisher.publish(
+                    "auth",
+                    this.#getTokens(sessionState.id) ?? null,
+                    sessionState.id,
+                );
+            } catch (error) {
+                failures.push(...listenerFailures(error));
+            }
+        }
+
+        if (failures.length > 0) {
+            throw new PublishError(failures);
+        }
     }
 
     async use(what: Nullable<NamespaceDatabase>, session: Session): Promise<NamespaceDatabase> {
@@ -1304,4 +1343,12 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         // Apply authentication
         await this.#applyAuthentication(session.id);
     }
+}
+
+/**
+ * The errors which listeners threw, out of the `PublishError` which reports them. A session's
+ * listeners are reached through publishers of their own, so the errors may be nested several deep.
+ */
+function listenerFailures(error: unknown): unknown[] {
+    return error instanceof PublishError ? error.causes.flatMap(listenerFailures) : [error];
 }

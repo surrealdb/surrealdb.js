@@ -25,6 +25,7 @@ const GEOMETRY_MULTI_POINT_SYMBOL = Symbol.for("surrealdb.GeometryMultiPoint");
 const GEOMETRY_MULTI_LINE_SYMBOL = Symbol.for("surrealdb.GeometryMultiLine");
 const GEOMETRY_MULTI_POLYGON_SYMBOL = Symbol.for("surrealdb.GeometryMultiPolygon");
 const GEOMETRY_COLLECTION_SYMBOL = Symbol.for("surrealdb.GeometryCollection");
+const SIZED_NUMBER_SYMBOL = Symbol.for("surrealdb.SizedNumber");
 
 /**
  * Helper function to mark an object with a symbol
@@ -65,4 +66,5 @@ export {
     GEOMETRY_COLLECTION_SYMBOL,
     BOUND_INCLUDED_SYMBOL,
     BOUND_EXCLUDED_SYMBOL,
+    SIZED_NUMBER_SYMBOL,
 };

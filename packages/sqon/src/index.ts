@@ -8,4 +8,5 @@ export * from "./value/index.ts";
 export * from "./codec/cbor/index.ts";
 export * from "./codec/flatbuffer/index.ts";
 export * from "./codec/json/index.ts";
+export * from "./codec/shaped/index.ts";
 export * from "./codec/text/index.ts";

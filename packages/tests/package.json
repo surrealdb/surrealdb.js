@@ -9,5 +9,9 @@
         "@surrealdb/node": "workspace:*",
         "@surrealdb/wasm": "workspace:*",
         "get-port": "^7.1.0"
+    },
+    "devDependencies": {
+        "@surrealdb/protocol": "github:surrealdb/surrealdb-protocol#v0.14.0",
+        "yaml": "2.8.1"
     }
 }

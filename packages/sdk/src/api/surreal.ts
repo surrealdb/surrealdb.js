@@ -1,4 +1,4 @@
-import { CborCodec, FlatBufferCodec, JsonCodec, type Uuid } from "@surrealdb/sqon";
+import { CborCodec, FlatBufferCodec, JsonCodec, ShapedCodec, type Uuid } from "@surrealdb/sqon";
 import { ConnectionController } from "../controller";
 import { UnavailableFeatureError, UnsupportedFeatureError } from "../errors";
 import type { Feature } from "../internal/feature";
@@ -98,8 +98,25 @@ export class Surreal extends SurrealSession implements EventPublisher<SurrealEve
         const userCodecs = options.codecs ?? {};
         const codecOptions = options.codecOptions ?? {};
 
+        // A custom cbor codec is not bypassed for cbor.2 unless a cbor.2 codec is given too
+        const cbor2 = userCodecs.cbor2
+            ? userCodecs.cbor2(codecOptions)
+            : userCodecs.cbor
+              ? undefined
+              : new CborCodec({ ...codecOptions, version: 2 });
+
+        // `shaped` is cbor.2 plus its blocks, so it follows the same rule, and is only built at
+        // all when the connection was told to ask for the format
+        const shaped = userCodecs.shaped
+            ? userCodecs.shaped(codecOptions)
+            : options.shaped && !userCodecs.cbor
+              ? new ShapedCodec(codecOptions)
+              : undefined;
+
         return {
             cbor: userCodecs.cbor?.(codecOptions) ?? new CborCodec(codecOptions),
+            cbor2,
+            shaped,
             flatbuffer: userCodecs.flatbuffer?.(codecOptions) ?? new FlatBufferCodec(codecOptions),
             json: userCodecs.json?.(codecOptions) ?? new JsonCodec(codecOptions),
         };
