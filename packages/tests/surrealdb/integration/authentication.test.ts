@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { type AnyAuth, DateTime, RecordId, ServerError, surql } from "surrealdb";
+import {
+    type AnyAuth,
+    DateTime,
+    PublishError,
+    RecordId,
+    ServerError,
+    SurrealError,
+    surql,
+} from "surrealdb";
 import {
     createAuth,
     createIdleSurreal,
@@ -7,6 +15,7 @@ import {
     requestVersion,
     respawnServer,
     SURREAL_BACKEND,
+    SURREAL_PROTOCOL,
 } from "./__helpers__";
 
 const { is3x } = await requestVersion();
@@ -259,6 +268,91 @@ describe.skipIf(!isRemote || !is3x)("bearer access", async () => {
         expect(res2.refresh).not.toBe(res1.refresh);
         expect(res2.access).not.toBe(res1.access);
     });
+
+    test("revoke a refresh token", async () => {
+        const surreal = await createSurreal();
+        const tokens = await surreal.signup({
+            access: "user_with_refresh",
+            variables: { id: 124 },
+        });
+
+        await surreal.revoke(tokens);
+
+        await expect(surreal.authenticate(tokens)).rejects.toBeInstanceOf(ServerError);
+    });
+
+    test("revoke the refresh token of the session", async () => {
+        const surreal = await createSurreal();
+        const tokens = await surreal.signup({
+            access: "user_with_refresh",
+            variables: { id: 125 },
+        });
+
+        await surreal.revoke();
+
+        // The session stays authenticated until its access token expires
+        expect(surreal.accessToken).toBe(tokens.access);
+        await expect(surreal.authenticate(tokens)).rejects.toBeInstanceOf(ServerError);
+        await expect(surreal.revoke()).rejects.toBeInstanceOf(SurrealError);
+    });
+
+    test.if(SURREAL_PROTOCOL === "ws")(
+        "revoke the refresh token of a session, and of those forked from it",
+        async () => {
+            const surreal = await createSurreal();
+            await surreal.signup({
+                access: "user_with_refresh",
+                variables: { id: 126 },
+            });
+
+            const forked = await surreal.forkSession();
+            const announced: unknown[] = [];
+
+            forked.subscribe("auth", (tokens) => announced.push(tokens));
+
+            await surreal.revoke();
+
+            // The forked session is told it is left with its access token alone
+            expect(announced).toEqual([{ access: surreal.accessToken, refresh: undefined }]);
+
+            // The forked session holds the same refresh token, so it has none left to revoke
+            await expect(forked.revoke()).rejects.toThrow("There is no refresh token to revoke");
+            await forked.closeSession();
+        },
+    );
+
+    test.if(SURREAL_PROTOCOL === "ws")(
+        "a listener which throws does not leave a forked session holding a revoked token",
+        async () => {
+            const surreal = await createSurreal();
+            await surreal.signup({
+                access: "user_with_refresh",
+                variables: { id: 127 },
+            });
+
+            const forked = await surreal.forkSession();
+
+            surreal.subscribe("auth", () => {
+                throw new Error("root listener failed");
+            });
+
+            forked.subscribe("auth", () => {
+                throw new Error("forked listener failed");
+            });
+
+            const error = await surreal.revoke().then(
+                () => undefined,
+                (error: unknown) => error,
+            );
+
+            // Every listener which failed is reported, whichever session it listened to
+            expect(error).toBeInstanceOf(PublishError);
+            expect((error as PublishError).message).toContain("root listener failed");
+            expect((error as PublishError).message).toContain("forked listener failed");
+            await expect(forked.revoke()).rejects.toThrow("There is no refresh token to revoke");
+            await forked.closeSession();
+        },
+    );
 
     test("system user", async () => {
         const surreal = await createSurreal({
