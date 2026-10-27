@@ -37,7 +37,7 @@ View the JavaScript SDK documentation [here](https://surrealdb.com/docs/sdk/java
 
 ## What is this package?
 
-**`@surrealdb/wasm`** is a WebAssembly engine plugin for the SurrealDB JavaScript SDK. It runs SurrealDB inside the browser - in-memory or persisted to IndexedDB - with the same query API as a remote instance.
+**`@surrealdb/wasm`** is a WebAssembly engine plugin for the SurrealDB JavaScript SDK. It runs SurrealDB inside the browser - in-memory on the main thread, or in-memory or persisted in a Web Worker - with the same query API as a remote instance.
 
 Install it alongside [`surrealdb`](https://www.npmjs.com/package/surrealdb) and register the engine when constructing your client. For server-side embedding, use [`@surrealdb/node`](https://www.npmjs.com/package/@surrealdb/node) instead.
 
@@ -123,16 +123,17 @@ const db = new Surreal({
 ### Storage backends
 
 ```ts
-// In-memory (data is lost when the tab closes)
+// In-memory on the main thread (data is lost when the tab closes)
 await db.connect("mem://");
-
-// IndexedDB persistence
-await db.connect("indxdb://myapp");
 ```
+
+Persistent browser stores run only in a Web Worker, so they are registered by `createWasmWorkerEngines` and not by `createWasmEngines`. Connecting to `surrealkv://` or `indxdb://` with the main thread engines fails with an `UnsupportedEngineError`.
+
+Persistent browser stores flush to storage periodically, not on every commit. A commit can return before it is durable, so a commit made shortly before the page or worker stops can be lost. To make each commit durable before it returns, add `?sync=every` to the store URL, for example `surrealkv://myapp?sync=every`.
 
 ### Running in a Web Worker
 
-Offload database work from the main thread to keep your UI responsive:
+Offload database work from the main thread to keep your UI responsive. Use `createWasmWorkerEngines` for both in-memory and persistent stores:
 
 ```ts
 import { createWasmWorkerEngines } from "@surrealdb/wasm";
@@ -148,8 +149,14 @@ const db = new Surreal({
     },
 });
 
+// In-memory (data is lost when the tab closes)
 await db.connect("mem://");
+
+// Persistent, kept by the browser between page loads
+await db.connect("surrealkv://myapp");
 ```
+
+`indxdb://` is also accepted by `createWasmWorkerEngines`. The SDK passes the URL to the engine unchanged. The WebAssembly module applies the alias, so `indxdb://` opens the `surrealkv` store, from the release of `@surrealdb/wasm-native` that adds that store. Releases before it open their own IndexedDB store for `indxdb://`.
 
 The `@surrealdb/wasm/worker` export provides a pre-built worker script for bundlers that support the `?worker` import suffix (such as Vite).
 
@@ -193,8 +200,8 @@ export default {
 
 | Export | Description |
 | --- | --- |
-| `createWasmEngines(options?)` | Registers `mem` and `indxdb` engines on the main thread |
-| `createWasmWorkerEngines(options?)` | Registers `mem` and `indxdb` engines inside a Web Worker |
+| `createWasmEngines(options?)` | Registers the `mem` engine on the main thread |
+| `createWasmWorkerEngines(options?)` | Registers the `mem`, `surrealkv` and `indxdb` engines inside a Web Worker |
 | `@surrealdb/wasm/worker` | Worker entry point for bundler worker imports |
 | `WebAssemblyEngine` | The underlying engine implementation (advanced use) |
 
@@ -202,7 +209,7 @@ export default {
 
 - ES modules (`import`) - CommonJS (`require`) is not supported
 - A compatible `surrealdb` SDK version (see `peerDependencies` in `package.json`)
-- A modern browser with WebAssembly and IndexedDB support
+- A modern browser with WebAssembly support. Persistent stores run in a Web Worker
 
 ## Contributing
 
