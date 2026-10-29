@@ -306,14 +306,22 @@ describe.skipIf(!isRemote || !is3x)("bearer access", async () => {
             });
 
             const forked = await surreal.forkSession();
-            const announced: unknown[] = [];
+            const announced: { access?: string; refresh?: string }[] = [];
 
             forked.subscribe("auth", (tokens) => announced.push(tokens));
 
+            const access = surreal.accessToken;
+
             await surreal.revoke();
 
-            // The forked session is told it is left with its access token alone
-            expect(announced).toEqual([{ access: surreal.accessToken, refresh: undefined }]);
+            // The forked session is told it is left with its access token alone.
+            //
+            // Asserted as "this was announced, and nothing announced a refresh token" rather
+            // than as the whole list: restoring a session after a reconnect authenticates it
+            // again, which announces the tokens too, so a connection which drops during the
+            // run would otherwise add an entry here and fail a test about revoking.
+            expect(announced).toContainEqual({ access, refresh: undefined });
+            expect(announced.filter((tokens) => tokens.refresh !== undefined)).toEqual([]);
 
             // The forked session holds the same refresh token, so it has none left to revoke
             await expect(forked.revoke()).rejects.toThrow("There is no refresh token to revoke");
