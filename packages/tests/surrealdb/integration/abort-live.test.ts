@@ -99,11 +99,16 @@ describe.if(SURREAL_PROTOCOL === "ws")("live() on a request scope", () => {
         }
 
         // The server may have registered some of them after the caller was told it had been
-        // abandoned: those are killed as they land
-        await Bun.sleep(300);
+        // abandoned: those are killed as they land. SurrealDB 4.0 answers a registration in
+        // tens to hundreds of milliseconds, so the last of them land well after the loop ends
+        let left = await lives(surreal);
+        for (const deadline = Date.now() + 5_000; left.length > 0 && Date.now() < deadline; ) {
+            await Bun.sleep(100);
+            left = await lives(surreal);
+        }
 
         expect(outcomes.subscribed + outcomes.rejected).toBe(30);
-        expect(await lives(surreal)).toEqual([]);
+        expect(left).toEqual([]);
     });
 
     test("killing it afterwards is fine, and a subscription which is not aborted is untouched", async () => {
