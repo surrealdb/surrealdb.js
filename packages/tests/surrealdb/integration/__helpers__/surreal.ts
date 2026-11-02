@@ -150,22 +150,43 @@ export async function requestVersion(): Promise<{
     };
 }
 
-let cbor2: Promise<boolean> | undefined;
+/** What a probe server says the binary under test can do */
+interface Capabilities {
+    /** Whether a connection over the protocol under test speaks `cbor.2` */
+    cbor2: boolean;
+    /** Whether it has the date, time, timestamp, interval, bigdecimal and regex of SurrealDB 4.0 */
+    types40: boolean;
+    /** Whether it takes the namespace and database from the URL path (SurrealDB 4.0) */
+    scopedRoutes: boolean;
+}
+
+let capabilities: Promise<Capabilities> | undefined;
 
 /**
- * Whether a connection over the protocol under test speaks `cbor.2` (SurrealDB 4.0): the
- * server binary must speak it, and over WebSocket the runtime must be able to offer it. It starts a server of its own, so that it can be awaited where tests are
- * declared, before the shared server is up. Always false for the embedded engines.
+ * Ask a server of its own what the binary under test can do, so that it can be awaited where
+ * tests are declared, before the shared server is up. Nothing, for the embedded engines.
  */
-export function speaksCbor2(): Promise<boolean> {
-    cbor2 ??= (async () => {
-        if (SURREAL_BACKEND !== "remote") return false;
+function probeCapabilities(): Promise<Capabilities> {
+    capabilities ??= (async () => {
+        const none = { cbor2: false, types40: false, scopedRoutes: false };
+        if (SURREAL_BACKEND !== "remote") return none;
 
         const port = await getPort();
         const probe = Bun.spawn(
-            [SURREAL_EXECUTABLE_PATH, "start", "--bind", `127.0.0.1:${port}`, "memory"],
+            [
+                SURREAL_EXECUTABLE_PATH,
+                "start",
+                "--bind",
+                `127.0.0.1:${port}`,
+                "--user",
+                SURREAL_USER,
+                "--pass",
+                SURREAL_PASS,
+                "memory",
+            ],
             { stdout: "ignore", stderr: "ignore" },
         );
+        const auth = `Basic ${btoa(`${SURREAL_USER}:${SURREAL_PASS}`)}`;
 
         try {
             const startAt = Date.now();
@@ -187,12 +208,30 @@ export function speaksCbor2(): Promise<boolean> {
             });
             await response.arrayBuffer();
 
-            if (!/v=2/.test(response.headers.get("Content-Type") ?? "")) return false;
-            if (SURREAL_PROTOCOL !== "ws") return true;
+            if (!/v=2/.test(response.headers.get("Content-Type") ?? "")) return none;
+
+            const sql = await fetch(`http://127.0.0.1:${port}/sql`, {
+                method: "POST",
+                body: 'RETURN date"2024-01-15"',
+                headers: { Accept: "application/json", Authorization: auth },
+            });
+            const answer = (await sql.json().catch(() => [])) as { status?: string }[];
+            const types40 = answer[0]?.status === "OK";
+
+            // A route the server does not know is a 404; one it knows is anything else
+            const scoped = await fetch(`http://127.0.0.1:${port}/ns/probe/db/probe/sql`, {
+                method: "POST",
+                body: "RETURN 1",
+                headers: { Accept: "application/json", Authorization: auth },
+            });
+            await scoped.arrayBuffer();
+            const scopedRoutes = scoped.status !== 404;
+
+            if (SURREAL_PROTOCOL !== "ws") return { cbor2: true, types40, scopedRoutes };
 
             // Over WebSocket the SDK falls back to plain cbor where the runtime cannot offer
             // more than one subprotocol, as Bun 1.2 cannot
-            return await new Promise<boolean>((resolve) => {
+            const cbor2 = await new Promise<boolean>((resolve) => {
                 const socket = new WebSocket(`ws://127.0.0.1:${port}/rpc`, ["cbor.2", "cbor"]);
                 socket.onopen = () => {
                     resolve(socket.protocol === "cbor.2");
@@ -200,13 +239,41 @@ export function speaksCbor2(): Promise<boolean> {
                 };
                 socket.onclose = () => resolve(false);
             });
+
+            return { cbor2, types40, scopedRoutes };
         } finally {
             probe.kill();
             await probe.exited;
         }
     })();
 
-    return cbor2;
+    return capabilities;
+}
+
+/**
+ * Whether a connection over the protocol under test speaks `cbor.2` (SurrealDB 4.0): the
+ * server binary must speak it, and over WebSocket the runtime must be able to offer it. Always
+ * false for the embedded engines.
+ */
+export async function speaksCbor2(): Promise<boolean> {
+    return (await probeCapabilities()).cbor2;
+}
+
+/**
+ * Whether the server has the types SurrealDB 4.0 shares with SQL, and the connection speaks
+ * `cbor.2`, which carries them.
+ */
+export async function hasTypes40(): Promise<boolean> {
+    const { cbor2, types40 } = await probeCapabilities();
+    return cbor2 && types40;
+}
+
+/**
+ * Whether the server takes the namespace and database from the URL path, as in
+ * `/ns/{ns}/db/{db}/rpc`.
+ */
+export async function routesScopes(): Promise<boolean> {
+    return (await probeCapabilities()).scopedRoutes;
 }
 
 /**

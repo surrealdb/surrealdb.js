@@ -82,3 +82,18 @@ export class ShapedFrameError extends SqonError {
         super(`Invalid shaped frame: ${message}`);
     }
 }
+
+/**
+ * Thrown when a regex value is constructed from something other than a pattern
+ */
+export class InvalidRegexError extends SqonError {
+    override name = "InvalidRegexError";
+}
+
+/**
+ * Thrown when a codec is asked to write a value its format cannot carry, or reads a tag its
+ * format does not have
+ */
+export class UnsupportedValueError extends SqonError {
+    override name = "UnsupportedValueError";
+}

@@ -1,15 +1,21 @@
 import {
+    BigDecimal,
     DateTime,
     Decimal,
     Duration,
     FileRef,
     Future,
     Geometry,
+    Interval,
+    PlainDate,
+    PlainTime,
     Range,
     RecordId,
+    Regex,
     SizedNumber,
     StringRecordId,
     Table,
+    Timestamp,
     Uuid,
 } from "../value/index.ts";
 
@@ -35,6 +41,14 @@ export function toSurqlString(input: unknown): string {
         if (input instanceof Geometry) return toSurqlString(input.toJSON());
 
         if (input instanceof Decimal) return `${input.toJSON()}dec`;
+        if (input instanceof BigDecimal) return `${input.toString()}bigdec`;
+
+        // SurrealDB 4.0's temporal literals, as the server writes them
+        if (input instanceof PlainDate) return `date${JSON.stringify(input.toString())}`;
+        if (input instanceof PlainTime) return `time${JSON.stringify(input.toString())}`;
+        if (input instanceof Timestamp) return `timestamp${JSON.stringify(input.toString())}`;
+        if (input instanceof Interval) return `interval${JSON.stringify(input.toString())}`;
+        if (input instanceof Regex) return input.toString();
 
         // SurrealDB 4.0's literals: 5u8, 1.5f32, and a cast for what has no literal
         if (input instanceof SizedNumber) {

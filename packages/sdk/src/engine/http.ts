@@ -97,6 +97,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         Features.Api,
         Features.ExportImportRaw,
         Features.SurrealML,
+        Features.SqlDialects,
         Features.PerRequestAuth,
     ]);
 

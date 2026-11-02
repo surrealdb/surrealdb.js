@@ -23,6 +23,7 @@ import { ReconnectContext } from "../internal/reconnect";
 import { relayIterable } from "../internal/relay";
 import { RequestCredentials } from "../internal/request-credentials";
 import { RetryContext } from "../internal/retry";
+import { type EndpointScope, endpointScope } from "../internal/scope";
 import { fastParseJwt, renewalDelay, tokenExpiry } from "../internal/tokens";
 import type { ApiResponse } from "../query/api";
 import type {
@@ -46,7 +47,11 @@ import type {
     RequestOptions,
     RetryOptions,
     Session,
+    SqlDialect,
     SqlExportOptions,
+    SqlOptions,
+    SqlResult,
+    SqlStatements,
     SurrealEngine,
     SurrealProtocol,
     Token,
@@ -117,6 +122,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #skipRenewal: boolean = false;
     #checkVersion: boolean = false;
     #lastConnectionError: Error | undefined = undefined;
+    // The namespace and database a remote endpoint's path names, which every session starts in
+    #scope: EndpointScope | undefined;
 
     subscribe<K extends keyof ConnectionEvents>(
         event: K,
@@ -172,6 +179,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#skipRenewal = options.invalidateOnExpiry ?? false;
         this.#checkVersion = options.versionCheck ?? true;
         this.#expiryMargin = options.expiryMargin ?? 60;
+        this.#scope = /^(http|ws)s?:$/.test(url.protocol) ? endpointScope(url) : undefined;
         this.#authProvider = authentication.provider;
         this.#requestResolver = authentication.request?.resolve;
         this.#requestAuth = authentication.request
@@ -192,8 +200,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             pongTimeout: options.pongTimeout,
             rootSession: {
                 ...this.#createSessionState(undefined),
-                namespace: options.namespace,
-                database: options.database,
+                namespace: options.namespace ?? this.#scope?.namespace,
+                database: options.database ?? this.#scope?.database,
             },
         };
 
@@ -389,6 +397,21 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return response;
     }
 
+    async sql<T>(
+        dialect: SqlDialect,
+        statements: SqlStatements,
+        vars: Record<string, unknown> | undefined,
+        options: SqlOptions | undefined,
+        session: Session,
+    ): Promise<SqlResult<T>> {
+        const engine = this.#engine;
+        if (!engine) throw new ConnectionUnavailableError();
+        this.assertFeature(Features.SqlDialects);
+        if (!engine.sql) throw new UnsupportedFeatureError(Features.SqlDialects);
+
+        return engine.sql<T>(dialect, statements, vars, options, session);
+    }
+
     async revoke(tokens: Tokens | undefined, session: Session): Promise<void> {
         if (!this.#engine || !this.#state) {
             throw new ConnectionUnavailableError();
@@ -501,14 +524,15 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         await this.#engine.reset(session);
         const sessionState = this.getSession(session);
 
-        sessionState.namespace = undefined;
-        sessionState.database = undefined;
+        // A session reset returns to the scope of the endpoint, where the server pins it
+        sessionState.namespace = this.#scope?.namespace;
+        sessionState.database = this.#scope?.database;
         sessionState.variables = {};
         this.#handleAuthInvalidate(session);
 
         const payload: NamespaceDatabase = {
-            namespace: undefined,
-            database: undefined,
+            namespace: sessionState.namespace,
+            database: sessionState.database,
         };
 
         this.#eventPublisher.publish("using", payload, session);
@@ -1299,8 +1323,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return {
             id,
             variables: {},
-            namespace: undefined,
-            database: undefined,
+            namespace: this.#scope?.namespace,
+            database: this.#scope?.database,
             accessToken: undefined,
             refreshToken: undefined,
             authRenewal: undefined,

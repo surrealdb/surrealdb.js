@@ -15,6 +15,7 @@ import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal, readBytes, releaseResponse } from "../internal/http";
 import { parseQueryError, type RpcQueryResultErrRaw } from "../internal/parse-error";
 import { statsFromTime } from "../internal/query-stats";
+import { endpointScope } from "../internal/scope";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
 import type { ApiResponse } from "../query/api";
 import type {
@@ -31,7 +32,11 @@ import type {
     RpcQueryResult,
     RpcRequest,
     Session,
+    SqlDialect,
     SqlExportOptions,
+    SqlOptions,
+    SqlResult,
+    SqlStatements,
     SurrealProtocol,
     Token,
     Tokens,
@@ -115,7 +120,8 @@ export abstract class RpcEngine implements SurrealProtocol {
         }
 
         const endpoint = new URL(state.url);
-        const basepath = endpoint.pathname.slice(0, -4);
+        // The scoped form of /api is only a rewrite of this one, so a scope in the path is left out
+        const basepath = endpointScope(endpoint).base;
         // Encode every segment so path data cannot replace the origin, query, or fragment.
         const segments = path.split("/").filter(Boolean);
         if (segments.some(isDotSegment)) {
@@ -200,9 +206,8 @@ export abstract class RpcEngine implements SurrealProtocol {
         }
 
         const endpoint = new URL(this._state.url);
-        const basepath = endpoint.pathname.slice(0, -4);
-
-        endpoint.pathname = `${basepath}/health`;
+        // The health route takes no scope: under one it is not found
+        endpoint.pathname = `${endpointScope(endpoint).base}/health`;
 
         const response = await fetchSurreal(this._context, this._state, this._state.rootSession, {
             url: endpoint,
@@ -316,6 +321,24 @@ export abstract class RpcEngine implements SurrealProtocol {
         );
     }
 
+    async sql<T>(
+        dialect: SqlDialect,
+        statements: SqlStatements,
+        vars: Record<string, unknown> | undefined,
+        options: SqlOptions | undefined,
+        session: Session,
+    ): Promise<SqlResult<T>> {
+        const params: unknown[] = [statements];
+        if (vars !== undefined || options !== undefined) params.push(vars ?? null);
+        if (options !== undefined) params.push(options);
+
+        return this.send({
+            method: dialect,
+            params,
+            session,
+        });
+    }
+
     async revoke(tokens: Tokens, session: Session): Promise<void> {
         await this.send({
             method: "revoke",
@@ -392,9 +415,9 @@ export abstract class RpcEngine implements SurrealProtocol {
         }
 
         const endpoint = new URL(this._state.url);
-        const basepath = endpoint.pathname.slice(0, -4);
+        const scope = endpointScope(endpoint);
 
-        endpoint.pathname = `${basepath}/import`;
+        endpoint.pathname = `${scope.base}${scope.prefix}/import`;
 
         // An older server answers with the result of every statement, which is left unread
         const reports =
@@ -461,9 +484,9 @@ export abstract class RpcEngine implements SurrealProtocol {
         }
 
         const endpoint = new URL(this._state.url);
-        const basepath = endpoint.pathname.slice(0, -4);
+        const scope = endpointScope(endpoint);
 
-        endpoint.pathname = `${basepath}/export`;
+        endpoint.pathname = `${scope.base}${scope.prefix}/export`;
 
         return fetchSurreal(this._context, this._state, this._state.rootSession, {
             body: options ?? {},
@@ -490,9 +513,9 @@ export abstract class RpcEngine implements SurrealProtocol {
         }
 
         const endpoint = new URL(this._state.url);
-        const basepath = endpoint.pathname.slice(0, -4);
+        const scope = endpointScope(endpoint);
 
-        endpoint.pathname = `${basepath}/ml/export/${options.name}/${options.version}`;
+        endpoint.pathname = `${scope.base}${scope.prefix}/ml/export/${options.name}/${options.version}`;
 
         return fetchSurreal(this._context, this._state, this._state.rootSession, {
             url: endpoint,

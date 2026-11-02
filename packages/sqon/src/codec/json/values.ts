@@ -30,6 +30,14 @@ export const createBytes = (value: string) => ({ $bytes: value });
 export const createGeometry = (value: unknown) => ({ $geometry: value });
 export const createSet = (items: unknown[]) => ({ $set: items });
 export const createObject = (value: Record<string, unknown>) => ({ $object: value });
+export const createDate = (value: string) => ({ $date: value });
+export const createTime = (value: string) => ({ $time: value });
+export const createTimestamp = (value: string) => ({ $timestamp: value });
+export const createInterval = (months: number, days: number, micros: string) => ({
+    $interval: { months, days, micros },
+});
+export const createBigDecimal = (value: string) => ({ $bigdecimal: value });
+export const createRegex = (pattern: string) => ({ $regex: pattern });
 export const createSized = (kind: SizedNumberKind, value: number | string) => ({
     [`$${kind}`]: value,
 });
@@ -107,6 +115,32 @@ export const isBoundExcluded = (value: object): value is { $boundExcluded: unkno
 
 export const isObject = (value: object): value is { $object: Record<string, unknown> } => {
     return "$object" in value && typeof value.$object === "object" && value.$object !== null;
+};
+
+export const isDate = (value: object): value is { $date: string } => {
+    return "$date" in value && typeof value.$date === "string";
+};
+
+export const isTime = (value: object): value is { $time: string } => {
+    return "$time" in value && typeof value.$time === "string";
+};
+
+export const isTimestamp = (value: object): value is { $timestamp: string } => {
+    return "$timestamp" in value && typeof value.$timestamp === "string";
+};
+
+export const isInterval = (
+    value: object,
+): value is { $interval: { months: number; days: number; micros: string } } => {
+    return "$interval" in value && typeof value.$interval === "object" && value.$interval !== null;
+};
+
+export const isBigDecimal = (value: object): value is { $bigdecimal: string } => {
+    return "$bigdecimal" in value && typeof value.$bigdecimal === "string";
+};
+
+export const isRegex = (value: object): value is { $regex: string } => {
+    return "$regex" in value && typeof value.$regex === "string";
 };
 
 /**

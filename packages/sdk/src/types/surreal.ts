@@ -18,6 +18,7 @@ import type { Nullable } from "./helpers";
 import type { Prettify } from "./internal";
 import type { LiveMessage } from "./live";
 import type { EventPublisher } from "./publisher";
+import type { SqlDialect, SqlOptions, SqlResult, SqlStatements } from "./sql";
 
 export type Session = Uuid | undefined;
 export type QueryResponseKind = "single" | "batched" | "batched-final";
@@ -254,6 +255,18 @@ export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEve
         options: MlExportOptions,
         request: CredentialedRequestOptions,
     ): Promise<Response | Uint8Array>;
+
+    /**
+     * Run PostgreSQL or MySQL text with the `pgsql` or `mysql` method. Only implemented by
+     * remote engines, as an embedded engine has no SQL front end.
+     */
+    sql?<T>(
+        dialect: SqlDialect,
+        statements: SqlStatements,
+        vars: Record<string, unknown> | undefined,
+        options: SqlOptions | undefined,
+        session: Session,
+    ): Promise<SqlResult<T>>;
 
     /**
      * Invoke a custom API as a different identity than the one of the session, for this call
