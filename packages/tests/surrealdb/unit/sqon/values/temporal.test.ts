@@ -51,6 +51,10 @@ describe("PlainDate", () => {
         expect(() => new PlainDate("2024-13-01")).toThrow(InvalidDateError);
     });
 
+    test("reads epoch as 1970-01-01, as the server does", () => {
+        expect(new PlainDate("epoch").days).toBe(0);
+    });
+
     test("takes the UTC date of a Date", () => {
         expect(new PlainDate(new Date("2024-01-15T23:59:59Z")).toString()).toBe("2024-01-15");
     });
@@ -124,6 +128,18 @@ describe("BigDecimal and Regex", () => {
         expect(big.equals(new BigDecimal("1.5"))).toBe(false);
     });
 
+    test("a bigdecimal written with an exponent keeps the positional text", () => {
+        expect(new BigDecimal("1.5e3").toString()).toBe("1500");
+        expect(new BigDecimal("-25E-3").toString()).toBe("-0.025");
+    });
+
+    test("a bigdecimal fits a decimal below 2^96 with at most 28 places", () => {
+        expect(new BigDecimal("79228162514264337593543950335").fitsDecimal()).toBe(true);
+        expect(new BigDecimal("79228162514264337593543950336").fitsDecimal()).toBe(false);
+        expect(new BigDecimal(`0.${"1".repeat(28)}`).fitsDecimal()).toBe(true);
+        expect(new BigDecimal(`0.${"1".repeat(29)}`).fitsDecimal()).toBe(false);
+    });
+
     test("a regex escapes its slashes", () => {
         expect(new Regex("a/b").toString()).toBe("/a\\/b/");
         expect(new Regex("^a+$").toRegExp().test("aaa")).toBe(true);
@@ -183,9 +199,14 @@ describe("plain cbor widens the 4.0 types as the server does", () => {
         expect(hex(v1.encode(new Timestamp([1, 2])))).toBe("cc820102");
     });
 
-    test("an interval and a bigdecimal are text", () => {
+    test("an interval is text", () => {
         expect(v1.decode(v1.encode(new Interval({ days: 1 })))).toBe("P1D");
-        expect(v1.decode(v1.encode(new BigDecimal("1.5")))).toBe("1.5");
+    });
+
+    test("a bigdecimal is a decimal when it fits one, and text otherwise", () => {
+        expect(v1.decode(v1.encode(new BigDecimal("1.5")))).toEqual(new Decimal("1.5"));
+        const text = "12345678901234567890123456789012345.5";
+        expect(v1.decode(v1.encode(new BigDecimal(text)))).toBe(text);
     });
 
     test("a regex cannot be sent", () => {
@@ -207,6 +228,11 @@ describe("JSON and SurrealQL", () => {
             const back = JsonCodec.DEFAULT.decode<typeof value>(JsonCodec.DEFAULT.encode(value));
             expect(back.equals(value)).toBe(true);
         }
+    });
+
+    test("the JSON codec leaves an object whose $interval is malformed as it is", () => {
+        const value = { $interval: { months: "1" } };
+        expect(JsonCodec.DEFAULT.decode(JsonCodec.DEFAULT.encode(value))).toEqual(value);
     });
 
     test("toSurqlString writes the literals the server parses", () => {

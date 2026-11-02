@@ -47,6 +47,12 @@ describe("an endpoint scoped by its path (SurrealDB 4.0)", () => {
         expect(db.database).toBe("my db");
     });
 
+    test("keeps a name whose escape is malformed as it is", async () => {
+        const { db } = await connect("http://localhost:8000/ns/100%/db/main/rpc");
+
+        expect(db.namespace).toBe("100%");
+    });
+
     test("prefers the namespace and database given to connect()", async () => {
         const server = createMockFetch(serving);
         const db = new Surreal({ fetchImpl: server.fetchImpl });
@@ -115,6 +121,24 @@ describe("pgsql() and mysql()", () => {
             ["pgsql", ["SELECT 1"]],
             ["pgsql", ["SELECT $1", { _1: 5 }]],
             ["mysql", [["SELECT ?", { text: "SELECT 2" }], null, { rowMode: "array" }]],
+        ]);
+    });
+
+    test("send the session's variables over HTTP, under those of the call", async () => {
+        const { db, server } = await connect("http://localhost:8000/ns/app/db/main/rpc");
+
+        await db.set("who", "session");
+        await db.set("limit", 1);
+        await db.pgsql("SELECT $who");
+        await db.mysql("SELECT ?", { _1: 2, limit: 5 }, { rowMode: "array" });
+
+        const sent = server.calls
+            .filter((call) => call.rpc?.method === "pgsql" || call.rpc?.method === "mysql")
+            .map((call) => call.rpc?.params);
+
+        expect(sent).toEqual([
+            ["SELECT $who", { who: "session", limit: 1 }],
+            ["SELECT ?", { who: "session", limit: 5, _1: 2 }, { rowMode: "array" }],
         ]);
     });
 

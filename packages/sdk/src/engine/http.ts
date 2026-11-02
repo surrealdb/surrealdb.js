@@ -310,6 +310,18 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
                 ] as Params;
                 break;
             }
+            // `[statements, vars?, options?]`: the session's variables go under the call's own
+            case "pgsql":
+            case "mysql": {
+                if (Object.keys(session.variables).length === 0) break;
+                const [statements, vars, options] = request.params ?? [];
+                request.params = [
+                    statements,
+                    { ...session.variables, ...((vars as object | null | undefined) ?? {}) },
+                    ...(options === undefined ? [] : [options]),
+                ] as Params;
+                break;
+            }
         }
 
         // The credential of a single request is neither stored nor sent in the body of the

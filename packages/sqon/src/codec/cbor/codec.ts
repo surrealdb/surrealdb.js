@@ -1,5 +1,6 @@
 import { decode, Encoded, encode, POW_2_53, type Replacer, Tagged } from "@surrealdb/cbor";
 import { InvalidNumberError, ShapedFrameError, UnsupportedValueError } from "../../errors.ts";
+import { NANOS_PER_SECOND, SECONDS_PER_DAY } from "../../internal/calendar.ts";
 import type { CodecOptions, ValueCodec } from "../../types/codec.ts";
 import { BoundExcluded, BoundIncluded } from "../../utils/range.ts";
 import {
@@ -451,13 +452,13 @@ export class CborCodec implements ValueCodec<Uint8Array> {
 
     #encodeDate(value: PlainDate): unknown {
         if (this.version === 2) return new Tagged(TAG_DATE, value.days);
-        return new Tagged(TAG_CUSTOM_DATETIME, [value.days * 86_400, 0]);
+        return new Tagged(TAG_CUSTOM_DATETIME, [value.days * SECONDS_PER_DAY, 0]);
     }
 
     #encodeTime(value: PlainTime): unknown {
         if (this.version === 2) return new Tagged(TAG_TIME, value.nanos);
-        const secs = Math.floor(value.nanos / 1_000_000_000);
-        const nanos = value.nanos % 1_000_000_000;
+        const secs = Math.floor(value.nanos / NANOS_PER_SECOND);
+        const nanos = value.nanos % NANOS_PER_SECOND;
         return new Tagged(TAG_CUSTOM_DURATION, nanos ? [secs, nanos] : secs ? [secs] : []);
     }
 
@@ -475,6 +476,9 @@ export class CborCodec implements ValueCodec<Uint8Array> {
 
     #encodeBigDecimal(value: BigDecimal): unknown {
         if (this.version === 2) return new Tagged(TAG_BIGDECIMAL, value.toString());
+        // Plain cbor has no bigdecimal: a decimal when it fits one, as the server writes it, and
+        // otherwise text
+        if (value.fitsDecimal()) return new Tagged(TAG_STRING_DECIMAL, value.toString());
         return value.toString();
     }
 

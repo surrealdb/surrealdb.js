@@ -39,8 +39,8 @@ export class PlainDate extends Value {
     readonly days: number;
 
     /**
-     * A date from its days since 1970-01-01, from `YYYY-MM-DD`, from `infinity` or
-     * `-infinity`, or from the UTC date of a `Date`.
+     * A date from its days since 1970-01-01, from `YYYY-MM-DD`, from `infinity`, `-infinity` or
+     * `epoch`, or from the UTC date of a `Date`.
      */
     constructor(input: number | string | Date | PlainDate) {
         super();
@@ -58,6 +58,7 @@ export class PlainDate extends Value {
             const text = input.trim().toLowerCase();
             if (text === "infinity" || text === "+infinity") this.days = MAX_DAYS;
             else if (text === "-infinity") this.days = MIN_DAYS;
+            else if (text === "epoch") this.days = 0;
             else this.days = parseDate(input);
         } else if (Number.isSafeInteger(input) && input >= MIN_DAYS && input <= MAX_DAYS) {
             this.days = input;

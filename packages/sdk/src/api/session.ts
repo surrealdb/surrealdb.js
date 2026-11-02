@@ -389,7 +389,8 @@ export class SurrealSession extends SurrealQueryable {
 
     /**
      * Run MySQL text on this session, as SurrealDB 4.0's `mysql` method does. The n-th `?`
-     * binds to the variable `_n`, and `USE name` switches the database of the session. See
+     * binds to the variable `_n`. `USE name` switches the database on the server, but not the
+     * namespace and database this session tracks, so call `use()` to switch instead. See
      * `pgsql()` for the rest, which is the same.
      *
      * Requires SurrealDB 4.0 or later, on an instance which does not deny the method.

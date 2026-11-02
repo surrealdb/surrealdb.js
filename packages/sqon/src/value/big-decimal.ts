@@ -13,7 +13,8 @@ const NUMBER = /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/;
  *
  * A `cbor.2` connection reads a `bigdecimal` the server cannot write as a `decimal` as a
  * `BigDecimal`, and sends one as tag 192. Plain `cbor` has no bigdecimal: the server sends one
- * as text, and the SDK sends a `BigDecimal` the same way.
+ * as a decimal when it fits one and as text otherwise, and the SDK sends a `BigDecimal` the same
+ * way.
  */
 export class BigDecimal extends Value {
     static override [Symbol.hasInstance](instance: unknown): boolean {
@@ -47,10 +48,29 @@ export class BigDecimal extends Value {
             if (!NUMBER.test(text)) {
                 throw new InvalidDecimalError(`Invalid bigdecimal: ${JSON.stringify(input)}`);
             }
-            this.#text = text;
+            // Kept in the positional notation the server writes and reads
+            this.#text = /e/i.test(text) ? new Decimal(text).toString() : text;
         }
 
         markSymbol(this, BIG_DECIMAL_SYMBOL);
+    }
+
+    /**
+     * Whether a SurrealDB `decimal` holds the value exactly: a coefficient below 2^96 with at
+     * most 28 digits after the point, as the server's `rust_decimal` does. The server writes such
+     * a bigdecimal as a decimal, and the SDK sends one the same way.
+     */
+    fitsDecimal(): boolean {
+        const { int, frac, scale } = this.toDecimal().toParts();
+        let places = scale;
+        let coefficient =
+            (int < 0n ? -int : int) * 10n ** BigInt(scale) + (frac < 0n ? -frac : frac);
+        // The parts keep trailing zeros, such as the one place of an integer, which hold nothing
+        while (places > 0 && coefficient % 10n === 0n) {
+            coefficient /= 10n;
+            places--;
+        }
+        return places <= 28 && coefficient < 2n ** 96n;
     }
 
     /**

@@ -132,7 +132,15 @@ export const isTimestamp = (value: object): value is { $timestamp: string } => {
 export const isInterval = (
     value: object,
 ): value is { $interval: { months: number; days: number; micros: string } } => {
-    return "$interval" in value && typeof value.$interval === "object" && value.$interval !== null;
+    if (!("$interval" in value) || typeof value.$interval !== "object" || !value.$interval) {
+        return false;
+    }
+    const parts = value.$interval as Record<string, unknown>;
+    return (
+        typeof parts.months === "number" &&
+        typeof parts.days === "number" &&
+        typeof parts.micros === "string"
+    );
 };
 
 export const isBigDecimal = (value: object): value is { $bigdecimal: string } => {

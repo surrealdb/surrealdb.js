@@ -13,6 +13,15 @@ export interface EndpointScope {
     access?: string;
 }
 
+/** A segment percent-decoded, or as it is when it is not well formed, which the server 404s */
+function decode(segment: string): string {
+    try {
+        return decodeURIComponent(segment);
+    } catch {
+        return segment;
+    }
+}
+
 const SCOPE = /(?:\/ns\/([^/]+)(?:\/db\/([^/]+))?)?(?:\/ac\/([^/]+))?$/;
 
 /**
@@ -26,14 +35,14 @@ export function endpointScope(url: URL): EndpointScope {
     if (!match) return { base: path, prefix: "" };
 
     const [scope, ns, db, ac] = match;
-    const namespace = ns === undefined ? undefined : decodeURIComponent(ns);
-    const database = db === undefined ? undefined : decodeURIComponent(db);
+    const namespace = ns === undefined ? undefined : decode(ns);
+    const database = db === undefined ? undefined : decode(db);
 
     return {
         base: path.slice(0, path.length - scope.length),
         prefix: ns === undefined ? "" : `/ns/${ns}${db === undefined ? "" : `/db/${db}`}`,
         namespace,
         database,
-        access: ac === undefined ? undefined : decodeURIComponent(ac),
+        access: ac === undefined ? undefined : decode(ac),
     };
 }
