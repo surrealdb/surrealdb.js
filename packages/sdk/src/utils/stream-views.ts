@@ -1,5 +1,6 @@
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
-import type { QueryChunk, QueryStats, QueryType } from "../types";
+import { mergeTraces } from "../internal/trace";
+import type { QueryChunk, QueryStats, QueryTrace, QueryType } from "../types";
 
 /**
  * One statement of a query, completed, as `statements()` yields it.
@@ -18,6 +19,12 @@ export interface StatementResult<T = unknown> {
      * `RETURN 1 + 2`, a block.
      */
     readonly single: boolean;
+    /**
+     * What the server reported about the graph the statement walked, for a query which asked for
+     * a trace. What each frame of the statement sent is held as it was sent, so an entry which
+     * more than one frame reported repeats; `dedupeTrace()` removes the repeats.
+     */
+    readonly trace?: QueryTrace;
 }
 
 /**
@@ -375,6 +382,7 @@ export class RowStream<T> extends StreamView<T> {
 export class StatementStream<T> extends StreamView<T> {
     readonly #json: boolean;
     readonly #rows = new Map<number, unknown[]>();
+    readonly #traces = new Map<number, QueryTrace>();
 
     constructor(open: () => Promise<ChunkSource>, json: boolean) {
         super(open);
@@ -385,11 +393,15 @@ export class StatementStream<T> extends StreamView<T> {
         if (chunk.error) throw chunk.error;
 
         const { query: index } = chunk;
+        const trace = mergeTraces(this.#traces.get(index), chunk.trace);
 
         if (chunk.kind === "single") {
-            emit(this.#statement(chunk, maybeJsonify(chunk.result?.[0], this.#json), true));
+            this.#traces.delete(index);
+            emit(this.#statement(chunk, maybeJsonify(chunk.result?.[0], this.#json), true, trace));
             return;
         }
+
+        if (trace) this.#traces.set(index, trace);
 
         let rows = this.#rows.get(index);
 
@@ -406,17 +418,24 @@ export class StatementStream<T> extends StreamView<T> {
 
         if (chunk.kind === "batched-final") {
             this.#rows.delete(index);
-            emit(this.#statement(chunk, rows, false));
+            this.#traces.delete(index);
+            emit(this.#statement(chunk, rows, false, trace));
         }
     }
 
-    #statement(chunk: QueryChunk<unknown>, value: unknown, single: boolean): T {
+    #statement(
+        chunk: QueryChunk<unknown>,
+        value: unknown,
+        single: boolean,
+        trace: QueryTrace | undefined,
+    ): T {
         const result: StatementResult = {
             index: chunk.query,
             value,
             stats: chunk.stats,
             type: chunk.type ?? "other",
             single,
+            ...(trace && { trace }),
         };
 
         return result as T;

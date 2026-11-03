@@ -5,8 +5,9 @@ import {
     StreamProtocolError,
     UnexpectedServerResponseError,
 } from "../errors";
-import type { QueryChunk, QueryStats, QueryType } from "../types";
+import type { QueryChunk, QueryStats, QueryTrace, QueryType } from "../types";
 import { parseRpcError, type RpcErrorObject } from "./parse-error";
+import { mergeTraces, parseTrace, traced } from "./trace";
 
 /**
  * The revision of the streaming protocol this SDK implements.
@@ -72,6 +73,8 @@ export interface QueryStreamRowsFrame {
     stream: "rows";
     index: number;
     values?: unknown[];
+    /** What the statement reported for these rows, when a trace was asked for */
+    trace?: unknown;
 }
 
 /**
@@ -82,6 +85,8 @@ export interface QueryStreamValueFrame {
     stream: "value";
     index: number;
     value?: unknown;
+    /** What the statement reported with its value, when a trace was asked for */
+    trace?: unknown;
 }
 
 /**
@@ -97,6 +102,8 @@ export interface QueryStreamFinishedFrame {
     type?: QueryType;
     single?: boolean;
     error?: RpcErrorObject;
+    /** The statement-level trace, and any entries no earlier frame took */
+    trace?: unknown;
 }
 
 /**
@@ -176,6 +183,7 @@ export async function* queryStreamChunks<T>(
 ): AsyncGenerator<QueryChunk<T>> {
     const batches = new Map<number, number>();
     const singles = new Map<number, unknown>();
+    const valueTraces = new Map<number, QueryTrace>();
     const unfinished = new Set<number>();
     const finished = new Set<number>();
     let ended = false;
@@ -223,6 +231,7 @@ export async function* queryStreamChunks<T>(
                     kind: "batched",
                     // A rows frame carries a list, as the buffered path also insists.
                     result: (Array.isArray(frame.values) ? frame.values : []) as T[],
+                    ...traced(parseTrace(frame.trace)),
                 };
 
                 break;
@@ -234,6 +243,12 @@ export async function* queryStreamChunks<T>(
                 unfinished.add(index);
                 singles.set(index, frame.value);
 
+                // Held with the value it came with, which is only delivered once the statement
+                // finishes: it is that chunk which carries it.
+                const trace = parseTrace(frame.trace);
+
+                if (trace) valueTraces.set(index, trace);
+
                 break;
             }
 
@@ -243,8 +258,11 @@ export async function* queryStreamChunks<T>(
                 const sentValue = singles.has(index);
                 const single = sentValue ? [singles.get(index) as T] : undefined;
 
+                const valueTrace = valueTraces.get(index);
+
                 unfinished.delete(index);
                 singles.delete(index);
+                valueTraces.delete(index);
                 finished.add(index);
 
                 if (frame.error) {
@@ -287,6 +305,9 @@ export async function* queryStreamChunks<T>(
                     type: frame.type,
                     // A statement which streamed rows has already delivered them.
                     result: single ?? [],
+                    // The frames of a single value are one chunk, so what the value frame and
+                    // the finished frame reported ride on it together.
+                    ...traced(mergeTraces(valueTrace, parseTrace(frame.trace))),
                 };
 
                 break;

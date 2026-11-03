@@ -16,7 +16,16 @@ import { DispatchedPromise } from "../internal/dispatched-promise";
 import { type MaybeJsonify, maybeJsonify } from "../internal/maybe-jsonify";
 import { RetryContext } from "../internal/retry";
 import { findRootCause, isSecondaryError } from "../internal/root-cause";
-import type { AuthOrToken, QueryChunk, QueryResponse, RetryValue, Session } from "../types";
+import { mergeTraces, normalizeTraceKinds } from "../internal/trace";
+import type {
+    AuthOrToken,
+    QueryChunk,
+    QueryResponse,
+    QueryTrace,
+    RetryValue,
+    Session,
+    TraceKind,
+} from "../types";
 import { BoundQuery } from "../utils";
 import { DoneFrame, ErrorFrame, type Frame, type StreamedRow, ValueFrame } from "../utils/frame";
 import {
@@ -43,6 +52,10 @@ interface QueryOptions extends AbortOptions {
      * `"gql"` routes the query through the ISO GQL (ISO/IEC 39075) endpoint.
      */
     dialect?: "sql" | "gql";
+    /**
+     * The kinds of trace to ask the server to report with the answer. See `Query.trace()`.
+     */
+    trace?: readonly TraceKind[];
 }
 
 type Collect<T extends unknown[], J extends boolean> = T extends []
@@ -92,6 +105,52 @@ export class Query<
      */
     json(): Query<R, true> {
         return new Query(this.#connection, { ...this.#options, json: true });
+    }
+
+    /**
+     * Ask the server to report the graph the statements of this query walked, alongside what it
+     * answers. Requires SurrealDB 4.0.0 or later: against an older server the call is refused
+     * with a `UnavailableFeatureError`, and with a SurrealQL query only.
+     *
+     * With no arguments every kind is asked for. Otherwise name the kinds wanted:
+     *
+     * - `relations`: the edges a lookup in a returned position walked, as `{ in, edge, out }`
+     * - `references`: the references a `<~` lookup in a returned position walked
+     * - `links`: the record links the result reads through, such as `author` in `author.name`
+     * - `variables`: what each top-level `LET` bound
+     * - `subscriptions`: the live queries a `LIVE SELECT` started
+     *
+     * Awaiting the query and `collect()` answer as they always do. The trace is read from the
+     * views which carry what belongs to a statement:
+     *
+     * - `stream()` hands over the trace of each server frame as it was sent. It is on the first
+     *   value frame of a batch of rows, on the value frame of a single value, or on the done
+     *   frame. A trace belongs to its statement and not to the rows it arrived with, it is
+     *   provisional until the statement is done, and an error frame retracts it with the rows.
+     *   Entries repeat across frames, and are told apart by their ids or by `dedupeTrace()`.
+     * - `responses()` and `statements()` collect it for the statement, as it was sent.
+     *
+     * @example
+     * ```ts
+     * const [post] = await db
+     *     .query("SELECT title, author.name, ->tagged->tag AS tags FROM post")
+     *     .trace("relations", "links")
+     *     .responses();
+     *
+     * if (post.success) {
+     *     post.trace?.relations; // [{ in: post:1, edge: tagged:a, out: tag:rust }]
+     *     post.trace?.links; // [{ record: post:1, field: "author", target: person:tobie }]
+     * }
+     * ```
+     *
+     * @param kinds The kinds of trace to ask for, or none for every kind
+     * @returns A new `Query` which asks for the trace.
+     */
+    trace(...kinds: TraceKind[]): Query<R, J> {
+        return new Query(this.#connection, {
+            ...this.#options,
+            trace: normalizeTraceKinds(kinds),
+        });
     }
 
     /**
@@ -501,11 +560,16 @@ export class Query<
                 continue;
             }
 
+            // The trace of a chunk rides on the first frame it yields, as the server sent it on
+            // the first of its own: a rows frame is many value frames here, and it is the first.
+            let trace = chunk.trace;
+
             if (chunk.kind === "single") {
                 yield new ValueFrame<T, J>(
                     chunk.query,
                     maybeJsonify(chunk.result?.[0] as T, json as J),
                     true,
+                    trace,
                 );
                 yield new DoneFrame<T, J>(chunk.query, chunk.stats, chunk.type ?? "other");
                 continue;
@@ -514,11 +578,17 @@ export class Query<
             const values = chunk.result as unknown[];
 
             for (const value of values) {
-                yield new ValueFrame<T, J>(chunk.query, maybeJsonify(value as T, json as J), false);
+                yield new ValueFrame<T, J>(
+                    chunk.query,
+                    maybeJsonify(value as T, json as J),
+                    false,
+                    trace,
+                );
+                trace = undefined;
             }
 
             if (chunk.kind === "batched-final") {
-                yield new DoneFrame<T, J>(chunk.query, chunk.stats, chunk.type ?? "other");
+                yield new DoneFrame<T, J>(chunk.query, chunk.stats, chunk.type ?? "other", trace);
             }
         }
     }
@@ -555,6 +625,7 @@ export class Query<
         const { json } = this.#options;
         const chunks = this.#open(signal);
         const collections: unknown[] = [];
+        const traces: (QueryTrace | undefined)[] = [];
         const responses: QueryResponse[] = [];
         const queryIndexes =
             queries.length > 0 ? new Map(queries.map((idx, i) => [idx, i])) : undefined;
@@ -579,12 +650,16 @@ export class Query<
                 continue;
             }
 
+            // What the frames of a statement sent is what it reports, in the order it was sent.
+            traces[index] = mergeTraces(traces[index], chunk.trace);
+
             if (chunk.kind === "single") {
                 responses[index] = {
                     success: true,
                     result: maybeJsonify(chunk.result?.[0], json),
                     stats: chunk.stats,
                     type: chunk.type ?? "other",
+                    ...(traces[index] && { trace: traces[index] }),
                 };
                 continue;
             }
@@ -609,6 +684,7 @@ export class Query<
                     result: records,
                     stats: chunk.stats,
                     type: chunk.type ?? "other",
+                    ...(traces[index] && { trace: traces[index] }),
                 };
             }
         }
@@ -649,7 +725,15 @@ export class Query<
         signal: AbortSignal | undefined,
         stream = false,
     ): AsyncIterable<QueryChunk<T>> {
-        const { query, transaction, session, credential, beforeSend, dialect } = this.#options;
+        const { query, transaction, session, credential, beforeSend, dialect, trace } =
+            this.#options;
+
+        // The `gql` method has no options to carry it, and a trace which is not reported is not
+        // something to silently leave out.
+        if (trace?.length && dialect === "gql") {
+            throw new TypeError("A trace can only be asked for with a SurrealQL query");
+        }
+
         const timeout = this.#options.requestTimeout ?? this.#connection.requestTimeout;
         const request = abortScope(signal ? [signal] : [], timeout);
 
@@ -657,10 +741,11 @@ export class Query<
             throwIfAborted(request.signal);
 
             const options =
-                request.signal || stream
+                request.signal || stream || trace?.length
                     ? {
                           ...(request.signal && { signal: request.signal }),
                           ...(stream && { stream }),
+                          ...(trace?.length && { trace }),
                       }
                     : undefined;
 

@@ -15,7 +15,9 @@ import {
     parseRpcError,
     type QueryChunk,
     type QueryStreamFrame,
+    queryParams,
     type RecordId,
+    type RequestOptions,
     RpcEngine,
     type RpcRequest,
     type Session,
@@ -59,6 +61,7 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         Features.Api,
         Features.ExportImportRaw,
         Features.SqlDialects,
+        Features.QueryTrace,
     ]);
 
     open(state: ConnectionState): void {
@@ -152,14 +155,16 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         query: BoundQuery,
         session: Session,
         txn?: Uuid,
+        options?: RequestOptions,
     ): AsyncIterable<QueryChunk<T>> {
-        return framesToChunks<T>(this.#queryFrames(query, session, txn));
+        return framesToChunks<T>(this.#queryFrames(query, session, txn, options));
     }
 
     async *#queryFrames(
         query: BoundQuery,
         session: Session,
         txn?: Uuid,
+        options?: RequestOptions,
     ): AsyncIterable<QueryStreamFrame> {
         if (!this.#broker.isConnected) {
             throw new ConnectionUnavailableError();
@@ -170,7 +175,7 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
             this._context.codecs.cbor.encode({
                 id,
                 method: "query_stream",
-                params: [query.query, query.bindings],
+                params: queryParams(query, "query", options),
                 session,
                 txn,
             }),

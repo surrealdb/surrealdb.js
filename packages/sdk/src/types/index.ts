@@ -9,3 +9,4 @@ export * from "./rpc";
 export * from "./sql";
 export * from "./standard-schema";
 export * from "./surreal";
+export * from "./trace";

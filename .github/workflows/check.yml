@@ -315,8 +315,8 @@ jobs:
       fail-fast: false
       matrix:
         # The latest-* entries resolve the newest stable release of their line at run time, so new
-        # releases are tested without a matrix bump. Nightly is the line which becomes 4.0.
-        surrealdb: ["v2.2.7", "v2.3.7", "latest-v2", "v3.0.0", "latest-v3.3", "nightly"]
+        # releases are tested without a matrix bump. Nightly is the line after 4.0.
+        surrealdb: ["v2.2.7", "v2.3.7", "latest-v2", "v3.0.0", "latest-v3.3", "v4.0.0", "nightly"]
         engine: ["ws", "http"]
     steps:
       - name: Install SurrealDB ${{ matrix.surrealdb }} over ${{ matrix.engine }} engine
