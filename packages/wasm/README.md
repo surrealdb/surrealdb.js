@@ -43,7 +43,7 @@ Install it alongside [`surrealdb`](https://www.npmjs.com/package/surrealdb) and 
 
 ## How to install
 
-This package has peer dependencies on `surrealdb` and `@surrealdb/wasm-native`. The latter is the SurrealDB engine itself, so you choose which engine version you run: npm 7+ and bun install the newest compatible release automatically, or install a specific one yourself (e.g. `npm i @surrealdb/wasm-native@3.3.1`).
+This package has peer dependencies on `surrealdb` and `@surrealdb/wasm-native`. The latter is the SurrealDB engine itself, so you choose which engine version you run: npm 7+ and bun install the newest compatible release automatically, or install a specific one yourself (e.g. `npm i @surrealdb/wasm-native@4.0.0`).
 Install them:
 
 ```sh
@@ -66,17 +66,17 @@ The SurrealDB engine is a separate package, `@surrealdb/wasm-native`, that this 
 
 ```sh
 # Install a specific engine release alongside the driver
-npm i surrealdb @surrealdb/wasm @surrealdb/wasm-native@3.3.1
+npm i surrealdb @surrealdb/wasm @surrealdb/wasm-native@4.0.0
 ```
 
 ```jsonc
 // package.json
 {
     "dependencies": {
-        "surrealdb": "^2.1.0",
-        "@surrealdb/wasm": "^3.1.0",
+        "surrealdb": "^2.2.1",
+        "@surrealdb/wasm": "^3.2.0",
         // Pin exactly for reproducible builds, or use a range to follow new releases
-        "@surrealdb/wasm-native": "3.3.1"
+        "@surrealdb/wasm-native": "4.0.0"
     }
 }
 ```

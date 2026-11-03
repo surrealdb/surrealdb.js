@@ -87,9 +87,9 @@ For installation options, connection setup, query examples, live queries, embedd
 {
     "dependencies": {
         "surrealdb": "^2.2.1",
-        "@surrealdb/node": "^3.1.0",
+        "@surrealdb/node": "^3.2.0",
         // Pin exactly for reproducible builds, or use a range to follow new releases
-        "@surrealdb/node-native": "3.3.1"
+        "@surrealdb/node-native": "4.0.0"
     }
 }
 ```
