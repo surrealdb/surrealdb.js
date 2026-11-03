@@ -44,10 +44,10 @@ export function toSurqlString(input: unknown): string {
         if (input instanceof BigDecimal) return `${input.toString()}bigdec`;
 
         // SurrealDB 4.0's temporal literals, as the server writes them
-        if (input instanceof PlainDate) return `date${JSON.stringify(input.toString())}`;
-        if (input instanceof PlainTime) return `time${JSON.stringify(input.toString())}`;
-        if (input instanceof Timestamp) return `timestamp${JSON.stringify(input.toString())}`;
-        if (input instanceof Interval) return `interval${JSON.stringify(input.toString())}`;
+        if (input instanceof PlainDate) return `pd${JSON.stringify(input.toString())}`;
+        if (input instanceof PlainTime) return `pt${JSON.stringify(input.toString())}`;
+        if (input instanceof Timestamp) return `ts${JSON.stringify(input.toString())}`;
+        if (input instanceof Interval) return `ivl${JSON.stringify(input.toString())}`;
         if (input instanceof Regex) return input.toString();
 
         // SurrealDB 4.0's literals: 5u8, 1.5f32, and a cast for what has no literal

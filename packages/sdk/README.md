@@ -622,7 +622,7 @@ with its own tag. The SDK represents them with these classes:
 | `regex` | `Regex` | the text of a pattern, in the syntax of the Rust `regex` crate |
 
 ```ts
-const [due] = await db.query('RETURN date"2024-01-15"').collect<[PlainDate]>();
+const [due] = await db.query('RETURN pd"2024-01-15"').collect<[PlainDate]>();
 [due.year, due.month, due.day]; // [2024, 1, 15]
 
 await db.query("CREATE shift SET starts = $starts", { starts: new PlainTime("09:30") });

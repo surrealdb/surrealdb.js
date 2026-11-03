@@ -210,7 +210,7 @@ function probeCapabilities(): Promise<Capabilities> {
 
             const sql = await fetch(`http://127.0.0.1:${port}/sql`, {
                 method: "POST",
-                body: 'RETURN date"2024-01-15"',
+                body: 'RETURN pd"2024-01-15"',
                 headers: { Accept: "application/json", Authorization: auth },
             });
             const answer = (await sql.json().catch(() => [])) as { status?: string }[];

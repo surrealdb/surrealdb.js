@@ -19,7 +19,7 @@ describe.if(TYPES40)("the types SurrealDB 4.0 shares with SQL", () => {
 
         const [values] = await surreal
             .query(
-                'RETURN [date"2024-01-15", time"12:34:56.5", timestamp"2024-01-15T12:34:56.123456789", interval"P1Y2M3DT1H2M3.5S", 12345678901234567890123456789012345.5bigdec, /^a+$/]',
+                'RETURN [pd"2024-01-15", pt"12:34:56.5", ts"2024-01-15T12:34:56.123456789", ivl"P1Y2M3DT1H2M3.5S", 12345678901234567890123456789012345.5bigdec, /^a+$/]',
             )
             .collect<[unknown[]]>();
 
@@ -46,7 +46,7 @@ describe.if(TYPES40)("the types SurrealDB 4.0 shares with SQL", () => {
         const surreal = await createSurreal();
 
         const [values] = await surreal
-            .query('RETURN [date"infinity", date"-infinity", timestamp"infinity"]')
+            .query('RETURN [pd"infinity", pd"-infinity", ts"infinity"]')
             .collect<[unknown[]]>();
 
         expect(values[0]).toEqual(PlainDate.INFINITY);

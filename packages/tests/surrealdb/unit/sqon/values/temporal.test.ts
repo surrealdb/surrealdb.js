@@ -236,10 +236,10 @@ describe("JSON and SurrealQL", () => {
     });
 
     test("toSurqlString writes the literals the server parses", () => {
-        expect(toSurqlString(new PlainDate("2024-01-15"))).toBe('date"2024-01-15"');
-        expect(toSurqlString(new PlainTime("12:00"))).toBe('time"12:00:00"');
-        expect(toSurqlString(new Timestamp([0, 0]))).toBe('timestamp"1970-01-01T00:00:00"');
-        expect(toSurqlString(new Interval({ days: 1 }))).toBe('interval"P1D"');
+        expect(toSurqlString(new PlainDate("2024-01-15"))).toBe('pd"2024-01-15"');
+        expect(toSurqlString(new PlainTime("12:00"))).toBe('pt"12:00:00"');
+        expect(toSurqlString(new Timestamp([0, 0]))).toBe('ts"1970-01-01T00:00:00"');
+        expect(toSurqlString(new Interval({ days: 1 }))).toBe('ivl"P1D"');
         expect(toSurqlString(new BigDecimal("1.5"))).toBe("1.5bigdec");
         expect(toSurqlString(new Regex("a+"))).toBe("/a+/");
     });
