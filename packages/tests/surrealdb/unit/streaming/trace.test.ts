@@ -5,6 +5,7 @@ import {
     type QueryChunk,
     type QueryTrace,
     RecordId,
+    Surreal,
     ThrownError,
     Uuid,
     WebSocketEngine,
@@ -26,6 +27,7 @@ import {
     queryParams,
 } from "../../../../sdk/src/internal/trace";
 import { Query } from "../../../../sdk/src/query/query";
+import { createMockFetch, type MockHandler } from "../__helpers__/mock-fetch";
 import { MockSocket, mockContext, mockState } from "../__helpers__/mock-socket";
 
 type Chunk = QueryChunk<unknown>;
@@ -564,5 +566,48 @@ describe("Query.trace()", () => {
 
         const [response] = await query.responses();
         expect(response).not.toHaveProperty("trace");
+    });
+});
+
+describe("trace on an HTTP engine", () => {
+    let db: Surreal | undefined;
+
+    afterEach(async () => {
+        await db?.close();
+        db = undefined;
+    });
+
+    test("is sent with the call, beside the variables the session adds, and read from the answer", async () => {
+        const handler: MockHandler = (request) => {
+            if (request.rpc?.method !== "query") return { result: null };
+
+            return {
+                result: [
+                    {
+                        status: "OK",
+                        time: "1ms",
+                        type: "other",
+                        result: [{ id: post1 }],
+                        trace: { relations: [wireRelation(post1, tagged("a"), rust)] },
+                    },
+                ],
+            };
+        };
+        const server = createMockFetch(handler, "surrealdb-4.0.0");
+
+        db = new Surreal({ fetchImpl: server.fetchImpl });
+        await db.connect("http://localhost:8000/rpc", {
+            namespace: "ns",
+            database: "db",
+            versionCheck: false,
+        });
+
+        const [response] = await db.query("SELECT * FROM post").trace("relations").responses();
+        const [request] = server.calls.filter((call) => call.rpc?.method === "query");
+
+        expect(request?.rpc?.params).toEqual(["SELECT * FROM post", {}, { trace: ["relations"] }]);
+        expect(response?.success && response.trace?.relations).toEqual([
+            { in: post1, edge: tagged("a"), out: rust },
+        ]);
     });
 });

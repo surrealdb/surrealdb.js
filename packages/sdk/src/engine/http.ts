@@ -303,12 +303,17 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         switch (request.method) {
             case "query":
             case "gql": {
+                // `[text, vars?, options?]`: the options, which a query only has when it asks for
+                // something of the server such as a trace, are carried as they are.
+                const options = request.params?.[2];
+
                 request.params = [
                     request.params?.[0],
                     {
                         ...session.variables,
                         ...(request.params?.[1] ?? {}),
                     },
+                    ...(options === undefined ? [] : [options]),
                 ] as Params;
                 break;
             }
