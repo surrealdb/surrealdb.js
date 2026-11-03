@@ -23,7 +23,6 @@ import { ReconnectContext } from "../internal/reconnect";
 import { relayIterable } from "../internal/relay";
 import { RequestCredentials } from "../internal/request-credentials";
 import { RetryContext } from "../internal/retry";
-import { type EndpointScope, endpointScope } from "../internal/scope";
 import { fastParseJwt, renewalDelay, tokenExpiry } from "../internal/tokens";
 import type { ApiResponse } from "../query/api";
 import type {
@@ -122,8 +121,6 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #skipRenewal: boolean = false;
     #checkVersion: boolean = false;
     #lastConnectionError: Error | undefined = undefined;
-    // The namespace and database a remote endpoint's path names, which every session starts in
-    #scope: EndpointScope | undefined;
 
     subscribe<K extends keyof ConnectionEvents>(
         event: K,
@@ -179,7 +176,6 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#skipRenewal = options.invalidateOnExpiry ?? false;
         this.#checkVersion = options.versionCheck ?? true;
         this.#expiryMargin = options.expiryMargin ?? 60;
-        this.#scope = /^(http|ws)s?:$/.test(url.protocol) ? endpointScope(url) : undefined;
         this.#authProvider = authentication.provider;
         this.#requestResolver = authentication.request?.resolve;
         this.#requestAuth = authentication.request
@@ -200,8 +196,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
             pongTimeout: options.pongTimeout,
             rootSession: {
                 ...this.#createSessionState(undefined),
-                namespace: options.namespace ?? this.#scope?.namespace,
-                database: options.database ?? this.#scope?.database,
+                namespace: options.namespace,
+                database: options.database,
             },
         };
 
@@ -480,8 +476,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         if (database) sessionState.database = database;
 
         const selected: NamespaceDatabase = {
-            namespace: sessionState.namespace,
-            database: sessionState.database,
+            namespace: undefined,
+            database: undefined,
         };
 
         this.#eventPublisher.publish("using", selected, session);
@@ -524,15 +520,14 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         await this.#engine.reset(session);
         const sessionState = this.getSession(session);
 
-        // A session reset returns to the scope of the endpoint, where the server pins it
-        sessionState.namespace = this.#scope?.namespace;
-        sessionState.database = this.#scope?.database;
+        sessionState.namespace = undefined;
+        sessionState.database = undefined;
         sessionState.variables = {};
         this.#handleAuthInvalidate(session);
 
         const payload: NamespaceDatabase = {
-            namespace: sessionState.namespace,
-            database: sessionState.database,
+            namespace: undefined,
+            database: undefined,
         };
 
         this.#eventPublisher.publish("using", payload, session);
@@ -1323,8 +1318,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return {
             id,
             variables: {},
-            namespace: this.#scope?.namespace,
-            database: this.#scope?.database,
+            namespace: undefined,
+            database: undefined,
             accessToken: undefined,
             refreshToken: undefined,
             authRenewal: undefined,

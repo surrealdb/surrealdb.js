@@ -137,20 +137,6 @@ await db.signin({
 });
 ```
 
-#### Scoping a connection by its URL
-
-SurrealDB 4.0 also reads the namespace and database from the path of the URL, as
-in `/ns/{namespace}/db/{database}/rpc`, and keeps the connection inside them: a
-`use()` which leaves them is refused, and `reset()` returns to them. Connected
-this way, every session starts in the namespace and database of the URL, so no
-`use()` is needed.
-
-```ts
-await db.connect("wss://my-instance.aws-euw1.surreal.cloud/ns/test/db/test/rpc");
-```
-
-Servers before 4.0 do not route these paths.
-
 ### Authentication
 
 Instead of calling `db.signin()` yourself, you can give the SDK the credentials with the `authentication` option of `connect()`. They are applied when the connection is established, applied again when it is re-established, and renewed when the session is about to expire.

@@ -156,8 +156,6 @@ interface Capabilities {
     cbor2: boolean;
     /** Whether it has the date, time, timestamp, interval, bigdecimal and regex of SurrealDB 4.0 */
     types40: boolean;
-    /** Whether it takes the namespace and database from the URL path (SurrealDB 4.0) */
-    scopedRoutes: boolean;
 }
 
 let capabilities: Promise<Capabilities> | undefined;
@@ -168,7 +166,7 @@ let capabilities: Promise<Capabilities> | undefined;
  */
 function probeCapabilities(): Promise<Capabilities> {
     capabilities ??= (async () => {
-        const none = { cbor2: false, types40: false, scopedRoutes: false };
+        const none = { cbor2: false, types40: false };
         if (SURREAL_BACKEND !== "remote") return none;
 
         const port = await getPort();
@@ -218,16 +216,7 @@ function probeCapabilities(): Promise<Capabilities> {
             const answer = (await sql.json().catch(() => [])) as { status?: string }[];
             const types40 = answer[0]?.status === "OK";
 
-            // A route the server does not know is a 404; one it knows is anything else
-            const scoped = await fetch(`http://127.0.0.1:${port}/ns/probe/db/probe/sql`, {
-                method: "POST",
-                body: "RETURN 1",
-                headers: { Accept: "application/json", Authorization: auth },
-            });
-            await scoped.arrayBuffer();
-            const scopedRoutes = scoped.status !== 404;
-
-            if (SURREAL_PROTOCOL !== "ws") return { cbor2: true, types40, scopedRoutes };
+            if (SURREAL_PROTOCOL !== "ws") return { cbor2: true, types40 };
 
             // Over WebSocket the SDK falls back to plain cbor where the runtime cannot offer
             // more than one subprotocol, as Bun 1.2 cannot
@@ -240,7 +229,7 @@ function probeCapabilities(): Promise<Capabilities> {
                 socket.onclose = () => resolve(false);
             });
 
-            return { cbor2, types40, scopedRoutes };
+            return { cbor2, types40 };
         } finally {
             probe.kill();
             await probe.exited;
@@ -266,14 +255,6 @@ export async function speaksCbor2(): Promise<boolean> {
 export async function hasTypes40(): Promise<boolean> {
     const { cbor2, types40 } = await probeCapabilities();
     return cbor2 && types40;
-}
-
-/**
- * Whether the server takes the namespace and database from the URL path, as in
- * `/ns/{ns}/db/{db}/rpc`.
- */
-export async function routesScopes(): Promise<boolean> {
-    return (await probeCapabilities()).scopedRoutes;
 }
 
 /**

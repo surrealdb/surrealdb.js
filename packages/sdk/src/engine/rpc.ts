@@ -15,7 +15,6 @@ import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal, readBytes, releaseResponse } from "../internal/http";
 import { parseQueryError, type RpcQueryResultErrRaw } from "../internal/parse-error";
 import { statsFromTime } from "../internal/query-stats";
-import { endpointScope } from "../internal/scope";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
 import type { ApiResponse } from "../query/api";
 import type {
@@ -63,14 +62,6 @@ const utf8 = new TextDecoder();
  * JSON-based engines implement the SurrealDB v1 protocol, which uses
  * JSON objects to communicate with the server.
  */
-/** The endpoint's HTTP `route`, under the scope in its path when the route takes one */
-function routeUrl(url: string | URL, route: string, scoped: boolean): URL {
-    const endpoint = new URL(url);
-    const scope = endpointScope(endpoint);
-    endpoint.pathname = `${scope.base}${scoped ? scope.prefix : ""}${route}`;
-    return endpoint;
-}
-
 export abstract class RpcEngine implements SurrealProtocol {
     protected _context: DriverContext;
     protected _state: ConnectionState | undefined;
@@ -127,17 +118,14 @@ export abstract class RpcEngine implements SurrealProtocol {
             throw new SurrealError("HTTP API requests with GET or HEAD cannot have a body");
         }
 
+        const endpoint = new URL(state.url);
+        const basepath = endpoint.pathname.slice(0, -4);
         // Encode every segment so path data cannot replace the origin, query, or fragment.
         const segments = path.split("/").filter(Boolean);
         if (segments.some(isDotSegment)) {
             throw new SurrealError("HTTP API paths cannot contain dot segments");
         }
-        // The scoped form of /api is only a rewrite of this one, so a scope in the path is left out
-        const endpoint = routeUrl(
-            state.url,
-            `/api/${encodeURIComponent(selected.namespace)}/${encodeURIComponent(selected.database)}/${segments.map(encodeURIComponent).join("/")}`,
-            false,
-        );
+        endpoint.pathname = `${basepath}/api/${encodeURIComponent(selected.namespace)}/${encodeURIComponent(selected.database)}/${segments.map(encodeURIComponent).join("/")}`;
         endpoint.search = "";
         endpoint.hash = "";
         for (const [name, value] of Object.entries(request.query ?? {})) {
@@ -215,8 +203,10 @@ export abstract class RpcEngine implements SurrealProtocol {
             throw new ConnectionUnavailableError();
         }
 
-        // The health route takes no scope: under one it is not found
-        const endpoint = routeUrl(this._state.url, "/health", false);
+        const endpoint = new URL(this._state.url);
+        const basepath = endpoint.pathname.slice(0, -4);
+
+        endpoint.pathname = `${basepath}/health`;
 
         const response = await fetchSurreal(this._context, this._state, this._state.rootSession, {
             url: endpoint,
@@ -423,7 +413,10 @@ export abstract class RpcEngine implements SurrealProtocol {
             throw new ConnectionUnavailableError();
         }
 
-        const endpoint = routeUrl(this._state.url, "/import", true);
+        const endpoint = new URL(this._state.url);
+        const basepath = endpoint.pathname.slice(0, -4);
+
+        endpoint.pathname = `${basepath}/import`;
 
         // An older server answers with the result of every statement, which is left unread
         const reports =
@@ -489,7 +482,10 @@ export abstract class RpcEngine implements SurrealProtocol {
             throw new ConnectionUnavailableError();
         }
 
-        const endpoint = routeUrl(this._state.url, "/export", true);
+        const endpoint = new URL(this._state.url);
+        const basepath = endpoint.pathname.slice(0, -4);
+
+        endpoint.pathname = `${basepath}/export`;
 
         return fetchSurreal(this._context, this._state, this._state.rootSession, {
             body: options ?? {},
@@ -515,11 +511,10 @@ export abstract class RpcEngine implements SurrealProtocol {
             throw new ConnectionUnavailableError();
         }
 
-        const endpoint = routeUrl(
-            this._state.url,
-            `/ml/export/${options.name}/${options.version}`,
-            true,
-        );
+        const endpoint = new URL(this._state.url);
+        const basepath = endpoint.pathname.slice(0, -4);
+
+        endpoint.pathname = `${basepath}/ml/export/${options.name}/${options.version}`;
 
         return fetchSurreal(this._context, this._state, this._state.rootSession, {
             url: endpoint,
