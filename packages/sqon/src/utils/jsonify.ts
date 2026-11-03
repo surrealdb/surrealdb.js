@@ -1,16 +1,22 @@
 import type {
+    BigDecimal,
     DateTime,
     Decimal,
     Duration,
     FileRef,
     Future,
     Geometry,
+    Interval,
+    PlainDate,
+    PlainTime,
     Range,
     RecordId,
     RecordIdRange,
+    Regex,
     SizedNumber,
     StringRecordId,
     Table,
+    Timestamp,
     U64,
     Uuid,
 } from "../value/index.ts";
@@ -29,6 +35,12 @@ type JsonifyValue<T> = T extends
     | FileRef
     | Range<unknown, unknown>
     | StringRecordId
+    | PlainDate
+    | PlainTime
+    | Timestamp
+    | Interval
+    | BigDecimal
+    | Regex
     ? string
     : T extends undefined
       ? undefined

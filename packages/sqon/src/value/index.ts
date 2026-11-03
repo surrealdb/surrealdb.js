@@ -1,3 +1,4 @@
+export { BigDecimal } from "./big-decimal.ts";
 export { DateTime } from "./datetime.ts";
 export { Decimal } from "./decimal.ts";
 export { Duration } from "./duration.ts";
@@ -13,9 +14,13 @@ export {
     GeometryPoint,
     GeometryPolygon,
 } from "./geometry.ts";
+export { Interval, type IntervalParts } from "./interval.ts";
+export { PlainDate } from "./plain-date.ts";
+export { PlainTime } from "./plain-time.ts";
 export { Range } from "./range.ts";
 export { RecordId, type RecordIdValue } from "./record-id.ts";
 export { RecordIdRange } from "./record-id-range.ts";
+export { Regex } from "./regex.ts";
 export {
     F16,
     F32,
@@ -31,5 +36,6 @@ export {
 } from "./sized.ts";
 export { StringRecordId } from "./string-record-id.ts";
 export { Table } from "./table.ts";
+export { Timestamp, type TimestampTuple } from "./timestamp.ts";
 export { Uuid } from "./uuid.ts";
 export { Value } from "./value.ts";

@@ -11,7 +11,8 @@ export const Features = Object.freeze({
     RefreshTokens: new Feature("refresh-tokens", "3.0.0"),
     Transactions: new Feature("transactions", "3.0.0"),
     ExportImportRaw: new Feature("export-import-raw"),
-    SurrealML: new Feature("surreal-ml"),
+    /** SurrealML model export, which SurrealDB 4.0 removed with SurrealML itself */
+    SurrealML: new Feature("surreal-ml", undefined, "4.0.0"),
     /**
      * The engine presents credentials with each request instead of holding them in a
      * server side session, which allows credentials to be resolved or overridden per request.
@@ -26,4 +27,9 @@ export const Features = Object.freeze({
      * be older skip asking at all.
      */
     QueryStreaming: new Feature("query-streaming", "3.3.0"),
+    /**
+     * The `pgsql` and `mysql` RPC methods, which run PostgreSQL and MySQL text on a session.
+     * Released in 4.0.0, where an instance may still deny them.
+     */
+    SqlDialects: new Feature("sql-dialects", "4.0.0"),
 });

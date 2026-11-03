@@ -26,6 +26,12 @@ const GEOMETRY_MULTI_LINE_SYMBOL = Symbol.for("surrealdb.GeometryMultiLine");
 const GEOMETRY_MULTI_POLYGON_SYMBOL = Symbol.for("surrealdb.GeometryMultiPolygon");
 const GEOMETRY_COLLECTION_SYMBOL = Symbol.for("surrealdb.GeometryCollection");
 const SIZED_NUMBER_SYMBOL = Symbol.for("surrealdb.SizedNumber");
+const PLAIN_DATE_SYMBOL = Symbol.for("surrealdb.PlainDate");
+const PLAIN_TIME_SYMBOL = Symbol.for("surrealdb.PlainTime");
+const TIMESTAMP_SYMBOL = Symbol.for("surrealdb.Timestamp");
+const INTERVAL_SYMBOL = Symbol.for("surrealdb.Interval");
+const BIG_DECIMAL_SYMBOL = Symbol.for("surrealdb.BigDecimal");
+const REGEX_SYMBOL = Symbol.for("surrealdb.Regex");
 
 /**
  * Helper function to mark an object with a symbol
@@ -67,4 +73,10 @@ export {
     BOUND_INCLUDED_SYMBOL,
     BOUND_EXCLUDED_SYMBOL,
     SIZED_NUMBER_SYMBOL,
+    PLAIN_DATE_SYMBOL,
+    PLAIN_TIME_SYMBOL,
+    TIMESTAMP_SYMBOL,
+    INTERVAL_SYMBOL,
+    BIG_DECIMAL_SYMBOL,
+    REGEX_SYMBOL,
 };

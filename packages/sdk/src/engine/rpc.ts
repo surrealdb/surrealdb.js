@@ -31,7 +31,11 @@ import type {
     RpcQueryResult,
     RpcRequest,
     Session,
+    SqlDialect,
     SqlExportOptions,
+    SqlOptions,
+    SqlResult,
+    SqlStatements,
     SurrealProtocol,
     Token,
     Tokens,
@@ -314,6 +318,24 @@ export abstract class RpcEngine implements SurrealProtocol {
                 session,
             }),
         );
+    }
+
+    async sql<T>(
+        dialect: SqlDialect,
+        statements: SqlStatements,
+        vars: Record<string, unknown> | undefined,
+        options: SqlOptions | undefined,
+        session: Session,
+    ): Promise<SqlResult<T>> {
+        const params: unknown[] = [statements];
+        if (vars !== undefined || options !== undefined) params.push(vars ?? null);
+        if (options !== undefined) params.push(options);
+
+        return this.send({
+            method: dialect,
+            params,
+            session,
+        });
     }
 
     async revoke(tokens: Tokens, session: Session): Promise<void> {

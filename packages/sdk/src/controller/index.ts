@@ -46,7 +46,11 @@ import type {
     RequestOptions,
     RetryOptions,
     Session,
+    SqlDialect,
     SqlExportOptions,
+    SqlOptions,
+    SqlResult,
+    SqlStatements,
     SurrealEngine,
     SurrealProtocol,
     Token,
@@ -387,6 +391,21 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         this.#handleAuthChanged(session);
 
         return response;
+    }
+
+    async sql<T>(
+        dialect: SqlDialect,
+        statements: SqlStatements,
+        vars: Record<string, unknown> | undefined,
+        options: SqlOptions | undefined,
+        session: Session,
+    ): Promise<SqlResult<T>> {
+        const engine = this.#engine;
+        if (!engine) throw new ConnectionUnavailableError();
+        this.assertFeature(Features.SqlDialects);
+        if (!engine.sql) throw new UnsupportedFeatureError(Features.SqlDialects);
+
+        return engine.sql<T>(dialect, statements, vars, options, session);
     }
 
     async revoke(tokens: Tokens | undefined, session: Session): Promise<void> {

@@ -2,6 +2,7 @@ import { fromBase64Url, toBase64Url } from "../../internal/base64.ts";
 import type { CodecOptions, ValueCodec } from "../../types/codec.ts";
 import { BoundExcluded, BoundIncluded } from "../../utils/range.ts";
 import {
+    BigDecimal,
     DateTime,
     Decimal,
     Duration,
@@ -13,13 +14,18 @@ import {
     I8,
     I16,
     I32,
+    Interval,
+    PlainDate,
+    PlainTime,
     Range,
     RecordId,
     RecordIdRange,
     type RecordIdValue,
+    Regex,
     SizedNumber,
     StringRecordId,
     Table,
+    Timestamp,
     U8,
     U16,
     U32,
@@ -28,40 +34,52 @@ import {
 } from "../../value/index.ts";
 import type { SizedNumberKind } from "../../value/sized.ts";
 import {
+    createBigDecimal,
     createBoundExcluded,
     createBoundIncluded,
     createBytes,
+    createDate,
     createDatetime,
     createDecimal,
     createDuration,
     createFile,
     createFuture,
     createGeometry,
+    createInterval,
     createNone,
     createObject,
     createRange,
     createRecordId,
+    createRegex,
     createSet,
     createSized,
     createStringRecordId,
     createTable,
+    createTime,
+    createTimestamp,
     createUuid,
+    isBigDecimal,
     isBoundExcluded,
     isBoundIncluded,
     isBytes,
+    isDate,
     isDatetime,
     isDecimal,
     isDuration,
     isFile,
     isFuture,
     isGeometry,
+    isInterval,
     isNone,
     isObject,
     isRange,
     isRecordId,
+    isRegex,
     isSet,
     isStringRecordId,
     isTable,
+    isTime,
+    isTimestamp,
     isUuid,
     sizedKind,
 } from "./values.ts";
@@ -155,6 +173,24 @@ export class JsonCodec implements ValueCodec<unknown> {
         }
         if (value instanceof Geometry) {
             return createGeometry(value.toJSON());
+        }
+        if (value instanceof PlainDate) {
+            return createDate(value.toString());
+        }
+        if (value instanceof PlainTime) {
+            return createTime(value.toString());
+        }
+        if (value instanceof Timestamp) {
+            return createTimestamp(value.toString());
+        }
+        if (value instanceof Interval) {
+            return createInterval(value.months, value.days, value.micros.toString());
+        }
+        if (value instanceof BigDecimal) {
+            return createBigDecimal(value.toString());
+        }
+        if (value instanceof Regex) {
+            return createRegex(value.pattern);
         }
         if (value instanceof SizedNumber) {
             return createSized(value.kind, this.#encodeSized(value.value));
@@ -291,6 +327,26 @@ export class JsonCodec implements ValueCodec<unknown> {
         }
         if (isFuture(obj)) {
             return this.#decodeValue(new Future(obj.$future));
+        }
+
+        if (isDate(obj)) {
+            return this.#decodeValue(new PlainDate(obj.$date));
+        }
+        if (isTime(obj)) {
+            return this.#decodeValue(new PlainTime(obj.$time));
+        }
+        if (isTimestamp(obj)) {
+            return this.#decodeValue(new Timestamp(obj.$timestamp));
+        }
+        if (isInterval(obj)) {
+            const { months, days, micros } = obj.$interval;
+            return this.#decodeValue(new Interval([months, days, BigInt(micros)]));
+        }
+        if (isBigDecimal(obj)) {
+            return this.#decodeValue(new BigDecimal(obj.$bigdecimal));
+        }
+        if (isRegex(obj)) {
+            return this.#decodeValue(new Regex(obj.$regex));
         }
 
         const kind = sizedKind(obj);
