@@ -3,6 +3,7 @@ import { type DiagnosticsCallback, DiagnosticsEngine } from "./diagnostics";
 import { HttpEngine } from "./http";
 import { WebSocketEngine } from "./websocket";
 
+export { queryParams } from "../internal/trace";
 export { HttpEngine } from "./http";
 export { RpcEngine } from "./rpc";
 export { framesToChunks, type QueryStreamFrame } from "./stream";

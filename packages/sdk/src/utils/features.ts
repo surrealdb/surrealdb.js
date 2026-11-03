@@ -32,4 +32,10 @@ export const Features = Object.freeze({
      * Released in 4.0.0, where an instance may still deny them.
      */
     SqlDialects: new Feature("sql-dialects", "4.0.0"),
+    /**
+     * The `trace` option of a query, which reports the graph its statements walked: the edges,
+     * references and links behind the rows, the variables a statement bound, and the live queries
+     * it started. Released in 4.0.0, which refuses the option on an older server as unknown.
+     */
+    QueryTrace: new Feature("query-trace", "4.0.0"),
 });

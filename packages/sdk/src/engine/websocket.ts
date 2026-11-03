@@ -19,6 +19,7 @@ import {
     queryStreamChunks,
 } from "../internal/query-stream";
 import { resolveBlocks, ShapeScopes } from "../internal/shaped";
+import { queryParams } from "../internal/trace";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
 import type { ApiResponse } from "../query/api";
 import type {
@@ -131,6 +132,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         Features.ExportImportRaw,
         Features.SurrealML,
         Features.SqlDialects,
+        Features.QueryTrace,
         Features.QueryStreaming,
     ]);
 
@@ -462,7 +464,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         const probe: StreamProbe = { framed: false };
 
         // Opened here rather than by `query`, so nothing is sent until the caller reads.
-        frames.current = this.streamFrames(query, session, txn, probe);
+        frames.current = this.streamFrames(query, session, txn, probe, options);
 
         try {
             for await (const chunk of queryStreamChunks<T>(frames.current, abandonment)) {
@@ -553,6 +555,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         session: Session,
         txn: Uuid | undefined,
         probe: StreamProbe,
+        options?: RequestOptions,
     ): AsyncIterableIterator<QueryStreamFrame> {
         // A stream is never re-sent once a socket returns, so it cannot be queued for one which is
         // not there: it would wait for a request never written.
@@ -576,7 +579,7 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
                     this.#codec().encode({
                         id,
                         method: STREAM_METHOD,
-                        params: [query.query, query.bindings],
+                        params: queryParams(query, "query", options),
                         session,
                         // Only when there is one: a stream inside a transaction is run on it.
                         ...(txn === undefined ? {} : { txn }),

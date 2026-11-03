@@ -620,6 +620,10 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         const engine = this.#engine;
         if (!engine) throw new ConnectionUnavailableError();
 
+        // Refused here, naming the feature and the version, rather than sent to a server which
+        // would refuse the option as an unknown one.
+        if (options?.trace?.length) this.assertFeature(Features.QueryTrace);
+
         // What the engine is handed is what an engine knows of, and the wait is the controller's
         const { beforeSend, ...rest } = options ?? {};
         const request = options && (beforeSend ? rest : options);
@@ -670,6 +674,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         if (typeof engine.queryAs !== "function") {
             throw new UnsupportedFeatureError(Features.PerRequestAuth);
         }
+
+        if (options.trace?.length) this.assertFeature(Features.QueryTrace);
 
         return engine.queryAs<T>(query, session, txn, options);
     }

@@ -1,6 +1,7 @@
 export { isRetryableConflict } from "../internal/retry";
 export * from "./bound-query";
 export * from "./channel-iterator";
+export * from "./dedupe-trace";
 export * from "./expr";
 export * from "./features";
 export * from "./frame";

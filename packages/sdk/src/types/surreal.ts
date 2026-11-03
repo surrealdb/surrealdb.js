@@ -19,6 +19,7 @@ import type { Prettify } from "./internal";
 import type { LiveMessage } from "./live";
 import type { EventPublisher } from "./publisher";
 import type { SqlDialect, SqlOptions, SqlResult, SqlStatements } from "./sql";
+import type { QueryTrace, TraceKind } from "./trace";
 
 export type Session = Uuid | undefined;
 export type QueryResponseKind = "single" | "batched" | "batched-final";
@@ -154,6 +155,15 @@ export interface RequestOptions {
      * Engines which do not stream ignore it.
      */
     stream?: boolean;
+
+    /**
+     * The kinds of trace to ask the server to report with the answer of a query: the graph its
+     * statements walked. Each is delivered with the frame, or the result, it belongs to.
+     *
+     * Engines which do not speak a protocol with the option ignore it, and a server which does
+     * not know it refuses it.
+     */
+    trace?: readonly TraceKind[];
 
     /**
      * Report how much of the body of the request has been uploaded, for a request which uploads
@@ -849,6 +859,11 @@ export interface QueryChunk<T> {
     result?: T[];
     type?: QueryType;
     error?: ServerError;
+    /**
+     * The trace which arrived with this chunk, as the server sent it. It belongs to the statement
+     * and not to the rows of the chunk, and a statement which fails retracts it with its rows.
+     */
+    trace?: QueryTrace;
 }
 
 /**
@@ -859,6 +874,11 @@ export type QueryResponseSuccess<T = unknown> = {
     stats?: QueryStats;
     type: "live" | "kill" | "other";
     result: T;
+    /**
+     * What the statement reported about the graph it walked, for a query which asked for a trace.
+     * The entries of every frame it was sent on are held as they were sent, so one can repeat.
+     */
+    trace?: QueryTrace;
 };
 
 /**

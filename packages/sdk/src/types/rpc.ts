@@ -8,6 +8,8 @@ export type RpcQueryResultOk<T> = {
     time: string;
     result: T;
     type: QueryType;
+    /** Only for a call which asked for a trace, and a statement which has one */
+    trace?: unknown;
 };
 
 export type RpcQueryResultErr = {

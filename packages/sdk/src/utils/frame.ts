@@ -1,6 +1,6 @@
 import type { ServerError } from "../errors";
 import type { MaybeJsonify } from "../internal/maybe-jsonify";
-import type { QueryStats, QueryType } from "../types";
+import type { QueryStats, QueryTrace, QueryType } from "../types";
 import {
     DONE_FRAME_SYMBOL,
     ERROR_FRAME_SYMBOL,
@@ -96,11 +96,19 @@ export class ValueFrame<T, J extends boolean> extends Frame<T, J> {
 
     readonly value: MaybeJsonify<T, J>;
     readonly isSingle: boolean;
+    /**
+     * What the server sent about the graph the statement walked on the frame this value arrived
+     * in, for a query which asked for a trace. A frame holding several rows yields the trace with
+     * the first of them. It belongs to the statement and not to this row, and is retracted with
+     * the rows if the statement fails.
+     */
+    readonly trace: QueryTrace | undefined;
 
-    constructor(query: number, value: MaybeJsonify<T, J>, isSingle: boolean) {
+    constructor(query: number, value: MaybeJsonify<T, J>, isSingle: boolean, trace?: QueryTrace) {
         super(query);
         this.value = value;
         this.isSingle = isSingle;
+        this.trace = trace;
         markSymbol(this, VALUE_FRAME_SYMBOL);
     }
 
@@ -149,11 +157,18 @@ export class DoneFrame<T, J extends boolean> extends Frame<T, J> {
 
     readonly stats: QueryStats | undefined;
     readonly type: QueryType;
+    /**
+     * What the server sent about the graph the statement walked on its closing frame, for a query
+     * which asked for a trace: the part which belongs to the statement as a whole, such as the
+     * variables it bound, and any entries no earlier frame took.
+     */
+    readonly trace: QueryTrace | undefined;
 
-    constructor(query: number, stats: QueryStats | undefined, type: QueryType) {
+    constructor(query: number, stats: QueryStats | undefined, type: QueryType, trace?: QueryTrace) {
         super(query);
         this.stats = stats;
         this.type = type;
+        this.trace = trace;
         markSymbol(this, DONE_FRAME_SYMBOL);
     }
 

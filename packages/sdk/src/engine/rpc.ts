@@ -15,6 +15,7 @@ import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal, readBytes, releaseResponse } from "../internal/http";
 import { parseQueryError, type RpcQueryResultErrRaw } from "../internal/parse-error";
 import { statsFromTime } from "../internal/query-stats";
+import { parseTrace, queryParams, traced } from "../internal/trace";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
 import type { ApiResponse } from "../query/api";
 import type {
@@ -552,7 +553,7 @@ export abstract class RpcEngine implements SurrealProtocol {
         const responses: RpcQueryResult[] = await this.send(
             {
                 method,
-                params: [query.query, query.bindings],
+                params: queryParams(query, method, options),
                 session,
                 txn,
             },
@@ -578,6 +579,7 @@ export abstract class RpcEngine implements SurrealProtocol {
 
             if (response.status === "OK") {
                 chunk.type = response.type;
+                Object.assign(chunk, traced(parseTrace(response.trace)));
 
                 if (Array.isArray(response.result)) {
                     chunk.kind = "batched-final";

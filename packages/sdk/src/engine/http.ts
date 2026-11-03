@@ -21,6 +21,7 @@ import { getSessionFromState } from "../internal/get-session-from-state";
 import { fetchSurreal, readBody } from "../internal/http";
 import { parseRpcError } from "../internal/parse-error";
 import { resolveBlocks } from "../internal/shaped";
+import { queryParams } from "../internal/trace";
 import { wrapSqonError } from "../internal/wrap-sqon-error";
 import type { ApiResponse } from "../query/api";
 import type {
@@ -98,6 +99,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         Features.ExportImportRaw,
         Features.SurrealML,
         Features.SqlDialects,
+        Features.QueryTrace,
         Features.PerRequestAuth,
     ]);
 
@@ -171,7 +173,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         const responses: RpcQueryResult[] = await this.send(
             {
                 method: options.dialect === "gql" ? "gql" : "query",
-                params: [query.query, query.bindings],
+                params: queryParams(query, options.dialect === "gql" ? "gql" : "query", options),
                 session,
                 txn,
             },

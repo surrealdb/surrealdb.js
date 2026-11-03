@@ -1,6 +1,8 @@
 import { parseQueryError, parseRpcError, type RpcErrorObject } from "../internal/parse-error";
 import { statsFromTime } from "../internal/query-stats";
+import { mergeTraces, parseTrace, traced } from "../internal/trace";
 import type { QueryChunk, QueryType } from "../types/surreal";
+import type { QueryTrace } from "../types/trace";
 
 /**
  * One frame of a streaming query answer.
@@ -14,8 +16,8 @@ import type { QueryChunk, QueryType } from "../types/surreal";
  */
 export type QueryStreamFrame =
     | { stream: "begin"; statements: number }
-    | { stream: "rows"; index: number; values: unknown[] }
-    | { stream: "value"; index: number; value: unknown }
+    | { stream: "rows"; index: number; values: unknown[]; trace?: unknown }
+    | { stream: "value"; index: number; value: unknown; trace?: unknown }
     | {
           stream: "finished";
           index: number;
@@ -23,6 +25,7 @@ export type QueryStreamFrame =
           type?: QueryType;
           single?: boolean;
           error?: RpcErrorObject;
+          trace?: unknown;
       }
     | { stream: "end"; results: number; time: string; error?: RpcErrorObject };
 
@@ -53,7 +56,7 @@ export async function* framesToChunks<T>(
     frames: AsyncIterable<QueryStreamFrame>,
 ): AsyncIterable<QueryChunk<T>> {
     /** The batch counter and held single value for each open statement. */
-    const open = new Map<number, { batch: number; value?: unknown }>();
+    const open = new Map<number, { batch: number; value?: unknown; trace?: QueryTrace }>();
 
     const state = (index: number) => {
         let entry = open.get(index);
@@ -76,6 +79,7 @@ export async function* framesToChunks<T>(
                     batch: entry.batch++,
                     kind: "batched",
                     result: frame.values as T[],
+                    ...traced(parseTrace(frame.trace)),
                 };
                 break;
             }
@@ -83,9 +87,12 @@ export async function* framesToChunks<T>(
             // A single value is not a list, so it is held until its statement
             // finishes: only then is it known whether it is the statement's
             // whole value or an error retracted it.
-            case "value":
-                state(frame.index).value = frame.value;
+            case "value": {
+                const entry = state(frame.index);
+                entry.value = frame.value;
+                entry.trace = parseTrace(frame.trace);
                 break;
+            }
 
             case "finished": {
                 // Read without inserting: a statement that emitted neither rows
@@ -127,6 +134,9 @@ export async function* framesToChunks<T>(
                           stats,
                           type: frame.type,
                           result: [entry?.value] as T[],
+                          // One chunk for the value and the end of its statement, so what
+                          // both frames reported rides on it.
+                          ...traced(mergeTraces(entry?.trace, parseTrace(frame.trace))),
                       }
                     : {
                           // Closes the statement without carrying rows: every
@@ -137,6 +147,7 @@ export async function* framesToChunks<T>(
                           stats,
                           type: frame.type,
                           result: [],
+                          ...traced(parseTrace(frame.trace)),
                       };
                 break;
             }
