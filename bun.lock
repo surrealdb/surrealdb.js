@@ -65,7 +65,7 @@
     },
     "packages/node": {
       "name": "@surrealdb/node",
-      "version": "3.1.0",
+      "version": "3.2.0",
       "devDependencies": {
         "@surrealdb/node-native": "4.0.0",
         "dts-bundle-generator": "^9.5.1",
@@ -126,7 +126,7 @@
     },
     "packages/wasm": {
       "name": "@surrealdb/wasm",
-      "version": "3.1.0",
+      "version": "3.2.0",
       "devDependencies": {
         "@surrealdb/wasm-native": "4.0.0",
         "dts-bundle-generator": "^9.5.1",
