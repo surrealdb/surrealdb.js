@@ -28,10 +28,10 @@ export type MockHandler = (request: MockRequest) => MockReply | Promise<MockRepl
 
 /**
  * A `fetch` implementation which speaks just enough of the SurrealDB HTTP protocol to drive
- * the SDK, and records what it was asked. `version` is always answered; everything else is up to
- * the handler.
+ * the SDK, and records what it was asked. `version` is always answered, with the given version;
+ * everything else is up to the handler.
  */
-export function createMockFetch(handler: MockHandler) {
+export function createMockFetch(handler: MockHandler, version = "surrealdb-3.0.0") {
     const requests: MockRequest[] = [];
 
     const fetchImpl = ((input: string | URL | Request, init: RequestInit = {}) => {
@@ -80,7 +80,7 @@ export function createMockFetch(handler: MockHandler) {
         requests.push(request);
 
         const reply: MockReply =
-            rpc?.method === "version" ? { result: "surrealdb-3.0.0" } : await handler(request);
+            rpc?.method === "version" ? { result: version } : await handler(request);
 
         if ("status" in reply) {
             return new Response(null, { status: reply.status });

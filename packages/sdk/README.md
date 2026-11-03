@@ -553,6 +553,33 @@ const [people] = await db.gql<[{ name: string }[]]>(
 > GQL is served by remote (WebSocket/HTTP) engines connected to a SurrealDB
 > instance with GQL enabled.
 
+#### PostgreSQL and MySQL
+
+SurrealDB 4.0 runs PostgreSQL and MySQL text on a session, with its namespace,
+database, variables and authentication, through `pgsql()` and `mysql()`. A
+positional parameter (`$1` for PostgreSQL, the n-th `?` for MySQL) binds to the
+variable `_1`, `_2`, and so on.
+
+```ts
+const { statements } = await db.pgsql("SELECT name FROM person WHERE age > $1", { _1: 18 });
+
+for (const statement of statements) {
+    if (statement.status === "OK") console.log(statement.columns, statement.rows);
+    else console.error(statement.error.sqlstate, statement.error.message);
+}
+```
+
+The answer holds one entry per SQL statement, with its command tag, columns and
+rows. A statement which fails is an `ERR` entry carrying its SQLSTATE (and MySQL
+error number), and the call itself still succeeds. The options choose rows as
+arrays (`rowMode: "array"`), values as text (`valueMode: "text"`), a `describe`
+of the statements instead of a run, and an `atomic` run in one transaction.
+Over WebSocket a `BEGIN` entry opens a transaction that later calls on the
+session run inside, until a `COMMIT` or `ROLLBACK` entry.
+
+> Only remote engines connected to SurrealDB 4.0 run these, and an instance can
+> deny them.
+
 #### Sized numbers
 
 SurrealDB 4.0 adds fixed-width number kinds: `i8`, `u8`, `i16`, `u16`, `i32`,
@@ -579,6 +606,35 @@ sent as a `Decimal`. To use plain `cbor` with every server, pass
 
 A `bigint` outside the signed 64-bit range of a SurrealDB `int` cannot be
 sent. Send it as a `Decimal`, or as a `U64` when it fits one.
+
+#### Dates, times, timestamps, intervals, bigdecimals and regexes
+
+SurrealDB 4.0 adds kinds which it shares with SQL, and `cbor.2` carries each one
+with its own tag. The SDK represents them with these classes:
+
+| SurrealQL | Class | Holds |
+|---|---|---|
+| `date` | `PlainDate` | a calendar date without a time or zone, as days since 1970-01-01 |
+| `time` | `PlainTime` | a time of day without a date or zone, as nanoseconds since midnight |
+| `timestamp` | `Timestamp` | a date and time without a zone, as seconds and nanoseconds |
+| `interval` | `Interval` | months, days and microseconds, kept apart |
+| `bigdecimal` | `BigDecimal` | a decimal past the 28 digits of a `decimal`, as its text |
+| `regex` | `Regex` | the text of a pattern, in the syntax of the Rust `regex` crate |
+
+```ts
+const [due] = await db.query('RETURN pd"2024-01-15"').collect<[PlainDate]>();
+[due.year, due.month, due.day]; // [2024, 1, 15]
+
+await db.query("CREATE shift SET starts = $starts", { starts: new PlainTime("09:30") });
+```
+
+A `PlainDate` and a `Timestamp` have the server's `infinity` and `-infinity` as
+`INFINITY` and `NEG_INFINITY`. A `Regex` is not a JavaScript `RegExp`, whose
+syntax differs; `toRegExp()` compiles its pattern with JavaScript's engine.
+
+Plain `cbor` has none of these. Over it the server sends a date or a timestamp
+as a datetime, a time as a duration, and an interval or a bigdecimal as text,
+and the SDK sends an instance the same way. A regex cannot be sent over it.
 
 #### Shaped frames
 

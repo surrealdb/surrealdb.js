@@ -1,8 +1,10 @@
 import { decode, Encoded, encode, POW_2_53, type Replacer, Tagged } from "@surrealdb/cbor";
-import { InvalidNumberError, ShapedFrameError } from "../../errors.ts";
+import { InvalidNumberError, ShapedFrameError, UnsupportedValueError } from "../../errors.ts";
+import { NANOS_PER_SECOND, SECONDS_PER_DAY } from "../../internal/calendar.ts";
 import type { CodecOptions, ValueCodec } from "../../types/codec.ts";
 import { BoundExcluded, BoundIncluded } from "../../utils/range.ts";
 import {
+    BIG_DECIMAL_SYMBOL,
     DATETIME_SYMBOL,
     DECIMAL_SYMBOL,
     DURATION_SYMBOL,
@@ -16,17 +18,23 @@ import {
     GEOMETRY_POINT_SYMBOL,
     GEOMETRY_POLYGON_SYMBOL,
     hasSymbol,
+    INTERVAL_SYMBOL,
+    PLAIN_DATE_SYMBOL,
+    PLAIN_TIME_SYMBOL,
     RANGE_SYMBOL,
     RECORD_ID_RANGE_SYMBOL,
     RECORD_ID_SYMBOL,
+    REGEX_SYMBOL,
     SIZED_NUMBER_SYMBOL,
     STRING_RECORD_ID_SYMBOL,
     TABLE_SYMBOL,
+    TIMESTAMP_SYMBOL,
     UUID_SYMBOL,
 } from "../../utils/symbols.ts";
 import type { DateTimeTuple } from "../../value/datetime.ts";
 import { FileRef } from "../../value/file.ts";
 import {
+    BigDecimal,
     DateTime,
     Decimal,
     Duration,
@@ -43,14 +51,19 @@ import {
     I8,
     I16,
     I32,
+    Interval,
+    PlainDate,
+    PlainTime,
     Range,
     RecordId,
     RecordIdRange,
     type RecordIdValue,
+    Regex,
     SizedNumber,
     type SizedNumberKind,
     StringRecordId,
     Table,
+    Timestamp,
     U8,
     U16,
     U32,
@@ -101,6 +114,14 @@ const TAG_GEOMETRY_MULTIPOLYGON = 93;
 const TAG_GEOMETRY_COLLECTION = 94;
 
 // Sized numbers (cbor.2 only)
+// The 4.0 types SurrealQL shares with PostgreSQL and MySQL (cbor.2 only)
+const TAG_DATE = 100;
+const TAG_TIME = 189;
+const TAG_TIMESTAMP = 190;
+const TAG_INTERVAL = 191;
+const TAG_BIGDECIMAL = 192;
+const TAG_REGEX = 193;
+
 const TAG_SIZED: Record<SizedNumberKind, number> = {
     i8: 180,
     u8: 181,
@@ -134,7 +155,8 @@ const I64_MAX = 2n ** 63n - 1n;
 export interface CborCodecOptions extends CodecOptions {
     /**
      * The CBOR dialect: 1 for `cbor`, which every server speaks, or 2 for `cbor.2`, which
-     * SurrealDB 4.0 adds. `cbor.2` is `cbor` plus the tags 180 to 188 of the sized numbers.
+     * SurrealDB 4.0 adds. `cbor.2` is `cbor` plus the tags 180 to 188 of the sized numbers and
+     * the tags 100 and 189 to 193 of the date, time, timestamp, interval, bigdecimal and regex.
      * Defaults to 1.
      */
     version?: 1 | 2;
@@ -248,6 +270,21 @@ export class CborCodec implements ValueCodec<Uint8Array> {
             return new Encoded(buf);
         }
 
+        if (value && hasSymbol(value, PLAIN_DATE_SYMBOL))
+            return this.#encodeDate(value as PlainDate);
+        if (value && hasSymbol(value, PLAIN_TIME_SYMBOL))
+            return this.#encodeTime(value as PlainTime);
+        if (value && hasSymbol(value, TIMESTAMP_SYMBOL)) {
+            return this.#encodeTimestamp(value as Timestamp);
+        }
+        if (value && hasSymbol(value, INTERVAL_SYMBOL)) {
+            return this.#encodeInterval(value as Interval);
+        }
+        if (value && hasSymbol(value, BIG_DECIMAL_SYMBOL)) {
+            return this.#encodeBigDecimal(value as BigDecimal);
+        }
+        if (value && hasSymbol(value, REGEX_SYMBOL)) return this.#encodeRegex(value as Regex);
+
         if (value instanceof Date) {
             return new Tagged(TAG_CUSTOM_DATETIME, new DateTime(value).toCompact());
         }
@@ -285,8 +322,13 @@ export class CborCodec implements ValueCodec<Uint8Array> {
         }
         if (value && hasSymbol(value, TABLE_SYMBOL))
             return new Tagged(TAG_TABLE, (value as Table).name);
-        if (value && hasSymbol(value, FUTURE_SYMBOL))
+        // Futures left SurrealDB in 3.0, and 4.0, the only server to speak cbor.2, refuses tag 15
+        if (value && hasSymbol(value, FUTURE_SYMBOL)) {
+            if (this.version === 2) {
+                throw new UnsupportedValueError("SurrealDB 4.0 has no futures to send one to");
+            }
             return new Tagged(TAG_FUTURE, (value as Future).body);
+        }
         if (value && hasSymbol(value, RANGE_SYMBOL))
             return new Tagged(
                 TAG_RANGE,
@@ -366,6 +408,18 @@ export class CborCodec implements ValueCodec<Uint8Array> {
         [TAG_GEOMETRY_MULTILINE]: (v) => this.#decodeValue(new GeometryMultiLine(v)),
         [TAG_GEOMETRY_MULTIPOLYGON]: (v) => this.#decodeValue(new GeometryMultiPolygon(v)),
         [TAG_GEOMETRY_COLLECTION]: (v) => this.#decodeValue(new GeometryCollection(v)),
+        [TAG_DATE]: (v) => this.#decodeValue(new PlainDate(Number(this.#v2Integer(TAG_DATE, v)))),
+        [TAG_TIME]: (v) => this.#decodeValue(new PlainTime(this.#v2Integer(TAG_TIME, v))),
+        [TAG_TIMESTAMP]: (v) => {
+            const [seconds, nanos] = this.#v2Tuple(TAG_TIMESTAMP, v, 2);
+            return this.#decodeValue(new Timestamp([seconds as bigint, nanos as bigint]));
+        },
+        [TAG_INTERVAL]: (v) => {
+            const [months, days, micros] = this.#v2Tuple(TAG_INTERVAL, v, 3);
+            return this.#decodeValue(new Interval([Number(months), Number(days), micros]));
+        },
+        [TAG_BIGDECIMAL]: (v) => this.#decodeValue(new BigDecimal(this.#v2Text(TAG_BIGDECIMAL, v))),
+        [TAG_REGEX]: (v) => this.#decodeValue(new Regex(this.#v2Text(TAG_REGEX, v))),
         ...Object.fromEntries(
             Object.entries(TAG_SIZED).map(([kind, tag]) => [
                 tag,
@@ -392,6 +446,84 @@ export class CborCodec implements ValueCodec<Uint8Array> {
             return value.value <= POW_2_53 ? Number(value.value) : value.value;
         }
         return value.value;
+    }
+
+    // Plain cbor has none of the 4.0 types below: each is widened as the server widens it
+
+    #encodeDate(value: PlainDate): unknown {
+        if (this.version === 2) return new Tagged(TAG_DATE, value.days);
+        return new Tagged(TAG_CUSTOM_DATETIME, [value.days * SECONDS_PER_DAY, 0]);
+    }
+
+    #encodeTime(value: PlainTime): unknown {
+        if (this.version === 2) return new Tagged(TAG_TIME, value.nanos);
+        const secs = Math.floor(value.nanos / NANOS_PER_SECOND);
+        const nanos = value.nanos % NANOS_PER_SECOND;
+        return new Tagged(TAG_CUSTOM_DURATION, nanos ? [secs, nanos] : secs ? [secs] : []);
+    }
+
+    #encodeTimestamp(value: Timestamp): unknown {
+        return new Tagged(
+            this.version === 2 ? TAG_TIMESTAMP : TAG_CUSTOM_DATETIME,
+            value.toCompact(),
+        );
+    }
+
+    #encodeInterval(value: Interval): unknown {
+        if (this.version === 2) return new Tagged(TAG_INTERVAL, value.toCompact());
+        return value.toString();
+    }
+
+    #encodeBigDecimal(value: BigDecimal): unknown {
+        if (this.version === 2) return new Tagged(TAG_BIGDECIMAL, value.toString());
+        // Plain cbor has no bigdecimal: a decimal when it fits one, as the server writes it, and
+        // otherwise text
+        if (value.fitsDecimal()) return new Tagged(TAG_STRING_DECIMAL, value.toString());
+        return value.toString();
+    }
+
+    #encodeRegex(value: Regex): unknown {
+        if (this.version === 2) return new Tagged(TAG_REGEX, value.pattern);
+        throw new UnsupportedValueError("A regex can only be sent over cbor.2");
+    }
+
+    /** The content of a cbor.2-only tag, which must be an integer */
+    #v2Integer(tag: number, value: unknown): number | bigint {
+        this.#requireV2(tag);
+        if (!this.#reader?.isInteger || (typeof value !== "number" && typeof value !== "bigint")) {
+            throw new InvalidNumberError(`CBOR tag ${tag} must hold an integer`);
+        }
+        return value;
+    }
+
+    /** The content of a cbor.2-only tag, which must be an array of `length` integers */
+    #v2Tuple(tag: number, value: unknown, length: number): (number | bigint)[] {
+        this.#requireV2(tag);
+        if (
+            !Array.isArray(value) ||
+            value.length !== length ||
+            !value.every((v) => typeof v === "number" || typeof v === "bigint")
+        ) {
+            throw new InvalidNumberError(
+                `CBOR tag ${tag} must hold an array of ${length} integers`,
+            );
+        }
+        return value;
+    }
+
+    /** The content of a cbor.2-only tag, which must be text */
+    #v2Text(tag: number, value: unknown): string {
+        this.#requireV2(tag);
+        if (typeof value !== "string") {
+            throw new UnsupportedValueError(`CBOR tag ${tag} must hold text`);
+        }
+        return value;
+    }
+
+    #requireV2(tag: number): void {
+        if (this.version !== 2) {
+            throw new UnsupportedValueError(`CBOR tag ${tag} is only valid in cbor.2`);
+        }
     }
 
     #decodeSized(kind: SizedNumberKind, value: unknown): SizedNumber {

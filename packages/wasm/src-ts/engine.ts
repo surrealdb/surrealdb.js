@@ -58,6 +58,7 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         Features.Transactions,
         Features.Api,
         Features.ExportImportRaw,
+        Features.SqlDialects,
     ]);
 
     open(state: ConnectionState): void {

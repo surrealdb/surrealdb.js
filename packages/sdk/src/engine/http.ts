@@ -97,6 +97,7 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
         Features.Api,
         Features.ExportImportRaw,
         Features.SurrealML,
+        Features.SqlDialects,
         Features.PerRequestAuth,
     ]);
 
@@ -306,6 +307,18 @@ export class HttpEngine extends RpcEngine implements SurrealEngine {
                         ...session.variables,
                         ...(request.params?.[1] ?? {}),
                     },
+                ] as Params;
+                break;
+            }
+            // `[statements, vars?, options?]`: the session's variables go under the call's own
+            case "pgsql":
+            case "mysql": {
+                if (Object.keys(session.variables).length === 0) break;
+                const [statements, vars, options] = request.params ?? [];
+                request.params = [
+                    statements,
+                    { ...session.variables, ...((vars as object | null | undefined) ?? {}) },
+                    ...(options === undefined ? [] : [options]),
                 ] as Params;
                 break;
             }

@@ -1,6 +1,7 @@
 import type { Duration, Uuid } from "@surrealdb/sqon";
 import type { Nullable } from "./helpers";
 import type { LiveMessage } from "./live";
+import type { SqlDialect } from "./sql";
 import type { NamespaceDatabase, QueryChunk, Session, VersionInfo } from "./surreal";
 
 type AuthVariant = "system_user" | "token" | "record_access" | "bearer_access";
@@ -47,6 +48,7 @@ type DiagnosticMap = {
     exportSql: undefined;
     exportMlModel: undefined;
     api: ApiInfo & SessionInfo;
+    sql: { dialect: SqlDialect } & SessionInfo;
 };
 
 export type DiagnosticKey = keyof DiagnosticMap;

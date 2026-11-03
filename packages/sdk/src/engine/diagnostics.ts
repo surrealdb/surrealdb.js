@@ -20,7 +20,11 @@ import type {
     QueryChunk,
     RequestOptions,
     Session,
+    SqlDialect,
     SqlExportOptions,
+    SqlOptions,
+    SqlResult,
+    SqlStatements,
     SurrealEngine,
     Token,
     Tokens,
@@ -50,6 +54,9 @@ export class DiagnosticsEngine implements SurrealEngine {
     exportMlModelAs?: SurrealEngine["exportMlModelAs"];
     apiAs?: SurrealEngine["apiAs"];
 
+    /** Only present when the engine which is wrapped runs PostgreSQL and MySQL text */
+    sql?: SurrealEngine["sql"];
+
     constructor(delegate: SurrealEngine, callback: DiagnosticsCallback) {
         this.#delegate = delegate;
         this.#callback = callback;
@@ -76,7 +83,25 @@ export class DiagnosticsEngine implements SurrealEngine {
         }
 
         // The credential is passed on in the same way, and never reported
-        const { importSqlAs, exportSqlAs, exportMlModelAs, apiAs } = delegate;
+        const { importSqlAs, exportSqlAs, exportMlModelAs, apiAs, sql } = delegate;
+
+        if (typeof sql === "function") {
+            this.sql = <T>(
+                dialect: SqlDialect,
+                statements: SqlStatements,
+                vars: Record<string, unknown> | undefined,
+                options: SqlOptions | undefined,
+                session: Session,
+            ) =>
+                this.#diagnose(
+                    "sql",
+                    () =>
+                        sql.call(delegate, dialect, statements, vars, options, session) as Promise<
+                            SqlResult<T>
+                        >,
+                    () => ({ dialect, session }),
+                );
+        }
 
         if (typeof importSqlAs === "function") {
             this.importSqlAs = (data, request) =>

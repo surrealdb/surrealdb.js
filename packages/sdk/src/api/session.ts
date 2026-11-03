@@ -8,6 +8,9 @@ import type {
     Nullable,
     QueryLike,
     Session,
+    SqlOptions,
+    SqlResult,
+    SqlStatements,
     Token,
     Tokens,
     TransactionOptions,
@@ -353,6 +356,55 @@ export class SurrealSession extends SurrealQueryable {
      */
     revoke(tokens?: Tokens): Promise<void> {
         return this.#connection.revoke(tokens, this.#session);
+    }
+
+    /**
+     * Run PostgreSQL text on this session, with the namespace, database, variables and
+     * authentication it has, as SurrealDB 4.0's `pgsql` method does. A positional parameter
+     * (`$1`, `$2`) binds to the variable `_1`, `_2`, and so on.
+     *
+     * The answer holds one entry per SQL statement. A statement which fails is an `ERR` entry
+     * carrying its SQLSTATE, and the call itself still succeeds. Over WebSocket a `BEGIN` entry
+     * opens a transaction which later calls on this session run inside, until a `COMMIT` or
+     * `ROLLBACK` entry; over HTTP use the `atomic` option instead.
+     *
+     * Requires SurrealDB 4.0 or later, on an instance which does not deny the method.
+     *
+     * @example
+     * ```ts
+     * const { statements } = await db.pgsql("SELECT name FROM person WHERE age > $1", { _1: 18 });
+     * ```
+     *
+     * @param statements The text, or a batch of texts and `{ text, vars }` entries
+     * @param vars Variables for every statement, over those of the session
+     * @param options How to run the statements and shape the rows
+     */
+    pgsql<T = Record<string, unknown>>(
+        statements: SqlStatements,
+        vars?: Record<string, unknown>,
+        options?: SqlOptions,
+    ): Promise<SqlResult<T>> {
+        return this.#connection.sql<T>("pgsql", statements, vars, options, this.#session);
+    }
+
+    /**
+     * Run MySQL text on this session, as SurrealDB 4.0's `mysql` method does. The n-th `?`
+     * binds to the variable `_n`. `USE name` switches the database on the server, but not the
+     * namespace and database this session tracks, so call `use()` to switch instead. See
+     * `pgsql()` for the rest, which is the same.
+     *
+     * Requires SurrealDB 4.0 or later, on an instance which does not deny the method.
+     *
+     * @param statements The text, or a batch of texts and `{ text, vars }` entries
+     * @param vars Variables for every statement, over those of the session
+     * @param options How to run the statements and shape the rows
+     */
+    mysql<T = Record<string, unknown>>(
+        statements: SqlStatements,
+        vars?: Record<string, unknown>,
+        options?: SqlOptions,
+    ): Promise<SqlResult<T>> {
+        return this.#connection.sql<T>("mysql", statements, vars, options, this.#session);
     }
 
     /**
