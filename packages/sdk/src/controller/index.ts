@@ -476,8 +476,8 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         if (database) sessionState.database = database;
 
         const selected: NamespaceDatabase = {
-            namespace: undefined,
-            database: undefined,
+            namespace: sessionState.namespace,
+            database: sessionState.database,
         };
 
         this.#eventPublisher.publish("using", selected, session);
