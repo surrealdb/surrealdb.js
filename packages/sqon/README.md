@@ -141,7 +141,6 @@ import {
     equals,
     jsonify,
     escapeIdent,
-    escapeValue,
     toSurqlString,
     RecordId,
 } from "@surrealdb/sqon";
@@ -181,7 +180,7 @@ See the [codecs concept page](https://surrealdb.com/docs/languages/javascript/co
 | --- | --- |
 | Value classes | `RecordId`, `Table`, `DateTime`, `Duration`, `Decimal`, `Uuid`, `Range`, `FileRef`, `Geometry*`, and more |
 | Codecs | `CborCodec`, `JsonCodec`, `CodecOptions`, `ValueCodec` |
-| Utilities | `equals`, `jsonify`, `escapeIdent`, `escapeKey`, `escapeRid`, `escapeValue`, `toSurqlString` |
+| Utilities | `equals`, `jsonify`, `escapeIdent`, `escapeIdPart`, `escapeNumber`, `escapeRangeBound`, `toSurqlString` |
 | Errors | `SqonError`, `InvalidDateError`, `InvalidRecordIdError`, and related validation errors |
 
 > **Note:** `FlatBufferCodec` is exported for future API compatibility but is not implemented in this version.
