@@ -2,11 +2,18 @@ import { ReconnectIterationError } from "../errors";
 import type { ReconnectOptions } from "../types/surreal";
 import { rand } from "./rand";
 
+/**
+ * A dropped connection is retried for as long as it stays dropped, with the delay growing to a
+ * cap of twenty seconds. Giving up after a fixed number of attempts would end the connection
+ * during an outage longer than the attempts last, which is the case a reconnect exists for; the
+ * clients of other databases retry without a limit for the same reason. The jitter keeps many
+ * clients from returning in step once a server comes back.
+ */
 export const DEFAULT_RECONNECT_OPTIONS: ReconnectOptions = {
     enabled: true,
-    attempts: 5,
+    attempts: -1,
     retryDelay: 1000,
-    retryDelayMax: 60000,
+    retryDelayMax: 20000,
     retryDelayMultiplier: 2,
     retryDelayJitter: 0.1,
 };
