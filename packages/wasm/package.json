@@ -22,13 +22,13 @@
     },
     "peerDependencies": {
         "surrealdb": "^2.0.1",
-        "@surrealdb/wasm-native": "^3.3.0-beta.3"
+        "@surrealdb/wasm-native": "^3.3.0-beta.3 || ^4.0.0"
     },
     "devDependencies": {
         "surrealdb": "^2.0.1",
         "dts-bundle-generator": "^9.5.1",
         "rolldown": "1.0.0-beta.31",
-        "@surrealdb/wasm-native": "3.3.0-beta.3"
+        "@surrealdb/wasm-native": "4.0.0"
     },
     "exports": {
         ".": {
