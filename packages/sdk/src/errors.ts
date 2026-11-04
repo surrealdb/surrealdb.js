@@ -91,6 +91,23 @@ export class UnexpectedConnectionError extends SurrealError {
 }
 
 /**
+ * Where to register the engine for a persistent store scheme, so that a missing
+ * registration names the fix. A Map, so that a scheme such as "constructor" is not
+ * looked up on Object.prototype.
+ */
+const ENGINE_HINTS = new Map<string, string>([
+    [
+        "surrealkv",
+        "Register it with createNodeEngines from @surrealdb/node in Node.js, or with createWasmWorkerEngines from @surrealdb/wasm in a Web Worker in the browser.",
+    ],
+    ["surrealkv+versioned", "Register it with createNodeEngines from @surrealdb/node in Node.js."],
+    [
+        "indxdb",
+        "Persistent browser stores run in a Web Worker. Register it with createWasmWorkerEngines from @surrealdb/wasm.",
+    ],
+]);
+
+/**
  * Thrown when an engine is not supported
  */
 export class UnsupportedEngineError extends SurrealError {
@@ -98,7 +115,8 @@ export class UnsupportedEngineError extends SurrealError {
     readonly engine: string;
 
     constructor(engine: string) {
-        super(`The engine "${engine}" is not supported or configured`);
+        const hint = ENGINE_HINTS.get(engine);
+        super(`The engine "${engine}" is not supported or configured${hint ? `. ${hint}` : ""}`);
         this.engine = engine;
     }
 }
