@@ -13,6 +13,8 @@ declare global {
 if (typeof window !== "undefined") {
     Object.assign(window, surrealdb);
 
+    // The WebAssembly engines run in a Web Worker. Persistent browser stores
+    // (surrealkv://) are only offered there, not on the main thread.
     window.surreal = new Surreal({
         codecOptions: {
             useNativeDates: true,
@@ -24,6 +26,7 @@ if (typeof window !== "undefined") {
     });
 
     window.initialize = async () => {
+        // Use "surrealkv://demo" instead to keep the data between page loads.
         await window.surreal.connect("mem://");
         await window.surreal.use({
             namespace: "test",

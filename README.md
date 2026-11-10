@@ -59,7 +59,7 @@ This monorepo publishes several npm packages. Most applications only need **`sur
 | --- | --- | --- | --- |
 | **`surrealdb`** | [`surrealdb`](https://www.npmjs.com/package/surrealdb) | Official database client - connect, query, live subscriptions, sessions | [Read more](./packages/sdk/README.md) |
 | **`@surrealdb/sqon`** | [`@surrealdb/sqon`](https://www.npmjs.com/package/@surrealdb/sqon) | Value types, CBOR/JSON codecs, and core utilities (re-exported by `surrealdb`) | [Read more](./packages/sqon/README.md) |
-| **`@surrealdb/wasm`** | [`@surrealdb/wasm`](https://www.npmjs.com/package/@surrealdb/wasm) | Embedded SurrealDB engine for browsers (`mem://`, `indxdb://`) | [Read more](./packages/wasm/README.md) |
+| **`@surrealdb/wasm`** | [`@surrealdb/wasm`](https://www.npmjs.com/package/@surrealdb/wasm) | Embedded SurrealDB engine for browsers (`mem://` on the main thread or in a worker; `surrealkv://` in a worker) | [Read more](./packages/wasm/README.md) |
 | **`@surrealdb/node`** | [`@surrealdb/node`](https://www.npmjs.com/package/@surrealdb/node) | Embedded SurrealDB engine for Node.js, Bun, and Deno | [Read more](./packages/node/README.md) |
 | **`@surrealdb/memory`** | [`@surrealdb/memory`](https://www.npmjs.com/package/@surrealdb/memory) | Typed HTTP client for the Agent Memory API | [Read more](./packages/memory/README.md) |
 
