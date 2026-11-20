@@ -1,5 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { escapeIdent, escapeNumber, TextCodec } from "surrealdb";
+import {
+    BoundExcluded,
+    BoundIncluded,
+    escapeIdent,
+    escapeIdPart,
+    escapeNumber,
+    RecordId,
+    RecordIdRange,
+    TextCodec,
+} from "surrealdb";
 
 describe("escape functions", () => {
     test("empty ident", () => {
@@ -76,5 +85,87 @@ describe("escape functions", () => {
         for (const name of names) {
             expect(TextCodec.parseTable(escapeIdent(name)).name).toBe(name);
         }
+    });
+});
+
+// A record id key follows the server's `EscapeRidKey` rule, not the table name rule of
+// `escapeIdent`: it may start with a digit or be a keyword, but not be only digits and underscores.
+describe("record id key escaping", () => {
+    test("leaves keys that start with a digit bare", () => {
+        expect(escapeIdPart("8pkgf59qqokxbqjtured")).toBe("8pkgf59qqokxbqjtured");
+        expect(escapeIdPart("1abc")).toBe("1abc");
+        expect(escapeIdPart("1e10")).toBe("1e10");
+        expect(escapeIdPart("8d")).toBe("8d");
+        expect(escapeIdPart("0x10")).toBe("0x10");
+        expect(escapeIdPart("1_a")).toBe("1_a");
+    });
+
+    test("leaves reserved keywords bare", () => {
+        expect(escapeIdPart("select")).toBe("select");
+        expect(escapeIdPart("none")).toBe("none");
+        expect(escapeIdPart("TRUE")).toBe("TRUE");
+    });
+
+    test("delimits keys of only digits and underscores", () => {
+        expect(escapeIdPart("123")).toBe("⟨123⟩");
+        expect(escapeIdPart("1_000")).toBe("⟨1_000⟩");
+        expect(escapeIdPart("_1")).toBe("⟨_1⟩");
+        expect(escapeIdPart("_")).toBe("⟨_⟩");
+    });
+
+    test("delimits NaN and Infinity only in exact case", () => {
+        expect(escapeIdPart("NaN")).toBe("⟨NaN⟩");
+        expect(escapeIdPart("Infinity")).toBe("⟨Infinity⟩");
+        expect(escapeIdPart("nan")).toBe("nan");
+        expect(escapeIdPart("INFINITY")).toBe("INFINITY");
+    });
+
+    test("delimits empty keys and keys with other characters", () => {
+        expect(escapeIdPart("")).toBe("⟨⟩");
+        expect(escapeIdPart("hello-world")).toBe("⟨hello-world⟩");
+        expect(escapeIdPart("1 a")).toBe("⟨1 a⟩");
+        expect(escapeIdPart("with⟩angle")).toBe("`with⟩angle`");
+        expect(escapeIdPart("back\\slash")).toBe("`back\\\\slash`");
+    });
+
+    test("record ids and ranges escape the table and key by their own rules", () => {
+        expect(new RecordId("my_table", "8pkgf59qqokxbqjtured").toString()).toBe(
+            "my_table:8pkgf59qqokxbqjtured",
+        );
+        expect(new RecordId("1abc", "1abc").toString()).toBe("⟨1abc⟩:1abc");
+        expect(new RecordId("select", "select").toString()).toBe("⟨select⟩:select");
+        expect(
+            new RecordIdRange("t", new BoundExcluded("1e10"), new BoundIncluded("8d")).toString(),
+        ).toBe("t:1e10>..=8d");
+        expect(new RecordIdRange("t", undefined, new BoundExcluded("_1")).toString()).toBe(
+            "t:..⟨_1⟩",
+        );
+    });
+
+    test("escaped keys decode back to the same record id", () => {
+        const keys = [
+            "8pkgf59qqokxbqjtured",
+            "1abc",
+            "1e10",
+            "8d",
+            "0x10",
+            "1_a",
+            "select",
+            "123",
+            "1_000",
+            "_1",
+            "NaN",
+            "Infinity",
+            "",
+            "hello-world",
+        ];
+
+        for (const key of keys) {
+            const id = new RecordId("t", key);
+            expect((TextCodec.parseValue(id.toString()) as RecordId).equals(id)).toBe(true);
+        }
+
+        const range = new RecordIdRange("t", new BoundExcluded("1e10"), new BoundIncluded("8d"));
+        expect((TextCodec.parseValue(range.toString()) as RecordIdRange).equals(range)).toBe(true);
     });
 });

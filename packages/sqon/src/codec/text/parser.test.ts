@@ -323,6 +323,22 @@ describe("record ids", () => {
         expect((TextCodec.parseValue("user:⟨123⟩") as RecordId).id).toBe("123");
     });
 
+    test("digits joined to identifier characters form a string key", () => {
+        for (const key of [
+            "8pkgf59qqokxbqjtured",
+            "1abc",
+            "1e10",
+            "8d",
+            "0x10",
+            "1_a",
+            "1_000",
+            "1_",
+        ]) {
+            expect((TextCodec.parseValue(`user:${key}`) as RecordId).id).toBe(key);
+        }
+        expect((TextCodec.parseValue("user:00123") as RecordId).id).toBe(123);
+    });
+
     test("quoted string key", () => {
         expect((TextCodec.parseValue("user:'complex key'") as RecordId).id).toBe("complex key");
     });
@@ -410,6 +426,12 @@ describe("record id ranges", () => {
         const value = TextCodec.parseValue("user:'a'..'z'") as RecordIdRange;
         expect(value.begin).toEqual(new BoundIncluded("a"));
         expect(value.end).toEqual(new BoundExcluded("z"));
+    });
+
+    test("bare string bounds that start with a digit", () => {
+        const value = TextCodec.parseValue("user:1e10>..=8d") as RecordIdRange;
+        expect(value.begin).toEqual(new BoundExcluded("1e10"));
+        expect(value.end).toEqual(new BoundIncluded("8d"));
     });
 });
 
