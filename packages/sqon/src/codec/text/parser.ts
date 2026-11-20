@@ -370,7 +370,23 @@ export class TextParser {
         }
 
         const code = char.charCodeAt(0);
-        if (char === "+" || char === "-" || (code >= 48 && code <= 57)) {
+        if (this.#isDigit(code)) {
+            // Digits joined to identifier characters (`1abc`, `8d`, `1e10`, `1_000`) form one
+            // string key, spelled as written, as the server reads it. Only digits alone make an
+            // integer key.
+            const start = this.#pos;
+            let end = start;
+            let digitsOnly = true;
+            while (end < this.#src.length && this.#isIdentContinue(this.#src.charCodeAt(end))) {
+                if (!this.#isDigit(this.#src.charCodeAt(end))) digitsOnly = false;
+                end += 1;
+            }
+            if (!digitsOnly) {
+                this.#pos = end;
+                return this.#src.slice(start, end);
+            }
+        }
+        if (char === "+" || char === "-" || this.#isDigit(code)) {
             return this.#parseIntegerKey();
         }
 

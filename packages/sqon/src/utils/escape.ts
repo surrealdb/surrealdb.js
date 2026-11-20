@@ -101,6 +101,40 @@ export function escapeIdent(str: string): string {
 }
 
 /**
+ * Escape a string record id key, the part after the `:`.
+ *
+ * A key follows the server's `EscapeRidKey` rule, which is looser than the table name rule in
+ * {@link escapeIdent}. A key may start with a digit or be a reserved keyword: the server reads
+ * `t:8pkgf59qqokxbqjtured`, `t:1e10`, `t:8d` and `t:select` as string keys, and shows them bare.
+ * About a quarter of the ids the server generates start with a digit.
+ *
+ * A key is delimited only when it is empty, has a character outside `[A-Za-z0-9_]`, has only
+ * digits and underscores (`123` reads as a number), or is exactly `NaN` or `Infinity` (these read
+ * as float constants).
+ *
+ * @param str - The key to escape
+ * @returns Optionally escaped key
+ */
+function escapeRidKey(str: string): string {
+    if (str === "" || str === "NaN" || str === "Infinity") {
+        return delimitIdent(str);
+    }
+
+    let hasLetter = false;
+
+    for (let i = 0; i < str.length; i++) {
+        const code = str.charCodeAt(i);
+        if ((code > 64 && code < 91) || (code > 96 && code < 123)) {
+            hasLetter = true;
+        } else if (!(code > 47 && code < 58) && code !== 95) {
+            return delimitIdent(str);
+        }
+    }
+
+    return hasLetter ? str : delimitIdent(str);
+}
+
+/**
  * Surround an ident with delimiters, escaping the backslashes and delimiters inside it.
  *
  * Every supported SurrealDB version reads `\\` and `` \` `` inside a backtick ident, but
@@ -131,6 +165,9 @@ export function escapeNumber(num: number | bigint): string {
 /**
  * Escape a record id value part
  *
+ * A string key follows the server's record id key rule, not the table name rule of
+ * {@link escapeIdent}, so `8pkgf59qqokxbqjtured` and `select` stay bare and `_1` is delimited.
+ *
  * @param id The record id value part
  * @returns The escaped record id value part
  */
@@ -138,7 +175,7 @@ export function escapeIdPart(id: RecordIdValue): string {
     return id instanceof Uuid
         ? `u"${(id as unknown as Uuid).toString()}"`
         : typeof id === "string"
-          ? escapeIdent(id)
+          ? escapeRidKey(id)
           : typeof id === "bigint" || typeof id === "number"
             ? escapeNumber(id)
             : toSurrealqlString(id);
