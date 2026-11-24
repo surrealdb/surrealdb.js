@@ -38,6 +38,7 @@ import type {
     DriverContext,
     EventPublisher,
     LiveMessage,
+    LiveQuerySubscriber,
     MlExportOptions,
     NamespaceDatabase,
     Nullable,
@@ -112,6 +113,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     #engine: SurrealEngine | undefined;
     #nextEngine: SurrealEngine | undefined;
     #status: ConnectionStatus = "disconnected";
+    #connectionEpoch = 0;
     #authProvider: ProvidedAuth | AuthCallable | undefined;
     #requestResolver: AuthCallable | undefined;
     #requestAuth: RequestCredentials | undefined;
@@ -139,6 +141,11 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
 
     public get status(): ConnectionStatus {
         return this.#status;
+    }
+
+    /** Identifies a single transport connection, including across automatic reconnects. */
+    public get connectionEpoch(): number {
+        return this.#connectionEpoch;
     }
 
     propagateError(error: Error): void {
@@ -787,6 +794,14 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
         return this.#engine.liveQuery(id);
     }
 
+    subscribeLiveQuery(
+        id: Uuid,
+        subscriber: LiveQuerySubscriber,
+    ): ((error?: Error) => void) | undefined {
+        if (!this.#engine) throw new ConnectionUnavailableError();
+        return this.#engine.subscribeLiveQuery?.(id, subscriber);
+    }
+
     // =========================================================== //
     //                                                             //
     //                       Status Callbacks                      //
@@ -827,6 +842,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     #onDisconnected(): void {
+        this.#connectionEpoch++;
         for (const session of this.#allSessions()) {
             this.#cancelAuthRenewal(session.id);
         }
@@ -840,6 +856,7 @@ export class ConnectionController implements SurrealProtocol, EventPublisher<Con
     }
 
     #onReconnecting(): void {
+        this.#connectionEpoch++;
         this.#status = "reconnecting";
         this.#eventPublisher.publish("reconnecting");
     }

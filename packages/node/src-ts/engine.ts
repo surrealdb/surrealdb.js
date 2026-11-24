@@ -120,6 +120,16 @@ export class NodeEngine extends RpcEngine implements SurrealEngine {
         return channel;
     }
 
+    subscribeLiveQuery(
+        id: Uuid,
+        subscriber: {
+            message(message: LiveMessage): void;
+            overflow(limit: number, serverKilled: boolean): void;
+        },
+    ): () => void {
+        return this.#live.subscribe(id.toString(), subscriber.message, subscriber.overflow);
+    }
+
     override async send<Method extends string, Params extends unknown[] | undefined, Result>(
         request: RpcRequest<Method, Params>,
     ): Promise<Result> {

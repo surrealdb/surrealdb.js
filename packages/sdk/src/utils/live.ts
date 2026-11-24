@@ -1,7 +1,13 @@
 import type { Uuid } from "@surrealdb/sqon";
 import type { ConnectionController } from "../controller";
-import { CallTerminatedError, ConnectionUnavailableError, LiveSubscriptionError } from "../errors";
+import {
+    CallTerminatedError,
+    ConnectionUnavailableError,
+    LiveQueryOverflowError,
+    LiveSubscriptionError,
+} from "../errors";
 import type { AbortScope } from "../internal/abort";
+import { LIVE_QUERY_BUFFER_LIMIT } from "../internal/live-query-buffer";
 import { Query } from "../query";
 import type { LiveMessage, LiveResource, Session } from "../types";
 import { BoundQuery } from "./bound-query";
@@ -101,21 +107,33 @@ export abstract class LiveSubscription<T = Record<string, unknown>>
     /**
      * Subscribe to the live subscription and return an unsubscribe function
      */
-    public subscribe(handler: (message: LiveMessage<T>) => void): () => void {
-        let killed = false;
+    public subscribe(
+        handler: (message: LiveMessage<T>) => void,
+        onError?: (error: unknown) => void,
+    ): () => void {
+        let stopped = false;
+        let iterator: AsyncIterator<LiveMessage<T>> | undefined;
+
+        const report = (error: unknown) => {
+            if (onError) onError(error);
+            else throw error;
+        };
 
         (async () => {
-            for await (const message of this) {
-                if (killed) {
-                    return;
-                }
+            const reading = this[Symbol.asyncIterator]();
+            iterator = reading;
 
+            for await (const message of { [Symbol.asyncIterator]: () => reading }) {
+                if (stopped) return;
                 handler(message);
             }
-        })();
+        })().catch((error) => {
+            if (!stopped) report(error);
+        });
 
         return () => {
-            killed = true;
+            stopped = true;
+            iterator?.return?.()?.catch(report);
         };
     }
 }
@@ -351,62 +369,171 @@ export class UnmanagedLiveSubscription<T = Record<string, unknown>> extends Live
     #id: Uuid;
     #controller: ConnectionController;
     #session: Session;
+    #connectionEpoch: number;
     #killed = false;
+    #ended = false;
     #serverKilled = false;
-    #unwatch: () => void = () => {};
+    #failure: LiveSubscriptionError | undefined;
+    #unwatch: (() => void) | undefined;
+    #unlink: () => void = () => {};
+    #release: (error?: Error) => void = () => {};
     #killing: Promise<void> | undefined;
-    #stream: AsyncIterator<LiveMessage> | undefined;
-    #channels: Set<ChannelIterator<LiveMessage<T>>> = new Set();
+    #channels = new Set<ChannelIterator<LiveMessage<T>>>();
+    #pending: LiveMessage<T>[] | undefined = [];
 
     /**
-     * @param abort When given, the subscription is killed once its signal aborts, and the scope is
-     *              let go of when the subscription ends.
+     * @param abort When given, the registration is killed once its signal aborts.
      */
     constructor(controller: ConnectionController, session: Session, id: Uuid, abort?: AbortScope) {
         super();
-        this.#controller = controller;
-        this.#session = session;
-        this.#id = id;
 
-        if (this.#controller.status !== "connected") {
+        if (controller.status !== "connected") {
             throw new ConnectionUnavailableError();
         }
 
-        this.#unwatch = watchAbort(abort, () => void this.#abandon())?.unwatch ?? this.#unwatch;
+        this.#controller = controller;
+        this.#session = session;
+        this.#id = id;
+        this.#connectionEpoch = controller.connectionEpoch;
+        this.#unwatch = watchAbort(abort, () => void this.#abandon())?.unwatch;
 
-        (async () => {
-            const messageStream = controller.liveQuery(id);
-            const stream = messageStream[Symbol.asyncIterator]();
-            this.#stream = stream;
+        const end = () => this.#disconnect();
+        const disconnect = controller.subscribe("disconnected", end);
+        const reconnect = controller.subscribe("reconnecting", end);
+        this.#unlink = () => {
+            disconnect();
+            reconnect();
+        };
 
-            for await (const message of { [Symbol.asyncIterator]: () => stream }) {
-                for (const channel of this.#channels) {
-                    channel.submit(message as LiveMessage<T>);
-                }
+        try {
+            const unsubscribe = controller.subscribeLiveQuery(id, {
+                message: (message) => this.#receive(message as LiveMessage<T>),
+                overflow: (limit, serverKilled) => this.#overflow(limit, serverKilled),
+                error: (error) => {
+                    if (!this.#ended) this.#fail(new LiveSubscriptionError(error));
+                },
+            });
 
-                // A server-side KILLED is terminal: deliver it, then stop.
-                // isAlive flips to false.
-                if (message.action === "KILLED") {
-                    this.#serverKilled = true;
-                    break;
-                }
+            if (unsubscribe) {
+                // Replay may already have ended the subscription synchronously.
+                if (this.#ended) unsubscribe(this.#failure);
+                else this.#release = unsubscribe;
+            } else {
+                const stream = controller.liveQuery(id)[Symbol.asyncIterator]();
+                this.#release = () => stream.return?.()?.catch(() => {});
+                void this.#consume(stream);
+            }
+        } catch (error) {
+            this.#releaseAbort();
+            this.#unlink();
+            throw error;
+        }
+    }
+
+    #receive(message: LiveMessage<T>): void {
+        if (this.#ended || this.#killed) return;
+
+        const pending = this.#pending;
+
+        if (pending) {
+            if (pending.length >= LIVE_QUERY_BUFFER_LIMIT) {
+                this.#overflow(LIVE_QUERY_BUFFER_LIMIT, message.action === "KILLED");
+                return;
             }
 
-            this.#unwatch();
+            pending.push(message);
+        } else {
+            for (const channel of this.#channels) channel.submit(message);
+        }
 
-            for (const channel of this.#channels) {
-                channel.cancel();
+        if (message.action === "KILLED") {
+            this.#serverKilled = true;
+            this.#finish();
+        }
+    }
+
+    async #consume(stream: AsyncIterator<LiveMessage>): Promise<void> {
+        try {
+            while (!this.#ended && !this.#killed) {
+                const next = await stream.next();
+
+                if (next.done) {
+                    this.#finish();
+                    return;
+                }
+
+                this.#receive(next.value as LiveMessage<T>);
             }
-        })();
+        } catch (error) {
+            if (!this.#ended && !this.#killed) {
+                this.#fail(new LiveSubscriptionError(error));
+            }
+        }
+    }
+
+    #overflow(limit: number, serverKilled: boolean): void {
+        this.#serverKilled = serverKilled;
+
+        if (serverKilled) this.#releaseAbort();
+
+        this.#fail(new LiveQueryOverflowError(this.id, limit));
+    }
+
+    #fail(failure: LiveSubscriptionError): void {
+        this.#ended = true;
+        this.#pending = undefined;
+        this.#failure = failure;
+        this.#releaseSource();
+
+        // A scoped subscription still owes its requested abort-time KILL. An unscoped
+        // listener may share this ID with others; delivery failure only ends this listener.
+        if (!this.#unwatch) this.#unlink();
+        for (const channel of this.#channels) channel.fail(failure);
+    }
+
+    #finish(): void {
+        if (this.#ended) return;
+
+        this.#ended = true;
+        this.#releaseAbort();
+        this.#detach();
+        for (const channel of this.#channels) channel.finish();
+    }
+
+    #disconnect(): void {
+        this.#releaseAbort();
+        this.#detach();
+
+        if (!this.#ended) {
+            this.#ended = true;
+            this.#pending = undefined;
+            for (const channel of this.#channels) channel.cancel();
+        }
+    }
+
+    #releaseAbort(): void {
+        this.#unwatch?.();
+        this.#unwatch = undefined;
+    }
+
+    #detach(): void {
+        this.#unlink();
+        this.#releaseSource();
+    }
+
+    #releaseSource(): void {
+        const release = this.#release;
+        this.#release = () => {};
+        release(this.#failure);
     }
 
     /** The signal of the subscription aborted: end it like a kill does, and tell the server */
     async #abandon(): Promise<void> {
         try {
             await this.kill();
-        } catch (err: unknown) {
-            if (!isConnectionGone(err)) {
-                this.#controller.propagateError(new LiveSubscriptionError(err));
+        } catch (error) {
+            if (!isConnectionGone(error)) {
+                this.#controller.propagateError(new LiveSubscriptionError(error));
             }
         }
     }
@@ -424,10 +551,7 @@ export class UnmanagedLiveSubscription<T = Record<string, unknown>> extends Live
     }
 
     public get isAlive(): boolean {
-        // Alive until permanent teardown: killed explicitly, the owning session
-        // destroyed, or the connection closed for good. hasSession() stays true
-        // across a transient reconnect, whose state is not cleared.
-        return !this.#killed && !this.#serverKilled && this.#controller.hasSession(this.#session);
+        return !this.#killed && !this.#ended && this.#controller.hasSession(this.#session);
     }
 
     /**
@@ -442,16 +566,38 @@ export class UnmanagedLiveSubscription<T = Record<string, unknown>> extends Live
 
     async #kill(): Promise<void> {
         this.#killed = true;
-        this.#unwatch();
+        this.#pending = undefined;
+        this.#failure = undefined;
+        this.#releaseAbort();
+        this.#detach();
 
-        for (const channel of this.#channels) {
-            channel.cancel();
+        for (const channel of this.#channels) channel.cancel();
+
+        const controller = this.#controller;
+
+        if (
+            this.#serverKilled ||
+            this.#connectionEpoch !== controller.connectionEpoch ||
+            controller.status !== "connected" ||
+            !controller.hasSession(this.#session)
+        ) {
+            return;
         }
 
-        this.#stream?.return?.()?.catch(() => {});
+        // The request can wait on credentials or retry a conflict. A replacement connection
+        // never owned this registration, so prevent any delayed send on that connection.
+        const lifetime = new AbortController();
+        const lost = () => lifetime.abort(new ConnectionUnavailableError());
+        const disconnect = controller.subscribe("disconnected", lost);
+        const reconnect = controller.subscribe("reconnecting", lost);
 
-        if (this.id) {
-            await killLive(this.#controller, this.#session, this.id);
+        try {
+            await killLive(controller, this.#session, this.id).signal(lifetime.signal);
+        } catch (error) {
+            if (!lifetime.signal.aborted && !isConnectionGone(error)) throw error;
+        } finally {
+            disconnect();
+            reconnect();
         }
     }
 
@@ -464,8 +610,34 @@ export class UnmanagedLiveSubscription<T = Record<string, unknown>> extends Live
             this.#channels.delete(channel);
         });
 
-        this.#channels.add(channel);
+        // Only the first consumer receives the retained prefix. Later consumers join at the
+        // current position, even if the first one left before reading its entire queue.
+        const pending = this.#pending;
+        this.#pending = undefined;
+
+        if (pending) {
+            for (const message of pending) channel.submit(message);
+        }
+
+        if (this.#failure) {
+            channel.fail(this.#failure);
+        } else if (this.#ended) {
+            channel.finish();
+        } else {
+            this.#channels.add(channel);
+        }
 
         return channel;
+    }
+
+    public override subscribe(
+        handler: (message: LiveMessage<T>) => void,
+        onError = (error: unknown) => {
+            this.#controller.propagateError(
+                error instanceof LiveSubscriptionError ? error : new LiveSubscriptionError(error),
+            );
+        },
+    ): () => void {
+        return super.subscribe(handler, onError);
     }
 }

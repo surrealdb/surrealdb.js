@@ -734,12 +734,33 @@ const [liveQueryId] = await db
     .collect<[Uuid]>();
 
 // Attach an unmanaged subscriber to receive notifications
-const subscription = db.liveOf(liveQueryId);
+const subscription = await db.liveOf(liveQueryId);
 
-for await (const { action, value } of subscription) {
-    console.log(action, value);
+try {
+    for await (const { action, value } of subscription) {
+        console.log(action, value);
+    }
+} finally {
+    await subscription.kill();
 }
 ```
+
+The first iterator or callback on a `liveOf()` subscription receives notifications that arrived
+before it attached, in order. If the server ended the query, `KILLED` is its final notification.
+Additional consumers receive new notifications from the point when they attach.
+
+If a pre-attachment buffer exceeds 1,024 notifications, the subscription reports
+`LiveQueryOverflowError` with the `queryId` and `limit`. Read failures surface through async
+iteration. A callback subscription can provide a second callback to `subscribe(onMessage, onError)`
+or listen for the connection's `error` event. Overflow ends that subscription's delivery.
+If your code registered the query, call `kill()` in a `finally` block to release it.
+
+The built-in WebSocket engine and matching Node and WebAssembly engines detect overflow and
+preserve the first-consumer boundary as notifications arrive. Older or custom engines using the
+async engine iterator may already have dropped notifications or queued them internally before
+the SDK can read and count them. After the first consumer attaches, the SDK's per-consumer
+queues can grow if readers fall behind. If the transport is lost, iteration ends because that
+UUID belonged to the original connection. Acquire a new registration to resume.
 
 ### Cancelling queries and setting timeouts
 

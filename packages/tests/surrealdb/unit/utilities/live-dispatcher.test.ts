@@ -115,4 +115,24 @@ describe("LiveDispatcher", () => {
 
         expect(received).toEqual([b, c]);
     });
+
+    test("a strict subscriber learns of overflow and a buffered terminal message", () => {
+        const dispatcher = new LiveDispatcher(2);
+        const last: LiveMessage = { queryId: Uuid.v4(), action: "KILLED" };
+
+        dispatcher.dispatch("a", message("CREATE", { n: 1 }));
+        dispatcher.dispatch("a", message("CREATE", { n: 2 }));
+        dispatcher.dispatch("a", last);
+
+        const received: LiveMessage[] = [];
+        const overflows: Array<[number, boolean]> = [];
+        dispatcher.subscribe(
+            "a",
+            (message) => received.push(message),
+            (limit, serverKilled) => overflows.push([limit, serverKilled]),
+        );
+
+        expect(received).toEqual([]);
+        expect(overflows).toEqual([[2, true]]);
+    });
 });
