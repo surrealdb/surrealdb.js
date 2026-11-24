@@ -1,10 +1,14 @@
-type Waiter<T> = (result: IteratorResult<T>) => void;
+interface Waiter<T> {
+    resolve(result: IteratorResult<T>): void;
+    reject(error: unknown): void;
+}
 
 /**
  * The channel iterator is a utility class that allows you to submit values to an async iterator.
  */
 export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
-    #cancelled = false;
+    #closed = false;
+    #failure?: { error: unknown };
     #queue: T[] = [];
     #waiters: Waiter<T>[] = [];
     #cleanup?: () => void;
@@ -14,13 +18,6 @@ export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
     }
 
     next(): Promise<IteratorResult<T>> {
-        if (this.#cancelled) {
-            return Promise.resolve({
-                value: undefined,
-                done: true,
-            });
-        }
-
         if (this.#queue.length > 0) {
             return Promise.resolve({
                 value: this.#queue.shift() as T,
@@ -28,15 +25,25 @@ export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
             });
         }
 
+        if (this.#failure) {
+            const { error } = this.#failure;
+            this.#failure = undefined;
+            return Promise.reject(error);
+        }
+
+        if (this.#closed) {
+            return Promise.resolve({ value: undefined, done: true });
+        }
+
         // Every reader is remembered, in the order it asked. A single slot would leave an earlier
         // reader's promise unsettled forever the moment a second one arrived.
-        return new Promise<IteratorResult<T>>((resolve) => {
-            this.#waiters.push(resolve);
+        return new Promise<IteratorResult<T>>((resolve, reject) => {
+            this.#waiters.push({ resolve, reject });
         });
     }
 
     return(): Promise<IteratorResult<T>> {
-        this.#end();
+        this.cancel();
 
         return Promise.resolve({
             value: undefined,
@@ -46,7 +53,7 @@ export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
 
     throw(error?: unknown): Promise<IteratorResult<T>> {
         // Cancel the iterator immediately - protocol errors should terminate the stream
-        this.#end();
+        this.cancel();
 
         // Propagate the error to the consumer
         return Promise.reject(error);
@@ -57,7 +64,7 @@ export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
     }
 
     submit(value: T): void {
-        if (this.#cancelled) return;
+        if (this.#closed) return;
 
         const waiter = this.#waiters.shift();
 
@@ -65,7 +72,7 @@ export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
             // Taken out of the queue before it is resolved. A second value submitted before the
             // consumer asks for the next one would otherwise resolve this same, already settled
             // promise, and every value but the first of a burst would be lost.
-            waiter({ value, done: false });
+            waiter.resolve({ value, done: false });
             return;
         }
 
@@ -73,21 +80,45 @@ export class ChannelIterator<T> implements AsyncIterable<T>, AsyncIterator<T> {
     }
 
     cancel(): void {
-        this.#end();
+        this.#queue = [];
+        this.#failure = undefined;
+        this.finish();
     }
 
     /**
-     * Ends the channel, settling every reader still waiting on it.
+     * End the channel after its queued values have been read.
      */
-    #end(): void {
-        const waiters = this.#waiters;
+    finish(): void {
+        if (this.#closed) return;
 
-        this.#cancelled = true;
+        this.#closed = true;
+        const waiters = this.#waiters;
         this.#waiters = [];
-        this.#cleanup?.();
 
         for (const waiter of waiters) {
-            waiter({ value: undefined, done: true });
+            waiter.resolve({ value: undefined, done: true });
         }
+
+        const cleanup = this.#cleanup;
+        this.#cleanup = undefined;
+        cleanup?.();
+    }
+
+    /**
+     * Discard queued values and reject one read with the terminal error.
+     */
+    fail(error: unknown): void {
+        if (this.#closed) return;
+
+        this.#queue = [];
+        const reader = this.#waiters.shift();
+
+        if (reader) {
+            reader.reject(error);
+        } else {
+            this.#failure = { error };
+        }
+
+        this.finish();
     }
 }

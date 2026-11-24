@@ -56,6 +56,7 @@ export class FakeEngine extends RpcEngine implements SurrealEngine {
 
     /** Hands back the notifications of a live query. Assigned per test. */
     liveImpl: ((id: Uuid) => AsyncIterable<LiveMessage>) | undefined;
+    subscribeLiveQuery?: SurrealEngine["subscribeLiveQuery"];
 
     features: SurrealEngine["features"] = new Set([
         Features.Api,
@@ -78,6 +79,11 @@ export class FakeEngine extends RpcEngine implements SurrealEngine {
     async close(): Promise<void> {
         this._state = undefined;
         this.#publisher.publish("disconnected");
+    }
+
+    reconnect(): void {
+        this.#publisher.publish("reconnecting");
+        this.#publisher.publish("connected");
     }
 
     ready(): void {}

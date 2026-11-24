@@ -54,7 +54,7 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         this.#options = options;
     }
 
-    features = new Set([
+    features: SurrealEngine["features"] = new Set([
         Features.LiveQueries,
         Features.Sessions,
         Features.Transactions,
@@ -107,6 +107,16 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         });
 
         return channel;
+    }
+
+    subscribeLiveQuery(
+        id: Uuid,
+        subscriber: {
+            message(message: LiveMessage): void;
+            overflow(limit: number, serverKilled: boolean): void;
+        },
+    ): () => void {
+        return this.#live.subscribe(id.toString(), subscriber.message, subscriber.overflow);
     }
 
     override async send<Method extends string, Params extends unknown[] | undefined, Result>(

@@ -1,5 +1,6 @@
 import { Duration, Uuid } from "@surrealdb/sqon";
 import type { ApiRequest } from "../api/api";
+import { LiveQueryOverflowError, LiveSubscriptionError } from "../errors";
 import type { Feature } from "../internal/feature";
 import { relayIterable } from "../internal/relay";
 import type { ApiResponse } from "../query/api";
@@ -14,6 +15,7 @@ import type {
     DiagnosticResult,
     EngineEvents,
     LiveMessage,
+    LiveQuerySubscriber,
     MlExportOptions,
     NamespaceDatabase,
     Nullable,
@@ -57,9 +59,15 @@ export class DiagnosticsEngine implements SurrealEngine {
     /** Only present when the engine which is wrapped runs PostgreSQL and MySQL text */
     sql?: SurrealEngine["sql"];
 
+    subscribeLiveQuery?: SurrealEngine["subscribeLiveQuery"];
+
     constructor(delegate: SurrealEngine, callback: DiagnosticsCallback) {
         this.#delegate = delegate;
         this.#callback = callback;
+
+        if (delegate.subscribeLiveQuery) {
+            this.subscribeLiveQuery = (id, subscriber) => this.#subscribeLiveQuery(id, subscriber);
+        }
 
         const queryAs = delegate.queryAs;
 
@@ -482,43 +490,99 @@ export class DiagnosticsEngine implements SurrealEngine {
 
         callback({ type: "liveQuery", key: debugKey, phase: "before" });
 
-        const delegateResult = this.#delegate.liveQuery(id);
+        return relayIterable(() => this.#delegate.liveQuery(id), {
+            value: (message) =>
+                callback({
+                    type: "liveQuery",
+                    key: debugKey,
+                    phase: "progress",
+                    result: { id, message },
+                }),
+            end: (error) =>
+                callback(
+                    error === undefined
+                        ? {
+                              type: "liveQuery",
+                              key: debugKey,
+                              phase: "after",
+                              success: true,
+                              duration: measure(),
+                              result: { id },
+                          }
+                        : {
+                              type: "liveQuery",
+                              key: debugKey,
+                              phase: "after",
+                              success: false,
+                              duration: measure(),
+                              error: error as Error,
+                          },
+                ),
+        });
+    }
 
-        return {
-            async *[Symbol.asyncIterator]() {
-                try {
-                    for await (const message of delegateResult) {
-                        callback({
-                            type: "liveQuery",
-                            key: debugKey,
-                            phase: "progress",
-                            result: { id, message },
-                        });
+    #subscribeLiveQuery(id: Uuid, subscriber: LiveQuerySubscriber): (error?: Error) => void {
+        const measure = Duration.measure();
+        const callback = this.#callback;
+        const key = Uuid.v4();
+        let failure: Error | undefined;
+        let terminal = false;
 
-                        yield message;
-                    }
+        const observe = (event: Diagnostic) => {
+            try {
+                callback(event);
+            } catch (error) {
+                failure = new LiveSubscriptionError(error);
+                subscriber.error(error);
+            }
+        };
 
-                    callback({
-                        type: "liveQuery",
-                        key: debugKey,
-                        phase: "after",
-                        success: true,
-                        duration: measure(),
-                        result: { id },
-                    });
-                } catch (error) {
-                    callback({
-                        type: "liveQuery",
-                        key: debugKey,
-                        phase: "after",
-                        success: false,
-                        duration: measure(),
-                        error: error as Error,
-                    });
+        callback({ type: "liveQuery", key, phase: "before" });
 
-                    throw error;
+        const unsubscribe = this.#delegate.subscribeLiveQuery?.(id, {
+            message: (message) => {
+                observe({ type: "liveQuery", key, phase: "progress", result: { id, message } });
+                if (!failure) {
+                    terminal = message.action === "KILLED";
+                    subscriber.message(message);
                 }
             },
+            overflow: (limit, serverKilled) => {
+                failure = new LiveQueryOverflowError(id, limit);
+                subscriber.overflow(limit, serverKilled);
+            },
+            error: (error) => {
+                failure = new LiveSubscriptionError(error);
+                subscriber.error(error);
+            },
+        });
+
+        return (error) => {
+            unsubscribe?.(error);
+
+            const terminalError = failure ?? error;
+
+            if (!terminal && !terminalError) return;
+
+            observe(
+                terminalError
+                    ? {
+                          type: "liveQuery",
+                          key,
+                          phase: "after",
+                          success: false,
+                          duration: measure(),
+                          error: terminalError,
+                      }
+                    : {
+                          type: "liveQuery",
+                          key,
+                          phase: "after",
+                          success: true,
+                          duration: measure(),
+                          result: { id },
+                      },
+            );
         };
     }
 

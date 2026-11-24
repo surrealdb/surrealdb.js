@@ -200,13 +200,13 @@ describe("plain cbor widens the 4.0 types as the server does", () => {
     });
 
     test("an interval is text", () => {
-        expect(v1.decode(v1.encode(new Interval({ days: 1 })))).toBe("P1D");
+        expect(v1.decode<string>(v1.encode(new Interval({ days: 1 })))).toBe("P1D");
     });
 
     test("a bigdecimal is a decimal when it fits one, and text otherwise", () => {
-        expect(v1.decode(v1.encode(new BigDecimal("1.5")))).toEqual(new Decimal("1.5"));
+        expect(v1.decode<Decimal>(v1.encode(new BigDecimal("1.5")))).toEqual(new Decimal("1.5"));
         const text = "12345678901234567890123456789012345.5";
-        expect(v1.decode(v1.encode(new BigDecimal(text)))).toBe(text);
+        expect(v1.decode<string>(v1.encode(new BigDecimal(text)))).toBe(text);
     });
 
     test("a regex cannot be sent", () => {
@@ -232,7 +232,9 @@ describe("JSON and SurrealQL", () => {
 
     test("the JSON codec leaves an object whose $interval is malformed as it is", () => {
         const value = { $interval: { months: "1" } };
-        expect(JsonCodec.DEFAULT.decode(JsonCodec.DEFAULT.encode(value))).toEqual(value);
+        expect(JsonCodec.DEFAULT.decode<typeof value>(JsonCodec.DEFAULT.encode(value))).toEqual(
+            value,
+        );
     });
 
     test("toSurqlString writes the literals the server parses", () => {

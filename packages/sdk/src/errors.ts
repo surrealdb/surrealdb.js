@@ -1,4 +1,4 @@
-import { Duration, type SqonError } from "@surrealdb/sqon";
+import { Duration, type SqonError, type Uuid } from "@surrealdb/sqon";
 import type { Feature } from "./internal/feature";
 import type { ApiResponse } from "./query/api";
 import type { Session, StandardSchemaV1 } from "./types";
@@ -612,6 +612,22 @@ export class LiveSubscriptionError extends SurrealError {
             super("Live subscription failed to listen");
             this.cause = messageOrCause;
         }
+    }
+}
+
+/**
+ * The live query received more notifications than could be held before its first consumer attached.
+ */
+export class LiveQueryOverflowError extends LiveSubscriptionError {
+    override name = "LiveQueryOverflowError";
+
+    constructor(
+        readonly queryId: Uuid,
+        readonly limit: number,
+    ) {
+        super(
+            `Live query ${queryId} exceeded its buffer of ${limit} notifications before attachment`,
+        );
     }
 }
 

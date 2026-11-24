@@ -1,4 +1,11 @@
+import { LIVE_QUERY_BUFFER_LIMIT } from "../internal/live-query-buffer";
 import type { LiveMessage } from "../types";
+
+interface PendingNotifications {
+    messages: LiveMessage[];
+    overflow: boolean;
+    serverKilled: boolean;
+}
 
 /**
  * Routes live-query notifications to per-id subscribers, buffering any that
@@ -13,7 +20,7 @@ import type { LiveMessage } from "../types";
  */
 export class LiveDispatcher {
     #subscribers = new Map<string, Set<(message: LiveMessage) => void>>();
-    #pending = new Map<string, LiveMessage[]>();
+    #pending = new Map<string, PendingNotifications>();
     #limit: number;
 
     /**
@@ -21,7 +28,7 @@ export class LiveDispatcher {
      * dropped. Guards against a live query that is registered and receiving but
      * never subscribed to (e.g. a caller that abandons the round-trip).
      */
-    constructor(limit = 1024) {
+    constructor(limit = LIVE_QUERY_BUFFER_LIMIT) {
         this.#limit = limit;
     }
 
@@ -40,24 +47,34 @@ export class LiveDispatcher {
             return;
         }
 
-        const buffer = this.#pending.get(id);
+        let pending = this.#pending.get(id);
 
-        if (buffer) {
-            buffer.push(message);
+        if (!pending) {
+            pending = { messages: [], overflow: false, serverKilled: false };
+            this.#pending.set(id, pending);
+        }
 
-            if (buffer.length > this.#limit) {
-                buffer.shift();
-            }
-        } else {
-            this.#pending.set(id, [message]);
+        pending.serverKilled ||= message.action === "KILLED";
+        pending.messages.push(message);
+
+        if (pending.messages.length > this.#limit) {
+            pending.overflow = true;
+            pending.messages.shift();
         }
     }
 
     /**
      * Subscribe to notifications for an id, replaying any that were buffered
      * before this subscriber attached. Returns an unsubscribe function.
+     *
+     * If provided, `onOverflow` is called instead of replaying an incomplete
+     * buffer, with the maximum number of notifications that could be held.
      */
-    subscribe(id: string, notify: (message: LiveMessage) => void): () => void {
+    subscribe(
+        id: string,
+        notify: (message: LiveMessage) => void,
+        onOverflow?: (limit: number, serverKilled: boolean) => void,
+    ): () => void {
         let subscribers = this.#subscribers.get(id);
 
         if (!subscribers) {
@@ -74,8 +91,12 @@ export class LiveDispatcher {
         if (buffered) {
             this.#pending.delete(id);
 
-            for (const message of buffered) {
-                notify(message);
+            if (buffered.overflow && onOverflow) {
+                onOverflow(this.#limit, buffered.serverKilled);
+            } else {
+                for (const message of buffered.messages) {
+                    notify(message);
+                }
             }
         }
 

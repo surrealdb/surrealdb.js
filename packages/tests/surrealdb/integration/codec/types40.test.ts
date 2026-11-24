@@ -82,7 +82,7 @@ describe.if(TYPES40 && SURREAL_BACKEND === "remote")("pgsql() and mysql()", () =
         const surreal = await createSurreal();
         await surreal.query("CREATE person:jaime SET name = 'Jaime'").collect();
 
-        const result = await surreal.mysql(
+        const result = await surreal.mysql<[string]>(
             "SELECT name FROM person WHERE name = ?",
             { _1: "Jaime" },
             { rowMode: "array" },

@@ -205,10 +205,21 @@ export interface CredentialedRequestOptions extends RequestOptions {
     dialect?: "sql" | "gql";
 }
 
-/**
- * An engine responsible for communicating to a SurrealDB datastore
- */
+/** Receives unmanaged live notifications synchronously in transport receipt order. */
+export interface LiveQuerySubscriber {
+    message(message: LiveMessage): void;
+    overflow(limit: number, serverKilled: boolean): void;
+    error(error: unknown): void;
+}
+
+/** An engine responsible for communicating with a SurrealDB datastore. */
 export interface SurrealEngine extends SurrealProtocol, EventPublisher<EngineEvents> {
+    /**
+     * Attach a synchronous unmanaged subscriber and report any loss before attachment.
+     * The release function accepts the terminal error, when one ended delivery.
+     */
+    subscribeLiveQuery?(id: Uuid, subscriber: LiveQuerySubscriber): (error?: Error) => void;
+
     features: Set<Feature>;
     open(state: ConnectionState): void;
     close(): Promise<void>;

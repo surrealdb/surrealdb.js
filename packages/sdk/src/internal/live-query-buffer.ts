@@ -1,0 +1,1 @@
+export const LIVE_QUERY_BUFFER_LIMIT = 1024;

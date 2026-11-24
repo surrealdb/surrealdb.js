@@ -249,6 +249,10 @@ export abstract class SurrealQueryable {
      * external service. Unlike `live()`, this does not create the live query on the database or
      * re-establish it on reconnection.
      *
+     * The first iterator or callback receives buffered notifications in arrival order. If a
+     * pre-attachment buffer overflows, iteration fails with `LiveQueryOverflowError` and
+     * callback subscriptions report it through their error handler or the connection error event.
+     *
      * When called on a view made with `withSignal()`, the live query is killed on the server when the
      * signal aborts, as `kill()` would, and a signal which has aborted already subscribes to nothing.
      *

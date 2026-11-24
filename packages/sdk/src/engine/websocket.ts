@@ -25,6 +25,7 @@ import type { ApiResponse } from "../query/api";
 import type {
     LiveAction,
     LiveMessage,
+    LiveQuerySubscriber,
     QueryChunk,
     RpcRequest,
     RpcResponse,
@@ -540,6 +541,10 @@ export class WebSocketEngine extends RpcEngine implements SurrealEngine {
         });
 
         return channel;
+    }
+
+    subscribeLiveQuery(id: Uuid, subscriber: LiveQuerySubscriber): () => void {
+        return this.#live.subscribe(id.toString(), subscriber.message, subscriber.overflow);
     }
 
     /**
