@@ -1146,7 +1146,7 @@ ES modules (`import`) are supported. Node.js builds also expose a CommonJS entry
 
 ### TypeScript
 
-This SDK supports both TypeScript 5 and TypeScript 6. If you are using TypeScript 6, note that the default value for the `types` compiler option changed from auto-discovering all `@types/*` packages to `[]`. You may need to explicitly add the types you depend on in your `tsconfig.json`:
+We recommend TypeScript 7.1. The SDK also supports TypeScript 5, 6, and 7.0. Starting with TypeScript 6, the compiler defaults the `types` option to `[]`. List the ambient types your project uses in `tsconfig.json`:
 
 ```json
 {

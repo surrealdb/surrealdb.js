@@ -65,7 +65,7 @@ export function createMockFetch(handler: MockHandler, version = "surrealdb-3.0.0
 
         if (init.body instanceof Uint8Array) {
             body = init.body;
-            rpc = codec.decode(body) as MockRequest["rpc"];
+            rpc = codec.decode<MockRequest["rpc"]>(init.body);
         }
 
         const request: MockRequest = {

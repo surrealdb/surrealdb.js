@@ -144,8 +144,15 @@ export abstract class RpcEngine implements SurrealProtocol {
         ) {
             if (isJson(requestType)) {
                 payload = new Blob([JSON.stringify(jsonify(payload))]);
-            } else if (typeof payload === "string" || payload instanceof Uint8Array) {
+            } else if (typeof payload === "string") {
                 payload = new Blob([payload]);
+            } else if (payload instanceof Uint8Array) {
+                const { buffer, byteOffset, byteLength } = payload;
+                const bytes =
+                    buffer instanceof ArrayBuffer
+                        ? new Uint8Array(buffer, byteOffset, byteLength)
+                        : new Uint8Array(payload);
+                payload = new Blob([bytes]);
             } else {
                 throw new SurrealError(
                     "HTTP API bodies with this Content-Type must be a string, Uint8Array, or Blob",

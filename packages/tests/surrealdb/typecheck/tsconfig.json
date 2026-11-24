@@ -2,7 +2,7 @@
     "extends": "../../../../tsconfig.json",
     "compilerOptions": {
         "paths": {
-            "surrealdb": ["../../../../sdk/dist/surrealdb.d.ts"]
+            "surrealdb": ["../../../sdk/dist/surrealdb.d.ts"]
         }
     },
     "include": ["*.ts"]

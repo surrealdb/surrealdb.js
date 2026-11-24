@@ -27,8 +27,8 @@
         "qc": "biome check .",
         "qa": "biome check . --write",
         "qau": "biome check . --write --unsafe",
-        "qts": "tsc --noEmit",
-        "qtsw": "tsc --noEmit --watch",
+        "qts": "bun ./node_modules/typescript-native/bin/tsc --noEmit",
+        "qtsw": "bun run qts --watch",
         "demo:wasm": "bun run --cwd demo/wasm demo",
         "demo:node": "bun run --cwd demo/node demo",
         "demo:expo": "bun run --cwd demo/expo demo",
@@ -46,7 +46,8 @@
         "rolldown": "1.0.0-beta.31",
         "semver": "^7.7.2",
         "signale": "^1.4.0",
-        "turbo": "^2.5.6"
+        "turbo": "^2.5.6",
+        "typescript-native": "npm:typescript@7.1.0-beta"
     },
     "packageManager": "^bun@1.2.21"
 }

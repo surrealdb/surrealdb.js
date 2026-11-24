@@ -26,7 +26,7 @@
         "openapi-typescript": "^7.10.0"
     },
     "peerDependencies": {
-        "typescript": "^5.0.0 || ^6.0.0"
+        "typescript": "^5.0.0 || ^6.0.0 || ^7.0.0 || 7.1.0-beta"
     },
     "types": "./dist/memory.d.ts",
     "main": "./dist/memory.mjs",

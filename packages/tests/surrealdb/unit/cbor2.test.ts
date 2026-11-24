@@ -126,7 +126,11 @@ describe("cbor.2 over HTTP", () => {
                       ? [{ status: "OK", time: "1ms", result: vars?.v }]
                       : null;
 
-            return new Response((v2Out ? cbor2 : cbor).encode({ id: request.id, result }), {
+            const payload = new Uint8Array(
+                (v2Out ? cbor2 : cbor).encode({ id: request.id, result }),
+            );
+
+            return new Response(payload, {
                 status: 200,
                 headers: {
                     "Content-Type": v2Out ? "application/cbor; v=2" : "application/cbor",
