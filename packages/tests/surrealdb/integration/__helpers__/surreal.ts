@@ -201,7 +201,7 @@ function probeCapabilities(): Promise<Capabilities> {
             // Asked over HTTP: some WebSocket implementations cannot offer more than one subprotocol
             const response = await fetch(`http://127.0.0.1:${port}/rpc`, {
                 method: "POST",
-                body: new CborCodec({}).encode({ id: "1", method: "version" }),
+                body: new Uint8Array(new CborCodec({}).encode({ id: "1", method: "version" })),
                 headers: { "Content-Type": "application/cbor", Accept: "application/cbor; v=2" },
             });
             await response.arrayBuffer();

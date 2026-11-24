@@ -31,7 +31,7 @@ describe("documents.upload", () => {
         });
         const s = client(fetchImpl);
         const res = await s.documents.upload({
-            file: new Uint8Array([1, 2, 3]),
+            file: new DataView(new Uint8Array([0, 1, 2, 3, 0]).buffer, 1, 3),
             filename: "a.txt",
             contentType: "text/plain",
             title: "Handbook",
@@ -43,7 +43,9 @@ describe("documents.upload", () => {
 
         const file = body?.get("file");
         expect(file).toBeInstanceOf(Blob);
-        expect((file as Blob).size).toBe(3);
+        expect(new Uint8Array(await (file as Blob).arrayBuffer())).toEqual(
+            new Uint8Array([1, 2, 3]),
+        );
 
         const metadata = body?.get("metadata");
         expect(JSON.parse(String(metadata))).toEqual({

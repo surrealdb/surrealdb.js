@@ -7,6 +7,7 @@ import {
     ServerError,
     SurrealError,
     surql,
+    type Tokens,
 } from "surrealdb";
 import {
     createAuth,
@@ -300,17 +301,15 @@ describe.skipIf(!isRemote || !is3x)("bearer access", async () => {
         "revoke the refresh token of a session, and of those forked from it",
         async () => {
             const surreal = await createSurreal();
-            await surreal.signup({
+            const { access } = await surreal.signup({
                 access: "user_with_refresh",
                 variables: { id: 126 },
             });
 
             const forked = await surreal.forkSession();
-            const announced: { access?: string; refresh?: string }[] = [];
+            const announced: (Tokens | null)[] = [];
 
             forked.subscribe("auth", (tokens) => announced.push(tokens));
-
-            const access = surreal.accessToken;
 
             await surreal.revoke();
 
@@ -321,7 +320,8 @@ describe.skipIf(!isRemote || !is3x)("bearer access", async () => {
             // again, which announces the tokens too, so a connection which drops during the
             // run would otherwise add an entry here and fail a test about revoking.
             expect(announced).toContainEqual({ access, refresh: undefined });
-            expect(announced.filter((tokens) => tokens.refresh !== undefined)).toEqual([]);
+            expect(announced).not.toContain(null);
+            expect(announced.filter((tokens) => tokens?.refresh !== undefined)).toEqual([]);
 
             // The forked session holds the same refresh token, so it has none left to revoke
             await expect(forked.revoke()).rejects.toThrow("There is no refresh token to revoke");

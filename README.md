@@ -116,7 +116,7 @@ This is a [Bun](https://bun.sh) project, not Node.js. It works across all major 
 
 ### TypeScript
 
-This SDK supports both TypeScript 5 and TypeScript 6. If you are using TypeScript 6, note that the default value for the `types` compiler option changed from auto-discovering all `@types/*` packages to `[]`. You may need to explicitly add the types you depend on in your `tsconfig.json`:
+We recommend TypeScript 7.1. The SDK also supports TypeScript 5, 6, and 7.0. Starting with TypeScript 6, the compiler defaults the `types` option to `[]`. List the ambient types your project uses in `tsconfig.json`:
 
 ```json
 {
@@ -171,7 +171,15 @@ and needs nothing.
 
 `bun run qc` - check code quality
 
-`bun run qts` - TypeScript type check
+`bun run qts` - TypeScript type check using 7.1 (currently the beta)
+
+`bun run qtsw` - TypeScript type check in watch mode
+
+Run `bun run build` before the first workspace type check to generate the embedded engine declarations.
+
+To check with another compiler version, run, for example, `bunx --package typescript@~5.8.0 tsc --noEmit`. Declaration bundling and Agent Memory code generation use the legacy TypeScript compiler API.
+
+VS Code's built-in language service uses the legacy workspace SDK. Run `bun run qts` for TypeScript 7.1 diagnostics.
 
 ### Run tests
 

@@ -60,10 +60,12 @@ jobs:
     needs:
       - build-sdk
       - build-memory
+      - build-node
+      - build-wasm
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        typescript: ["~5.8.0", "~6.0.0"]
+        typescript: [preferred, "~7.0.0", "~6.0.0", "~5.8.0"]
     steps:
       - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -74,7 +76,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Install dependencies
-        run: bun install
+        run: bun ci
 
       - name: Download SDK build
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -88,14 +90,37 @@ jobs:
           name: memory-build
           path: packages/memory/dist/
 
-      - name: Install TypeScript ${{ matrix.typescript }}
-        run: bun add --dev typescript@${{ matrix.typescript }}
+      - name: Download Node build
+        if: matrix.typescript == 'preferred'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: node-build
+          path: packages/node/dist/
 
-      - name: Typecheck SDK types
-        run: bunx tsc --noEmit --project packages/tests/surrealdb/typecheck/tsconfig.json
+      - name: Download WASM build
+        if: matrix.typescript == 'preferred'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: wasm-build
+          path: packages/wasm/dist/
 
-      - name: Typecheck Agent Memory consumer
-        run: bunx tsc --noEmit --project packages/tests/memory/typecheck/tsconfig.json
+      - name: Typecheck workspace
+        if: matrix.typescript == 'preferred'
+        run: bun run qts
+
+      - name: Typecheck SDK and Agent Memory consumers
+        env:
+          TYPESCRIPT_VERSION: ${{ matrix.typescript }}
+        shell: bash
+        run: |
+          if [[ "$TYPESCRIPT_VERSION" == preferred ]]; then
+            compiler=(bun run qts)
+          else
+            compiler=(bunx --package "typescript@$TYPESCRIPT_VERSION" tsc --noEmit)
+          fi
+          "${compiler[@]}" --version
+          "${compiler[@]}" --project packages/tests/surrealdb/typecheck/tsconfig.json
+          "${compiler[@]}" --project packages/tests/memory/typecheck/tsconfig.json
 
   build-sdk:
     name: Build SDK

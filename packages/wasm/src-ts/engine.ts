@@ -54,7 +54,7 @@ export class WebAssemblyEngine extends RpcEngine implements SurrealEngine {
         this.#options = options;
     }
 
-    features = new Set([
+    features: SurrealEngine["features"] = new Set([
         Features.LiveQueries,
         Features.Sessions,
         Features.Transactions,

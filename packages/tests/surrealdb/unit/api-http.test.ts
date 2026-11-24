@@ -157,6 +157,15 @@ describe("HTTP API invocation", () => {
         expect(JSON.stringify(events)).not.toContain("call-token");
     });
 
+    test("sends only the bytes in a binary request view", async () => {
+        const { db, calls } = await connect(() => cbor(true));
+        const bytes = new Uint8Array([0, 1, 2, 3, 0]).subarray(1, 4);
+        await db.api().post("/upload", bytes).header("content-type", "application/octet-stream");
+
+        const body = await new Response(calls[0].init.body).arrayBuffer();
+        expect(new Uint8Array(body)).toEqual(new Uint8Array([1, 2, 3]));
+    });
+
     test("binary responses are returned as bytes", async () => {
         const { db } = await connect(
             () =>

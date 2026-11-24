@@ -18,7 +18,12 @@ export async function agentMemoryFileInputToBlob(
         return new Blob([input], { type: mimeType });
     }
     if (ArrayBuffer.isView(input)) {
-        return new Blob([input as ArrayBufferView], { type: mimeType });
+        const { buffer, byteOffset, byteLength } = input;
+        const bytes =
+            buffer instanceof ArrayBuffer
+                ? new Uint8Array(buffer, byteOffset, byteLength)
+                : new Uint8Array(new Uint8Array(buffer, byteOffset, byteLength));
+        return new Blob([bytes], { type: mimeType });
     }
     const stream = input as ReadableStream<Uint8Array>;
     const reader = stream.getReader();
